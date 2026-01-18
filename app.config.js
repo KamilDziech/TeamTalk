@@ -34,7 +34,8 @@ module.exports = {
     },
     plugins: [
       "expo-asset",
-      "expo-font"
+      "expo-font",
+      "./plugins/withAndroidPermissions"
     ],
     scheme: "teamtalk",
     extra: {

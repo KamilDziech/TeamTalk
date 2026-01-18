@@ -1,0 +1,6 @@
+{
+  "name": "call-monitoring",
+  "version": "1.0.0",
+  "main": "index.ts",
+  "description": "Native module for monitoring phone calls on Android"
+}

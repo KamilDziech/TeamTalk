@@ -1,0 +1,12 @@
+{
+  "name": "call-monitoring-plugin",
+  "version": "1.0.0",
+  "main": "build/index.js",
+  "scripts": {
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "@expo/config-plugins": "~9.0.0",
+    "typescript": "^5.3.3"
+  }
+}
