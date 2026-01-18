@@ -33,7 +33,8 @@ module.exports = {
       favicon: "./assets/favicon.png"
     },
     plugins: [
-      "expo-router"
+      "expo-asset",
+      "expo-font"
     ],
     scheme: "teamtalk",
     extra: {
