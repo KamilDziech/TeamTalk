@@ -1,24 +1,24 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View, SafeAreaView } from 'react-native';
+import { ClientsList } from './src/components/ClientsList';
 
 export default function App() {
   return (
-    <View style={styles.container}>
-      <Text style={styles.text}>TeamTalk</Text>
-      <StatusBar style="auto" />
-    </View>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.content}>
+        <ClientsList />
+        <StatusBar style="auto" />
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: '#f5f5f5',
   },
-  text: {
-    fontSize: 24,
-    fontWeight: 'bold',
+  content: {
+    flex: 1,
   },
 });
