@@ -1,0 +1,65 @@
+/**
+ * AppNavigator
+ *
+ * Main navigation structure with bottom tabs
+ */
+
+import React from 'react';
+import { Text } from 'react-native';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { CallLogsList } from '@/components/CallLogsList';
+import { ClientsList } from '@/components/ClientsList';
+import { AddClientScreen } from '@/screens/AddClientScreen';
+
+const Tab = createBottomTabNavigator();
+
+export const AppNavigator: React.FC = () => {
+  return (
+    <Tab.Navigator
+      screenOptions={{
+        tabBarActiveTintColor: '#007AFF',
+        tabBarInactiveTintColor: '#666',
+        tabBarStyle: {
+          backgroundColor: '#fff',
+          borderTopWidth: 1,
+          borderTopColor: '#e0e0e0',
+        },
+        headerStyle: {
+          backgroundColor: '#007AFF',
+        },
+        headerTintColor: '#fff',
+        headerTitleStyle: {
+          fontWeight: 'bold',
+        },
+      }}
+    >
+      <Tab.Screen
+        name="CallLogs"
+        component={CallLogsList}
+        options={{
+          title: 'Kolejka Połączeń',
+          tabBarLabel: 'Kolejka',
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>📞</Text>,
+        }}
+      />
+      <Tab.Screen
+        name="Clients"
+        component={ClientsList}
+        options={{
+          title: 'Klienci',
+          tabBarLabel: 'Klienci',
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>👥</Text>,
+        }}
+      />
+      <Tab.Screen
+        name="AddClient"
+        component={AddClientScreen}
+        options={{
+          title: 'Dodaj Klienta',
+          tabBarLabel: 'Dodaj',
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>➕</Text>,
+        }}
+      />
+    </Tab.Navigator>
+  );
+};
