@@ -32,7 +32,7 @@ const mockCallLog: CallLog = {
   client_id: 'client-123',
   employee_id: null,
   type: 'missed',
-  status: 'idle',
+  status: 'missed',
   timestamp: '2024-01-15T10:30:00Z',
   reservation_by: null,
   reservation_at: null,
@@ -81,7 +81,7 @@ describe('CallLogService', () => {
   });
 
   describe('createMissedCall', () => {
-    it('should create a missed call log with idle status', async () => {
+    it('should create a missed call log with missed status', async () => {
       // Arrange
       const clientId = 'client-123';
       const phoneNumber = '+48123456789';
@@ -89,7 +89,7 @@ describe('CallLogService', () => {
         ...mockCallLog,
         client_id: clientId,
         type: 'missed',
-        status: 'idle',
+        status: 'missed',
       };
 
       mockSingle.mockResolvedValue({ data: expectedCallLog, error: null });
@@ -103,7 +103,7 @@ describe('CallLogService', () => {
         expect.objectContaining({
           client_id: clientId,
           type: 'missed',
-          status: 'idle',
+          status: 'missed',
           timestamp: expect.any(String),
         })
       );
@@ -127,13 +127,13 @@ describe('CallLogService', () => {
   });
 
   describe('reserveCall', () => {
-    it('should update call status to calling and set reservation_by', async () => {
+    it('should update call status to reserved and set reservation_by', async () => {
       // Arrange
       const callLogId = 'call-log-123';
       const employeeId = 'employee-456';
       const expectedCallLog = {
         ...mockCallLog,
-        status: 'calling' as CallLogStatus,
+        status: 'reserved' as CallLogStatus,
         reservation_by: employeeId,
         reservation_at: expect.any(String),
       };
@@ -147,13 +147,13 @@ describe('CallLogService', () => {
       expect(mockSupabase.from).toHaveBeenCalledWith('call_logs');
       expect(mockUpdate).toHaveBeenCalledWith(
         expect.objectContaining({
-          status: 'calling',
+          status: 'reserved',
           reservation_by: employeeId,
           reservation_at: expect.any(String),
         })
       );
       expect(mockEq).toHaveBeenCalledWith('id', callLogId);
-      expect(result?.status).toBe('calling');
+      expect(result?.status).toBe('reserved');
       expect(result?.reservation_by).toBe(employeeId);
     });
 
@@ -216,11 +216,11 @@ describe('CallLogService', () => {
   });
 
   describe('getMissedCalls', () => {
-    it('should return all calls with idle status', async () => {
+    it('should return all calls with missed status', async () => {
       // Arrange
       const expectedCalls = [
-        { ...mockCallLog, id: 'call-1', status: 'idle' as CallLogStatus },
-        { ...mockCallLog, id: 'call-2', status: 'idle' as CallLogStatus },
+        { ...mockCallLog, id: 'call-1', status: 'missed' as CallLogStatus },
+        { ...mockCallLog, id: 'call-2', status: 'missed' as CallLogStatus },
       ];
 
       mockEq.mockResolvedValue({ data: expectedCalls, error: null });
@@ -231,7 +231,7 @@ describe('CallLogService', () => {
       // Assert
       expect(mockSupabase.from).toHaveBeenCalledWith('call_logs');
       expect(mockSelect).toHaveBeenCalledWith('*');
-      expect(mockEq).toHaveBeenCalledWith('status', 'idle');
+      expect(mockEq).toHaveBeenCalledWith('status', 'missed');
       expect(result).toEqual(expectedCalls);
       expect(result).toHaveLength(2);
     });
@@ -269,13 +269,13 @@ describe('CallLogService', () => {
         {
           ...mockCallLog,
           id: 'call-1',
-          status: 'calling' as CallLogStatus,
+          status: 'reserved' as CallLogStatus,
           reservation_by: employeeId,
         },
         {
           ...mockCallLog,
           id: 'call-2',
-          status: 'calling' as CallLogStatus,
+          status: 'reserved' as CallLogStatus,
           reservation_by: employeeId,
         },
       ];
@@ -289,7 +289,7 @@ describe('CallLogService', () => {
       // Assert
       expect(mockSupabase.from).toHaveBeenCalledWith('call_logs');
       expect(mockSelect).toHaveBeenCalledWith('*');
-      expect(mockEq).toHaveBeenCalledWith('status', 'calling');
+      expect(mockEq).toHaveBeenCalledWith('status', 'reserved');
       expect(mockEq2).toHaveBeenCalledWith('reservation_by', employeeId);
       expect(result).toEqual(expectedCalls);
       expect(result).toHaveLength(2);
@@ -310,30 +310,31 @@ describe('CallLogService', () => {
   });
 
   describe('Business Logic Rules', () => {
-    it('should enforce status transition: idle -> calling -> completed', async () => {
-      // This test verifies the expected flow of status changes
+    it('should enforce status transition: missed -> reserved -> completed', async () => {
+      // This test verifies the expected workflow:
+      // 1. missed (do obsłużenia) -> 2. reserved (zarezerwowane) -> 3. completed (wykonane)
       const callLogId = 'call-log-123';
       const employeeId = 'employee-456';
 
-      // Step 1: Create missed call (idle)
-      const missedCall = { ...mockCallLog, status: 'idle' as CallLogStatus };
+      // Step 1: Create missed call (missed - do obsłużenia)
+      const missedCall = { ...mockCallLog, status: 'missed' as CallLogStatus };
       mockSingle.mockResolvedValueOnce({ data: missedCall, error: null });
 
       const created = await callLogService.createMissedCall('client-123', '+48123456789');
-      expect(created.status).toBe('idle');
+      expect(created.status).toBe('missed');
 
-      // Step 2: Reserve call (calling)
+      // Step 2: Reserve call (reserved - zarezerwowane)
       const reservedCall = {
         ...mockCallLog,
-        status: 'calling' as CallLogStatus,
+        status: 'reserved' as CallLogStatus,
         reservation_by: employeeId,
       };
       mockSingle.mockResolvedValueOnce({ data: reservedCall, error: null });
 
       const reserved = await callLogService.reserveCall(callLogId, employeeId);
-      expect(reserved?.status).toBe('calling');
+      expect(reserved?.status).toBe('reserved');
 
-      // Step 3: Complete call (completed)
+      // Step 3: Complete call (completed - wykonane)
       const completedCall = { ...mockCallLog, status: 'completed' as CallLogStatus };
       mockSingle.mockResolvedValueOnce({ data: completedCall, error: null });
 

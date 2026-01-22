@@ -37,7 +37,7 @@ export class CallLogService {
         client_id: clientId,
         employee_id: null,
         type: 'missed',
-        status: 'idle',
+        status: 'missed',
         timestamp: new Date().toISOString(),
         reservation_by: null,
         reservation_at: null,
@@ -55,7 +55,7 @@ export class CallLogService {
   /**
    * Reserves a call for callback by an employee
    *
-   * Updates the call log status to 'calling' and sets the reservation details
+   * Updates the call log status to 'reserved' and sets the reservation details
    *
    * @param callLogId - The ID of the call log to reserve
    * @param employeeId - The ID of the employee reserving the call
@@ -66,7 +66,7 @@ export class CallLogService {
     const { data, error } = await this.supabase
       .from('call_logs')
       .update({
-        status: 'calling',
+        status: 'reserved',
         reservation_by: employeeId,
         reservation_at: new Date().toISOString(),
       })
@@ -111,14 +111,14 @@ export class CallLogService {
   /**
    * Retrieves all missed calls that haven't been reserved yet
    *
-   * @returns Array of call logs with 'idle' status
+   * @returns Array of call logs with 'missed' status
    * @throws Error if the query fails
    */
   async getMissedCalls(): Promise<CallLog[]> {
     const { data, error } = await this.supabase
       .from('call_logs')
       .select('*')
-      .eq('status', 'idle');
+      .eq('status', 'missed');
 
     if (error) {
       throw new Error('Failed to fetch missed calls');
@@ -138,7 +138,7 @@ export class CallLogService {
     const { data, error } = await this.supabase
       .from('call_logs')
       .select('*')
-      .eq('status', 'calling')
+      .eq('status', 'reserved')
       .eq('reservation_by', employeeId);
 
     if (error) {

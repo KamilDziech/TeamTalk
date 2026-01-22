@@ -4,10 +4,8 @@ module.exports = {
     slug: "teamtalk",
     version: "1.0.0",
     orientation: "portrait",
-    icon: "./assets/icon.png",
     userInterfaceStyle: "light",
     splash: {
-      image: "./assets/splash.png",
       resizeMode: "contain",
       backgroundColor: "#ffffff"
     },
@@ -19,28 +17,37 @@ module.exports = {
     },
     android: {
       package: "com.ekotak.teamtalk",
-      adaptiveIcon: {
-        foregroundImage: "./assets/adaptive-icon.png",
-        backgroundColor: "#ffffff"
-      },
       permissions: [
         "READ_PHONE_STATE",
         "READ_CALL_LOG",
-        "POST_NOTIFICATIONS"
+        "READ_CONTACTS",
+        "POST_NOTIFICATIONS",
+        "RECORD_AUDIO"
       ]
-    },
-    web: {
-      favicon: "./assets/favicon.png"
     },
     plugins: [
       "expo-asset",
       "expo-font",
-      "./plugins/withAndroidPermissions"
+      "./plugins/withAndroidPermissions",
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "Zezwól aplikacji TeamTalk na dostęp do kontaktów, aby ułatwić dodawanie klientów."
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Zezwól aplikacji TeamTalk na dostęp do mikrofonu, aby nagrywać notatki głosowe."
+        }
+      ]
     ],
     scheme: "teamtalk",
     extra: {
       supabaseUrl: process.env.SUPABASE_URL,
       supabaseAnonKey: process.env.SUPABASE_ANON_KEY,
+      openaiApiKey: process.env.OPENAI_API_KEY,
+      claudeApiKey: process.env.CLAUDE_API_KEY,
     }
   }
 };

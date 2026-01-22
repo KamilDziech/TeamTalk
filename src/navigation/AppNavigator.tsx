@@ -10,6 +10,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { CallLogsList } from '@/components/CallLogsList';
 import { ClientsList } from '@/components/ClientsList';
 import { AddClientScreen } from '@/screens/AddClientScreen';
+import { AddNoteScreen } from '@/screens/AddNoteScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -49,6 +50,15 @@ export const AppNavigator: React.FC = () => {
           title: 'Klienci',
           tabBarLabel: 'Klienci',
           tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>👥</Text>,
+        }}
+      />
+      <Tab.Screen
+        name="AddNote"
+        component={AddNoteScreen}
+        options={{
+          title: 'Dodaj Notatkę',
+          tabBarLabel: 'Notatka',
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>🎤</Text>,
         }}
       />
       <Tab.Screen

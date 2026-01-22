@@ -3,7 +3,7 @@
  */
 
 export type CallLogType = 'missed' | 'completed';
-export type CallLogStatus = 'idle' | 'calling' | 'completed';
+export type CallLogStatus = 'missed' | 'reserved' | 'completed';
 
 export interface Client {
   id: string;
