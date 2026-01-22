@@ -38,6 +38,16 @@ export interface VoiceReport {
   updated_at: string;
 }
 
+export interface Device {
+  id: string;
+  user_name: string;
+  push_token: string;
+  device_info: string | null;
+  last_active_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -55,6 +65,11 @@ export interface Database {
         Row: VoiceReport;
         Insert: Omit<VoiceReport, 'id' | 'created_at' | 'updated_at'>;
         Update: Partial<Omit<VoiceReport, 'id' | 'created_at' | 'updated_at'>>;
+      };
+      devices: {
+        Row: Device;
+        Insert: Omit<Device, 'id' | 'created_at' | 'updated_at' | 'last_active_at'>;
+        Update: Partial<Omit<Device, 'id' | 'created_at' | 'updated_at'>>;
       };
     };
   };

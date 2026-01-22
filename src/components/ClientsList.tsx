@@ -1,15 +1,21 @@
 /**
  * ClientsList Component
  *
- * Displays a list of clients from Supabase (for Phase 1 testing)
+ * Displays a list of clients from Supabase with navigation to client timeline.
  */
 
 import React from 'react';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useClients } from '@/hooks/useClients';
 import type { Client } from '@/types';
+import type { ClientsStackParamList } from '@/navigation/ClientsStackNavigator';
+
+type NavigationProp = NativeStackNavigationProp<ClientsStackParamList, 'ClientsList'>;
 
 export const ClientsList: React.FC = () => {
+  const navigation = useNavigation<NavigationProp>();
   const { clients, loading, error, refetch } = useClients();
 
   if (loading) {
@@ -46,12 +52,25 @@ export const ClientsList: React.FC = () => {
     );
   }
 
+  const handleClientPress = (client: Client) => {
+    navigation.navigate('ClientTimeline', { client });
+  };
+
   const renderClient = ({ item }: { item: Client }) => (
-    <View style={styles.clientCard}>
-      <Text style={styles.clientName}>{item.name || 'Brak nazwy'}</Text>
-      <Text style={styles.clientPhone}>{item.phone}</Text>
+    <TouchableOpacity
+      style={styles.clientCard}
+      onPress={() => handleClientPress(item)}
+      activeOpacity={0.7}
+    >
+      <View style={styles.clientCardHeader}>
+        <View style={styles.clientCardInfo}>
+          <Text style={styles.clientName}>{item.name || 'Brak nazwy'}</Text>
+          <Text style={styles.clientPhone}>{item.phone}</Text>
+        </View>
+        <Text style={styles.chevron}>›</Text>
+      </View>
       {item.address && (
-        <Text style={styles.clientAddress}>{item.address}</Text>
+        <Text style={styles.clientAddress}>📍 {item.address}</Text>
       )}
       {item.notes && (
         <Text style={styles.clientNotes}>{item.notes}</Text>
@@ -59,7 +78,7 @@ export const ClientsList: React.FC = () => {
       <Text style={styles.clientDate}>
         Utworzono: {new Date(item.created_at).toLocaleDateString('pl-PL')}
       </Text>
-    </View>
+    </TouchableOpacity>
   );
 
   return (
@@ -157,6 +176,19 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+  },
+  clientCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  clientCardInfo: {
+    flex: 1,
+  },
+  chevron: {
+    fontSize: 24,
+    color: '#007AFF',
+    fontWeight: '300',
   },
   clientName: {
     fontSize: 18,

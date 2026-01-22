@@ -193,12 +193,27 @@ CLAUDE_API_KEY=sk-ant-xxx
 
 ---
 
-## Faza 5: Powiadomienia Zespołowe i Finalizacja
-- [ ] Powiadomienie push do zespołu po dodaniu nowej notatki przez AI.
-- [ ] Widok historii notatek dla każdego klienta (timeline).
-- [ ] Testy między dwoma telefonami (różni pracownicy).
-- [ ] Optymalizacja: Battery optimization handling, background sync.
-- **Kryterium sukcesu:** Wspólnik otrzymuje powiadomienie "Jan Kowalski dodał notatkę do rozmowy z [Klient]" natychmiast po przetworzeniu przez AI. System działa stabilnie przez 24h bez crashy.
+## Faza 5: Powiadomienia Zespołowe i Finalizacja ✅ UKOŃCZONA
+
+### 5.1 Timeline Klienta ✅
+- [x] Ekran szczegółów klienta z historią wszystkich rozmów.
+- [x] Lista voice_reports dla danego klienta (od najnowszych).
+- [x] Możliwość odsłuchania i przeczytania każdej notatki.
+- [x] Statystyki: liczba połączeń, notatek, nieodebranych.
+
+### 5.2 Powiadomienia Push do Zespołu ✅
+- [x] Tabela `devices` (id, user_name, push_token, created_at).
+- [x] Rejestracja push tokena przy starcie aplikacji.
+- [x] Modal wprowadzenia imienia użytkownika przy pierwszym uruchomieniu.
+- [x] Wysyłanie powiadomienia do wszystkich urządzeń po dodaniu notatki.
+- [x] Format: "📝 [Użytkownik] dodał notatkę do rozmowy z [Klient]".
+
+### 5.3 Optymalizacja i Stabilność ✅
+- [x] Informacja o Battery Optimization (Android) przy pierwszym uruchomieniu.
+- [x] Link do ustawień baterii.
+- [ ] Testy między dwoma telefonami (różni pracownicy) - manualne.
+
+**Kryterium sukcesu:** Wspólnik otrzymuje powiadomienie "Jan Kowalski dodał notatkę do rozmowy z [Klient]" natychmiast po przetworzeniu przez AI. System działa stabilnie przez 24h bez crashy.
 
 ---
 

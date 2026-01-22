@@ -18,6 +18,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { voiceReportService } from '@/services/VoiceReportService';
+import { deviceService } from '@/services/DeviceService';
 import type { Client } from '@/types';
 
 interface VoiceRecordingScreenProps {
@@ -164,6 +165,10 @@ export const VoiceRecordingScreen: React.FC<VoiceRecordingScreenProps> = ({
 
       if (saved) {
         setState('completed');
+
+        // Notify team about new voice report
+        const clientName = client?.name || 'Nieznany klient';
+        deviceService.notifyNewVoiceReport(clientName);
       } else {
         setErrorMessage('Nie udało się zapisać notatki.');
         setState('error');

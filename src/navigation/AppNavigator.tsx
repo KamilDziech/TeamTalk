@@ -8,7 +8,7 @@ import React from 'react';
 import { Text } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { CallLogsList } from '@/components/CallLogsList';
-import { ClientsList } from '@/components/ClientsList';
+import { ClientsStackNavigator } from '@/navigation/ClientsStackNavigator';
 import { AddClientScreen } from '@/screens/AddClientScreen';
 import { AddNoteScreen } from '@/screens/AddNoteScreen';
 import { HistoryScreen } from '@/screens/HistoryScreen';
@@ -46,10 +46,11 @@ export const AppNavigator: React.FC = () => {
       />
       <Tab.Screen
         name="Clients"
-        component={ClientsList}
+        component={ClientsStackNavigator}
         options={{
           title: 'Klienci',
           tabBarLabel: 'Klienci',
+          headerShown: false, // Stack navigator handles its own header
           tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>👥</Text>,
         }}
       />
