@@ -11,6 +11,7 @@ import { CallLogsList } from '@/components/CallLogsList';
 import { ClientsList } from '@/components/ClientsList';
 import { AddClientScreen } from '@/screens/AddClientScreen';
 import { AddNoteScreen } from '@/screens/AddNoteScreen';
+import { HistoryScreen } from '@/screens/HistoryScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -68,6 +69,15 @@ export const AppNavigator: React.FC = () => {
           title: 'Dodaj Klienta',
           tabBarLabel: 'Dodaj',
           tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>➕</Text>,
+        }}
+      />
+      <Tab.Screen
+        name="History"
+        component={HistoryScreen}
+        options={{
+          title: 'Historia Rozmów',
+          tabBarLabel: 'Historia',
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>📋</Text>,
         }}
       />
     </Tab.Navigator>

@@ -118,7 +118,7 @@ reserved (Zarezerwowane przez Ciebie)
 
 ---
 
-## Faza 4: Moduł Notatek Głosowych i AI ⏳ W TRAKCIE
+## Faza 4: Moduł Notatek Głosowych i AI ✅ UKOŃCZONA
 
 ### 4.1 Nagrywanie Audio ✅
 - [x] Instalacja expo-av dla nagrywania audio.
@@ -165,12 +165,37 @@ CLAUDE_API_KEY=sk-ant-xxx
 -- Storage → New bucket → "voice-reports" (public)
 ```
 
-**Kryterium sukcesu:** ⏳ Użytkownik nagrywa notatkę, aplikacja transkrybuje i streszcza audio, alert "WYMAGA NOTATKI" znika.
+**Kryterium sukcesu:** ✅ Użytkownik nagrywa notatkę, aplikacja transkrybuje i streszcza audio, alert "WYMAGA NOTATKI" znika.
+
+---
+
+## Faza 4.7: Zakładka Historia ✅ UKOŃCZONA
+
+### Nawigacja
+- [x] Piąta ikona w dolnym menu (📋 Historia).
+- [x] Nowy ekran HistoryScreen.
+
+### Lista Rozmów
+- [x] Wyświetlanie połączeń `completed` posiadających `voice_reports`.
+- [x] Sortowanie od najnowszych.
+- [x] Karta rozmowy: nazwa klienta, data/godzina, kto obsłużył.
+
+### Prezentacja Notatek
+- [x] Streszczenie AI w formie czytelnej listy punktowej.
+- [x] Przycisk "▶ Odtwórz" - odsłuchanie nagrania z Supabase Storage.
+- [x] Przycisk "Pełna notatka" - rozwijanie pełnej transkrypcji.
+
+### Wyszukiwarka
+- [x] Pasek wyszukiwania na górze ekranu.
+- [x] Filtrowanie po nazwisku klienta lub słowach kluczowych w streszczeniu.
+
+**Kryterium sukcesu:** ✅ Historia rozmów z możliwością odsłuchania nagrań i przeczytania streszczeń AI.
+
+---
 
 ## Faza 5: Powiadomienia Zespołowe i Finalizacja
 - [ ] Powiadomienie push do zespołu po dodaniu nowej notatki przez AI.
 - [ ] Widok historii notatek dla każdego klienta (timeline).
-- [ ] Dashboard: statystyki (ile nieodebranych, ile zarezerwowanych, ile bez notatek).
 - [ ] Testy między dwoma telefonami (różni pracownicy).
 - [ ] Optymalizacja: Battery optimization handling, background sync.
 - **Kryterium sukcesu:** Wspólnik otrzymuje powiadomienie "Jan Kowalski dodał notatkę do rozmowy z [Klient]" natychmiast po przetworzeniu przez AI. System działa stabilnie przez 24h bez crashy.
