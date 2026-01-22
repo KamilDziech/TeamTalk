@@ -14,7 +14,7 @@
  */
 
 import { Audio } from 'expo-av';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { supabase } from '@/api/supabaseClient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
@@ -255,13 +255,13 @@ export class VoiceReportService {
     try {
       console.log('Transcribing audio with Whisper...');
 
-      // Download audio file
-      const response = await fetch(audioUrl);
-      const blob = await response.blob();
-
-      // Create form data for Whisper API
+      // React Native requires file object format for FormData
       const formData = new FormData();
-      formData.append('file', blob, 'audio.m4a');
+      formData.append('file', {
+        uri: audioUrl,
+        type: 'audio/m4a',
+        name: 'audio.m4a',
+      } as any);
       formData.append('model', 'whisper-1');
       formData.append('language', 'pl'); // Polish language
 
