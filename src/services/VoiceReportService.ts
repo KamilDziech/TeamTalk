@@ -37,6 +37,51 @@ export interface PendingUpload {
 
 const PENDING_UPLOADS_KEY = 'voice_reports_pending_uploads';
 
+// Hallucination patterns - common AI hallucinations for empty/silent recordings
+const HALLUCINATION_PATTERNS = [
+  /^dzi[eę]kuj[eę]?\s*(za\s*ogl[aą]danie|za\s*uwag[eę])/i,
+  /^thank\s*you\s*(for\s*watching|for\s*listening)/i,
+  /^thanks\s*for\s*watching/i,
+  /^subscribe/i,
+  /^like\s*(and\s*)?subscribe/i,
+  /^napisy\s*(stworzone|wygenerowane)/i,
+  /^subtitles?\s*(by|created)/i,
+  /^\.+$/,  // Only dots
+  /^\s*$/,  // Empty or whitespace only
+  /^(do\s*)?zobaczenia/i,
+  /^see\s*you/i,
+  /^bye(\s*bye)?$/i,
+  /^(to|te)?\s*(tyle|wszystko)/i,
+  /^muzyka$/i,
+  /^music$/i,
+  /^\[.*\]$/,  // Just brackets like [muzyka] or [silence]
+];
+
+// Minimum transcription length to be considered valid
+const MIN_TRANSCRIPTION_LENGTH = 10;
+
+/**
+ * Check if transcription appears to be a hallucination or empty
+ */
+const isHallucinationOrEmpty = (text: string | null): boolean => {
+  if (!text) return true;
+
+  const trimmed = text.trim();
+
+  // Check length
+  if (trimmed.length < MIN_TRANSCRIPTION_LENGTH) return true;
+
+  // Check against hallucination patterns
+  for (const pattern of HALLUCINATION_PATTERNS) {
+    if (pattern.test(trimmed)) {
+      console.log('Hallucination detected:', trimmed);
+      return true;
+    }
+  }
+
+  return false;
+};
+
 // Get API keys from environment
 const getOpenAIKey = () => Constants.expoConfig?.extra?.openaiApiKey || process.env.OPENAI_API_KEY;
 const getClaudeKey = () => Constants.expoConfig?.extra?.claudeApiKey || process.env.CLAUDE_API_KEY;
@@ -244,6 +289,7 @@ export class VoiceReportService {
 
   /**
    * Transcribe audio using OpenAI Whisper API
+   * Returns 'ERROR_EMPTY' if transcription is empty, too short, or appears to be hallucination
    */
   async transcribeAudio(audioUrl: string): Promise<string | null> {
     const apiKey = getOpenAIKey();
@@ -280,8 +326,17 @@ export class VoiceReportService {
       }
 
       const result = await whisperResponse.json();
-      console.log('Transcription completed:', result.text?.substring(0, 100) + '...');
-      return result.text;
+      const transcription = result.text;
+
+      console.log('Transcription completed:', transcription?.substring(0, 100) + '...');
+
+      // Check for hallucination or empty transcription
+      if (isHallucinationOrEmpty(transcription)) {
+        console.log('Transcription appears to be empty or hallucination');
+        return 'ERROR_EMPTY';
+      }
+
+      return transcription;
     } catch (error) {
       console.error('Error transcribing audio:', error);
       return null;
@@ -290,6 +345,7 @@ export class VoiceReportService {
 
   /**
    * Generate AI summary using Claude API
+   * Returns 'ERROR_EMPTY' if the transcription appears to be invalid or hallucination
    */
   async generateSummary(transcription: string, clientName?: string): Promise<string | null> {
     const apiKey = getClaudeKey();
@@ -298,13 +354,27 @@ export class VoiceReportService {
       return null;
     }
 
+    // Don't process if transcription is marked as empty
+    if (transcription === 'ERROR_EMPTY') {
+      return 'ERROR_EMPTY';
+    }
+
     try {
       console.log('Generating AI summary with Claude...');
 
       const systemPrompt = `Jesteś asystentem CRM pomagającym w zarządzaniu relacjami z klientami.
 Twoim zadaniem jest streszczenie notatki głosowej z rozmowy telefonicznej.
 
-Stwórz zwięzłe podsumowanie w formie:
+WAŻNE: Jeśli otrzymana transkrypcja jest:
+- pusta lub zawiera tylko znaki przestankowe
+- niezrozumiała lub wydaje się być błędem transkrypcji
+- zawiera typowe halucynacje AI (np. "Dziękuję za oglądanie", "Subscribe", "Napisy stworzone przez...")
+- nie zawiera żadnej merytorycznej treści rozmowy
+
+Wtedy zwróć TYLKO słowo: ERROR_EMPTY
+Nie wymyślaj treści notatki - jeśli nie ma sensu, zwróć ERROR_EMPTY.
+
+Jeśli transkrypcja jest prawidłowa, stwórz zwięzłe podsumowanie w formie:
 1. **Temat rozmowy:** (1-2 zdania)
 2. **Ustalenia:** (lista punktów)
 3. **Zadania do wykonania:** (lista punktów, jeśli są)
@@ -339,8 +409,15 @@ Odpowiadaj po polsku. Bądź zwięzły i konkretny.`;
       }
 
       const result = await claudeResponse.json();
-      const summary = result.content?.[0]?.text || null;
+      const summary = result.content?.[0]?.text?.trim() || null;
       console.log('Summary generated:', summary?.substring(0, 100) + '...');
+
+      // Check if Claude detected invalid transcription
+      if (summary === 'ERROR_EMPTY' || summary?.startsWith('ERROR_EMPTY')) {
+        console.log('Claude detected invalid transcription');
+        return 'ERROR_EMPTY';
+      }
+
       return summary;
     } catch (error) {
       console.error('Error generating summary:', error);

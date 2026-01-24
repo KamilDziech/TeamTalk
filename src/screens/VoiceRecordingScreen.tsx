@@ -30,6 +30,8 @@ interface VoiceRecordingScreenProps {
 
 type RecordingState = 'idle' | 'recording' | 'recorded' | 'processing' | 'completed' | 'error';
 
+const MIN_RECORDING_DURATION_SECONDS = 2;
+
 export const VoiceRecordingScreen: React.FC<VoiceRecordingScreenProps> = ({
   callLogId,
   client,
@@ -91,6 +93,18 @@ export const VoiceRecordingScreen: React.FC<VoiceRecordingScreenProps> = ({
       timerRef.current = null;
     }
 
+    // Check minimum duration
+    if (recordingDuration < MIN_RECORDING_DURATION_SECONDS) {
+      await voiceReportService.cancelRecording();
+      setState('idle');
+      setRecordingDuration(0);
+      Alert.alert(
+        'Nagranie zbyt krótkie',
+        `Nagranie musi trwać co najmniej ${MIN_RECORDING_DURATION_SECONDS} sekundy. Spróbuj ponownie.`
+      );
+      return;
+    }
+
     const uri = await voiceReportService.stopRecording();
     if (uri) {
       setAudioUri(uri);
@@ -142,15 +156,32 @@ export const VoiceRecordingScreen: React.FC<VoiceRecordingScreenProps> = ({
       // Transcribe
       setProcessingStep('Transkrypcja audio...');
       const transcriptionResult = await voiceReportService.transcribeAudio(audioUrl);
+
+      // Check for empty/invalid transcription
+      if (transcriptionResult === 'ERROR_EMPTY' || !transcriptionResult) {
+        setErrorMessage('Nie wykryto mowy w nagraniu. Spróbuj nagrać jeszcze raz.');
+        setState('error');
+        return;
+      }
+
       setTranscription(transcriptionResult);
 
       // Generate AI summary
+      let summary: string | null = null;
       if (transcriptionResult) {
         setProcessingStep('Generowanie streszczenia AI...');
-        const summary = await voiceReportService.generateSummary(
+        summary = await voiceReportService.generateSummary(
           transcriptionResult,
           client?.name || undefined
         );
+
+        // Check for hallucination in summary
+        if (summary === 'ERROR_EMPTY') {
+          setErrorMessage('Nie wykryto mowy w nagraniu. Spróbuj nagrać jeszcze raz.');
+          setState('error');
+          return;
+        }
+
         setAiSummary(summary);
       }
 
@@ -160,7 +191,7 @@ export const VoiceRecordingScreen: React.FC<VoiceRecordingScreenProps> = ({
         callLogId,
         audioUrl,
         transcriptionResult,
-        aiSummary
+        summary
       );
 
       if (saved) {

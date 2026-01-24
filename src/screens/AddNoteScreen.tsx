@@ -22,6 +22,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Modal,
+  Alert,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '@/api/supabaseClient';
@@ -118,13 +119,45 @@ export const AddNoteScreen: React.FC = () => {
     setSelectedCall(null);
   };
 
+  // Skip/Delete call without adding note
+  const handleSkipCall = (callLog: CallLogWithClient) => {
+    Alert.alert(
+      'Pomiń połączenie',
+      `Czy na pewno chcesz usunąć to połączenie bez dodawania notatki?\n\nKlient: ${callLog.client?.name || 'Nieznany'}\n\nTa operacja jest nieodwracalna.`,
+      [
+        { text: 'Anuluj', style: 'cancel' },
+        {
+          text: 'Pomiń bez notatki',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Delete the call log entry
+              const { error } = await supabase
+                .from('call_logs')
+                .delete()
+                .eq('id', callLog.id);
+
+              if (error) {
+                console.error('Error deleting call log:', error);
+                Alert.alert('Błąd', 'Nie udało się usunąć połączenia.');
+                return;
+              }
+
+              // Refresh the list
+              fetchCallLogsNeedingNotes();
+            } catch (error) {
+              console.error('Error skipping call:', error);
+              Alert.alert('Błąd', 'Wystąpił błąd podczas usuwania.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const renderCallLog = ({ item }: { item: CallLogWithClient }) => {
     return (
-      <TouchableOpacity
-        style={styles.card}
-        onPress={() => handleSelectCall(item)}
-        activeOpacity={0.7}
-      >
+      <View style={styles.card}>
         {/* Czerwony wskaźnik WYMAGA NOTATKI */}
         <View style={styles.requiresNoteAlert}>
           <Text style={styles.requiresNoteText}>🔴 WYMAGA NOTATKI</Text>
@@ -146,12 +179,29 @@ export const AddNoteScreen: React.FC = () => {
           <Text style={styles.callType}>Rozmowa wykonana</Text>
         </View>
 
-        <View style={styles.recordButton}>
-          <Text style={styles.recordButtonText}>
-            🎤 Kliknij, aby nagrać notatkę
-          </Text>
+        {/* Action buttons */}
+        <View style={styles.cardActions}>
+          <TouchableOpacity
+            style={styles.recordButton}
+            onPress={() => handleSelectCall(item)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.recordButtonText}>
+              🎤 Nagraj notatkę
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.skipButton}
+            onPress={() => handleSkipCall(item)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.skipButtonText}>
+              🗑️ Pomiń
+            </Text>
+          </TouchableOpacity>
         </View>
-      </TouchableOpacity>
+      </View>
     );
   };
 
@@ -323,7 +373,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
   },
+  cardActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
   recordButton: {
+    flex: 1,
     backgroundColor: '#F44336',
     borderRadius: 8,
     padding: 14,
@@ -333,6 +388,18 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 15,
     fontWeight: 'bold',
+  },
+  skipButton: {
+    backgroundColor: '#9E9E9E',
+    borderRadius: 8,
+    padding: 14,
+    alignItems: 'center',
+    minWidth: 80,
+  },
+  skipButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
   emptyContainer: {
     flex: 1,
