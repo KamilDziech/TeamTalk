@@ -2,18 +2,51 @@
  * AppNavigator
  *
  * Main navigation structure with bottom tabs
+ * Includes logout functionality in header
  */
 
 import React from 'react';
-import { Text } from 'react-native';
+import { Text, TouchableOpacity, Alert, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { CallLogsList } from '@/components/CallLogsList';
 import { ClientsStackNavigator } from '@/navigation/ClientsStackNavigator';
 import { AddClientScreen } from '@/screens/AddClientScreen';
 import { AddNoteScreen } from '@/screens/AddNoteScreen';
 import { HistoryScreen } from '@/screens/HistoryScreen';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Tab = createBottomTabNavigator();
+
+const LogoutButton: React.FC = () => {
+  const { signOut, profile } = useAuth();
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Wylogowanie',
+      `Czy na pewno chcesz się wylogować${profile ? `, ${profile.display_name}` : ''}?`,
+      [
+        { text: 'Anuluj', style: 'cancel' },
+        {
+          text: 'Wyloguj',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await signOut();
+            } catch (error) {
+              Alert.alert('Błąd', 'Nie udało się wylogować. Spróbuj ponownie.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  return (
+    <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+      <Text style={styles.logoutButtonText}>Wyloguj</Text>
+    </TouchableOpacity>
+  );
+};
 
 export const AppNavigator: React.FC = () => {
   return (
@@ -33,6 +66,7 @@ export const AppNavigator: React.FC = () => {
         headerTitleStyle: {
           fontWeight: 'bold',
         },
+        headerRight: () => <LogoutButton />,
       }}
     >
       <Tab.Screen
@@ -84,3 +118,18 @@ export const AppNavigator: React.FC = () => {
     </Tab.Navigator>
   );
 };
+
+const styles = StyleSheet.create({
+  logoutButton: {
+    marginRight: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 6,
+  },
+  logoutButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+});

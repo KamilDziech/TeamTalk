@@ -360,11 +360,16 @@ Odpowiadaj po polsku. Bądź zwięzły i konkretny.`;
     try {
       console.log('Saving voice report to database...');
 
+      // Get current user ID
+      const { data: { user } } = await supabase.auth.getUser();
+      const createdBy = user?.id || null;
+
       const { error } = await supabase.from('voice_reports').insert({
         call_log_id: callLogId,
         audio_url: audioUrl,
         transcription: transcription,
         ai_summary: aiSummary,
+        created_by: createdBy,
       });
 
       if (error) {

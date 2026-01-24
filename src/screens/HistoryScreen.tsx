@@ -23,7 +23,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/api/supabaseClient';
 import { voiceReportService } from '@/services/VoiceReportService';
-import type { CallLog, Client, VoiceReport } from '@/types';
+import type { CallLog, Client, VoiceReport, Profile } from '@/types';
 
 interface HistoryItem {
   callLog: CallLog;
@@ -34,11 +34,33 @@ interface HistoryItem {
 export const HistoryScreen: React.FC = () => {
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
   const [filteredItems, setFilteredItems] = useState<HistoryItem[]>([]);
+  const [profiles, setProfiles] = useState<Map<string, Profile>>(new Map());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [playingAudio, setPlayingAudio] = useState<string | null>(null);
+
+  const fetchProfiles = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.from('profiles').select('*');
+      if (error) {
+        console.error('Error fetching profiles:', error);
+        return;
+      }
+      const profileMap = new Map<string, Profile>();
+      data?.forEach((profile) => profileMap.set(profile.id, profile));
+      setProfiles(profileMap);
+    } catch (error) {
+      console.error('Error fetching profiles:', error);
+    }
+  }, []);
+
+  const getDisplayName = (userId: string | null | undefined): string | null => {
+    if (!userId) return null;
+    const profile = profiles.get(userId);
+    return profile?.display_name || null;
+  };
 
   const fetchHistory = useCallback(async () => {
     try {
@@ -121,7 +143,8 @@ export const HistoryScreen: React.FC = () => {
 
   useEffect(() => {
     fetchHistory();
-  }, [fetchHistory]);
+    fetchProfiles();
+  }, [fetchHistory, fetchProfiles]);
 
   // Filter items when search query changes
   useEffect(() => {
@@ -258,9 +281,9 @@ export const HistoryScreen: React.FC = () => {
           </View>
           <View style={styles.dateInfo}>
             <Text style={styles.date}>{formatDate(item.callLog.timestamp)}</Text>
-            {item.callLog.reservation_by && (
+            {(item.voiceReport.created_by || item.callLog.reservation_by) && (
               <Text style={styles.handledBy}>
-                Obsłużył: {item.callLog.reservation_by}
+                Notatka od: {getDisplayName(item.voiceReport.created_by || item.callLog.reservation_by) || 'Nieznany'}
               </Text>
             )}
           </View>

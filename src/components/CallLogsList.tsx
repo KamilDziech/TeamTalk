@@ -23,7 +23,8 @@ import {
 } from 'react-native';
 import { supabase } from '@/api/supabaseClient';
 import { callLogScanner } from '@/services/CallLogScanner';
-import type { CallLog, Client } from '@/types';
+import { useAuth } from '@/contexts/AuthContext';
+import type { CallLog, Client, Profile } from '@/types';
 
 interface CallLogWithClient extends CallLog {
   client: Client;
@@ -97,16 +98,40 @@ const groupCallLogsByClient = (logs: CallLogWithClient[]): GroupedCallLog[] => {
 };
 
 export const CallLogsList: React.FC = () => {
+  const { user } = useAuth();
   const [callLogs, setCallLogs] = useState<CallLogWithClient[]>([]);
   const [groupedLogs, setGroupedLogs] = useState<GroupedCallLog[]>([]);
+  const [profiles, setProfiles] = useState<Map<string, Profile>>(new Map());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
 
   useEffect(() => {
     fetchCallLogs();
+    fetchProfiles();
     setupRealtimeSubscription();
   }, []);
+
+  const fetchProfiles = async () => {
+    try {
+      const { data, error } = await supabase.from('profiles').select('*');
+      if (error) {
+        console.error('Error fetching profiles:', error);
+        return;
+      }
+      const profileMap = new Map<string, Profile>();
+      data?.forEach((profile) => profileMap.set(profile.id, profile));
+      setProfiles(profileMap);
+    } catch (error) {
+      console.error('Error fetching profiles:', error);
+    }
+  };
+
+  const getDisplayName = (userId: string | null): string | null => {
+    if (!userId) return null;
+    const profile = profiles.get(userId);
+    return profile?.display_name || null;
+  };
 
   const fetchCallLogs = async () => {
     try {
@@ -183,16 +208,17 @@ export const CallLogsList: React.FC = () => {
   };
 
   const handleReserve = async (callLog: CallLogWithClient) => {
-    // For now, use a mock employee ID
-    // TODO: Implement proper authentication
-    const employeeId = 'mock-employee-123';
+    if (!user) {
+      Alert.alert('Błąd', 'Musisz być zalogowany, aby rezerwować połączenia.');
+      return;
+    }
 
     try {
       const { error } = await supabase
         .from('call_logs')
         .update({
           status: 'reserved',
-          reservation_by: employeeId,
+          reservation_by: user.id,
           reservation_at: new Date().toISOString(),
         })
         .eq('id', callLog.id);
@@ -263,9 +289,10 @@ export const CallLogsList: React.FC = () => {
 
   // Rezerwuj wszystkie nieobsłużone połączenia od klienta
   const handleReserveGroup = async (group: GroupedCallLog) => {
-    // TODO: Replace with actual user UUID from auth system
-    // For now, use a valid UUID format for testing
-    const mockEmployeeId = '00000000-0000-0000-0000-000000000001';
+    if (!user) {
+      Alert.alert('Błąd', 'Musisz być zalogowany, aby rezerwować połączenia.');
+      return;
+    }
 
     const missedCalls = group.allCalls.filter((c) => c.status === 'missed');
 
@@ -279,7 +306,7 @@ export const CallLogsList: React.FC = () => {
           .from('call_logs')
           .update({
             status: 'reserved',
-            reservation_by: mockEmployeeId,
+            reservation_by: user.id,
             reservation_at: new Date().toISOString(),
           })
           .eq('id', call.id);
@@ -436,7 +463,7 @@ export const CallLogsList: React.FC = () => {
           )}
           {item.latestCall.reservation_by && item.latestCall.status === 'reserved' && (
             <Text style={styles.detailText}>
-              👤 Zarezerwowane przez: {item.latestCall.reservation_by}
+              👤 Obsługuje: {getDisplayName(item.latestCall.reservation_by) || 'Nieznany użytkownik'}
             </Text>
           )}
         </View>

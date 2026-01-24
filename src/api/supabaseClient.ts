@@ -11,6 +11,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Database } from '@/types';
 
 // Retrieve environment variables
@@ -33,9 +34,12 @@ if (!supabaseAnonKey) {
 /**
  * Supabase client instance
  * Configured with proper TypeScript types and auth settings
+ * Uses AsyncStorage for session persistence across app restarts
  */
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
+    // Use AsyncStorage for session persistence
+    storage: AsyncStorage,
     // Auto refresh token before it expires
     autoRefreshToken: true,
     // Persist session in async storage
@@ -86,11 +90,59 @@ export const signIn = async (email: string, password: string) => {
 };
 
 /**
- * Sign out current user
+ * Sign up with email, password, and display name
+ */
+export const signUp = async (email: string, password: string, displayName: string) => {
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        display_name: displayName,
+      },
+    },
+  });
+  if (error) {
+    throw error;
+  }
+  return data;
+};
+
+/**
+ * Sign out current user and clear session
  */
 export const signOut = async () => {
   const { error } = await supabase.auth.signOut();
   if (error) {
     throw error;
   }
+};
+
+/**
+ * Get current user
+ */
+export const getCurrentUser = async () => {
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error) {
+    console.error('Error getting user:', error);
+    return null;
+  }
+  return user;
+};
+
+/**
+ * Get user profile from profiles table
+ */
+export const getUserProfile = async (userId: string) => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
+    .single();
+
+  if (error) {
+    console.error('Error getting profile:', error);
+    return null;
+  }
+  return data;
 };

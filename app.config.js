@@ -17,8 +17,8 @@ module.exports = {
       bundleIdentifier: "com.ekotak.teamtalk"
     },
     android: {
-      package: "com.ekotak.teamtalk",
-      googleServicesFile: "./android/app/google-services.json",
+      package: "com.ekotak.teamtalk001",
+      googleServicesFile: "./google-services.json",
       permissions: [
         "READ_PHONE_STATE",
         "READ_CALL_LOG",

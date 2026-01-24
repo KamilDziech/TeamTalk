@@ -34,6 +34,14 @@ export interface VoiceReport {
   audio_url: string | null;
   transcription: string | null;
   ai_summary: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Profile {
+  id: string;
+  display_name: string;
   created_at: string;
   updated_at: string;
 }
@@ -70,6 +78,11 @@ export interface Database {
         Row: Device;
         Insert: Omit<Device, 'id' | 'created_at' | 'updated_at' | 'last_active_at'>;
         Update: Partial<Omit<Device, 'id' | 'created_at' | 'updated_at'>>;
+      };
+      profiles: {
+        Row: Profile;
+        Insert: Omit<Profile, 'created_at' | 'updated_at'>;
+        Update: Partial<Omit<Profile, 'id' | 'created_at' | 'updated_at'>>;
       };
     };
   };

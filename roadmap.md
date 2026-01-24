@@ -217,6 +217,33 @@ CLAUDE_API_KEY=sk-ant-xxx
 
 ---
 
+## Faza 6: Tożsamość i Bezpieczeństwo ✅ UKOŃCZONA
+
+### 6.1 System Autoryzacji ✅
+- [x] Ekran logowania i rejestracji (E-mail / Hasło).
+- [x] Integracja z Supabase Auth.
+- [x] Walidacja formularzy z komunikatami po polsku.
+- [x] Pole "Imię" podczas rejestracji.
+
+### 6.2 Trwałość Sesji (Session Persistence) ✅
+- [x] Konfiguracja AsyncStorage jako storage dla Supabase.
+- [x] Auto-login: jeśli istnieje ważny token, użytkownik widzi od razu zakładkę 'Kolejka'.
+- [x] Bezpieczne wylogowanie z czyszczeniem sesji.
+
+### 6.3 Profil Użytkownika ✅
+- [x] Tabela `profiles` (id, display_name) powiązana z `auth.users`.
+- [x] Automatyczne tworzenie profilu przy rejestracji.
+- [x] Trigger bazodanowy dla nowych użytkowników.
+
+### 6.4 Integracja z Workflow ✅
+- [x] Zakładka 'Kolejka': Wyświetla "Obsługuje: [Imię]" zamiast UUID.
+- [x] Zakładka 'Historia': Wyświetla "Notatka od: [Imię]" przy notatkach.
+- [x] Przycisk wylogowania w interfejsie.
+
+**Kryterium sukcesu:** ✅ Aplikacja zabezpieczona systemem logowania. Sesja użytkownika pamiętana lokalnie na urządzeniu. Imiona użytkowników widoczne przy rezerwacjach i notatkach.
+
+---
+
 ## Definicja MVP (Cel końcowy)
 System uznajemy za gotowy, gdy:
 1. **Prywatność:** Aplikacja monitoruje TYLKO numerów z bazy `clients`, ignoruje resztę.
@@ -224,4 +251,5 @@ System uznajemy za gotowy, gdy:
 3. **Rezerwacje:** Można zarezerwować oddzwonienie, unikając dublowania pracy (Realtime sync).
 4. **Notatki:** Po rozmowie można ręcznie dodać notatkę głosową, która jest transkrybowana i streszczana przez AI.
 5. **Alerty:** Połączenia bez notatek są oznaczone "WYMAGA NOTATKI" do czasu uzupełnienia.
-6. **Standardy:** Kod w języku angielskim, interfejs w języku polskim, zmiany w repozytorium Git.
+6. **Bezpieczeństwo:** Aplikacja zabezpieczona systemem logowania, sesja pamiętana lokalnie.
+7. **Standardy:** Kod w języku angielskim, interfejs w języku polskim, zmiany w repozytorium Git.
