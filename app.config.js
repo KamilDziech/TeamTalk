@@ -13,10 +13,12 @@ module.exports = {
       "**/*"
     ],
     ios: {
-      supportsTablet: true
+      supportsTablet: true,
+      bundleIdentifier: "com.ekotak.teamtalk"
     },
     android: {
       package: "com.ekotak.teamtalk",
+      googleServicesFile: "./android/app/google-services.json",
       permissions: [
         "READ_PHONE_STATE",
         "READ_CALL_LOG",
@@ -48,6 +50,9 @@ module.exports = {
       supabaseAnonKey: process.env.SUPABASE_ANON_KEY,
       openaiApiKey: process.env.OPENAI_API_KEY,
       claudeApiKey: process.env.CLAUDE_API_KEY,
+      eas: {
+        projectId: "70a863dc-ad69-43ce-a26e-58c4accd11f7"
+      }
     }
   }
 };

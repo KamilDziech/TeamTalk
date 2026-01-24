@@ -27,7 +27,8 @@
         "READ_PHONE_STATE",
         "READ_CALL_LOG",
         "POST_NOTIFICATIONS"
-      ]
+      ],
+      "googleServicesFile": "./android/app/google-services.json"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -35,6 +36,11 @@
     "plugins": [
       "expo-router"
     ],
-    "scheme": "teamtalk"
+    "scheme": "teamtalk",
+    "extra": {
+      "eas": {
+        "projectId": "70a863dc-ad69-43ce-a26e-58c4accd11f7"
+      }
+    }
   }
 }
