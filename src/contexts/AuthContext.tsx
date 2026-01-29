@@ -32,15 +32,34 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id);
+    console.log('🔄 AuthContext: Starting session initialization...');
+
+    // Safety timeout - if session check takes too long, stop loading anyway
+    const safetyTimeout = setTimeout(() => {
+      console.warn('⚠️ AuthContext: Session check timed out after 10s');
+      if (loading) {
+        setLoading(false);
       }
-      setLoading(false);
-    });
+    }, 10000);
+
+    // Get initial session
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        console.log('✅ AuthContext: getSession completed, session:', session ? 'exists' : 'null');
+        setSession(session);
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          fetchProfile(session.user.id);
+        }
+      })
+      .catch((error) => {
+        console.error('❌ AuthContext: Error getting session:', error);
+      })
+      .finally(() => {
+        console.log('✅ AuthContext: Setting loading to false');
+        clearTimeout(safetyTimeout);
+        setLoading(false);
+      });
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(

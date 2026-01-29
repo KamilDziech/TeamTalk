@@ -5,7 +5,10 @@
  * - Scans Android CallLog for missed calls
  * - Filters ONLY numbers from clients table (ignores unknown numbers)
  * - Creates call_logs entries for missed calls from known clients
- * - Triggers notifications for team
+ * - Triggers LOCAL notifications for team (works in Expo Go)
+ *
+ * NOTE: Uses local notifications (scheduleNotificationAsync) which work fine in Expo Go.
+ * Remote push notifications require development build.
  *
  * SOLID Principles:
  * - Single Responsibility: Only handles call log scanning logic

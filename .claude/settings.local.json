@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx create-expo-app@latest:*)",
+      "Bash(npm install)",
+      "Bash(npm install:*)",
+      "Bash(npm test)",
+      "Bash(npm start)",
+      "Bash(node --version:*)",
+      "Bash(nvm --version:*)",
+      "Bash(curl:*)",
+      "Bash(sudo -E bash -)",
+      "Bash(git add:*)",
+      "Bash(i wyświetlenia go w surowym widoku aplikacji\"\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push:*)",
+      "Bash(sudo apt update:*)",
+      "Bash(sudo apt install:*)",
+      "Bash(java:*)",
+      "Bash(export ANDROID_HOME=/root/Android/Sdk)",
+      "Bash(export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin)",
+      "Bash(printf:*)",
+      "Bash(sdkmanager:*)",
+      "Bash(/root/Android/Sdk/cmdline-tools/latest/bin/sdkmanager:*)",
+      "Bash(./gradlew assembleDebug:*)"
+    ]
+  }
+}

@@ -21,6 +21,7 @@ import { supabase } from '@/api/supabaseClient';
 import { voiceReportService } from '@/services/VoiceReportService';
 import type { Client, CallLog, VoiceReport } from '@/types';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { colors, spacing, radius, typography, shadows, commonStyles } from '@/styles/theme';
 
 type ClientsStackParamList = {
   ClientsList: undefined;
@@ -148,13 +149,13 @@ export const ClientTimelineScreen: React.FC<Props> = ({ route }) => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'missed':
-        return '#FF3B30';
+        return colors.error;
       case 'reserved':
-        return '#FF9500';
+        return colors.warning;
       case 'completed':
-        return '#34C759';
+        return colors.success;
       default:
-        return '#666';
+        return colors.textSecondary;
     }
   };
 
@@ -325,7 +326,7 @@ export const ClientTimelineScreen: React.FC<Props> = ({ route }) => {
     return (
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
+          <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Ładowanie historii...</Text>
         </View>
       </SafeAreaView>
@@ -392,82 +393,74 @@ export const ClientTimelineScreen: React.FC<Props> = ({ route }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
+  container: commonStyles.screen,
   loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    ...commonStyles.centered,
+    backgroundColor: colors.background,
   },
   loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#666',
+    marginTop: spacing.md,
+    fontSize: typography.base,
+    color: colors.textSecondary,
   },
   clientHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: 16,
+    ...commonStyles.rowBetween,
+    padding: spacing.lg,
+    backgroundColor: colors.white,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: colors.borderLight,
   },
   clientInfo: {
     flex: 1,
   },
   clientName: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#333',
+    ...commonStyles.heading,
   },
   clientPhone: {
-    fontSize: 16,
-    color: '#007AFF',
-    marginTop: 2,
+    fontSize: typography.base,
+    color: colors.primary,
+    marginTop: spacing.xs,
   },
   clientAddress: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 4,
+    fontSize: typography.sm,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
   },
   callButton: {
-    backgroundColor: '#34C759',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    backgroundColor: colors.success,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.md,
   },
   callButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
+    color: colors.textInverse,
+    fontSize: typography.base,
+    fontWeight: typography.semibold,
   },
   statsRow: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    backgroundColor: colors.white,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: colors.borderLight,
   },
   statItem: {
     flex: 1,
     alignItems: 'center',
   },
   statValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#007AFF',
+    fontSize: typography.xl,
+    fontWeight: typography.bold,
+    color: colors.primary,
   },
   statLabel: {
-    fontSize: 12,
-    color: '#666',
+    fontSize: typography.xs,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   listContent: {
-    padding: 16,
+    padding: spacing.lg,
   },
   timelineItem: {
     flexDirection: 'row',
@@ -486,31 +479,25 @@ const styles = StyleSheet.create({
   timelineLine: {
     flex: 1,
     width: 2,
-    backgroundColor: '#ddd',
+    backgroundColor: colors.border,
     marginVertical: 4,
   },
   timelineContent: {
     flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 14,
-    marginLeft: 8,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
+    backgroundColor: colors.white,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    marginLeft: spacing.sm,
+    marginBottom: spacing.md,
+    ...shadows.sm,
   },
   timelineHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
+    ...commonStyles.rowBetween,
+    marginBottom: spacing.sm,
   },
   timelineDate: {
-    fontSize: 13,
-    color: '#666',
+    fontSize: typography.sm,
+    color: colors.textSecondary,
   },
   statusBadge: {
     paddingVertical: 4,
@@ -518,38 +505,38 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   statusText: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: typography.xs,
+    fontWeight: typography.bold,
   },
   handledBy: {
-    fontSize: 12,
-    color: '#999',
-    marginBottom: 8,
+    fontSize: typography.xs,
+    color: colors.textTertiary,
+    marginBottom: spacing.sm,
   },
   voiceReportSection: {
-    marginTop: 8,
+    marginTop: spacing.sm,
   },
   sectionTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#007AFF',
-    marginBottom: 6,
+    fontSize: typography.sm,
+    fontWeight: typography.semibold,
+    color: colors.primary,
+    marginBottom: spacing.xs,
   },
   summaryContainer: {
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
-    padding: 10,
+    backgroundColor: colors.background,
+    borderRadius: radius.md,
+    padding: spacing.md,
   },
   summaryHeader: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 4,
+    fontSize: typography.sm,
+    fontWeight: typography.semibold,
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
     marginTop: 2,
   },
   summaryText: {
-    fontSize: 13,
-    color: '#444',
+    fontSize: typography.sm,
+    color: colors.textSecondary,
     lineHeight: 18,
     marginBottom: 2,
   },
@@ -558,91 +545,83 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   bullet: {
-    fontSize: 13,
-    color: '#007AFF',
-    marginRight: 6,
+    fontSize: typography.sm,
+    color: colors.primary,
+    marginRight: spacing.sm,
   },
   bulletText: {
     flex: 1,
-    fontSize: 13,
-    color: '#444',
+    fontSize: typography.sm,
+    color: colors.textSecondary,
     lineHeight: 18,
   },
   actions: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 10,
+    gap: spacing.sm,
+    marginTop: spacing.md,
   },
   actionButton: {
     flex: 1,
-    backgroundColor: '#007AFF',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 6,
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.sm,
     alignItems: 'center',
   },
   actionButtonActive: {
-    backgroundColor: '#FF3B30',
+    backgroundColor: colors.error,
   },
   actionButtonSecondary: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.white,
     borderWidth: 1,
-    borderColor: '#007AFF',
+    borderColor: colors.primary,
   },
   actionButtonText: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: '600',
+    color: colors.textInverse,
+    fontSize: typography.sm,
+    fontWeight: typography.semibold,
   },
   actionButtonTextSecondary: {
-    color: '#007AFF',
-    fontSize: 13,
-    fontWeight: '600',
+    color: colors.primary,
+    fontSize: typography.sm,
+    fontWeight: typography.semibold,
   },
   noReportBadge: {
-    marginTop: 8,
-    padding: 8,
-    backgroundColor: '#FFF0F0',
-    borderRadius: 6,
+    marginTop: spacing.sm,
+    padding: spacing.sm,
+    backgroundColor: colors.errorLight,
+    borderRadius: radius.sm,
   },
   noReportText: {
-    fontSize: 12,
-    color: '#FF3B30',
-    fontWeight: '500',
+    fontSize: typography.sm,
+    color: colors.error,
+    fontWeight: typography.medium,
   },
   transcriptionSection: {
-    marginTop: 10,
-    paddingTop: 10,
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
     borderTopWidth: 1,
-    borderTopColor: '#eee',
+    borderTopColor: colors.borderLight,
   },
   transcriptionText: {
-    fontSize: 13,
-    color: '#444',
+    fontSize: typography.sm,
+    color: colors.textSecondary,
     lineHeight: 20,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
-    padding: 10,
+    backgroundColor: colors.background,
+    borderRadius: radius.md,
+    padding: spacing.md,
   },
   emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    ...commonStyles.emptyState,
     paddingVertical: 60,
   },
   emptyIcon: {
-    fontSize: 48,
-    marginBottom: 16,
+    ...commonStyles.emptyStateIcon,
   },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
+    ...commonStyles.emptyStateTitle,
   },
   emptyText: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
+    ...commonStyles.emptyStateText,
   },
 });

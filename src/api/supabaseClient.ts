@@ -18,14 +18,23 @@ import type { Database } from '@/types';
 const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl || process.env.SUPABASE_URL;
 const supabaseAnonKey = Constants.expoConfig?.extra?.supabaseAnonKey || process.env.SUPABASE_ANON_KEY;
 
+// Debug logging
+console.log('🔧 Supabase Config:', {
+  urlSet: !!supabaseUrl,
+  keySet: !!supabaseAnonKey,
+  urlPreview: supabaseUrl ? supabaseUrl.substring(0, 30) + '...' : 'NOT SET',
+});
+
 // Validate environment variables
 if (!supabaseUrl) {
+  console.error('❌ SUPABASE_URL is not defined!');
   throw new Error(
     'SUPABASE_URL is not defined. Please set it in your .env file or app.config.js'
   );
 }
 
 if (!supabaseAnonKey) {
+  console.error('❌ SUPABASE_ANON_KEY is not defined!');
   throw new Error(
     'SUPABASE_ANON_KEY is not defined. Please set it in your .env file or app.config.js'
   );

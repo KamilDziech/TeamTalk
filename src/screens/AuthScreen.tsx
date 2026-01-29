@@ -85,7 +85,9 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
       return 'Błąd połączenia. Sprawdź połączenie z internetem';
     }
 
-    return 'Wystąpił błąd. Spróbuj ponownie';
+    // Show original error for debugging
+    console.error('Auth error:', error.message);
+    return `Wystąpił błąd: ${error.message}`;
   };
 
   const handleSubmit = async () => {
@@ -98,23 +100,25 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
         await signIn(email.trim(), password);
         onAuthSuccess();
       } else {
-        const { user } = await signUp(email.trim(), password, displayName.trim());
+        const result = await signUp(email.trim(), password, displayName.trim());
+        console.log('SignUp result:', JSON.stringify(result, null, 2));
 
-        if (user) {
-          // For Supabase with email confirmation disabled, user is logged in immediately
-          // For email confirmation enabled, show message
-          if (user.email_confirmed_at) {
-            onAuthSuccess();
-          } else {
-            Alert.alert(
-              'Rejestracja zakończona',
-              'Sprawdź swoją skrzynkę e-mail i potwierdź konto, aby się zalogować.',
-              [{ text: 'OK', onPress: () => setIsLogin(true) }]
-            );
-          }
+        if (result.user) {
+          // With email confirmation disabled, user should be logged in immediately
+          onAuthSuccess();
+        } else if (result.session) {
+          // Session exists, user is authenticated
+          onAuthSuccess();
+        } else {
+          Alert.alert(
+            'Rejestracja',
+            'Konto zostało utworzone. Spróbuj się zalogować.',
+            [{ text: 'OK', onPress: () => setIsLogin(true) }]
+          );
         }
       }
     } catch (error) {
+      console.error('Auth error:', error);
       const errorMessage = getPolishErrorMessage(error as Error);
       Alert.alert('Błąd', errorMessage);
     } finally {

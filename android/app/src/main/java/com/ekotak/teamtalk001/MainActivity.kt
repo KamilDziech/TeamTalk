@@ -1,4 +1,4 @@
-package com.ekotak.teamtalk
+package com.ekotak.teamtalk001
 
 import android.os.Build
 import android.os.Bundle

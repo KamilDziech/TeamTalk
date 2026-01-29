@@ -3,6 +3,11 @@
  *
  * Manages device registration for push notifications.
  * Handles push token registration, updates, and team notifications.
+ * 
+ * NOTE: Push notifications (remote) require a development build.
+ * They do NOT work in Expo Go since SDK 53.
+ * Local notifications work fine in Expo Go.
+ * See: https://docs.expo.dev/develop/development-builds/introduction/
  */
 
 import * as Notifications from 'expo-notifications';
@@ -90,10 +95,14 @@ export class DeviceService {
 
   /**
    * Get Expo push token
+   * NOTE: This will fail in Expo Go (SDK 53+). Requires development build for push notifications.
    */
   async getPushToken(): Promise<string | null> {
     try {
       const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+
+      // In Expo Go (SDK 53+), this will throw an error
+      // Graceful degradation: catch and warn instead of crashing
       const token = await Notifications.getExpoPushTokenAsync({
         projectId,
       });
@@ -102,7 +111,8 @@ export class DeviceService {
       console.log('Push token:', token.data);
       return token.data;
     } catch (error) {
-      console.error('Error getting push token:', error);
+      console.warn('Could not get push token (expected in Expo Go):', error);
+      // This is expected in Expo Go - push notifications require dev build
       return null;
     }
   }

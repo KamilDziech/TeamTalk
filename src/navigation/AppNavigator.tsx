@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { Text, TouchableOpacity, Alert, StyleSheet } from 'react-native';
+import { Text, TouchableOpacity, Alert, StyleSheet, View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { CallLogsList } from '@/components/CallLogsList';
 import { ClientsStackNavigator } from '@/navigation/ClientsStackNavigator';
@@ -14,6 +14,7 @@ import { AddClientScreen } from '@/screens/AddClientScreen';
 import { AddNoteScreen } from '@/screens/AddNoteScreen';
 import { HistoryScreen } from '@/screens/HistoryScreen';
 import { useAuth } from '@/contexts/AuthContext';
+import { colors, spacing, radius, typography, shadows } from '@/styles/theme';
 
 const Tab = createBottomTabNavigator();
 
@@ -52,20 +53,31 @@ export const AppNavigator: React.FC = () => {
   return (
     <Tab.Navigator
       screenOptions={{
-        tabBarActiveTintColor: '#007AFF',
-        tabBarInactiveTintColor: '#666',
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textSecondary,
         tabBarStyle: {
-          backgroundColor: '#fff',
+          backgroundColor: colors.white,
           borderTopWidth: 1,
-          borderTopColor: '#e0e0e0',
+          borderTopColor: colors.border,
+          height: 60,
+          paddingBottom: 8,
+          paddingTop: 8,
+        },
+        tabBarLabelStyle: {
+          fontSize: typography.xs,
+          fontWeight: typography.medium,
         },
         headerStyle: {
-          backgroundColor: '#007AFF',
+          backgroundColor: colors.white,
+          ...shadows.sm,
         },
-        headerTintColor: '#fff',
+        headerTintColor: colors.textPrimary,
         headerTitleStyle: {
-          fontWeight: 'bold',
+          fontWeight: typography.semibold,
+          fontSize: typography.lg,
+          color: colors.textPrimary,
         },
+        headerShadowVisible: false,
         headerRight: () => <LogoutButton />,
       }}
     >
@@ -121,15 +133,17 @@ export const AppNavigator: React.FC = () => {
 
 const styles = StyleSheet.create({
   logoutButton: {
-    marginRight: 16,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 6,
+    marginRight: spacing.lg,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.background,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   logoutButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
+    color: colors.textSecondary,
+    fontSize: typography.sm,
+    fontWeight: typography.medium,
   },
 });

@@ -19,6 +19,7 @@ import {
 } from 'react-native';
 import { voiceReportService } from '@/services/VoiceReportService';
 import { deviceService } from '@/services/DeviceService';
+import { colors, spacing, radius, typography, shadows } from '@/styles/theme';
 import type { Client } from '@/types';
 
 interface VoiceRecordingScreenProps {
@@ -294,7 +295,7 @@ export const VoiceRecordingScreen: React.FC<VoiceRecordingScreenProps> = ({
       case 'processing':
         return (
           <View style={styles.processingContainer}>
-            <ActivityIndicator size="large" color="#007AFF" />
+            <ActivityIndicator size="large" color={colors.primary} />
             <Text style={styles.processingText}>{processingStep}</Text>
           </View>
         );
@@ -371,86 +372,93 @@ export const VoiceRecordingScreen: React.FC<VoiceRecordingScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
+  // Layout
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.background,
   },
+
+  // Header - Light theme
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
-    backgroundColor: '#F44336',
+    padding: spacing.lg,
+    backgroundColor: colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   closeButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: radius.full,
+    backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
   },
   closeButtonText: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: 'bold',
+    color: colors.textSecondary,
+    fontSize: typography.xl,
+    fontWeight: typography.semibold,
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
+    fontSize: typography.lg,
+    fontWeight: typography.semibold,
+    color: colors.textPrimary,
   },
   headerSpacer: {
     width: 40,
   },
+
+  // Client info
   clientInfo: {
-    backgroundColor: '#fff',
-    padding: 16,
+    backgroundColor: colors.surface,
+    padding: spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: colors.border,
   },
   clientName: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
+    fontSize: typography.xl,
+    fontWeight: typography.semibold,
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
   },
   clientPhone: {
-    fontSize: 16,
-    color: '#007AFF',
+    fontSize: typography.base,
+    color: colors.primary,
   },
+
+  // Content area
   content: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: spacing.xl,
   },
   recordingContainer: {
     alignItems: 'center',
   },
   instructionText: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 30,
+    fontSize: typography.base,
+    color: colors.textSecondary,
+    marginBottom: spacing.xxxl,
   },
   recordingLabel: {
-    fontSize: 18,
-    color: '#F44336',
-    fontWeight: 'bold',
-    marginBottom: 30,
+    fontSize: typography.lg,
+    color: colors.error,
+    fontWeight: typography.semibold,
+    marginBottom: spacing.xxxl,
   },
+
+  // Record button
   recordButton: {
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#F44336',
+    backgroundColor: colors.error,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 8,
+    ...shadows.lg,
   },
   recordingActive: {
     backgroundColor: '#D32F2F',
@@ -465,132 +473,137 @@ const styles = StyleSheet.create({
   stopIcon: {
     width: 30,
     height: 30,
-    backgroundColor: '#fff',
-    borderRadius: 4,
+    backgroundColor: colors.white,
+    borderRadius: radius.sm,
   },
   durationText: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#333',
-    marginTop: 30,
-    fontVariant: ['tabular-nums'],
+    fontSize: typography.xxxl,
+    fontWeight: typography.bold,
+    color: colors.textPrimary,
+    marginTop: spacing.xxxl,
   },
+
+  // Action buttons
   cancelButton: {
-    marginTop: 30,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
+    marginTop: spacing.xxxl,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xxl,
   },
   cancelButtonText: {
-    fontSize: 16,
-    color: '#999',
+    fontSize: typography.base,
+    color: colors.textTertiary,
   },
   actionButtons: {
     flexDirection: 'row',
-    marginTop: 30,
-    gap: 16,
+    marginTop: spacing.xxxl,
+    gap: spacing.lg,
   },
   playButton: {
-    backgroundColor: '#E3F2FD',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
+    backgroundColor: colors.primaryLight,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    borderRadius: radius.lg,
   },
   playButtonText: {
-    fontSize: 14,
-    color: '#1565C0',
-    fontWeight: '600',
+    fontSize: typography.sm,
+    color: colors.primary,
+    fontWeight: typography.semibold,
   },
   retryButton: {
-    backgroundColor: '#FFF3E0',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
+    backgroundColor: colors.warningLight,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    borderRadius: radius.lg,
   },
   retryButtonText: {
-    fontSize: 14,
-    color: '#E65100',
-    fontWeight: '600',
+    fontSize: typography.sm,
+    color: colors.warning,
+    fontWeight: typography.semibold,
   },
   saveButton: {
-    marginTop: 30,
-    backgroundColor: '#4CAF50',
-    paddingVertical: 16,
-    paddingHorizontal: 40,
-    borderRadius: 8,
+    marginTop: spacing.xxxl,
+    backgroundColor: colors.success,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.xxxl + spacing.lg,
+    borderRadius: radius.lg,
   },
   saveButtonText: {
-    fontSize: 16,
-    color: '#fff',
-    fontWeight: 'bold',
+    fontSize: typography.base,
+    color: colors.textInverse,
+    fontWeight: typography.semibold,
   },
+
+  // Processing state
   processingContainer: {
     alignItems: 'center',
   },
   processingText: {
-    marginTop: 20,
-    fontSize: 16,
-    color: '#666',
+    marginTop: spacing.xl,
+    fontSize: typography.base,
+    color: colors.textSecondary,
   },
+
+  // Result state
   resultContainer: {
     alignItems: 'center',
     width: '100%',
   },
   successIcon: {
     fontSize: 64,
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   successText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#4CAF50',
-    marginBottom: 20,
+    fontSize: typography.xxl,
+    fontWeight: typography.bold,
+    color: colors.success,
+    marginBottom: spacing.xl,
   },
   resultBox: {
     width: '100%',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.sm,
   },
   resultLabel: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
+    fontSize: typography.sm,
+    fontWeight: typography.semibold,
+    color: colors.textPrimary,
+    marginBottom: spacing.sm,
   },
   resultText: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: typography.sm,
+    color: colors.textSecondary,
     lineHeight: 22,
   },
   doneButton: {
-    marginTop: 20,
-    backgroundColor: '#007AFF',
-    paddingVertical: 16,
-    paddingHorizontal: 60,
-    borderRadius: 8,
+    marginTop: spacing.xl,
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.xxxl * 2,
+    borderRadius: radius.lg,
   },
   doneButtonText: {
-    fontSize: 16,
-    color: '#fff',
-    fontWeight: 'bold',
+    fontSize: typography.base,
+    color: colors.textInverse,
+    fontWeight: typography.semibold,
   },
+
+  // Error state
   errorContainer: {
     alignItems: 'center',
   },
   errorIcon: {
     fontSize: 64,
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   errorText: {
-    fontSize: 16,
-    color: '#C62828',
+    fontSize: typography.base,
+    color: colors.error,
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: spacing.xl,
   },
 });

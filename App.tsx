@@ -5,7 +5,7 @@
  * - User authentication with session persistence
  * - Bottom Tab Navigation
  * - CallLog Scanner integration
- * - Notification handling
+ * - Notification handling (local notifications work in Expo Go, push requires dev build)
  * - Realtime sync
  */
 
@@ -139,7 +139,7 @@ const AppContent: React.FC = () => {
 
   // Show auth screen if not authenticated
   if (!session) {
-    return <AuthScreen onAuthSuccess={() => {}} />;
+    return <AuthScreen onAuthSuccess={() => { }} />;
   }
 
   // Show main app when authenticated

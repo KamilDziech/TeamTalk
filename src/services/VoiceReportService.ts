@@ -4,7 +4,7 @@
  * Handles voice note recording, upload, transcription and AI summarization.
  *
  * Workflow:
- * 1. Record audio using expo-av
+ * 1. Record audio using expo-audio
  * 2. Upload to Supabase Storage
  * 3. Transcribe using OpenAI Whisper API
  * 4. Summarize using Claude API
@@ -13,7 +13,8 @@
  * Phase 4 implementation
  */
 
-import { Audio } from 'expo-av';
+import { AudioModule, RecordingPresets, setAudioModeAsync, createAudioPlayer, requestRecordingPermissionsAsync } from 'expo-audio';
+import type { AudioPlayer, AudioRecorder, RecorderState } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
 import { supabase } from '@/api/supabaseClient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -87,27 +88,24 @@ const getOpenAIKey = () => Constants.expoConfig?.extra?.openaiApiKey || process.
 const getClaudeKey = () => Constants.expoConfig?.extra?.claudeApiKey || process.env.CLAUDE_API_KEY;
 
 export class VoiceReportService {
-  private recording: Audio.Recording | null = null;
-  private sound: Audio.Sound | null = null;
+  private recording: AudioRecorder | null = null;
+  private player: AudioPlayer | null = null;
 
   /**
    * Request microphone permissions
    */
   async requestPermissions(): Promise<boolean> {
     try {
-      const { status } = await Audio.requestPermissionsAsync();
+      const { status } = await requestRecordingPermissionsAsync();
       if (status !== 'granted') {
         console.warn('Microphone permission not granted');
         return false;
       }
 
       // Configure audio mode for recording
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: false,
-        shouldDuckAndroid: true,
-        playThroughEarpieceAndroid: false,
+      await setAudioModeAsync({
+        allowsRecording: true,
+        playsInSilentMode: true,
       });
 
       return true;
@@ -135,11 +133,11 @@ export class VoiceReportService {
 
       console.log('Starting recording...');
 
-      const { recording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
-      );
+      // Create new recorder with HIGH_QUALITY preset
+      this.recording = new AudioModule.AudioRecorder(RecordingPresets.HIGH_QUALITY);
+      await this.recording.prepareToRecordAsync();
+      this.recording.record();
 
-      this.recording = recording;
       console.log('Recording started');
       return true;
     } catch (error) {
@@ -159,14 +157,14 @@ export class VoiceReportService {
 
     try {
       console.log('Stopping recording...');
-      await this.recording.stopAndUnloadAsync();
+      await this.recording.stop();
 
       // Reset audio mode
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
+      await setAudioModeAsync({
+        allowsRecording: false,
       });
 
-      const uri = this.recording.getURI();
+      const uri = this.recording.uri;
       this.recording = null;
 
       console.log('Recording stopped, URI:', uri);
@@ -184,9 +182,9 @@ export class VoiceReportService {
   async cancelRecording(): Promise<void> {
     if (this.recording) {
       try {
-        await this.recording.stopAndUnloadAsync();
-        await Audio.setAudioModeAsync({
-          allowsRecordingIOS: false,
+        await this.recording.stop();
+        await setAudioModeAsync({
+          allowsRecording: false,
         });
       } catch (error) {
         console.error('Error canceling recording:', error);
@@ -198,11 +196,11 @@ export class VoiceReportService {
   /**
    * Get recording status
    */
-  async getRecordingStatus(): Promise<Audio.RecordingStatus | null> {
+  async getRecordingStatus(): Promise<any | null> {
     if (!this.recording) {
       return null;
     }
-    return this.recording.getStatusAsync();
+    return this.recording.getStatus();
   }
 
   /**
@@ -211,13 +209,13 @@ export class VoiceReportService {
   async playAudio(uri: string): Promise<void> {
     try {
       // Stop any existing playback
-      if (this.sound) {
-        await this.sound.unloadAsync();
+      if (this.player) {
+        this.player.remove();
       }
 
-      const { sound } = await Audio.Sound.createAsync({ uri });
-      this.sound = sound;
-      await sound.playAsync();
+      // Create player with the audio URI
+      this.player = createAudioPlayer({ uri }, { updateInterval: 100, keepAudioSessionActive: false });
+      this.player.play();
     } catch (error) {
       console.error('Error playing audio:', error);
     }
@@ -227,14 +225,14 @@ export class VoiceReportService {
    * Stop audio playback
    */
   async stopPlayback(): Promise<void> {
-    if (this.sound) {
+    if (this.player) {
       try {
-        await this.sound.stopAsync();
-        await this.sound.unloadAsync();
+        this.player.pause();
+        this.player.remove();
       } catch (error) {
         console.error('Error stopping playback:', error);
       }
-      this.sound = null;
+      this.player = null;
     }
   }
 

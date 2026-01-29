@@ -11,6 +11,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useClients } from '@/hooks/useClients';
 import type { Client } from '@/types';
 import type { ClientsStackParamList } from '@/navigation/ClientsStackNavigator';
+import { colors, spacing, radius, typography, shadows, commonStyles } from '@/styles/theme';
 
 type NavigationProp = NativeStackNavigationProp<ClientsStackParamList, 'ClientsList'>;
 
@@ -21,7 +22,7 @@ export const ClientsList: React.FC = () => {
   if (loading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingText}>Ładowanie klientów...</Text>
       </View>
     );
@@ -100,82 +101,61 @@ export const ClientsList: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
+  container: commonStyles.screen,
   centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#f5f5f5',
+    ...commonStyles.centered,
+    backgroundColor: colors.background,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#fff',
+    ...commonStyles.rowBetween,
+    padding: spacing.lg,
+    backgroundColor: colors.white,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: colors.border,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
+    ...commonStyles.heading,
   },
   refreshButton: {
-    fontSize: 16,
-    color: '#007AFF',
+    fontSize: typography.base,
+    color: colors.primary,
+    fontWeight: typography.medium,
   },
   loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#666',
+    marginTop: spacing.md,
+    fontSize: typography.base,
+    color: colors.textSecondary,
   },
   errorText: {
-    fontSize: 16,
-    color: '#FF3B30',
-    marginBottom: 16,
+    fontSize: typography.base,
+    color: colors.error,
+    marginBottom: spacing.md,
     textAlign: 'center',
   },
   emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#666',
-    marginBottom: 8,
+    ...commonStyles.emptyStateTitle,
   },
   emptySubtext: {
-    fontSize: 14,
-    color: '#999',
-    textAlign: 'center',
-    marginBottom: 16,
+    ...commonStyles.emptyStateText,
+    marginBottom: spacing.lg,
   },
   retryButton: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.xxl,
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
   },
   retryButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    color: colors.textInverse,
+    fontSize: typography.base,
+    fontWeight: typography.semibold,
   },
   listContent: {
-    padding: 16,
+    padding: spacing.lg,
   },
   clientCard: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    ...commonStyles.card,
+    marginBottom: spacing.md,
   },
   clientCardHeader: {
     flexDirection: 'row',
@@ -187,34 +167,34 @@ const styles = StyleSheet.create({
   },
   chevron: {
     fontSize: 24,
-    color: '#007AFF',
+    color: colors.primaryLight,
     fontWeight: '300',
   },
   clientName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    fontSize: typography.lg,
+    fontWeight: typography.bold,
+    color: colors.textPrimary,
     marginBottom: 4,
   },
   clientPhone: {
-    fontSize: 16,
-    color: '#007AFF',
-    marginBottom: 8,
+    fontSize: typography.sm,
+    color: colors.primary,
+    marginBottom: spacing.sm,
   },
   clientAddress: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: typography.sm,
+    color: colors.textSecondary,
     marginBottom: 4,
   },
   clientNotes: {
-    fontSize: 14,
-    color: '#999',
+    fontSize: typography.sm,
+    color: colors.textTertiary,
     fontStyle: 'italic',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   clientDate: {
-    fontSize: 12,
-    color: '#999',
+    fontSize: typography.xs,
+    color: colors.textTertiary,
     marginTop: 4,
   },
 });

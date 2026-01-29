@@ -1,4 +1,4 @@
-package com.ekotak.teamtalk
+package com.ekotak.teamtalk001
 
 import android.app.Application
 import android.content.res.Configuration

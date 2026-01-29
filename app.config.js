@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 module.exports = {
   expo: {
     name: "TeamTalk",
@@ -38,7 +40,7 @@ module.exports = {
         }
       ],
       [
-        "expo-av",
+        "expo-audio",
         {
           "microphonePermission": "Zezwól aplikacji TeamTalk na dostęp do mikrofonu, aby nagrywać notatki głosowe."
         }

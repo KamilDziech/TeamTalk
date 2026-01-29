@@ -24,6 +24,7 @@ import {
 import { supabase } from '@/api/supabaseClient';
 import { callLogScanner } from '@/services/CallLogScanner';
 import { useAuth } from '@/contexts/AuthContext';
+import { colors, spacing, radius, typography, shadows, commonStyles } from '@/styles/theme';
 import type { CallLog, Client, Profile } from '@/types';
 
 interface CallLogWithClient extends CallLog {
@@ -273,10 +274,10 @@ export const CallLogsList: React.FC = () => {
 
   const getStatusColor = (callLog: CallLogWithClient) => {
     if (callLog.status === 'completed') {
-      return callLog.hasVoiceReport ? '#4CAF50' : '#FF9800'; // Green or Orange (bez notatki)
+      return callLog.hasVoiceReport ? colors.success : colors.warning;
     }
-    if (callLog.status === 'reserved') return '#2196F3'; // Blue (w trakcie)
-    return '#F44336'; // Red (missed - do obsłużenia)
+    if (callLog.status === 'reserved') return colors.primary;
+    return colors.error;
   };
 
   const getStatusText = (callLog: CallLogWithClient) => {
@@ -517,7 +518,7 @@ export const CallLogsList: React.FC = () => {
   if (loading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingText}>Ładowanie połączeń...</Text>
       </View>
     );
@@ -601,252 +602,256 @@ export const CallLogsList: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
+  // Layout
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#f5f5f5',
+    padding: spacing.xl,
+    backgroundColor: colors.background,
   },
   loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#666',
-  },
-  emptyText: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#666',
-    marginBottom: 8,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#999',
-    textAlign: 'center',
+    marginTop: spacing.md,
+    fontSize: typography.base,
+    color: colors.textSecondary,
   },
   listContent: {
-    padding: 16,
+    padding: spacing.lg,
   },
+
+  // Cards - Modern SaaS style
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    padding: spacing.xl,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
     borderLeftWidth: 4,
+    ...shadows.sm,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   clientInfo: {
     flex: 1,
   },
   clientName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
+    fontSize: typography.lg,
+    fontWeight: typography.semibold,
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
   },
   clientPhone: {
-    fontSize: 14,
-    color: '#007AFF',
+    fontSize: typography.sm,
+    color: colors.primary,
+    fontWeight: typography.medium,
   },
   statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    marginLeft: 8,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.full,
+    marginLeft: spacing.sm,
+    fontSize: typography.xs,
+    color: colors.textInverse,
+    fontWeight: typography.medium,
+    overflow: 'hidden',
   },
+
+  // Alert boxes
   alertBox: {
-    backgroundColor: '#FFEBEE',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: '#F44336',
+    backgroundColor: colors.errorLight,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
   },
   alertText: {
-    color: '#C62828',
-    fontSize: 14,
-    fontWeight: 'bold',
+    color: colors.error,
+    fontSize: typography.sm,
+    fontWeight: typography.semibold,
   },
   noteInfoBox: {
-    backgroundColor: '#E3F2FD',
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: '#2196F3',
+    backgroundColor: colors.infoLight,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
   },
   noteInfoText: {
-    color: '#1565C0',
-    fontSize: 13,
-    fontWeight: '500',
+    color: colors.info,
+    fontSize: typography.sm,
+    fontWeight: typography.medium,
   },
   noteBox: {
-    backgroundColor: '#E8F5E9',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: '#4CAF50',
+    backgroundColor: colors.successLight,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
   },
   noteLabel: {
-    color: '#2E7D32',
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginBottom: 4,
+    color: colors.success,
+    fontSize: typography.sm,
+    fontWeight: typography.semibold,
+    marginBottom: spacing.xs,
   },
   noteText: {
-    color: '#388E3C',
-    fontSize: 13,
+    color: colors.success,
+    fontSize: typography.sm,
   },
   multiCallAlert: {
-    backgroundColor: '#FFF3E0',
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: '#FF9800',
+    backgroundColor: colors.warningLight,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
   },
   multiCallText: {
-    color: '#E65100',
-    fontSize: 14,
-    fontWeight: 'bold',
+    color: colors.warning,
+    fontSize: typography.sm,
+    fontWeight: typography.semibold,
   },
+
+  // Card details
   cardDetails: {
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   detailText: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
+    fontSize: typography.sm,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+    lineHeight: 20,
   },
+
+  // Actions and Buttons
   actions: {
     flexDirection: 'row',
-    gap: 8,
+    gap: spacing.sm,
   },
   reservedActions: {
     flex: 1,
     flexDirection: 'row',
-    gap: 8,
+    gap: spacing.sm,
     flexWrap: 'wrap',
   },
   button: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingVertical: spacing.md,
+    borderRadius: radius.lg,
     alignItems: 'center',
     minWidth: 80,
   },
   smallButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 6,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
     alignItems: 'center',
   },
   reserveButton: {
-    backgroundColor: '#FFC107',
+    backgroundColor: colors.warning,
   },
   callButton: {
-    backgroundColor: '#2196F3',
+    backgroundColor: colors.primary,
   },
   completeButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: colors.success,
   },
   releaseButton: {
-    backgroundColor: '#9E9E9E',
+    backgroundColor: colors.textTertiary,
   },
   noteButton: {
-    backgroundColor: '#FF5722',
+    backgroundColor: colors.error,
   },
   smallButtonText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
+    color: colors.textInverse,
+    fontSize: typography.xs,
+    fontWeight: typography.semibold,
   },
   buttonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: 'bold',
+    color: colors.textInverse,
+    fontSize: typography.sm,
+    fontWeight: typography.semibold,
   },
-  // Nowe style dla synchronizacji
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
+
+  // Sync status bar
   syncStatusBar: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
   syncSpinner: {
-    marginRight: 8,
+    marginRight: spacing.sm,
   },
   syncStatusText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
+    color: colors.textInverse,
+    fontSize: typography.sm,
+    fontWeight: typography.medium,
   },
+
+  // Empty state
   emptyListContent: {
     flexGrow: 1,
     justifyContent: 'center',
   },
   emptyContainer: {
-    alignItems: 'center',
-    padding: 20,
+    ...commonStyles.emptyState,
+  },
+  emptyText: {
+    ...commonStyles.emptyStateTitle,
+  },
+  emptySubtext: {
+    ...commonStyles.emptyStateText,
+    marginBottom: spacing.lg,
   },
   pullHint: {
-    marginTop: 16,
-    fontSize: 12,
-    color: '#999',
+    marginTop: spacing.lg,
+    fontSize: typography.xs,
+    color: colors.textTertiary,
     fontStyle: 'italic',
   },
-  // Style dla przycisków testowych
+
+  // Footer buttons
   footerContainer: {
-    paddingVertical: 20,
-    paddingHorizontal: 16,
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.lg,
     borderTopWidth: 1,
-    borderTopColor: '#eee',
-    marginTop: 16,
-    gap: 12,
+    borderTopColor: colors.border,
+    marginTop: spacing.lg,
+    gap: spacing.md,
   },
   fullRescanButton: {
-    backgroundColor: '#E3F2FD',
-    padding: 16,
-    borderRadius: 8,
+    backgroundColor: colors.infoLight,
+    padding: spacing.lg,
+    borderRadius: radius.lg,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#2196F3',
+    borderColor: colors.info,
     borderStyle: 'dashed',
   },
   fullRescanButtonText: {
-    color: '#1565C0',
-    fontSize: 14,
-    fontWeight: '600',
+    color: colors.info,
+    fontSize: typography.sm,
+    fontWeight: typography.semibold,
   },
   clearQueueButton: {
-    backgroundColor: '#FFEBEE',
-    padding: 16,
-    borderRadius: 8,
+    backgroundColor: colors.errorLight,
+    padding: spacing.lg,
+    borderRadius: radius.lg,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#F44336',
+    borderColor: colors.error,
     borderStyle: 'dashed',
   },
   clearQueueButtonText: {
-    color: '#C62828',
-    fontSize: 14,
-    fontWeight: '600',
+    color: colors.error,
+    fontSize: typography.sm,
+    fontWeight: typography.semibold,
   },
 });

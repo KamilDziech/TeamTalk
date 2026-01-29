@@ -23,6 +23,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/api/supabaseClient';
 import { voiceReportService } from '@/services/VoiceReportService';
+import { colors, spacing, radius, typography, shadows, commonStyles } from '@/styles/theme';
 import type { CallLog, Client, VoiceReport, Profile } from '@/types';
 
 interface HistoryItem {
@@ -341,7 +342,7 @@ export const HistoryScreen: React.FC = () => {
     return (
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
+          <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Ładowanie historii...</Text>
         </View>
       </SafeAreaView>
@@ -401,9 +402,10 @@ export const HistoryScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
+  // Layout
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.background,
   },
   loadingContainer: {
     flex: 1,
@@ -411,200 +413,198 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#666',
+    marginTop: spacing.md,
+    fontSize: typography.base,
+    color: colors.textSecondary,
   },
+
+  // Search
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    margin: 12,
+    backgroundColor: colors.surface,
+    margin: spacing.lg,
     marginBottom: 0,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.sm,
   },
   searchInput: {
     flex: 1,
-    height: 44,
-    fontSize: 16,
-    color: '#333',
+    height: 48,
+    fontSize: typography.base,
+    color: colors.textPrimary,
   },
   clearButton: {
-    padding: 8,
+    padding: spacing.sm,
   },
   clearButtonText: {
-    fontSize: 18,
-    color: '#999',
+    fontSize: typography.lg,
+    color: colors.textTertiary,
   },
   resultsCount: {
-    fontSize: 13,
-    color: '#666',
-    marginHorizontal: 16,
-    marginVertical: 8,
+    fontSize: typography.sm,
+    color: colors.textSecondary,
+    marginHorizontal: spacing.lg,
+    marginVertical: spacing.sm,
   },
   listContent: {
-    paddingHorizontal: 12,
-    paddingBottom: 20,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xl,
   },
+
+  // Cards - Compact modern style
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.sm,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 12,
-    paddingBottom: 12,
+    marginBottom: spacing.md,
+    paddingBottom: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: colors.borderLight,
   },
   clientInfo: {
     flex: 1,
   },
   clientName: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
+    fontSize: typography.lg,
+    fontWeight: typography.semibold,
+    color: colors.textPrimary,
   },
   phone: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 2,
+    fontSize: typography.sm,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
   },
   dateInfo: {
     alignItems: 'flex-end',
   },
   date: {
-    fontSize: 13,
-    color: '#666',
+    fontSize: typography.sm,
+    color: colors.textSecondary,
   },
   handledBy: {
-    fontSize: 12,
-    color: '#999',
-    marginTop: 2,
+    fontSize: typography.xs,
+    color: colors.textTertiary,
+    marginTop: spacing.xs,
   },
+
+  // Summary section
   summarySection: {
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   sectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#007AFF',
-    marginBottom: 8,
+    fontSize: typography.sm,
+    fontWeight: typography.semibold,
+    color: colors.primary,
+    marginBottom: spacing.sm,
   },
   summaryContainer: {
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
-    padding: 12,
+    backgroundColor: colors.background,
+    borderRadius: radius.md,
+    padding: spacing.md,
   },
   summaryHeader: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 6,
-    marginTop: 4,
+    fontSize: typography.sm,
+    fontWeight: typography.semibold,
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
+    marginTop: spacing.xs,
   },
   summaryText: {
-    fontSize: 14,
-    color: '#444',
+    fontSize: typography.sm,
+    color: colors.textSecondary,
     lineHeight: 20,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   bulletRow: {
     flexDirection: 'row',
-    marginBottom: 4,
-    paddingLeft: 4,
+    marginBottom: spacing.xs,
+    paddingLeft: spacing.xs,
   },
   bullet: {
-    fontSize: 14,
-    color: '#007AFF',
-    marginRight: 8,
+    fontSize: typography.sm,
+    color: colors.primary,
+    marginRight: spacing.sm,
     lineHeight: 20,
   },
   bulletText: {
     flex: 1,
-    fontSize: 14,
-    color: '#444',
+    fontSize: typography.sm,
+    color: colors.textSecondary,
     lineHeight: 20,
   },
+
+  // Action buttons
   actions: {
     flexDirection: 'row',
-    gap: 10,
+    gap: spacing.sm,
   },
   actionButton: {
     flex: 1,
-    backgroundColor: '#007AFF',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.lg,
     alignItems: 'center',
   },
   actionButtonActive: {
-    backgroundColor: '#FF3B30',
+    backgroundColor: colors.error,
   },
   actionButtonSecondary: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#007AFF',
+    borderColor: colors.primary,
   },
   actionButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
+    color: colors.textInverse,
+    fontSize: typography.sm,
+    fontWeight: typography.semibold,
   },
   actionButtonTextSecondary: {
-    color: '#007AFF',
-    fontSize: 14,
-    fontWeight: '600',
+    color: colors.primary,
+    fontSize: typography.sm,
+    fontWeight: typography.semibold,
   },
+
+  // Transcription section
   transcriptionSection: {
-    marginTop: 12,
-    paddingTop: 12,
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
     borderTopWidth: 1,
-    borderTopColor: '#eee',
+    borderTopColor: colors.borderLight,
   },
   transcriptionText: {
-    fontSize: 14,
-    color: '#444',
+    fontSize: typography.sm,
+    color: colors.textSecondary,
     lineHeight: 22,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
-    padding: 12,
+    backgroundColor: colors.background,
+    borderRadius: radius.md,
+    padding: spacing.md,
   },
+
+  // Empty state
   emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 60,
-    paddingHorizontal: 40,
+    ...commonStyles.emptyState,
+    paddingVertical: spacing.xxxl * 2,
   },
   emptyIcon: {
-    fontSize: 48,
-    marginBottom: 16,
+    ...commonStyles.emptyStateIcon,
   },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
+    ...commonStyles.emptyStateTitle,
   },
   emptyText: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-    lineHeight: 20,
+    ...commonStyles.emptyStateText,
   },
 });
