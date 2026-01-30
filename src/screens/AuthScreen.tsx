@@ -24,6 +24,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { signIn, signUp } from '@/api/supabaseClient';
+import { colors, spacing, borderRadius, typography, shadows } from '@/styles/theme';
 
 interface AuthScreenProps {
   onAuthSuccess: () => void;
@@ -241,9 +242,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
 };
 
 const styles = StyleSheet.create({
+  // Layout
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.background,
   },
   keyboardView: {
     flex: 1,
@@ -251,94 +253,100 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    padding: 24,
+    padding: spacing.xxl,
   },
+
+  // Header
   header: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: spacing.xxxl + spacing.sm,
   },
   logo: {
     fontSize: 64,
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   title: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#333',
-    marginBottom: 8,
+    fontSize: typography.xxxl,
+    fontWeight: typography.bold,
+    color: colors.textPrimary,
+    marginBottom: spacing.sm,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#666',
+    fontSize: typography.base,
+    color: colors.textSecondary,
   },
+
+  // Form card
   form: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xxl,
+    padding: spacing.xxl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.md,
   },
   inputContainer: {
-    marginBottom: 20,
+    marginBottom: spacing.xl,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
+    fontSize: typography.sm,
+    fontWeight: typography.semibold,
+    color: colors.textPrimary,
+    marginBottom: spacing.sm,
   },
   input: {
     height: 50,
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    color: '#333',
-    backgroundColor: '#fafafa',
+    borderColor: colors.border,
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.lg,
+    fontSize: typography.base,
+    color: colors.textPrimary,
+    backgroundColor: colors.background,
   },
   inputError: {
-    borderColor: '#F44336',
-    backgroundColor: '#FFF5F5',
+    borderColor: colors.error,
+    backgroundColor: colors.errorLight,
   },
   errorText: {
-    color: '#F44336',
-    fontSize: 12,
-    marginTop: 4,
+    color: colors.error,
+    fontSize: typography.xs,
+    marginTop: spacing.xs,
   },
+
+  // Submit button
   submitButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: colors.primary,
     height: 50,
-    borderRadius: 10,
+    borderRadius: borderRadius.lg,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: spacing.sm,
   },
   submitButtonDisabled: {
-    backgroundColor: '#99c9ff',
+    backgroundColor: colors.primaryLight,
   },
   submitButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    color: colors.textInverse,
+    fontSize: typography.base,
+    fontWeight: typography.semibold,
   },
+
+  // Toggle mode
   toggleContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 24,
-    gap: 4,
+    marginTop: spacing.xxl,
+    gap: spacing.xs,
   },
   toggleText: {
-    color: '#666',
-    fontSize: 14,
+    color: colors.textSecondary,
+    fontSize: typography.sm,
   },
   toggleLink: {
-    color: '#007AFF',
-    fontSize: 14,
-    fontWeight: '600',
+    color: colors.primary,
+    fontSize: typography.sm,
+    fontWeight: typography.semibold,
   },
 });

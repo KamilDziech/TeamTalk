@@ -29,6 +29,8 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
@@ -129,6 +131,7 @@ const AppContent: React.FC = () => {
 
   // Show loading screen while checking auth state
   if (loading) {
+    console.log('🔄 AppContent: Still loading...');
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#007AFF" />
@@ -139,7 +142,7 @@ const AppContent: React.FC = () => {
 
   // Show auth screen if not authenticated
   if (!session) {
-    return <AuthScreen onAuthSuccess={() => { }} />;
+    return <AuthScreen onAuthSuccess={() => {}} />;
   }
 
   // Show main app when authenticated

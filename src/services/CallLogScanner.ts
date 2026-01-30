@@ -79,12 +79,17 @@ export class CallLogScanner {
     // Reset timestamp do 7 dni wstecz
     this.lastScanTimestamp = Date.now() - 7 * 24 * 60 * 60 * 1000;
     this.initialized = true;
+    this.skipDuplicateCheck = true; // Skip duplicate check for full rescan
 
     // Wykonaj skanowanie
     await this.scanMissedCalls();
 
+    this.skipDuplicateCheck = false;
     console.log('✅ Full rescan completed');
   }
+
+  // Flag to skip duplicate check during full rescan
+  private skipDuplicateCheck = false;
 
   /**
    * Zapisz lastScanTimestamp do AsyncStorage
@@ -199,23 +204,23 @@ export class CallLogScanner {
         }
 
         // Sprawdź czy to połączenie jest nowsze niż ostatni skan
-        // (dodatkowe zabezpieczenie przed duplikatami)
-        if (callDate.getTime() <= this.lastScanTimestamp) {
+        // (dodatkowe zabezpieczenie przed duplikatami - pomijane przy pełnym skanowaniu)
+        if (!this.skipDuplicateCheck && callDate.getTime() <= this.lastScanTimestamp) {
           console.log(`⏭️ Skipping old call from ${client.name} (${callDate.toLocaleString()})`);
           continue;
         }
 
-        // Sprawdź czy istnieje połączenie od tego klienta w ciągu ostatnich 2 minut
-        // (zapobiega duplikatom z różnic w formatowaniu timestamp)
-        const twoMinutesAgo = new Date(callDate.getTime() - 2 * 60 * 1000).toISOString();
-        const twoMinutesAfter = new Date(callDate.getTime() + 2 * 60 * 1000).toISOString();
+        // Sprawdź duplikaty - podczas pełnego skanowania sprawdź dokładny timestamp
+        const duplicateWindow = this.skipDuplicateCheck ? 5 : 30; // 5 sekund dla full rescan, 30 dla normalnego
+        const windowStart = new Date(callDate.getTime() - duplicateWindow * 1000).toISOString();
+        const windowEnd = new Date(callDate.getTime() + duplicateWindow * 1000).toISOString();
 
         const { data: existingLogs } = await supabase
           .from('call_logs')
           .select('id, timestamp')
           .eq('client_id', client.id)
-          .gte('timestamp', twoMinutesAgo)
-          .lte('timestamp', twoMinutesAfter);
+          .gte('timestamp', windowStart)
+          .lte('timestamp', windowEnd);
 
         // Skip if similar call already exists
         if (existingLogs && existingLogs.length > 0) {

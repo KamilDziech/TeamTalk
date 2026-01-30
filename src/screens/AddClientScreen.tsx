@@ -25,7 +25,6 @@ import {
 } from 'react-native';
 import * as Contacts from 'expo-contacts';
 import { supabase } from '@/api/supabaseClient';
-import { colors, spacing, radius, typography, shadows, commonStyles } from '@/styles/theme';
 
 interface ClientItem {
   id: string;
@@ -456,7 +455,7 @@ export const AddClientScreen: React.FC<{ onClientAdded?: () => void }> = ({
           disabled={contactsLoading}
         >
           {contactsLoading ? (
-            <ActivityIndicator color={colors.textInverse} size="small" />
+            <ActivityIndicator color="#fff" size="small" />
           ) : (
             <>
               <Text style={styles.contactsButtonIcon}>📇</Text>
@@ -493,7 +492,7 @@ export const AddClientScreen: React.FC<{ onClientAdded?: () => void }> = ({
               disabled={quickAddLoading || !phone.trim()}
             >
               {quickAddLoading ? (
-                <ActivityIndicator color={colors.primary} size="small" />
+                <ActivityIndicator color="#007AFF" size="small" />
               ) : (
                 <Text style={styles.quickAddButtonText}>
                   ⚡ Szybkie dodanie (tylko numer)
@@ -552,7 +551,7 @@ export const AddClientScreen: React.FC<{ onClientAdded?: () => void }> = ({
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color={colors.textInverse} />
+              <ActivityIndicator color="#fff" />
             ) : (
               <Text style={styles.submitButtonText}>Dodaj klienta</Text>
             )}
@@ -581,7 +580,7 @@ export const AddClientScreen: React.FC<{ onClientAdded?: () => void }> = ({
           {showClientsList && (
             <View style={styles.clientsListContainer}>
               {clientsLoading ? (
-                <ActivityIndicator size="small" color={colors.primary} style={styles.clientsLoader} />
+                <ActivityIndicator size="small" color="#007AFF" style={styles.clientsLoader} />
               ) : clients.length === 0 ? (
                 <Text style={styles.noClientsText}>Brak klientów w bazie</Text>
               ) : (
@@ -663,119 +662,149 @@ export const AddClientScreen: React.FC<{ onClientAdded?: () => void }> = ({
 };
 
 const styles = StyleSheet.create({
-  container: commonStyles.screen,
+  container: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
   scrollContent: {
-    padding: spacing.lg,
+    padding: 16,
   },
   header: {
-    marginBottom: spacing.xxl,
+    marginBottom: 24,
   },
   title: {
-    ...commonStyles.heading,
-    marginBottom: spacing.sm,
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
   },
   subtitle: {
-    fontSize: typography.base,
-    color: colors.textSecondary,
+    fontSize: 16,
+    color: '#666',
   },
   form: {
-    ...commonStyles.card,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   fieldContainer: {
-    marginBottom: spacing.xl,
+    marginBottom: 20,
   },
   label: {
-    ...commonStyles.label,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
   },
   required: {
-    color: colors.error,
+    color: '#FF3B30',
   },
   input: {
-    ...commonStyles.input,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: '#fff',
   },
   textArea: {
     minHeight: 80,
     textAlignVertical: 'top',
-    paddingTop: spacing.md,
   },
   hint: {
-    ...commonStyles.caption,
-    marginTop: spacing.xs,
+    fontSize: 12,
+    color: '#999',
+    marginTop: 4,
   },
   quickAddButton: {
-    backgroundColor: colors.primaryLight,
-    padding: spacing.md,
-    borderRadius: radius.lg,
+    backgroundColor: '#E3F2FD',
+    padding: 12,
+    borderRadius: 8,
     alignItems: 'center',
-    marginTop: spacing.md,
+    marginTop: 12,
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: '#007AFF',
+
   },
   quickAddButtonDisabled: {
     opacity: 0.5,
   },
   quickAddButtonText: {
-    color: colors.primary,
-    fontSize: typography.sm,
-    fontWeight: typography.bold,
+    color: '#007AFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
   submitButton: {
-    ...commonStyles.buttonPrimary,
-    marginTop: spacing.sm,
+    backgroundColor: '#007AFF',
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 8,
   },
   submitButtonDisabled: {
-    backgroundColor: colors.textTertiary,
+    backgroundColor: '#999',
   },
   submitButtonText: {
-    ...commonStyles.buttonPrimaryText,
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
   infoBox: {
-    backgroundColor: colors.infoLight,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    marginTop: spacing.lg,
+    backgroundColor: '#E3F2FD',
+    borderRadius: 8,
+    padding: 16,
+    marginTop: 16,
     borderLeftWidth: 4,
-    borderLeftColor: colors.info,
+    borderLeftColor: '#2196F3',
   },
   infoTitle: {
-    fontSize: typography.base,
-    fontWeight: typography.bold,
-    color: colors.info,
-    marginBottom: spacing.sm,
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1976D2',
+    marginBottom: 8,
   },
   infoText: {
-    fontSize: typography.sm,
-    color: colors.textSecondary,
+    fontSize: 14,
+    color: '#555',
     lineHeight: 20,
   },
   // Style dla wyboru z kontaktów
   contactsButton: {
-    backgroundColor: colors.success,
-    padding: spacing.lg,
-    borderRadius: radius.xl,
+    backgroundColor: '#4CAF50',
+    padding: 16,
+    borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.md,
-    ...shadows.sm,
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   contactsButtonDisabled: {
     opacity: 0.7,
   },
   contactsButtonIcon: {
     fontSize: 24,
-    marginRight: spacing.sm,
+    marginRight: 10,
   },
   contactsButtonText: {
-    color: colors.textInverse,
-    fontSize: typography.base,
-    fontWeight: typography.semibold,
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   orDivider: {
     textAlign: 'center',
-    color: colors.textTertiary,
-    fontSize: typography.sm,
-    marginVertical: spacing.lg,
+    color: '#999',
+    fontSize: 14,
+    marginVertical: 16,
   },
   // Style dla modalu wyboru numeru
   modalOverlay: {
@@ -784,134 +813,142 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: colors.white,
-    borderTopLeftRadius: radius.xxl,
-    borderTopRightRadius: radius.xxl,
-    padding: spacing.xl,
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
     maxHeight: '60%',
   },
   modalTitle: {
-    fontSize: typography.xl,
-    fontWeight: typography.bold,
-    color: colors.textPrimary,
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
     textAlign: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: 8,
   },
   modalSubtitle: {
-    fontSize: typography.base,
-    color: colors.textSecondary,
+    fontSize: 14,
+    color: '#666',
     textAlign: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: 16,
   },
   phoneNumbersList: {
     maxHeight: 250,
   },
   phoneNumberItem: {
-    backgroundColor: colors.background,
-    padding: spacing.lg,
-    borderRadius: radius.lg,
-    marginBottom: spacing.md,
+    backgroundColor: '#f5f5f5',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 10,
   },
   phoneNumberLabel: {
-    fontSize: typography.xs,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4,
     textTransform: 'uppercase',
   },
   phoneNumberValue: {
-    fontSize: typography.lg,
-    fontWeight: typography.semibold,
-    color: colors.primary,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#007AFF',
   },
   modalCancelButton: {
-    padding: spacing.lg,
+    padding: 16,
     alignItems: 'center',
-    marginTop: spacing.sm,
+    marginTop: 8,
   },
   modalCancelText: {
-    fontSize: typography.base,
-    color: colors.textSecondary,
+    fontSize: 16,
+    color: '#666',
   },
   // Style dla sekcji zarządzania klientami
   clientsSection: {
-    marginTop: spacing.xxl,
-    marginBottom: spacing.xxxl,
+    marginTop: 24,
+    marginBottom: 32,
   },
   toggleClientsButton: {
-    backgroundColor: colors.surface,
-    padding: spacing.lg,
-    borderRadius: radius.lg,
-    ...shadows.sm,
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   toggleClientsButtonText: {
-    fontSize: typography.base,
-    fontWeight: typography.semibold,
-    color: colors.textPrimary,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
   },
   clientsListContainer: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    marginTop: spacing.sm,
-    padding: spacing.md,
-    ...shadows.sm,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    marginTop: 8,
+    padding: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   clientsLoader: {
-    padding: spacing.xl,
+    padding: 20,
   },
   noClientsText: {
     textAlign: 'center',
-    color: colors.textTertiary,
-    fontSize: typography.base,
-    padding: spacing.xl,
+    color: '#999',
+    fontSize: 14,
+    padding: 20,
   },
   clientItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: spacing.md,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
+    borderBottomColor: '#eee',
   },
   clientItemInfo: {
     flex: 1,
   },
   clientItemName: {
-    fontSize: typography.base,
-    fontWeight: typography.semibold,
-    color: colors.textPrimary,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
   },
   clientItemPhone: {
-    fontSize: typography.sm,
-    color: colors.primary,
-    marginTop: spacing.xs,
+    fontSize: 14,
+    color: '#007AFF',
+    marginTop: 2,
   },
   clientItemAddress: {
-    fontSize: typography.xs,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
+    fontSize: 12,
+    color: '#999',
+    marginTop: 2,
   },
   deleteClientButton: {
-    backgroundColor: colors.errorLight,
-    padding: spacing.md,
-    borderRadius: radius.md,
-    marginLeft: spacing.md,
+    backgroundColor: '#FFEBEE',
+    padding: 12,
+    borderRadius: 8,
+    marginLeft: 12,
   },
   deleteClientButtonText: {
     fontSize: 18,
   },
   deleteAllButton: {
-    backgroundColor: colors.errorLight,
-    padding: spacing.lg,
-    borderRadius: radius.lg,
+    backgroundColor: '#FFEBEE',
+    padding: 16,
+    borderRadius: 8,
     alignItems: 'center',
-    marginTop: spacing.lg,
+    marginTop: 16,
     borderWidth: 1,
-    borderColor: colors.error,
-    borderStyle: 'dashed',
+    borderColor: '#F44336',
+
   },
   deleteAllButtonText: {
-    color: colors.error,
-    fontSize: typography.sm,
-    fontWeight: typography.semibold,
+    color: '#C62828',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

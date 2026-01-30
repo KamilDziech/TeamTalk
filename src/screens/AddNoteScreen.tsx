@@ -27,6 +27,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '@/api/supabaseClient';
 import { VoiceRecordingScreen } from './VoiceRecordingScreen';
+import { colors, spacing, radius, typography, shadows, commonStyles } from '@/styles/theme';
 import type { CallLog, Client } from '@/types';
 
 interface CallLogWithClient extends CallLog {
@@ -208,7 +209,7 @@ export const AddNoteScreen: React.FC = () => {
   if (loading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingText}>Ładowanie połączeń...</Text>
       </View>
     );
@@ -274,152 +275,160 @@ export const AddNoteScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
+  // Layout
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.background,
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#f5f5f5',
+    padding: spacing.xl,
+    backgroundColor: colors.background,
   },
   loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#666',
+    marginTop: spacing.md,
+    fontSize: typography.base,
+    color: colors.textSecondary,
   },
+
+  // Header - Light theme with subtle warning
   header: {
-    backgroundColor: '#F44336',
-    padding: 16,
-    paddingTop: 8,
+    backgroundColor: colors.white,
+    padding: spacing.lg,
+    paddingTop: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 4,
+    fontSize: typography.lg,
+    fontWeight: typography.semibold,
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
   },
   headerSubtitle: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.9)',
+    fontSize: typography.sm,
+    color: colors.textSecondary,
   },
+
+  // List
   listHeader: {
-    paddingBottom: 8,
+    paddingBottom: spacing.sm,
   },
   listHeaderText: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '500',
+    fontSize: typography.sm,
+    color: colors.error,
+    fontWeight: typography.medium,
   },
   listContent: {
-    padding: 16,
+    padding: spacing.lg,
   },
+
+  // Cards
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
     borderLeftWidth: 4,
-    borderLeftColor: '#F44336',
+    borderLeftColor: colors.error,
+    ...shadows.sm,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   clientInfo: {
     flex: 1,
   },
   clientName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 2,
+    fontSize: typography.lg,
+    fontWeight: typography.semibold,
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
   },
   clientPhone: {
-    fontSize: 14,
-    color: '#007AFF',
+    fontSize: typography.sm,
+    color: colors.primary,
   },
   cardDetails: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   timestamp: {
-    fontSize: 13,
-    color: '#666',
+    fontSize: typography.sm,
+    color: colors.textSecondary,
   },
   callType: {
-    fontSize: 13,
-    color: '#666',
-    fontWeight: '500',
+    fontSize: typography.sm,
+    color: colors.textSecondary,
+    fontWeight: typography.medium,
   },
+
+  // Alert badge
   requiresNoteAlert: {
-    backgroundColor: '#FFEBEE',
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 12,
+    backgroundColor: colors.errorLight,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
     alignItems: 'center',
   },
   requiresNoteText: {
-    color: '#C62828',
-    fontSize: 14,
-    fontWeight: 'bold',
+    color: colors.error,
+    fontSize: typography.sm,
+    fontWeight: typography.semibold,
   },
+
+  // Action buttons
   cardActions: {
     flexDirection: 'row',
-    gap: 10,
+    gap: spacing.sm,
   },
   recordButton: {
     flex: 1,
-    backgroundColor: '#F44336',
-    borderRadius: 8,
-    padding: 14,
+    backgroundColor: colors.error,
+    borderRadius: radius.lg,
+    padding: spacing.md,
     alignItems: 'center',
   },
   recordButtonText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: 'bold',
+    color: colors.textInverse,
+    fontSize: typography.base,
+    fontWeight: typography.semibold,
   },
   skipButton: {
-    backgroundColor: '#9E9E9E',
-    borderRadius: 8,
-    padding: 14,
+    backgroundColor: colors.textTertiary,
+    borderRadius: radius.lg,
+    padding: spacing.md,
     alignItems: 'center',
     minWidth: 80,
   },
   skipButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
+    color: colors.textInverse,
+    fontSize: typography.sm,
+    fontWeight: typography.semibold,
   },
+
+  // Empty state
   emptyContainer: {
+    ...commonStyles.emptyState,
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
   },
   emptyIcon: {
-    fontSize: 64,
-    marginBottom: 16,
+    ...commonStyles.emptyStateIcon,
   },
   emptyText: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#4CAF50',
-    marginBottom: 8,
+    fontSize: typography.xl,
+    fontWeight: typography.semibold,
+    color: colors.success,
+    marginBottom: spacing.sm,
   },
   emptySubtext: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
+    ...commonStyles.emptyStateText,
   },
 });

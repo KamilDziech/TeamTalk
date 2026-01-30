@@ -50,6 +50,7 @@ const LogoutButton: React.FC = () => {
 };
 
 export const AppNavigator: React.FC = () => {
+  console.log('🧭 AppNavigator: Rendering Tab.Navigator');
   return (
     <Tab.Navigator
       screenOptions={{

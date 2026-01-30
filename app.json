@@ -14,9 +14,6 @@
     "assetBundlePatterns": [
       "**/*"
     ],
-    "ios": {
-      "supportsTablet": true
-    },
     "android": {
       "package": "com.ekotak.teamtalk001",
       "adaptiveIcon": {
@@ -30,12 +27,6 @@
       ],
       "googleServicesFile": "./google-services.json"
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
-    "plugins": [
-      "expo-router"
-    ],
     "scheme": "teamtalk",
     "extra": {
       "eas": {

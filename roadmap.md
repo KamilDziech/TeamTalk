@@ -244,6 +244,33 @@ CLAUDE_API_KEY=sk-ant-xxx
 
 ---
 
+## Faza 7: Accordion i SLA Alert ✅ UKOŃCZONA
+
+### 7.1 Lista Nieodebranych Prób (Accordion) ✅
+- [x] Rozwijane karty w kolejce (przycisk "Pokaż X prób").
+- [x] Lista wszystkich prób kontaktu w rozwiniętym widoku.
+- [x] Wyświetlanie tylko aktywnych prób (missed/reserved) - obsłużone znikają.
+- [x] Dla każdej próby:
+  - [x] 🕒 Godzina (HH:mm) i data.
+  - [x] ⏳ Czas jaki upłynął od próby (np. "2h 15m temu").
+  - [x] 👤 Kto zarezerwował (jeśli dotyczy).
+- [x] Animacja rozwijania/zwijania (LayoutAnimation).
+
+### 7.2 Alert SLA (Czas Oczekiwania > 1h) ✅
+- [x] Punkt odniesienia: najstarsza aktywna próba w grupie.
+- [x] Czerwony baner z czasem oczekiwania gdy > 1 godziny.
+- [x] Ikona ❗ przy nazwie klienta (widoczna w zwiniętej karcie).
+- [x] Format: "Czeka: Xh Ym" w kolorze `colors.error`.
+
+### 7.3 Standaryzacja Stylów ✅
+- [x] Plik `src/styles/theme.ts` z definicjami kolorów.
+- [x] Użycie `colors.error`, `colors.slaAlert` dla alertów.
+- [x] Spójne style dla całej aplikacji.
+
+**Kryterium sukcesu:** ✅ Karty można rozwijać aby zobaczyć wszystkie próby kontaktu. Sprawy czekające ponad 1h są wyraźnie oznaczone czerwonym alertem.
+
+---
+
 ## Definicja MVP (Cel końcowy)
 System uznajemy za gotowy, gdy:
 1. **Prywatność:** Aplikacja monitoruje TYLKO numerów z bazy `clients`, ignoruje resztę.

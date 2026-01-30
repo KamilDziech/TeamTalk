@@ -20,7 +20,15 @@ import {
   RefreshControl,
   Alert,
   Linking,
+  LayoutAnimation,
+  UIManager,
+  Platform,
 } from 'react-native';
+
+// Enable LayoutAnimation for Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 import { supabase } from '@/api/supabaseClient';
 import { callLogScanner } from '@/services/CallLogScanner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -98,16 +106,90 @@ const groupCallLogsByClient = (logs: CallLogWithClient[]): GroupedCallLog[] => {
   return grouped;
 };
 
+// SLA threshold in milliseconds (1 hour)
+const SLA_THRESHOLD_MS = 60 * 60 * 1000;
+
+/**
+ * Format time elapsed since a given timestamp
+ * Returns string like "2h 15m temu" or "45m temu"
+ */
+const formatTimeElapsed = (timestamp: string): string => {
+  const now = new Date().getTime();
+  const then = new Date(timestamp).getTime();
+  const diffMs = now - then;
+
+  const minutes = Math.floor(diffMs / (1000 * 60));
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+
+  if (hours > 0) {
+    return `${hours}h ${remainingMinutes}m temu`;
+  }
+  return `${minutes}m temu`;
+};
+
+/**
+ * Check if the oldest active call exceeds SLA threshold
+ */
+const checkSlaExceeded = (group: GroupedCallLog): { exceeded: boolean; waitTime: string } => {
+  // Find oldest active (missed/reserved) call
+  const activeCalls = group.allCalls.filter(c => c.status === 'missed' || c.status === 'reserved');
+  if (activeCalls.length === 0) {
+    return { exceeded: false, waitTime: '' };
+  }
+
+  // Sort by timestamp ascending to get oldest
+  const sortedCalls = [...activeCalls].sort(
+    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+  );
+  const oldestCall = sortedCalls[0];
+
+  const now = new Date().getTime();
+  const oldestTime = new Date(oldestCall.timestamp).getTime();
+  const diffMs = now - oldestTime;
+
+  if (diffMs > SLA_THRESHOLD_MS) {
+    const minutes = Math.floor(diffMs / (1000 * 60));
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    return {
+      exceeded: true,
+      waitTime: `${hours}h ${remainingMinutes}m`,
+    };
+  }
+
+  return { exceeded: false, waitTime: '' };
+};
+
 export const CallLogsList: React.FC = () => {
+  console.log('📋 CallLogsList: Component rendering START');
   const { user } = useAuth();
+  console.log('📋 CallLogsList: useAuth called, user:', user?.id);
   const [callLogs, setCallLogs] = useState<CallLogWithClient[]>([]);
   const [groupedLogs, setGroupedLogs] = useState<GroupedCallLog[]>([]);
   const [profiles, setProfiles] = useState<Map<string, Profile>>(new Map());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
+  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
+  console.log('📋 CallLogsList: useState hooks called');
+
+  // Toggle card expansion with animation
+  const toggleCardExpansion = (clientId: string) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpandedCards(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(clientId)) {
+        newSet.delete(clientId);
+      } else {
+        newSet.add(clientId);
+      }
+      return newSet;
+    });
+  };
 
   useEffect(() => {
+    console.log('📋 CallLogsList: useEffect running');
     fetchCallLogs();
     fetchProfiles();
     setupRealtimeSubscription();
@@ -426,12 +508,29 @@ export const CallLogsList: React.FC = () => {
     const hasMissedCalls = item.allCalls.some((c) => c.status === 'missed');
     const hasReservedCalls = item.allCalls.some((c) => c.status === 'reserved');
     const missedCount = item.allCalls.filter((c) => c.status === 'missed').length;
+    const isExpanded = expandedCards.has(item.clientId);
+
+    // Check SLA
+    const slaStatus = checkSlaExceeded(item);
+
+    // Get active calls for accordion (missed + reserved only)
+    const activeCalls = item.allCalls.filter(c => c.status === 'missed' || c.status === 'reserved');
 
     return (
       <View style={[styles.card, { borderLeftColor: statusColor }]}>
+        {/* SLA Alert Banner */}
+        {slaStatus.exceeded && (
+          <View style={styles.slaAlertBanner}>
+            <Text style={styles.slaAlertText}>
+              ❗ Czeka: {slaStatus.waitTime}
+            </Text>
+          </View>
+        )}
+
         <View style={styles.cardHeader}>
           <View style={styles.clientInfo}>
             <Text style={styles.clientName}>
+              {slaStatus.exceeded && <Text style={styles.slaIcon}>❗ </Text>}
               {item.client?.name || 'Nieznany klient'}
             </Text>
             <Text style={styles.clientPhone}>{item.client?.phone}</Text>
@@ -441,24 +540,61 @@ export const CallLogsList: React.FC = () => {
           </Text>
         </View>
 
-        {/* Alert o wielokrotnym dzwonieniu - tylko dla nieobsłużonych */}
-        {missedCount > 1 && (
-          <View style={styles.multiCallAlert}>
-            <Text style={styles.multiCallText}>
-              🔔 Klient dzwonił {missedCount} razy!
-            </Text>
-          </View>
+        {/* Alert o wielokrotnym dzwonieniu - klikalny accordion */}
+        {activeCalls.length > 1 && (
+          <TouchableOpacity
+            style={styles.multiCallAlert}
+            onPress={() => toggleCardExpansion(item.clientId)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.multiCallHeader}>
+              <Text style={styles.multiCallText}>
+                🔔 Klient dzwonił {activeCalls.length} razy!
+              </Text>
+              <Text style={styles.expandIcon}>
+                {isExpanded ? '▼' : '▶'}
+              </Text>
+            </View>
+
+            {/* Expanded list of attempts */}
+            {isExpanded && (
+              <View style={styles.attemptsList}>
+                {activeCalls.map((call) => (
+                  <View key={call.id} style={styles.attemptRow}>
+                    <View style={styles.attemptInfo}>
+                      <Text style={styles.attemptTime}>
+                        🕒 {new Date(call.timestamp).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}
+                        {' '}
+                        <Text style={styles.attemptDate}>
+                          ({new Date(call.timestamp).toLocaleDateString('pl-PL')})
+                        </Text>
+                      </Text>
+                      <Text style={styles.attemptElapsed}>
+                        ⏳ {formatTimeElapsed(call.timestamp)}
+                      </Text>
+                    </View>
+                    <View style={styles.attemptStatus}>
+                      {call.status === 'reserved' && call.reservation_by && (
+                        <Text style={styles.attemptReservedBy}>
+                          👤 {getDisplayName(call.reservation_by) || 'Ktoś'}
+                        </Text>
+                      )}
+                      <View style={[
+                        styles.attemptStatusDot,
+                        { backgroundColor: call.status === 'missed' ? '#F44336' : '#2196F3' }
+                      ]} />
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+          </TouchableOpacity>
         )}
 
         <View style={styles.cardDetails}>
           <Text style={styles.detailText}>
             🕐 Ostatnio: {new Date(item.lastCallTime).toLocaleString('pl-PL')}
           </Text>
-          {item.callCount > 1 && (
-            <Text style={styles.detailText}>
-              📊 Łącznie prób: {item.allCalls.length}
-            </Text>
-          )}
           {item.client?.address && (
             <Text style={styles.detailText}>📍 {item.client.address}</Text>
           )}
@@ -515,7 +651,10 @@ export const CallLogsList: React.FC = () => {
     );
   };
 
+  console.log('📋 CallLogsList: Before render, loading:', loading, 'groupedLogs:', groupedLogs.length);
+
   if (loading) {
+    console.log('📋 CallLogsList: Showing loading state');
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -710,10 +849,27 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginBottom: spacing.md,
   },
+  multiCallHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   multiCallText: {
     color: colors.warning,
     fontSize: typography.sm,
     fontWeight: typography.semibold,
+    flex: 1,
+  },
+  expandIcon: {
+    color: colors.warning,
+    fontSize: typography.xs,
+    marginLeft: spacing.sm,
+  },
+  attemptsList: {
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.warningLight,
   },
 
   // Card details
@@ -853,5 +1009,62 @@ const styles = StyleSheet.create({
     color: colors.error,
     fontSize: typography.sm,
     fontWeight: typography.semibold,
+  },
+  // SLA Alert styles
+  slaAlertBanner: {
+    backgroundColor: '#FFCDD2',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 12,
+    alignItems: 'center',
+  },
+  slaAlertText: {
+    color: '#D32F2F',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  slaIcon: {
+    color: '#D32F2F',
+  },
+  // Accordion attempt rows
+  attemptRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#FFE0B2',
+  },
+  attemptInfo: {
+    flex: 1,
+  },
+  attemptTime: {
+    fontSize: 13,
+    color: '#5D4037',
+    fontWeight: '500',
+  },
+  attemptDate: {
+    fontSize: 11,
+    color: '#8D6E63',
+    fontWeight: 'normal',
+  },
+  attemptElapsed: {
+    fontSize: 11,
+    color: '#A1887F',
+    marginTop: 2,
+  },
+  attemptStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  attemptReservedBy: {
+    fontSize: 11,
+    color: '#1976D2',
+  },
+  attemptStatusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
 });
