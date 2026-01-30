@@ -4,7 +4,7 @@
  * Handles voice note recording, upload, transcription and AI summarization.
  *
  * Workflow:
- * 1. Record audio using expo-audio
+ * 1. Record audio using expo-av
  * 2. Upload to Supabase Storage
  * 3. Transcribe using OpenAI Whisper API
  * 4. Summarize using Claude API
@@ -13,13 +13,11 @@
  * Phase 4 implementation
  */
 
-import { AudioModule, RecordingPresets, setAudioModeAsync, createAudioPlayer, requestRecordingPermissionsAsync } from 'expo-audio';
-import type { AudioPlayer, AudioRecorder, RecorderState } from 'expo-audio';
+import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system/legacy';
 import { supabase } from '@/api/supabaseClient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
-import { Platform } from 'react-native';
 
 // Types
 export interface VoiceReportData {
@@ -88,24 +86,24 @@ const getOpenAIKey = () => Constants.expoConfig?.extra?.openaiApiKey || process.
 const getClaudeKey = () => Constants.expoConfig?.extra?.claudeApiKey || process.env.CLAUDE_API_KEY;
 
 export class VoiceReportService {
-  private recording: AudioRecorder | null = null;
-  private player: AudioPlayer | null = null;
+  private recording: Audio.Recording | null = null;
+  private sound: Audio.Sound | null = null;
 
   /**
    * Request microphone permissions
    */
   async requestPermissions(): Promise<boolean> {
     try {
-      const { status } = await requestRecordingPermissionsAsync();
+      const { status } = await Audio.requestPermissionsAsync();
       if (status !== 'granted') {
         console.warn('Microphone permission not granted');
         return false;
       }
 
       // Configure audio mode for recording
-      await setAudioModeAsync({
-        allowsRecording: true,
-        playsInSilentMode: true,
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
       });
 
       return true;
@@ -133,10 +131,11 @@ export class VoiceReportService {
 
       console.log('Starting recording...');
 
-      // Create new recorder with HIGH_QUALITY preset
-      this.recording = new AudioModule.AudioRecorder(RecordingPresets.HIGH_QUALITY);
-      await this.recording.prepareToRecordAsync();
-      this.recording.record();
+      // Create new recording
+      const { recording } = await Audio.Recording.createAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY
+      );
+      this.recording = recording;
 
       console.log('Recording started');
       return true;
@@ -157,14 +156,14 @@ export class VoiceReportService {
 
     try {
       console.log('Stopping recording...');
-      await this.recording.stop();
+      await this.recording.stopAndUnloadAsync();
 
       // Reset audio mode
-      await setAudioModeAsync({
-        allowsRecording: false,
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
       });
 
-      const uri = this.recording.uri;
+      const uri = this.recording.getURI();
       this.recording = null;
 
       console.log('Recording stopped, URI:', uri);
@@ -182,9 +181,9 @@ export class VoiceReportService {
   async cancelRecording(): Promise<void> {
     if (this.recording) {
       try {
-        await this.recording.stop();
-        await setAudioModeAsync({
-          allowsRecording: false,
+        await this.recording.stopAndUnloadAsync();
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: false,
         });
       } catch (error) {
         console.error('Error canceling recording:', error);
@@ -196,11 +195,11 @@ export class VoiceReportService {
   /**
    * Get recording status
    */
-  async getRecordingStatus(): Promise<any | null> {
+  async getRecordingStatus(): Promise<Audio.RecordingStatus | null> {
     if (!this.recording) {
       return null;
     }
-    return this.recording.getStatus();
+    return this.recording.getStatusAsync();
   }
 
   /**
@@ -209,13 +208,14 @@ export class VoiceReportService {
   async playAudio(uri: string): Promise<void> {
     try {
       // Stop any existing playback
-      if (this.player) {
-        this.player.remove();
+      if (this.sound) {
+        await this.sound.unloadAsync();
       }
 
-      // Create player with the audio URI
-      this.player = createAudioPlayer({ uri }, { updateInterval: 100, keepAudioSessionActive: false });
-      this.player.play();
+      // Create and play sound
+      const { sound } = await Audio.Sound.createAsync({ uri });
+      this.sound = sound;
+      await sound.playAsync();
     } catch (error) {
       console.error('Error playing audio:', error);
     }
@@ -225,14 +225,14 @@ export class VoiceReportService {
    * Stop audio playback
    */
   async stopPlayback(): Promise<void> {
-    if (this.player) {
+    if (this.sound) {
       try {
-        this.player.pause();
-        this.player.remove();
+        await this.sound.stopAsync();
+        await this.sound.unloadAsync();
       } catch (error) {
         console.error('Error stopping playback:', error);
       }
-      this.player = null;
+      this.sound = null;
     }
   }
 
@@ -363,21 +363,21 @@ export class VoiceReportService {
       const systemPrompt = `Jesteś asystentem CRM pomagającym w zarządzaniu relacjami z klientami.
 Twoim zadaniem jest streszczenie notatki głosowej z rozmowy telefonicznej.
 
-WAŻNE: Jeśli otrzymana transkrypcja jest:
-- pusta lub zawiera tylko znaki przestankowe
-- niezrozumiała lub wydaje się być błędem transkrypcji
-- zawiera typowe halucynacje AI (np. "Dziękuję za oglądanie", "Subscribe", "Napisy stworzone przez...")
-- nie zawiera żadnej merytorycznej treści rozmowy
+WAŻNE: Zwróć ERROR_EMPTY TYLKO jeśli transkrypcja:
+- jest pusta lub zawiera tylko znaki przestankowe
+- zawiera TYLKO typowe halucynacje AI (np. "Dziękuję za oglądanie", "Subscribe", "Napisy stworzone przez...")
+- jest całkowicie niezrozumiała (losowe litery/słowa bez sensu)
 
-Wtedy zwróć TYLKO słowo: ERROR_EMPTY
-Nie wymyślaj treści notatki - jeśli nie ma sensu, zwróć ERROR_EMPTY.
+NIE zwracaj ERROR_EMPTY dla:
+- krótkich ale zrozumiałych notatek
+- nieformalnego języka lub potocznych wyrażeń
+- notatek technicznych lub wewnętrznych
 
-Jeśli transkrypcja jest prawidłowa, stwórz zwięzłe podsumowanie w formie:
-1. **Temat rozmowy:** (1-2 zdania)
-2. **Ustalenia:** (lista punktów)
-3. **Zadania do wykonania:** (lista punktów, jeśli są)
+Jeśli transkrypcja zawiera jakąkolwiek sensowną treść, stwórz zwięzłe podsumowanie:
+1. **Temat:** (1 zdanie)
+2. **Szczegóły:** (jeśli są)
 
-Odpowiadaj po polsku. Bądź zwięzły i konkretny.`;
+Odpowiadaj po polsku. Bądź zwięzły.`;
 
       const userPrompt = clientName
         ? `Notatka z rozmowy z klientem "${clientName}":\n\n${transcription}`

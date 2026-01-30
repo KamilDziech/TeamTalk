@@ -259,9 +259,13 @@ export class CallLogScanner {
     callDate: Date
   ): Promise<void> {
     try {
+      // Get current user - the employee who missed this call
+      const { data: { user } } = await supabase.auth.getUser();
+      const employeeId = user?.id || null;
+
       const { error } = await supabase.from('call_logs').insert({
         client_id: client.id,
-        employee_id: null, // Will be set when someone reserves it
+        employee_id: employeeId, // Employee who missed this call on their phone
         type: 'missed',
         status: 'missed',
         timestamp: callDate.toISOString(),

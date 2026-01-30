@@ -64,6 +64,9 @@ export const radius = {
   full: 9999,
 };
 
+// Alias for backward compatibility
+export const borderRadius = radius;
+
 // Shadows
 export const shadows = {
   none: {

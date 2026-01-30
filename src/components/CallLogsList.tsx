@@ -516,6 +516,14 @@ export const CallLogsList: React.FC = () => {
     // Get active calls for accordion (missed + reserved only)
     const activeCalls = item.allCalls.filter(c => c.status === 'missed' || c.status === 'reserved');
 
+    // Find oldest active call to show who is responsible
+    const oldestActiveCall = activeCalls.length > 0
+      ? [...activeCalls].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())[0]
+      : null;
+    const responsibleEmployee = oldestActiveCall?.employee_id
+      ? getDisplayName(oldestActiveCall.employee_id)
+      : null;
+
     return (
       <View style={[styles.card, { borderLeftColor: statusColor }]}>
         {/* SLA Alert Banner */}
@@ -523,6 +531,7 @@ export const CallLogsList: React.FC = () => {
           <View style={styles.slaAlertBanner}>
             <Text style={styles.slaAlertText}>
               ❗ Czeka: {slaStatus.waitTime}
+              {responsibleEmployee && ` (${responsibleEmployee})`}
             </Text>
           </View>
         )}
@@ -572,6 +581,12 @@ export const CallLogsList: React.FC = () => {
                       <Text style={styles.attemptElapsed}>
                         ⏳ {formatTimeElapsed(call.timestamp)}
                       </Text>
+                      {/* Show who missed this call */}
+                      {call.employee_id && (
+                        <Text style={styles.attemptMissedBy}>
+                          📵 Nie odebrał: {getDisplayName(call.employee_id) || 'Nieznany'}
+                        </Text>
+                      )}
                     </View>
                     <View style={styles.attemptStatus}>
                       {call.status === 'reserved' && call.reservation_by && (
@@ -597,6 +612,12 @@ export const CallLogsList: React.FC = () => {
           </Text>
           {item.client?.address && (
             <Text style={styles.detailText}>📍 {item.client.address}</Text>
+          )}
+          {/* Show who missed the latest call */}
+          {item.latestCall.employee_id && item.latestCall.status === 'missed' && (
+            <Text style={styles.missedByText}>
+              📵 Nie odebrał: {getDisplayName(item.latestCall.employee_id) || 'Nieznany'}
+            </Text>
           )}
           {item.latestCall.reservation_by && item.latestCall.status === 'reserved' && (
             <Text style={styles.detailText}>
@@ -801,7 +822,6 @@ const styles = StyleSheet.create({
     fontSize: typography.xs,
     color: colors.textInverse,
     fontWeight: typography.medium,
-    overflow: 'hidden',
   },
 
   // Alert boxes
@@ -881,6 +901,13 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginBottom: spacing.xs,
     lineHeight: 20,
+  },
+  missedByText: {
+    fontSize: typography.sm,
+    color: colors.error,
+    marginBottom: spacing.xs,
+    lineHeight: 20,
+    fontWeight: typography.medium,
   },
 
   // Actions and Buttons
@@ -970,7 +997,6 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     fontSize: typography.xs,
     color: colors.textTertiary,
-    fontStyle: 'italic',
   },
 
   // Footer buttons
@@ -989,7 +1015,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.info,
-    borderStyle: 'dashed',
   },
   fullRescanButtonText: {
     color: colors.info,
@@ -1003,7 +1028,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.error,
-    borderStyle: 'dashed',
   },
   clearQueueButtonText: {
     color: colors.error,
@@ -1052,6 +1076,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#A1887F',
     marginTop: 2,
+  },
+  attemptMissedBy: {
+    fontSize: 11,
+    color: '#D32F2F',
+    marginTop: 2,
+    fontWeight: '500',
   },
   attemptStatus: {
     flexDirection: 'row',
