@@ -21,7 +21,8 @@
       "Bash(printf:*)",
       "Bash(sdkmanager:*)",
       "Bash(/root/Android/Sdk/cmdline-tools/latest/bin/sdkmanager:*)",
-      "Bash(./gradlew assembleDebug:*)"
+      "Bash(./gradlew assembleDebug:*)",
+      "Bash(supabase db push:*)"
     ]
   }
 }

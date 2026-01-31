@@ -17,7 +17,7 @@
 
 import CallLogs from 'react-native-call-log';
 import { supabase } from '@/api/supabaseClient';
-import type { Client } from '@/types';
+import type { Client, CallLogVisibility } from '@/types';
 import * as Notifications from 'expo-notifications';
 import { PermissionsAndroid, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -191,11 +191,6 @@ export class CallLogScanner {
         const normalizedNumber = this.normalizePhoneNumber(call.phoneNumber);
         const client = clientMap.get(normalizedNumber);
 
-        // PRIVACY: Ignore calls from unknown numbers
-        if (!client) {
-          continue;
-        }
-
         // Parsowanie daty - pomiń wpisy z nieprawidłową datą
         const callDate = this.parseCallLogDate(call.dateTime);
         if (!callDate) {
@@ -206,7 +201,8 @@ export class CallLogScanner {
         // Sprawdź czy to połączenie jest nowsze niż ostatni skan
         // (dodatkowe zabezpieczenie przed duplikatami - pomijane przy pełnym skanowaniu)
         if (!this.skipDuplicateCheck && callDate.getTime() <= this.lastScanTimestamp) {
-          console.log(`⏭️ Skipping old call from ${client.name} (${callDate.toLocaleString()})`);
+          const displayName = client?.name || call.phoneNumber;
+          console.log(`⏭️ Skipping old call from ${displayName} (${callDate.toLocaleString()})`);
           continue;
         }
 
@@ -215,26 +211,45 @@ export class CallLogScanner {
         const windowStart = new Date(callDate.getTime() - duplicateWindow * 1000).toISOString();
         const windowEnd = new Date(callDate.getTime() + duplicateWindow * 1000).toISOString();
 
-        const { data: existingLogs } = await supabase
-          .from('call_logs')
-          .select('id, timestamp')
-          .eq('client_id', client.id)
-          .gte('timestamp', windowStart)
-          .lte('timestamp', windowEnd);
+        // Check for duplicates based on client_id (known) or caller_phone (unknown)
+        let existingLogs;
+        if (client) {
+          const { data } = await supabase
+            .from('call_logs')
+            .select('id, timestamp')
+            .eq('client_id', client.id)
+            .gte('timestamp', windowStart)
+            .lte('timestamp', windowEnd);
+          existingLogs = data;
+        } else {
+          const { data } = await supabase
+            .from('call_logs')
+            .select('id, timestamp')
+            .eq('caller_phone', normalizedNumber)
+            .gte('timestamp', windowStart)
+            .lte('timestamp', windowEnd);
+          existingLogs = data;
+        }
 
         // Skip if similar call already exists
         if (existingLogs && existingLogs.length > 0) {
-          console.log(`⏭️ Duplicate call from ${client.name} - already in database`);
+          const displayName = client?.name || call.phoneNumber;
+          console.log(`⏭️ Duplicate call from ${displayName} - already in database`);
           continue;
         }
 
-        // Create call log entry
-        await this.createMissedCallLog(client, callDate);
+        if (client) {
+          // KNOWN CLIENT: visibility = 'public'
+          await this.createMissedCallLog(client, callDate, 'public', normalizedNumber);
+          await this.sendMissedCallNotification(client);
+          console.log(`✅ NEW public call from: ${client.name} (${call.phoneNumber}) at ${callDate.toLocaleString()}`);
+        } else {
+          // UNKNOWN NUMBER: visibility = 'private' (only receiver sees it)
+          await this.createUnknownCallerLog(normalizedNumber, call.phoneNumber, callDate);
+          await this.sendUnknownCallerNotification(call.phoneNumber);
+          console.log(`🔒 NEW private call from unknown: ${call.phoneNumber} at ${callDate.toLocaleString()}`);
+        }
 
-        // Send notification
-        await this.sendMissedCallNotification(client);
-
-        console.log(`✅ NEW missed call from: ${client.name} (${call.phoneNumber}) at ${callDate.toLocaleString()}`);
         newCallsCount++;
       }
 
@@ -252,11 +267,14 @@ export class CallLogScanner {
   }
 
   /**
-   * Create a call_logs entry for missed call
+   * Create a call_logs entry for missed call from KNOWN client
+   * visibility = 'public' - visible to all team members
    */
   private async createMissedCallLog(
     client: Client,
-    callDate: Date
+    callDate: Date,
+    visibility: CallLogVisibility = 'public',
+    callerPhone: string
   ): Promise<void> {
     try {
       // Get current user - the employee who missed this call
@@ -271,12 +289,15 @@ export class CallLogScanner {
         timestamp: callDate.toISOString(),
         reservation_by: null,
         reservation_at: null,
+        visibility: visibility,
+        original_receiver_id: employeeId,
+        caller_phone: callerPhone,
       });
 
       if (error) {
         console.error('Error creating call log:', error);
       } else {
-        console.log(`Created call log for missed call from ${client.name}`);
+        console.log(`Created call log for missed call from ${client.name} (visibility: ${visibility})`);
       }
     } catch (error) {
       console.error('Error in createMissedCallLog:', error);
@@ -284,7 +305,45 @@ export class CallLogScanner {
   }
 
   /**
-   * Send local notification about missed call
+   * Create a call_logs entry for missed call from UNKNOWN number
+   * visibility = 'private' - visible only to the original receiver
+   * The database trigger will auto-publicize if this number calls another employee
+   */
+  private async createUnknownCallerLog(
+    normalizedPhone: string,
+    originalPhone: string,
+    callDate: Date
+  ): Promise<void> {
+    try {
+      // Get current user - the employee who missed this call
+      const { data: { user } } = await supabase.auth.getUser();
+      const employeeId = user?.id || null;
+
+      const { error } = await supabase.from('call_logs').insert({
+        client_id: null, // Unknown caller - no client record
+        employee_id: employeeId,
+        type: 'missed',
+        status: 'missed',
+        timestamp: callDate.toISOString(),
+        reservation_by: null,
+        reservation_at: null,
+        visibility: 'private', // Private until proven otherwise
+        original_receiver_id: employeeId,
+        caller_phone: normalizedPhone,
+      });
+
+      if (error) {
+        console.error('Error creating unknown caller log:', error);
+      } else {
+        console.log(`Created private call log for unknown caller: ${originalPhone}`);
+      }
+    } catch (error) {
+      console.error('Error in createUnknownCallerLog:', error);
+    }
+  }
+
+  /**
+   * Send local notification about missed call from known client
    */
   private async sendMissedCallNotification(client: Client): Promise<void> {
     try {
@@ -293,6 +352,24 @@ export class CallLogScanner {
           title: '🔴 Nieodebrane połączenie',
           body: `Od: ${client.name || client.phone}. Kliknij, aby zarezerwować.`,
           data: { clientId: client.id, type: 'missed_call' },
+        },
+        trigger: null, // Show immediately
+      });
+    } catch (error) {
+      console.error('Error sending notification:', error);
+    }
+  }
+
+  /**
+   * Send local notification about missed call from unknown number
+   */
+  private async sendUnknownCallerNotification(phoneNumber: string): Promise<void> {
+    try {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: '🔒 Potencjalny klient',
+          body: `Nieodebrane od: ${phoneNumber}. Tylko Ty to widzisz.`,
+          data: { phoneNumber, type: 'unknown_caller' },
         },
         trigger: null, // Show immediately
       });

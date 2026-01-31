@@ -4,6 +4,7 @@
 
 export type CallLogType = 'missed' | 'completed';
 export type CallLogStatus = 'missed' | 'reserved' | 'completed';
+export type CallLogVisibility = 'private' | 'public';
 
 export interface Client {
   id: string;
@@ -17,13 +18,16 @@ export interface Client {
 
 export interface CallLog {
   id: string;
-  client_id: string;
+  client_id: string | null;
   employee_id: string | null;
   type: CallLogType;
   status: CallLogStatus;
   timestamp: string;
   reservation_by: string | null;
   reservation_at: string | null;
+  visibility: CallLogVisibility;
+  original_receiver_id: string | null;
+  caller_phone: string | null;
   created_at: string;
   updated_at: string;
 }

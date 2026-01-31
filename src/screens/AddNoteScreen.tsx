@@ -31,7 +31,7 @@ import { colors, spacing, radius, typography, shadows, commonStyles } from '@/st
 import type { CallLog, Client } from '@/types';
 
 interface CallLogWithClient extends CallLog {
-  client: Client;
+  client: Client | null;
   hasVoiceReport: boolean;
 }
 
@@ -122,9 +122,10 @@ export const AddNoteScreen: React.FC = () => {
 
   // Skip/Delete call without adding note
   const handleSkipCall = (callLog: CallLogWithClient) => {
+    const displayName = callLog.client?.name || callLog.caller_phone || 'Nieznany numer';
     Alert.alert(
       'Pomiń połączenie',
-      `Czy na pewno chcesz usunąć to połączenie bez dodawania notatki?\n\nKlient: ${callLog.client?.name || 'Nieznany'}\n\nTa operacja jest nieodwracalna.`,
+      `Czy na pewno chcesz usunąć to połączenie bez dodawania notatki?\n\nKlient: ${displayName}\n\nTa operacja jest nieodwracalna.`,
       [
         { text: 'Anuluj', style: 'cancel' },
         {
@@ -167,9 +168,11 @@ export const AddNoteScreen: React.FC = () => {
         <View style={styles.cardHeader}>
           <View style={styles.clientInfo}>
             <Text style={styles.clientName}>
-              {item.client?.name || 'Nieznany klient'}
+              {item.client?.name || item.caller_phone || 'Nieznany numer'}
             </Text>
-            <Text style={styles.clientPhone}>{item.client?.phone}</Text>
+            <Text style={styles.clientPhone}>
+              {item.client?.phone || (item.caller_phone ? `+48${item.caller_phone}` : '')}
+            </Text>
           </View>
         </View>
 
@@ -265,6 +268,7 @@ export const AddNoteScreen: React.FC = () => {
           <VoiceRecordingScreen
             callLogId={selectedCall.id}
             client={selectedCall.client}
+            callerPhone={selectedCall.caller_phone}
             onComplete={handleRecordingComplete}
             onCancel={handleRecordingCancel}
           />

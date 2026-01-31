@@ -271,6 +271,65 @@ CLAUDE_API_KEY=sk-ant-xxx
 
 ---
 
+## Faza 8: Inteligentna Widoczność Połączeń 🔄 W TRAKCIE
+
+### Cel
+Rozszerzenie mechanizmu synchronizacji połączeń o system widoczności, który pozwala na:
+- Automatyczne upublicznianie połączeń od znanych klientów
+- Prywatne kolejki dla nieznanych numerów (potencjalni nowi klienci)
+- Automatyczną aktywację wspólnej widoczności gdy numer dzwoni do różnych pracowników
+
+### 8.1 Baza Danych
+- [ ] Dodanie kolumny `visibility` do tabeli `call_logs` (wartości: 'private', 'public')
+- [ ] Dodanie kolumny `original_receiver_id` (kto pierwszy odebrał/zarejestrował połączenie)
+- [ ] Indeks na kolumnie `visibility` dla szybkiego filtrowania
+- [ ] Migracja SQL: `20240201000000_call_visibility.sql`
+
+### 8.2 Logika Widoczności (Backend)
+
+**Zasada 1 - Znany Klient:**
+- Jeśli numer dzwoniący istnieje w tabeli `clients` → `visibility = 'public'`
+- Wszyscy członkowie zespołu widzą to połączenie od razu
+
+**Zasada 2 - Nieznany Numer (Pierwszy raz):**
+- Jeśli numeru nie ma w bazie → `visibility = 'private'`
+- Rekord przypisany do `original_receiver_id` (osoba do której dzwoniono)
+- Tylko ta osoba widzi to połączenie w swojej kolejce
+
+**Zasada 3 - Aktywacja Wspólna:**
+- Jeśli nieodebrane połączenie od numeru, który jest już w `call_logs` jako `private`, ale dzwonił do INNEGO użytkownika
+- Zmień status wszystkich rekordów tego numeru na `visibility = 'public'`
+- Logika: "Jeśli dzwoni do wielu osób, to prawdopodobnie to klient firmowy"
+
+### 8.3 Interfejs (UI)
+
+**Kolejka połączeń - Filtrowanie:**
+- Wyświetlaj tylko rekordy gdzie:
+  - `visibility = 'public'` (widoczne dla całego zespołu)
+  - LUB `visibility = 'private'` AND `original_receiver_id == current_user_id`
+
+**Oznaczenia wizualne:**
+- Nieznany numer w prywatnej kolejce: etykieta "🔒 Potencjalny klient (Tylko Ty to widzisz)"
+- Kolor/ikona odróżniająca prywatne od publicznych
+
+### 8.4 Akcja Ręczna - Upublicznij
+- [ ] Przycisk "📢 Upublicznij" na karcie prywatnego połączenia
+- [ ] Po kliknięciu: `visibility = 'public'` dla tego numeru
+- [ ] Umożliwia ręczne wrzucenie nowego klienta do wspólnej kolejki
+- [ ] Użyteczne gdy pracownik wie, że to nowy klient firmowy
+
+### 8.5 Migracja Danych
+- [ ] Istniejące rekordy z `client_id != null` → `visibility = 'public'`
+- [ ] Obsługa edge case'ów dla połączeń bez klienta
+
+**Kryterium sukcesu:**
+- Połączenia od znanych klientów widoczne dla wszystkich
+- Połączenia od nieznanych numerów widoczne tylko dla odbiorcy
+- Automatyczne upublicznienie gdy numer dzwoni do wielu pracowników
+- Możliwość ręcznego upublicznienia przez pracownika
+
+---
+
 ## Definicja MVP (Cel końcowy)
 System uznajemy za gotowy, gdy:
 1. **Prywatność:** Aplikacja monitoruje TYLKO numerów z bazy `clients`, ignoruje resztę.
@@ -280,3 +339,4 @@ System uznajemy za gotowy, gdy:
 5. **Alerty:** Połączenia bez notatek są oznaczone "WYMAGA NOTATKI" do czasu uzupełnienia.
 6. **Bezpieczeństwo:** Aplikacja zabezpieczona systemem logowania, sesja pamiętana lokalnie.
 7. **Standardy:** Kod w języku angielskim, interfejs w języku polskim, zmiany w repozytorium Git.
+8. **Widoczność:** Inteligentny system widoczności połączeń - prywatne dla nieznanych, publiczne dla klientów.

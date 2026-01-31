@@ -27,7 +27,7 @@ import type { CallLog, Client, VoiceReport, Profile } from '@/types';
 
 interface HistoryItem {
   callLog: CallLog;
-  client: Client;
+  client: Client | null;
   voiceReport: VoiceReport;
 }
 
@@ -108,28 +108,35 @@ export const HistoryScreen: React.FC = () => {
         return;
       }
 
-      // Fetch clients for these call_logs
-      const clientIds = [...new Set(callLogsWithReports.map((cl) => cl.client_id))];
-      const { data: clients, error: clientsError } = await supabase
-        .from('clients')
-        .select('*')
-        .in('id', clientIds);
+      // Fetch clients for these call_logs (only for those with client_id)
+      const clientIds = [...new Set(
+        callLogsWithReports
+          .map((cl) => cl.client_id)
+          .filter((id): id is string => id !== null)
+      )];
 
-      if (clientsError) {
-        console.error('Error fetching clients:', clientsError);
-        return;
+      let clientMap = new Map<string, Client>();
+      if (clientIds.length > 0) {
+        const { data: clients, error: clientsError } = await supabase
+          .from('clients')
+          .select('*')
+          .in('id', clientIds);
+
+        if (clientsError) {
+          console.error('Error fetching clients:', clientsError);
+          return;
+        }
+        clientMap = new Map(clients?.map((c) => [c.id, c]) || []);
       }
 
-      const clientMap = new Map(clients?.map((c) => [c.id, c]) || []);
-
-      // Combine all data
+      // Combine all data - include calls without client (unknown callers)
       const items: HistoryItem[] = callLogsWithReports
         .map((callLog) => ({
           callLog,
-          client: clientMap.get(callLog.client_id)!,
+          client: callLog.client_id ? clientMap.get(callLog.client_id) || null : null,
           voiceReport: voiceReportMap.get(callLog.id)!,
         }))
-        .filter((item) => item.client && item.voiceReport);
+        .filter((item) => item.voiceReport);
 
       setHistoryItems(items);
       setFilteredItems(items);
@@ -155,11 +162,13 @@ export const HistoryScreen: React.FC = () => {
 
     const query = searchQuery.toLowerCase();
     const filtered = historyItems.filter((item) => {
-      const clientName = item.client.name?.toLowerCase() || '';
+      const clientName = item.client?.name?.toLowerCase() || '';
+      const callerPhone = item.callLog.caller_phone?.toLowerCase() || '';
       const summary = item.voiceReport.ai_summary?.toLowerCase() || '';
       const transcription = item.voiceReport.transcription?.toLowerCase() || '';
       return (
         clientName.includes(query) ||
+        callerPhone.includes(query) ||
         summary.includes(query) ||
         transcription.includes(query)
       );
@@ -275,9 +284,11 @@ export const HistoryScreen: React.FC = () => {
         <View style={styles.cardHeader}>
           <View style={styles.clientInfo}>
             <Text style={styles.clientName}>
-              {item.client.name || 'Nieznany klient'}
+              {item.client?.name || item.callLog.caller_phone || 'Nieznany numer'}
             </Text>
-            <Text style={styles.phone}>{item.client.phone}</Text>
+            <Text style={styles.phone}>
+              {item.client?.phone || (item.callLog.caller_phone ? `+48${item.callLog.caller_phone}` : '')}
+            </Text>
           </View>
           <View style={styles.dateInfo}>
             <Text style={styles.date}>{formatDate(item.callLog.timestamp)}</Text>

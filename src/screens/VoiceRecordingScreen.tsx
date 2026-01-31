@@ -24,6 +24,7 @@ import type { Client } from '@/types';
 interface VoiceRecordingScreenProps {
   callLogId: string;
   client: Client | null;
+  callerPhone?: string | null;
   onComplete: () => void;
   onCancel: () => void;
 }
@@ -35,9 +36,13 @@ const MIN_RECORDING_DURATION_SECONDS = 2;
 export const VoiceRecordingScreen: React.FC<VoiceRecordingScreenProps> = ({
   callLogId,
   client,
+  callerPhone,
   onComplete,
   onCancel,
 }) => {
+  // Display name: prefer client name, fall back to caller phone
+  const displayName = client?.name || callerPhone || 'Nieznany numer';
+  const displayPhone = client?.phone || (callerPhone ? `+48${callerPhone}` : '');
   const [state, setState] = useState<RecordingState>('idle');
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [audioUri, setAudioUri] = useState<string | null>(null);
@@ -198,8 +203,7 @@ export const VoiceRecordingScreen: React.FC<VoiceRecordingScreenProps> = ({
         setState('completed');
 
         // Notify team about new voice report
-        const clientName = client?.name || 'Nieznany klient';
-        deviceService.notifyNewVoiceReport(clientName);
+        deviceService.notifyNewVoiceReport(displayName);
       } else {
         setErrorMessage('Nie udało się zapisać notatki.');
         setState('error');
@@ -360,8 +364,8 @@ export const VoiceRecordingScreen: React.FC<VoiceRecordingScreenProps> = ({
 
       {/* Client info */}
       <View style={styles.clientInfo}>
-        <Text style={styles.clientName}>{client?.name || 'Nieznany klient'}</Text>
-        <Text style={styles.clientPhone}>{client?.phone}</Text>
+        <Text style={styles.clientName}>{displayName}</Text>
+        <Text style={styles.clientPhone}>{displayPhone}</Text>
       </View>
 
       {/* Main content */}

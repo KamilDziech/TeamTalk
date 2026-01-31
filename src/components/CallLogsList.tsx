@@ -33,43 +33,51 @@ import { supabase } from '@/api/supabaseClient';
 import { callLogScanner } from '@/services/CallLogScanner';
 import { useAuth } from '@/contexts/AuthContext';
 import { colors, spacing, radius, typography, shadows, commonStyles } from '@/styles/theme';
-import type { CallLog, Client, Profile } from '@/types';
+import type { CallLog, Client, Profile, CallLogVisibility } from '@/types';
 
 interface CallLogWithClient extends CallLog {
-  client: Client;
+  client: Client | null;
   hasVoiceReport: boolean;
 }
 
-// Zgrupowane połączenia od tego samego klienta
+// Zgrupowane połączenia od tego samego klienta lub numeru telefonu
 interface GroupedCallLog {
-  clientId: string;
-  client: Client;
+  groupKey: string; // client_id or caller_phone
+  clientId: string | null;
+  client: Client | null;
+  callerPhone: string | null; // For unknown callers
   callCount: number; // Ile razy klient próbował dzwonić
   latestCall: CallLogWithClient; // Najnowsze połączenie (do wyświetlenia statusu)
   allCalls: CallLogWithClient[]; // Wszystkie połączenia (do szczegółów)
   firstCallTime: string; // Czas pierwszej próby
   lastCallTime: string; // Czas ostatniej próby
+  visibility: CallLogVisibility; // 'public' or 'private'
+  isPrivate: boolean; // Convenience flag for UI
 }
 
 /**
- * Grupuje połączenia po kliencie - łączy wielokrotne próby dzwonienia
+ * Grupuje połączenia po kliencie lub numerze telefonu - łączy wielokrotne próby dzwonienia
  * Priorytet: nieobsłużone (missed) > zarezerwowane (reserved) > załatwione (completed)
+ * Obsługuje zarówno znanych klientów (client_id) jak i nieznane numery (caller_phone)
  */
 const groupCallLogsByClient = (logs: CallLogWithClient[]): GroupedCallLog[] => {
   const groupMap = new Map<string, CallLogWithClient[]>();
 
-  // Grupuj po client_id
+  // Grupuj po client_id lub caller_phone
   logs.forEach((log) => {
-    if (!log.client_id) return;
-    const existing = groupMap.get(log.client_id) || [];
+    // Determine group key: prefer client_id, fall back to caller_phone
+    const groupKey = log.client_id || log.caller_phone;
+    if (!groupKey) return;
+
+    const existing = groupMap.get(groupKey) || [];
     existing.push(log);
-    groupMap.set(log.client_id, existing);
+    groupMap.set(groupKey, existing);
   });
 
   // Przekształć na GroupedCallLog[]
   const grouped: GroupedCallLog[] = [];
 
-  groupMap.forEach((calls, clientId) => {
+  groupMap.forEach((calls, groupKey) => {
     // Sortuj po czasie (najnowsze pierwsze)
     calls.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
@@ -83,14 +91,22 @@ const groupCallLogsByClient = (logs: CallLogWithClient[]): GroupedCallLog[] => {
     // Policz nieobsłużone (missed) połączenia
     const missedCalls = calls.filter((c) => c.status === 'missed');
 
+    // Determine if this is a known client or unknown caller
+    const hasClient = calls[0].client_id !== null;
+    const visibility = calls[0].visibility || 'public';
+
     grouped.push({
-      clientId,
+      groupKey,
+      clientId: hasClient ? groupKey : null,
       client: calls[0].client,
+      callerPhone: !hasClient ? calls[0].caller_phone : null,
       callCount: missedCalls.length > 0 ? missedCalls.length : calls.length,
       latestCall,
       allCalls: calls,
       firstCallTime: calls[calls.length - 1].timestamp,
       lastCallTime: calls[0].timestamp,
+      visibility: visibility,
+      isPrivate: visibility === 'private',
     });
   });
 
@@ -220,21 +236,45 @@ export const CallLogsList: React.FC = () => {
     try {
       setLoading(true);
 
-      // Fetch call logs with client data
-      const { data: logs, error } = await supabase
+      const currentUserId = user?.id;
+
+      // Fetch PUBLIC call logs with client data (visible to all)
+      const { data: publicLogs, error: publicError } = await supabase
         .from('call_logs')
         .select(`
           *,
           clients (*)
         `)
+        .eq('visibility', 'public')
         .order('timestamp', { ascending: false })
         .limit(50);
 
-      if (error) throw error;
+      if (publicError) throw publicError;
+
+      // Fetch PRIVATE call logs only for current user
+      let privateLogs: typeof publicLogs = [];
+      if (currentUserId) {
+        const { data, error: privateError } = await supabase
+          .from('call_logs')
+          .select(`
+            *,
+            clients (*)
+          `)
+          .eq('visibility', 'private')
+          .eq('original_receiver_id', currentUserId)
+          .order('timestamp', { ascending: false })
+          .limit(50);
+
+        if (privateError) throw privateError;
+        privateLogs = data || [];
+      }
+
+      // Combine public and private logs
+      const allLogs = [...(publicLogs || []), ...(privateLogs || [])];
 
       // Check which logs have voice reports
       const logsWithReports = await Promise.all(
-        (logs || []).map(async (log) => {
+        allLogs.map(async (log) => {
           const { data: report } = await supabase
             .from('voice_reports')
             .select('id')
@@ -257,9 +297,9 @@ export const CallLogsList: React.FC = () => {
         (log) => log.status === 'missed' || log.status === 'reserved'
       );
 
-      // Grupuj połączenia po kliencie
+      // Grupuj połączenia po kliencie lub numerze
       const grouped = groupCallLogsByClient(queueLogs);
-      console.log('📋 Grouped logs:', grouped.length, 'groups');
+      console.log('📋 Grouped logs:', grouped.length, 'groups (public + private)');
       setGroupedLogs(grouped);
     } catch (error) {
       console.error('Error fetching call logs:', error);
@@ -404,11 +444,13 @@ export const CallLogsList: React.FC = () => {
     }
   };
 
-  // Zadzwoń - otwiera dialer systemowy z numerem klienta
+  // Zadzwoń - otwiera dialer systemowy z numerem klienta lub nieznanym numerem
   const handleCall = (group: GroupedCallLog) => {
-    const phoneNumber = group.client?.phone;
+    const phoneNumber = group.client?.phone || group.callerPhone;
     if (phoneNumber) {
-      Linking.openURL(`tel:${phoneNumber}`);
+      // Add +48 prefix if not present for Polish numbers
+      const formattedNumber = phoneNumber.startsWith('+') ? phoneNumber : `+48${phoneNumber}`;
+      Linking.openURL(`tel:${formattedNumber}`);
     }
   };
 
@@ -503,12 +545,44 @@ export const CallLogsList: React.FC = () => {
     }
   };
 
+  // Upublicznij prywatne połączenie - udostępnij całemu zespołowi
+  const handlePublicize = async (group: GroupedCallLog) => {
+    try {
+      // Get the caller_phone from the group
+      const callerPhone = group.callerPhone || group.allCalls[0]?.caller_phone;
+
+      if (callerPhone) {
+        // Publicize all calls from this phone number
+        const { error } = await supabase
+          .from('call_logs')
+          .update({ visibility: 'public' })
+          .eq('caller_phone', callerPhone);
+
+        if (error) throw error;
+      } else {
+        // Fallback: publicize just the latest call
+        const { error } = await supabase
+          .from('call_logs')
+          .update({ visibility: 'public' })
+          .eq('id', group.latestCall.id);
+
+        if (error) throw error;
+      }
+
+      console.log('📢 Call publicized successfully');
+      fetchCallLogs();
+    } catch (error) {
+      console.error('Error publicizing call:', error);
+      Alert.alert('Błąd', 'Nie udało się upublicznić połączenia.');
+    }
+  };
+
   const renderGroupedCallLog = ({ item }: { item: GroupedCallLog }) => {
     const statusColor = getStatusColor(item.latestCall);
     const hasMissedCalls = item.allCalls.some((c) => c.status === 'missed');
     const hasReservedCalls = item.allCalls.some((c) => c.status === 'reserved');
     const missedCount = item.allCalls.filter((c) => c.status === 'missed').length;
-    const isExpanded = expandedCards.has(item.clientId);
+    const isExpanded = expandedCards.has(item.groupKey);
 
     // Check SLA
     const slaStatus = checkSlaExceeded(item);
@@ -524,8 +598,21 @@ export const CallLogsList: React.FC = () => {
       ? getDisplayName(oldestActiveCall.employee_id)
       : null;
 
+    // Display name: prefer client name, fall back to phone number
+    const displayName = item.client?.name || item.callerPhone || 'Nieznany numer';
+    const displayPhone = item.client?.phone || item.callerPhone || '';
+
     return (
       <View style={[styles.card, { borderLeftColor: statusColor }]}>
+        {/* Private call badge - only you can see this */}
+        {item.isPrivate && (
+          <View style={styles.privateBadge}>
+            <Text style={styles.privateBadgeText}>
+              🔒 Potencjalny klient (Tylko Ty to widzisz)
+            </Text>
+          </View>
+        )}
+
         {/* SLA Alert Banner */}
         {slaStatus.exceeded && (
           <View style={styles.slaAlertBanner}>
@@ -540,9 +627,10 @@ export const CallLogsList: React.FC = () => {
           <View style={styles.clientInfo}>
             <Text style={styles.clientName}>
               {slaStatus.exceeded && <Text style={styles.slaIcon}>❗ </Text>}
-              {item.client?.name || 'Nieznany klient'}
+              {item.isPrivate && <Text style={styles.privateIcon}>🔒 </Text>}
+              {displayName}
             </Text>
-            <Text style={styles.clientPhone}>{item.client?.phone}</Text>
+            <Text style={styles.clientPhone}>{displayPhone}</Text>
           </View>
           <Text style={[styles.statusBadge, { backgroundColor: statusColor }]}>
             {getStatusText(item.latestCall)}
@@ -553,7 +641,7 @@ export const CallLogsList: React.FC = () => {
         {activeCalls.length > 1 && (
           <TouchableOpacity
             style={styles.multiCallAlert}
-            onPress={() => toggleCardExpansion(item.clientId)}
+            onPress={() => toggleCardExpansion(item.groupKey)}
             activeOpacity={0.7}
           >
             <View style={styles.multiCallHeader}>
@@ -667,6 +755,16 @@ export const CallLogsList: React.FC = () => {
               </TouchableOpacity>
             </View>
           )}
+
+          {/* Przycisk UPUBLICZNIJ - tylko dla prywatnych połączeń */}
+          {item.isPrivate && (
+            <TouchableOpacity
+              style={[styles.button, styles.publicizeButton]}
+              onPress={() => handlePublicize(item)}
+            >
+              <Text style={styles.buttonText}>📢 Upublicznij</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     );
@@ -750,7 +848,7 @@ export const CallLogsList: React.FC = () => {
       <FlatList
         data={groupedLogs}
         renderItem={renderGroupedCallLog}
-        keyExtractor={(item) => item.clientId}
+        keyExtractor={(item) => item.groupKey}
         contentContainerStyle={styles.listContent}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -1096,5 +1194,27 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
+  },
+  // Private call styles
+  privateBadge: {
+    backgroundColor: '#E8EAF6',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#7986CB',
+  },
+  privateBadgeText: {
+    color: '#3F51B5',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  privateIcon: {
+    color: '#3F51B5',
+  },
+  publicizeButton: {
+    backgroundColor: '#7C4DFF',
+    marginTop: 8,
   },
 });

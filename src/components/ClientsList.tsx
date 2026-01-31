@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useClients } from '@/hooks/useClients';
@@ -17,7 +17,27 @@ type NavigationProp = NativeStackNavigationProp<ClientsStackParamList, 'ClientsL
 
 export const ClientsList: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
-  const { clients, loading, error, refetch } = useClients();
+  const { clients, loading, error, refetch, deleteClient } = useClients();
+
+  const handleDeleteClient = (client: Client) => {
+    Alert.alert(
+      'Usuń klienta',
+      `Czy na pewno chcesz usunąć klienta "${client.name || client.phone}"?\n\nTa operacja usunie również wszystkie połączenia i notatki powiązane z tym klientem.`,
+      [
+        { text: 'Anuluj', style: 'cancel' },
+        {
+          text: 'Usuń',
+          style: 'destructive',
+          onPress: async () => {
+            const success = await deleteClient(client.id);
+            if (success) {
+              console.log('🗑️ Client deleted:', client.name);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   if (loading) {
     return (
@@ -68,7 +88,16 @@ export const ClientsList: React.FC = () => {
           <Text style={styles.clientName}>{item.name || 'Brak nazwy'}</Text>
           <Text style={styles.clientPhone}>{item.phone}</Text>
         </View>
-        <Text style={styles.chevron}>›</Text>
+        <View style={styles.clientCardActions}>
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={() => handleDeleteClient(item)}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Text style={styles.deleteButtonText}>🗑️</Text>
+          </TouchableOpacity>
+          <Text style={styles.chevron}>›</Text>
+        </View>
       </View>
       {item.address && (
         <Text style={styles.clientAddress}>📍 {item.address}</Text>
@@ -164,6 +193,19 @@ const styles = StyleSheet.create({
   },
   clientCardInfo: {
     flex: 1,
+  },
+  clientCardActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  deleteButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: colors.errorLight,
+  },
+  deleteButtonText: {
+    fontSize: 16,
   },
   chevron: {
     fontSize: 24,

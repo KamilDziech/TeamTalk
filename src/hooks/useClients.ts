@@ -40,5 +40,26 @@ export const useClients = () => {
     }
   };
 
-  return { clients, loading, error, refetch: fetchClients };
+  const deleteClient = async (clientId: string): Promise<boolean> => {
+    try {
+      const { error: deleteError } = await supabase
+        .from('clients')
+        .delete()
+        .eq('id', clientId);
+
+      if (deleteError) {
+        throw deleteError;
+      }
+
+      // Remove from local state
+      setClients((prev) => prev.filter((c) => c.id !== clientId));
+      return true;
+    } catch (err) {
+      console.error('Error deleting client:', err);
+      setError(err instanceof Error ? err.message : 'Błąd usuwania');
+      return false;
+    }
+  };
+
+  return { clients, loading, error, refetch: fetchClients, deleteClient }
 };
