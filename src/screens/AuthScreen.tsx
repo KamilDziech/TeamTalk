@@ -144,7 +144,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
         >
           {/* Logo / Title */}
           <View style={styles.header}>
-            <Text style={styles.logo}>📞</Text>
+            <Text style={styles.logoEmoji}>📞</Text>
             <Text style={styles.title}>TeamTalk</Text>
             <Text style={styles.subtitle}>
               {isLogin ? 'Zaloguj się do aplikacji' : 'Utwórz nowe konto'}
@@ -261,15 +261,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.xxxl + spacing.sm,
   },
-  logo: {
+  logoEmoji: {
     fontSize: 64,
     marginBottom: spacing.lg,
   },
   title: {
     fontSize: typography.xxxl,
     fontWeight: typography.bold,
-    color: colors.textPrimary,
+    color: '#1F2937',
     marginBottom: spacing.sm,
+    letterSpacing: 1,
   },
   subtitle: {
     fontSize: typography.base,
