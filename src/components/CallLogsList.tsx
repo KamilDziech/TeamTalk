@@ -413,29 +413,8 @@ export const CallLogsList: React.FC = () => {
     );
   };
 
-  // Footer with test buttons
-  const ListFooter = () => (
-    <View style={styles.footerContainer}>
-      <TouchableOpacity
-        style={styles.fullRescanButton}
-        onPress={handleFullRescan}
-        disabled={refreshing}
-      >
-        <Text style={styles.fullRescanButtonText}>
-          🔄 Pełne skanowanie (ostatnie 7 dni)
-        </Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.clearQueueButton}
-        onPress={handleClearQueue}
-      >
-        <Text style={styles.clearQueueButtonText}>
-          🗑️ Wyczyść całą kolejkę (testy)
-        </Text>
-      </TouchableOpacity>
-    </View>
-  );
+  // Footer (empty - test buttons removed)
+  const ListFooter = () => null;
 
   if (loading) {
     return (
