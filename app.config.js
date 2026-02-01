@@ -19,7 +19,7 @@ module.exports = {
     slug: "teamtalk",
     version: "1.0.0",
     orientation: "portrait",
-    icon: "./assets/icon.png",
+    icon: "./assets/logo_teamtalk.png",
     userInterfaceStyle: "light",
     splash: {
       image: "./assets/splash.png",
@@ -39,8 +39,8 @@ module.exports = {
       package: "com.ekotak.teamtalk",
       versionCode: 1,
       adaptiveIcon: {
-        foregroundImage: "./assets/adaptive-icon.png",
-        backgroundColor: "#2563EB"
+        foregroundImage: "./assets/logo_teamtalk.png",
+        backgroundColor: "#FFFFFF"
       },
       permissions: [
         "android.permission.READ_PHONE_STATE",
