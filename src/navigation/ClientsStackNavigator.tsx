@@ -35,7 +35,7 @@ export const ClientsStackNavigator: React.FC = () => {
         component={ClientsList}
         options={{
           title: 'Klienci',
-          headerShown: false, // Tab navigator already shows header
+          headerShown: false,
         }}
       />
       <Stack.Screen

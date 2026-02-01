@@ -338,7 +338,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: spacing.xxl,
-    gap: spacing.xs,
   },
   toggleText: {
     color: colors.textSecondary,

@@ -1,10 +1,9 @@
 /**
  * CallLogsList Component
  *
- * Displays call logs with workflow-based status:
- * - 'missed' (Do obsłużenia) -> Przycisk [REZERWUJ]
- * - 'reserved' (W trakcie) -> Przyciski [ZADZWOŃ] [WYKONANE] [UWOLNIJ]
- * - 'completed' -> Znika z kolejki, pojawia się w zakładce Notatka
+ * Master list view in Master-Detail pattern.
+ * Displays minimalist, clickable rows mimicking native Android call history.
+ * Tapping a row navigates to CallDetailsScreen.
  *
  * Workflow: missed ↔ reserved → completed (completed nie wyświetla się w kolejce)
  */
@@ -19,53 +18,51 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
-  Linking,
-  LayoutAnimation,
-  UIManager,
+  SafeAreaView,
+  StatusBar,
   Platform,
 } from 'react-native';
-
-// Enable LayoutAnimation for Android
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { MaterialIcons } from '@expo/vector-icons';
 import { supabase } from '@/api/supabaseClient';
 import { callLogScanner } from '@/services/CallLogScanner';
+import { contactLookupService } from '@/services/ContactLookupService';
 import { useAuth } from '@/contexts/AuthContext';
-import { colors, spacing, radius, typography, shadows, commonStyles } from '@/styles/theme';
+import { colors, spacing, radius, typography } from '@/styles/theme';
 import type { CallLog, Client, Profile, CallLogVisibility } from '@/types';
+import type { CallLogsStackParamList } from '@/navigation/CallLogsStackNavigator';
 
 interface CallLogWithClient extends CallLog {
   client: Client | null;
   hasVoiceReport: boolean;
 }
 
-// Zgrupowane połączenia od tego samego klienta lub numeru telefonu
-interface GroupedCallLog {
-  groupKey: string; // client_id or caller_phone
+// Exported for use in CallDetailsScreen
+export interface GroupedCallLog {
+  groupKey: string;
   clientId: string | null;
   client: Client | null;
-  callerPhone: string | null; // For unknown callers
-  callCount: number; // Ile razy klient próbował dzwonić
-  latestCall: CallLogWithClient; // Najnowsze połączenie (do wyświetlenia statusu)
-  allCalls: CallLogWithClient[]; // Wszystkie połączenia (do szczegółów)
-  firstCallTime: string; // Czas pierwszej próby
-  lastCallTime: string; // Czas ostatniej próby
-  visibility: CallLogVisibility; // 'public' or 'private'
-  isPrivate: boolean; // Convenience flag for UI
+  callerPhone: string | null;
+  callCount: number;
+  latestCall: CallLogWithClient;
+  allCalls: CallLogWithClient[];
+  firstCallTime: string;
+  lastCallTime: string;
+  visibility: CallLogVisibility;
+  isPrivate: boolean;
+  // Multi-agent alert: true if this number contacted multiple agents
+  isMultiAgent: boolean;
+  involvedAgentIds: string[];
 }
 
 /**
- * Grupuje połączenia po kliencie lub numerze telefonu - łączy wielokrotne próby dzwonienia
- * Priorytet: nieobsłużone (missed) > zarezerwowane (reserved) > załatwione (completed)
- * Obsługuje zarówno znanych klientów (client_id) jak i nieznane numery (caller_phone)
+ * Groups call logs by client or phone number
  */
 const groupCallLogsByClient = (logs: CallLogWithClient[]): GroupedCallLog[] => {
   const groupMap = new Map<string, CallLogWithClient[]>();
 
-  // Grupuj po client_id lub caller_phone
   logs.forEach((log) => {
-    // Determine group key: prefer client_id, fall back to caller_phone
     const groupKey = log.client_id || log.caller_phone;
     if (!groupKey) return;
 
@@ -74,26 +71,33 @@ const groupCallLogsByClient = (logs: CallLogWithClient[]): GroupedCallLog[] => {
     groupMap.set(groupKey, existing);
   });
 
-  // Przekształć na GroupedCallLog[]
   const grouped: GroupedCallLog[] = [];
 
   groupMap.forEach((calls, groupKey) => {
-    // Sortuj po czasie (najnowsze pierwsze)
     calls.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
-    // Znajdź najważniejsze połączenie (priorytet: missed > reserved > completed)
     const priorityOrder = { missed: 0, reserved: 1, completed: 2 };
     const latestCall = calls.reduce((prev, curr) => {
       if (priorityOrder[curr.status] < priorityOrder[prev.status]) return curr;
       return prev;
     }, calls[0]);
 
-    // Policz nieobsłużone (missed) połączenia
     const missedCalls = calls.filter((c) => c.status === 'missed');
-
-    // Determine if this is a known client or unknown caller
     const hasClient = calls[0].client_id !== null;
     const visibility = calls[0].visibility || 'public';
+
+    // Multi-agent detection: collect unique agent IDs
+    const agentIds = new Set<string>();
+    calls.forEach((call) => {
+      if (call.original_receiver_id) {
+        agentIds.add(call.original_receiver_id);
+      }
+      if (call.employee_id) {
+        agentIds.add(call.employee_id);
+      }
+    });
+    const involvedAgentIds = Array.from(agentIds);
+    const isMultiAgent = involvedAgentIds.length > 1;
 
     grouped.push({
       groupKey,
@@ -107,10 +111,11 @@ const groupCallLogsByClient = (logs: CallLogWithClient[]): GroupedCallLog[] => {
       lastCallTime: calls[0].timestamp,
       visibility: visibility,
       isPrivate: visibility === 'private',
+      isMultiAgent,
+      involvedAgentIds,
     });
   });
 
-  // Sortuj grupy: najpierw te z nieobsłużonymi (missed), potem po czasie
   grouped.sort((a, b) => {
     const aHasMissed = a.allCalls.some((c) => c.status === 'missed');
     const bHasMissed = b.allCalls.some((c) => c.status === 'missed');
@@ -122,94 +127,31 @@ const groupCallLogsByClient = (logs: CallLogWithClient[]): GroupedCallLog[] => {
   return grouped;
 };
 
-// SLA threshold in milliseconds (1 hour)
-const SLA_THRESHOLD_MS = 60 * 60 * 1000;
-
-/**
- * Format time elapsed since a given timestamp
- * Returns string like "2h 15m temu" or "45m temu"
- */
-const formatTimeElapsed = (timestamp: string): string => {
-  const now = new Date().getTime();
-  const then = new Date(timestamp).getTime();
-  const diffMs = now - then;
-
-  const minutes = Math.floor(diffMs / (1000 * 60));
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-
-  if (hours > 0) {
-    return `${hours}h ${remainingMinutes}m temu`;
-  }
-  return `${minutes}m temu`;
-};
-
-/**
- * Check if the oldest active call exceeds SLA threshold
- */
-const checkSlaExceeded = (group: GroupedCallLog): { exceeded: boolean; waitTime: string } => {
-  // Find oldest active (missed/reserved) call
-  const activeCalls = group.allCalls.filter(c => c.status === 'missed' || c.status === 'reserved');
-  if (activeCalls.length === 0) {
-    return { exceeded: false, waitTime: '' };
-  }
-
-  // Sort by timestamp ascending to get oldest
-  const sortedCalls = [...activeCalls].sort(
-    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-  );
-  const oldestCall = sortedCalls[0];
-
-  const now = new Date().getTime();
-  const oldestTime = new Date(oldestCall.timestamp).getTime();
-  const diffMs = now - oldestTime;
-
-  if (diffMs > SLA_THRESHOLD_MS) {
-    const minutes = Math.floor(diffMs / (1000 * 60));
-    const hours = Math.floor(minutes / 60);
-    const remainingMinutes = minutes % 60;
-    return {
-      exceeded: true,
-      waitTime: `${hours}h ${remainingMinutes}m`,
-    };
-  }
-
-  return { exceeded: false, waitTime: '' };
-};
+type NavigationProp = NativeStackNavigationProp<CallLogsStackParamList, 'CallLogsList'>;
 
 export const CallLogsList: React.FC = () => {
   console.log('📋 CallLogsList: Component rendering START');
   const { user } = useAuth();
-  console.log('📋 CallLogsList: useAuth called, user:', user?.id);
-  const [callLogs, setCallLogs] = useState<CallLogWithClient[]>([]);
+  const navigation = useNavigation<NavigationProp>();
   const [groupedLogs, setGroupedLogs] = useState<GroupedCallLog[]>([]);
   const [profiles, setProfiles] = useState<Map<string, Profile>>(new Map());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
-  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
-  console.log('📋 CallLogsList: useState hooks called');
-
-  // Toggle card expansion with animation
-  const toggleCardExpansion = (clientId: string) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setExpandedCards(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(clientId)) {
-        newSet.delete(clientId);
-      } else {
-        newSet.add(clientId);
-      }
-      return newSet;
-    });
-  };
 
   useEffect(() => {
     console.log('📋 CallLogsList: useEffect running');
+    loadDeviceContacts();
     fetchCallLogs();
     fetchProfiles();
     setupRealtimeSubscription();
   }, []);
+
+  // Load device contacts for caller ID
+  const loadDeviceContacts = async () => {
+    const loaded = await contactLookupService.loadDeviceContacts();
+    console.log('📱 Device contacts loaded:', loaded);
+  };
 
   const fetchProfiles = async () => {
     try {
@@ -219,7 +161,7 @@ export const CallLogsList: React.FC = () => {
         return;
       }
       const profileMap = new Map<string, Profile>();
-      data?.forEach((profile) => profileMap.set(profile.id, profile));
+      data?.forEach((profile: Profile) => profileMap.set(profile.id, profile));
       setProfiles(profileMap);
     } catch (error) {
       console.error('Error fetching profiles:', error);
@@ -235,31 +177,24 @@ export const CallLogsList: React.FC = () => {
   const fetchCallLogs = async () => {
     try {
       setLoading(true);
-
       const currentUserId = user?.id;
 
-      // Fetch PUBLIC call logs with client data (visible to all)
+      // Fetch PUBLIC call logs
       const { data: publicLogs, error: publicError } = await supabase
         .from('call_logs')
-        .select(`
-          *,
-          clients (*)
-        `)
+        .select(`*, clients (*)`)
         .eq('visibility', 'public')
         .order('timestamp', { ascending: false })
         .limit(50);
 
       if (publicError) throw publicError;
 
-      // Fetch PRIVATE call logs only for current user
+      // Fetch PRIVATE call logs for current user
       let privateLogs: typeof publicLogs = [];
       if (currentUserId) {
         const { data, error: privateError } = await supabase
           .from('call_logs')
-          .select(`
-            *,
-            clients (*)
-          `)
+          .select(`*, clients (*)`)
           .eq('visibility', 'private')
           .eq('original_receiver_id', currentUserId)
           .order('timestamp', { ascending: false })
@@ -269,12 +204,11 @@ export const CallLogsList: React.FC = () => {
         privateLogs = data || [];
       }
 
-      // Combine public and private logs
       const allLogs = [...(publicLogs || []), ...(privateLogs || [])];
 
-      // Check which logs have voice reports
+      // Check for voice reports
       const logsWithReports = await Promise.all(
-        allLogs.map(async (log) => {
+        allLogs.map(async (log: any) => {
           const { data: report } = await supabase
             .from('voice_reports')
             .select('id')
@@ -289,17 +223,13 @@ export const CallLogsList: React.FC = () => {
         })
       );
 
-      setCallLogs(logsWithReports as CallLogWithClient[]);
-
-      // Filtruj tylko połączenia, które powinny być w kolejce (missed i reserved)
-      // Completed połączenia znikają z kolejki i pojawiają się w zakładce Notatka
+      // Filter only queue items (missed and reserved)
       const queueLogs = (logsWithReports as CallLogWithClient[]).filter(
         (log) => log.status === 'missed' || log.status === 'reserved'
       );
 
-      // Grupuj połączenia po kliencie lub numerze
       const grouped = groupCallLogsByClient(queueLogs);
-      console.log('📋 Grouped logs:', grouped.length, 'groups (public + private)');
+      console.log('📋 Grouped logs:', grouped.length, 'groups');
       setGroupedLogs(grouped);
     } catch (error) {
       console.error('Error fetching call logs:', error);
@@ -330,204 +260,24 @@ export const CallLogsList: React.FC = () => {
     };
   };
 
-  const handleReserve = async (callLog: CallLogWithClient) => {
-    if (!user) {
-      Alert.alert('Błąd', 'Musisz być zalogowany, aby rezerwować połączenia.');
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from('call_logs')
-        .update({
-          status: 'reserved',
-          reservation_by: user.id,
-          reservation_at: new Date().toISOString(),
-        })
-        .eq('id', callLog.id);
-
-      if (error) throw error;
-
-      fetchCallLogs();
-    } catch (error) {
-      console.error('Error reserving call:', error);
-    }
-  };
-
-  const handleComplete = async (callLog: CallLogWithClient) => {
-    try {
-      const { error } = await supabase
-        .from('call_logs')
-        .update({
-          type: 'completed',
-          status: 'completed',
-        })
-        .eq('id', callLog.id);
-
-      if (error) throw error;
-
-      fetchCallLogs();
-    } catch (error) {
-      console.error('Error completing call:', error);
-    }
-  };
-
   const onRefresh = async () => {
     setRefreshing(true);
     setSyncStatus('Synchronizacja połączeń...');
 
     try {
-      // Najpierw skanuj CallLog systemowy i zaktualizuj bazę
       console.log('🔄 Manual refresh - scanning call log...');
       await callLogScanner.scanMissedCalls();
-
-      // Potem odśwież listę z bazy
       await fetchCallLogs();
       setSyncStatus('Zsynchronizowano');
     } catch (error) {
       console.error('Error during refresh:', error);
       setSyncStatus('Błąd synchronizacji');
     } finally {
-      // Ukryj status po 2 sekundach
       setTimeout(() => setSyncStatus(null), 2000);
       setRefreshing(false);
     }
   };
 
-  const getStatusColor = (callLog: CallLogWithClient) => {
-    if (callLog.status === 'completed') {
-      return callLog.hasVoiceReport ? colors.success : colors.warning;
-    }
-    if (callLog.status === 'reserved') return colors.primary;
-    return colors.error;
-  };
-
-  const getStatusText = (callLog: CallLogWithClient) => {
-    if (callLog.status === 'completed') {
-      return callLog.hasVoiceReport ? '🟢 Załatwione' : '⚠️ BEZ NOTATKI';
-    }
-    if (callLog.status === 'reserved') return '🔵 W trakcie';
-    return '🔴 Do obsłużenia';
-  };
-
-  // Rezerwuj wszystkie nieobsłużone połączenia od klienta
-  const handleReserveGroup = async (group: GroupedCallLog) => {
-    if (!user) {
-      Alert.alert('Błąd', 'Musisz być zalogowany, aby rezerwować połączenia.');
-      return;
-    }
-
-    const missedCalls = group.allCalls.filter((c) => c.status === 'missed');
-
-    if (missedCalls.length === 0) {
-      return;
-    }
-
-    try {
-      for (const call of missedCalls) {
-        const { error } = await supabase
-          .from('call_logs')
-          .update({
-            status: 'reserved',
-            reservation_by: user.id,
-            reservation_at: new Date().toISOString(),
-          })
-          .eq('id', call.id);
-
-        if (error) {
-          console.error('Error reserving call:', error);
-        }
-      }
-      fetchCallLogs();
-    } catch (error) {
-      console.error('Error reserving calls:', error);
-    }
-  };
-
-  // Zadzwoń - otwiera dialer systemowy z numerem klienta lub nieznanym numerem
-  const handleCall = (group: GroupedCallLog) => {
-    const phoneNumber = group.client?.phone || group.callerPhone;
-    if (phoneNumber) {
-      // Add +48 prefix if not present for Polish numbers
-      const formattedNumber = phoneNumber.startsWith('+') ? phoneNumber : `+48${phoneNumber}`;
-      Linking.openURL(`tel:${formattedNumber}`);
-    }
-  };
-
-  // Uwolnij rezerwację - wraca do statusu missed
-  const handleReleaseGroup = async (group: GroupedCallLog) => {
-    const reservedCalls = group.allCalls.filter((c) => c.status === 'reserved');
-
-    try {
-      for (const call of reservedCalls) {
-        await supabase
-          .from('call_logs')
-          .update({
-            status: 'missed',
-            reservation_by: null,
-            reservation_at: null,
-          })
-          .eq('id', call.id);
-      }
-      fetchCallLogs();
-    } catch (error) {
-      console.error('Error releasing calls:', error);
-    }
-  };
-
-  // Oznacz jako wykonane - przenosi do zakładki Notatka
-  const handleCompleteGroup = async (group: GroupedCallLog) => {
-    const reservedCalls = group.allCalls.filter((c) => c.status === 'reserved');
-
-    try {
-      for (const call of reservedCalls) {
-        await supabase
-          .from('call_logs')
-          .update({
-            type: 'completed',
-            status: 'completed',
-          })
-          .eq('id', call.id);
-      }
-      fetchCallLogs();
-    } catch (error) {
-      console.error('Error completing calls:', error);
-    }
-  };
-
-  // Wyczyść całą kolejkę (na testy)
-  const handleClearQueue = () => {
-    Alert.alert(
-      'Wyczyść kolejkę',
-      'Czy na pewno chcesz usunąć WSZYSTKIE wpisy z kolejki połączeń?\n\nTa operacja jest nieodwracalna.',
-      [
-        { text: 'Anuluj', style: 'cancel' },
-        {
-          text: 'Usuń wszystko',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setLoading(true);
-              const { error } = await supabase
-                .from('call_logs')
-                .delete()
-                .gte('id', '00000000-0000-0000-0000-000000000000'); // Delete all rows
-
-              if (error) throw error;
-
-              console.log('🗑️ Queue cleared');
-              fetchCallLogs();
-            } catch (error) {
-              console.error('Error clearing queue:', error);
-              Alert.alert('Błąd', 'Nie udało się wyczyścić kolejki.');
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  // Pełne skanowanie (ostatnie 7 dni)
   const handleFullRescan = async () => {
     setRefreshing(true);
     setSyncStatus('Pełne skanowanie (7 dni)...');
@@ -545,244 +295,114 @@ export const CallLogsList: React.FC = () => {
     }
   };
 
-  // Upublicznij prywatne połączenie - udostępnij całemu zespołowi
-  const handlePublicize = async (group: GroupedCallLog) => {
-    try {
-      // Get the caller_phone from the group
-      const callerPhone = group.callerPhone || group.allCalls[0]?.caller_phone;
+  const handleClearQueue = () => {
+    Alert.alert(
+      'Wyczyść kolejkę',
+      'Czy na pewno chcesz usunąć WSZYSTKIE wpisy z kolejki połączeń?\n\nTa operacja jest nieodwracalna.',
+      [
+        { text: 'Anuluj', style: 'cancel' },
+        {
+          text: 'Usuń wszystko',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setLoading(true);
+              const { error } = await supabase
+                .from('call_logs')
+                .delete()
+                .gte('id', '00000000-0000-0000-0000-000000000000');
 
-      if (callerPhone) {
-        // Publicize all calls from this phone number
-        const { error } = await supabase
-          .from('call_logs')
-          .update({ visibility: 'public' })
-          .eq('caller_phone', callerPhone);
+              if (error) throw error;
 
-        if (error) throw error;
-      } else {
-        // Fallback: publicize just the latest call
-        const { error } = await supabase
-          .from('call_logs')
-          .update({ visibility: 'public' })
-          .eq('id', group.latestCall.id);
-
-        if (error) throw error;
-      }
-
-      console.log('📢 Call publicized successfully');
-      fetchCallLogs();
-    } catch (error) {
-      console.error('Error publicizing call:', error);
-      Alert.alert('Błąd', 'Nie udało się upublicznić połączenia.');
-    }
+              console.log('🗑️ Queue cleared');
+              fetchCallLogs();
+            } catch (error) {
+              console.error('Error clearing queue:', error);
+              Alert.alert('Błąd', 'Nie udało się wyczyścić kolejki.');
+            }
+          },
+        },
+      ]
+    );
   };
 
-  const renderGroupedCallLog = ({ item }: { item: GroupedCallLog }) => {
-    const statusColor = getStatusColor(item.latestCall);
+  // Navigate to detail screen
+  const handleRowPress = (group: GroupedCallLog) => {
+    navigation.navigate('CallDetails', { group });
+  };
+
+  // Render minimalist row
+  const renderRow = ({ item }: { item: GroupedCallLog }) => {
     const hasMissedCalls = item.allCalls.some((c) => c.status === 'missed');
-    const hasReservedCalls = item.allCalls.some((c) => c.status === 'reserved');
     const missedCount = item.allCalls.filter((c) => c.status === 'missed').length;
-    const isExpanded = expandedCards.has(item.groupKey);
 
-    // Check SLA
-    const slaStatus = checkSlaExceeded(item);
+    // Get phone number
+    const phoneNumber = item.client?.phone || item.callerPhone || null;
 
-    // Get active calls for accordion (missed + reserved only)
-    const activeCalls = item.allCalls.filter(c => c.status === 'missed' || c.status === 'reserved');
+    // Priority: 1. Device contacts, 2. CRM client name, 3. Phone number
+    const deviceContactName = contactLookupService.lookupContactName(phoneNumber);
+    const crmClientName = item.client?.name || null;
 
-    // Find oldest active call to show who is responsible
-    const oldestActiveCall = activeCalls.length > 0
-      ? [...activeCalls].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())[0]
+    const hasContactName = !!(deviceContactName || crmClientName);
+    const displayPrimary = deviceContactName || crmClientName || phoneNumber || 'Nieznany';
+    const displaySecondary = hasContactName ? phoneNumber : null;
+    const displayCount = missedCount > 1 ? ` (${missedCount})` : '';
+
+    // Handler name for reserved calls (only if not same as contact name)
+    const handlerName = item.latestCall.reservation_by && item.latestCall.status === 'reserved'
+      ? getDisplayName(item.latestCall.reservation_by)
       : null;
-    const responsibleEmployee = oldestActiveCall?.employee_id
-      ? getDisplayName(oldestActiveCall.employee_id)
-      : null;
 
-    // Display name: prefer client name, fall back to phone number
-    const displayName = item.client?.name || item.callerPhone || 'Nieznany numer';
-    const displayPhone = item.client?.phone || item.callerPhone || '';
+    // Time of last call
+    const lastCallTime = new Date(item.lastCallTime).toLocaleTimeString('pl-PL', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    // Icon and color based on status
+    const iconName = hasMissedCalls ? 'phone-missed' : 'phone-in-talk';
+    const statusColor = hasMissedCalls ? colors.error : colors.primary;
 
     return (
-      <View style={[styles.card, { borderLeftColor: statusColor }]}>
-        {/* Private call badge - only you can see this */}
-        {item.isPrivate && (
-          <View style={styles.privateBadge}>
-            <Text style={styles.privateBadgeText}>
-              🔒 Potencjalny klient (Tylko Ty to widzisz)
-            </Text>
-          </View>
-        )}
+      <TouchableOpacity
+        style={styles.row}
+        onPress={() => handleRowPress(item)}
+        activeOpacity={0.7}
+      >
+        {/* Left: Material Icon */}
+        <View style={styles.iconContainer}>
+          <MaterialIcons name={iconName} size={24} color={statusColor} />
+        </View>
 
-        {/* SLA Alert Banner */}
-        {slaStatus.exceeded && (
-          <View style={styles.slaAlertBanner}>
-            <Text style={styles.slaAlertText}>
-              ❗ Czeka: {slaStatus.waitTime}
-              {responsibleEmployee && ` (${responsibleEmployee})`}
-            </Text>
-          </View>
-        )}
-
-        <View style={styles.cardHeader}>
-          <View style={styles.clientInfo}>
-            <Text style={styles.clientName}>
-              {slaStatus.exceeded && <Text style={styles.slaIcon}>❗ </Text>}
-              {item.isPrivate && <Text style={styles.privateIcon}>🔒 </Text>}
-              {displayName}
-            </Text>
-            <Text style={styles.clientPhone}>{displayPhone}</Text>
-          </View>
-          <Text style={[styles.statusBadge, { backgroundColor: statusColor }]}>
-            {getStatusText(item.latestCall)}
+        {/* Center: Name/Phone + Subtitle */}
+        <View style={styles.rowCenter}>
+          <Text style={styles.phoneText}>
+            {displayPrimary}{displayCount}
           </Text>
-        </View>
-
-        {/* Alert o wielokrotnym dzwonieniu - klikalny accordion */}
-        {activeCalls.length > 1 && (
-          <TouchableOpacity
-            style={styles.multiCallAlert}
-            onPress={() => toggleCardExpansion(item.groupKey)}
-            activeOpacity={0.7}
-          >
-            <View style={styles.multiCallHeader}>
-              <Text style={styles.multiCallText}>
-                🔔 Klient dzwonił {activeCalls.length} razy!
-              </Text>
-              <Text style={styles.expandIcon}>
-                {isExpanded ? '▼' : '▶'}
-              </Text>
-            </View>
-
-            {/* Expanded list of attempts */}
-            {isExpanded && (
-              <View style={styles.attemptsList}>
-                {activeCalls.map((call) => (
-                  <View key={call.id} style={styles.attemptRow}>
-                    <View style={styles.attemptInfo}>
-                      <Text style={styles.attemptTime}>
-                        🕒 {new Date(call.timestamp).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}
-                        {' '}
-                        <Text style={styles.attemptDate}>
-                          ({new Date(call.timestamp).toLocaleDateString('pl-PL')})
-                        </Text>
-                      </Text>
-                      <Text style={styles.attemptElapsed}>
-                        ⏳ {formatTimeElapsed(call.timestamp)}
-                      </Text>
-                      {/* Show who missed this call */}
-                      {call.employee_id && (
-                        <Text style={styles.attemptMissedBy}>
-                          📵 Nie odebrał: {getDisplayName(call.employee_id) || 'Nieznany'}
-                        </Text>
-                      )}
-                    </View>
-                    <View style={styles.attemptStatus}>
-                      {call.status === 'reserved' && call.reservation_by && (
-                        <Text style={styles.attemptReservedBy}>
-                          👤 {getDisplayName(call.reservation_by) || 'Ktoś'}
-                        </Text>
-                      )}
-                      <View style={[
-                        styles.attemptStatusDot,
-                        { backgroundColor: call.status === 'missed' ? '#F44336' : '#2196F3' }
-                      ]} />
-                    </View>
-                  </View>
-                ))}
-              </View>
-            )}
-          </TouchableOpacity>
-        )}
-
-        <View style={styles.cardDetails}>
-          <Text style={styles.detailText}>
-            🕐 Ostatnio: {new Date(item.lastCallTime).toLocaleString('pl-PL')}
-          </Text>
-          {item.client?.address && (
-            <Text style={styles.detailText}>📍 {item.client.address}</Text>
+          {displaySecondary && (
+            <Text style={styles.subtitleText}>{displaySecondary}</Text>
           )}
-          {/* Show who missed the latest call */}
-          {item.latestCall.employee_id && item.latestCall.status === 'missed' && (
-            <Text style={styles.missedByText}>
-              📵 Nie odebrał: {getDisplayName(item.latestCall.employee_id) || 'Nieznany'}
-            </Text>
+          {handlerName && !displaySecondary && (
+            <Text style={styles.subtitleText}>{handlerName}</Text>
           )}
-          {item.latestCall.reservation_by && item.latestCall.status === 'reserved' && (
-            <Text style={styles.detailText}>
-              👤 Obsługuje: {getDisplayName(item.latestCall.reservation_by) || 'Nieznany użytkownik'}
-            </Text>
+          {handlerName && displaySecondary && (
+            <Text style={styles.handlerText}>Obsługuje: {handlerName}</Text>
           )}
         </View>
 
-        <View style={styles.actions}>
-          {/* Status: missed -> Przycisk [REZERWUJ] */}
-          {hasMissedCalls && (
-            <TouchableOpacity
-              style={[styles.button, styles.reserveButton]}
-              onPress={() => handleReserveGroup(item)}
-            >
-              <Text style={styles.buttonText}>
-                Rezerwuj {missedCount > 1 ? `(${missedCount})` : ''}
-              </Text>
-            </TouchableOpacity>
+        {/* Right: Multi-agent warning + Time + Chevron */}
+        <View style={styles.rowRight}>
+          {item.isMultiAgent && (
+            <MaterialIcons name="warning" size={18} color="#F59E0B" style={styles.multiAgentIcon} />
           )}
-
-          {/* Status: reserved -> Trzy przyciski */}
-          {hasReservedCalls && !hasMissedCalls && (
-            <View style={styles.reservedActions}>
-              {/* Przycisk ZADZWOŃ - niebieski */}
-              <TouchableOpacity
-                style={[styles.button, styles.callButton]}
-                onPress={() => handleCall(item)}
-              >
-                <Text style={styles.buttonText}>📞 Zadzwoń</Text>
-              </TouchableOpacity>
-
-              {/* Przycisk WYKONANE - zielony */}
-              <TouchableOpacity
-                style={[styles.button, styles.completeButton]}
-                onPress={() => handleCompleteGroup(item)}
-              >
-                <Text style={styles.buttonText}>✓ Wykonane</Text>
-              </TouchableOpacity>
-
-              {/* Przycisk UWOLNIJ - szary, mniejszy */}
-              <TouchableOpacity
-                style={[styles.smallButton, styles.releaseButton]}
-                onPress={() => handleReleaseGroup(item)}
-              >
-                <Text style={styles.smallButtonText}>Uwolnij</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Przycisk UPUBLICZNIJ - tylko dla prywatnych połączeń */}
-          {item.isPrivate && (
-            <TouchableOpacity
-              style={[styles.button, styles.publicizeButton]}
-              onPress={() => handlePublicize(item)}
-            >
-              <Text style={styles.buttonText}>📢 Upublicznij</Text>
-            </TouchableOpacity>
-          )}
+          <Text style={styles.timeText}>{lastCallTime}</Text>
+          <MaterialIcons name="chevron-right" size={24} color={colors.textTertiary} />
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
-  console.log('📋 CallLogsList: Before render, loading:', loading, 'groupedLogs:', groupedLogs.length);
-
-  if (loading) {
-    console.log('📋 CallLogsList: Showing loading state');
-    return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Ładowanie połączeń...</Text>
-      </View>
-    );
-  }
-
-  // Komponent statusu synchronizacji
+  // Sync status bar
   const SyncStatusBar = () => {
     if (!syncStatus) return null;
     return (
@@ -793,32 +413,7 @@ export const CallLogsList: React.FC = () => {
     );
   };
 
-  if (groupedLogs.length === 0) {
-    return (
-      <View style={styles.container}>
-        <SyncStatusBar />
-        <FlatList
-          data={[]}
-          renderItem={() => null}
-          contentContainerStyle={styles.emptyListContent}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>📞 Brak połączeń</Text>
-              <Text style={styles.emptySubtext}>
-                Nieodebrane połączenia od znanych klientów pojawią się tutaj
-              </Text>
-              <Text style={styles.pullHint}>↓ Pociągnij w dół aby odświeżyć</Text>
-            </View>
-          }
-        />
-      </View>
-    );
-  }
-
-  // Footer z przyciskami testowymi
+  // Footer with test buttons
   const ListFooter = () => (
     <View style={styles.footerContainer}>
       <TouchableOpacity
@@ -842,29 +437,81 @@ export const CallLogsList: React.FC = () => {
     </View>
   );
 
+  if (loading) {
+    return (
+      <View style={styles.centerContainer}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.loadingText}>Ładowanie połączeń...</Text>
+      </View>
+    );
+  }
+
+  if (groupedLogs.length === 0) {
+    return (
+      <View style={styles.container}>
+        <SyncStatusBar />
+        <FlatList
+          data={[]}
+          renderItem={() => null}
+          contentContainerStyle={styles.emptyListContent}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <MaterialIcons name="phone-missed" size={64} color={colors.textTertiary} />
+              <Text style={styles.emptyText}>Brak połączeń</Text>
+              <Text style={styles.emptySubtext}>
+                Nieodebrane połączenia pojawią się tutaj
+              </Text>
+              <Text style={styles.pullHint}>↓ Pociągnij w dół aby odświeżyć</Text>
+            </View>
+          }
+        />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <SyncStatusBar />
       <FlatList
         data={groupedLogs}
-        renderItem={renderGroupedCallLog}
+        renderItem={renderRow}
         keyExtractor={(item) => item.groupKey}
         contentContainerStyle={styles.listContent}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
         ListFooterComponent={<ListFooter />}
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
       />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  // Layout
+  // Container
   container: {
     flex: 1,
     backgroundColor: colors.background,
   },
+
+  // Header
+  headerContainer: {
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  headerTitle: {
+    fontSize: typography.xxl,
+    fontWeight: typography.bold,
+    color: colors.textPrimary,
+  },
+
+  // Layout
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -878,184 +525,60 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   listContent: {
-    padding: spacing.lg,
+    paddingVertical: spacing.sm,
   },
 
-  // Cards - Modern SaaS style
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.xl,
-    padding: spacing.xl,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderLeftWidth: 4,
-    ...shadows.sm,
-  },
-  cardHeader: {
+  // Row - Minimalist call log style
+  row: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: spacing.md,
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
   },
-  clientInfo: {
+  iconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+    backgroundColor: colors.borderLight,
+  },
+  rowCenter: {
     flex: 1,
   },
-  clientName: {
+  phoneText: {
     fontSize: typography.lg,
     fontWeight: typography.semibold,
     color: colors.textPrimary,
-    marginBottom: spacing.xs,
+    marginBottom: 2,
   },
-  clientPhone: {
-    fontSize: typography.sm,
-    color: colors.primary,
-    fontWeight: typography.medium,
-  },
-  statusBadge: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.full,
-    marginLeft: spacing.sm,
-    fontSize: typography.xs,
-    color: colors.textInverse,
-    fontWeight: typography.medium,
-  },
-
-  // Alert boxes
-  alertBox: {
-    backgroundColor: colors.errorLight,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-  },
-  alertText: {
-    color: colors.error,
-    fontSize: typography.sm,
-    fontWeight: typography.semibold,
-  },
-  noteInfoBox: {
-    backgroundColor: colors.infoLight,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-  },
-  noteInfoText: {
-    color: colors.info,
-    fontSize: typography.sm,
-    fontWeight: typography.medium,
-  },
-  noteBox: {
-    backgroundColor: colors.successLight,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-  },
-  noteLabel: {
-    color: colors.success,
-    fontSize: typography.sm,
-    fontWeight: typography.semibold,
-    marginBottom: spacing.xs,
-  },
-  noteText: {
-    color: colors.success,
-    fontSize: typography.sm,
-  },
-  multiCallAlert: {
-    backgroundColor: colors.warningLight,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-  },
-  multiCallHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  multiCallText: {
-    color: colors.warning,
-    fontSize: typography.sm,
-    fontWeight: typography.semibold,
-    flex: 1,
-  },
-  expandIcon: {
-    color: colors.warning,
-    fontSize: typography.xs,
-    marginLeft: spacing.sm,
-  },
-  attemptsList: {
-    marginTop: spacing.md,
-    paddingTop: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.warningLight,
-  },
-
-  // Card details
-  cardDetails: {
-    marginBottom: spacing.md,
-  },
-  detailText: {
+  subtitleText: {
     fontSize: typography.sm,
     color: colors.textSecondary,
-    marginBottom: spacing.xs,
-    lineHeight: 20,
   },
-  missedByText: {
-    fontSize: typography.sm,
-    color: colors.error,
-    marginBottom: spacing.xs,
-    lineHeight: 20,
-    fontWeight: typography.medium,
-  },
-
-  // Actions and Buttons
-  actions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  reservedActions: {
-    flex: 1,
-    flexDirection: 'row',
-    gap: spacing.sm,
-    flexWrap: 'wrap',
-  },
-  button: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    borderRadius: radius.lg,
-    alignItems: 'center',
-    minWidth: 80,
-  },
-  smallButton: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.md,
-    alignItems: 'center',
-  },
-  reserveButton: {
-    backgroundColor: colors.warning,
-  },
-  callButton: {
-    backgroundColor: colors.primary,
-  },
-  completeButton: {
-    backgroundColor: colors.success,
-  },
-  releaseButton: {
-    backgroundColor: colors.textTertiary,
-  },
-  noteButton: {
-    backgroundColor: colors.error,
-  },
-  smallButtonText: {
-    color: colors.textInverse,
+  handlerText: {
     fontSize: typography.xs,
-    fontWeight: typography.semibold,
+    color: colors.primary,
+    marginTop: 2,
   },
-  buttonText: {
-    color: colors.textInverse,
+  rowRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  timeText: {
     fontSize: typography.sm,
-    fontWeight: typography.semibold,
+    color: colors.textTertiary,
+    marginRight: spacing.xs,
+  },
+  multiAgentIcon: {
+    marginRight: spacing.xs,
+  },
+  separator: {
+    height: 1,
+    backgroundColor: colors.borderLight,
+    marginLeft: 72,
   },
 
   // Sync status bar
@@ -1082,13 +605,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   emptyContainer: {
-    ...commonStyles.emptyState,
+    alignItems: 'center',
+    paddingVertical: spacing.xxxl,
+    paddingHorizontal: spacing.xl,
   },
   emptyText: {
-    ...commonStyles.emptyStateTitle,
+    fontSize: typography.lg,
+    fontWeight: typography.semibold,
+    color: colors.textPrimary,
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
   },
   emptySubtext: {
-    ...commonStyles.emptyStateText,
+    fontSize: typography.base,
+    color: colors.textSecondary,
+    textAlign: 'center',
     marginBottom: spacing.lg,
   },
   pullHint: {
@@ -1104,7 +635,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.border,
     marginTop: spacing.lg,
-    gap: spacing.md,
   },
   fullRescanButton: {
     backgroundColor: colors.infoLight,
@@ -1113,6 +643,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.info,
+    marginBottom: spacing.md,
   },
   fullRescanButtonText: {
     color: colors.info,
@@ -1131,90 +662,5 @@ const styles = StyleSheet.create({
     color: colors.error,
     fontSize: typography.sm,
     fontWeight: typography.semibold,
-  },
-  // SLA Alert styles
-  slaAlertBanner: {
-    backgroundColor: '#FFCDD2',
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 12,
-    alignItems: 'center',
-  },
-  slaAlertText: {
-    color: '#D32F2F',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  slaIcon: {
-    color: '#D32F2F',
-  },
-  // Accordion attempt rows
-  attemptRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#FFE0B2',
-  },
-  attemptInfo: {
-    flex: 1,
-  },
-  attemptTime: {
-    fontSize: 13,
-    color: '#5D4037',
-    fontWeight: '500',
-  },
-  attemptDate: {
-    fontSize: 11,
-    color: '#8D6E63',
-    fontWeight: 'normal',
-  },
-  attemptElapsed: {
-    fontSize: 11,
-    color: '#A1887F',
-    marginTop: 2,
-  },
-  attemptMissedBy: {
-    fontSize: 11,
-    color: '#D32F2F',
-    marginTop: 2,
-    fontWeight: '500',
-  },
-  attemptStatus: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  attemptReservedBy: {
-    fontSize: 11,
-    color: '#1976D2',
-  },
-  attemptStatusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  // Private call styles
-  privateBadge: {
-    backgroundColor: '#E8EAF6',
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#7986CB',
-  },
-  privateBadgeText: {
-    color: '#3F51B5',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  privateIcon: {
-    color: '#3F51B5',
-  },
-  publicizeButton: {
-    backgroundColor: '#7C4DFF',
-    marginTop: 8,
   },
 });

@@ -220,14 +220,6 @@ export const AddNoteScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      {/* Header z instrukcją */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Notatki głosowe</Text>
-        <Text style={styles.headerSubtitle}>
-          Rozmowy wymagające notatki głosowej
-        </Text>
-      </View>
-
       {callLogs.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyIcon}>✅</Text>
@@ -391,7 +383,6 @@ const styles = StyleSheet.create({
   // Action buttons
   cardActions: {
     flexDirection: 'row',
-    gap: spacing.sm,
   },
   recordButton: {
     flex: 1,

@@ -206,7 +206,6 @@ export const commonStyles = StyleSheet.create({
   statusBadge: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
-    gap: spacing.xs,
   },
 
   // Inputs

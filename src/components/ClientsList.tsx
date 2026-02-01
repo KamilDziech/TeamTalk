@@ -2,22 +2,43 @@
  * ClientsList Component
  *
  * Displays a list of clients from Supabase with navigation to client timeline.
+ * Refactored: SafeArea fix, pull-to-refresh, consistent styling.
  */
 
-import React from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  FlatList,
+  StyleSheet,
+  ActivityIndicator,
+  TouchableOpacity,
+  Alert,
+  RefreshControl,
+  SafeAreaView,
+  StatusBar,
+  Platform,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useClients } from '@/hooks/useClients';
 import type { Client } from '@/types';
 import type { ClientsStackParamList } from '@/navigation/ClientsStackNavigator';
-import { colors, spacing, radius, typography, shadows, commonStyles } from '@/styles/theme';
+import { colors, spacing, radius, typography } from '@/styles/theme';
 
 type NavigationProp = NativeStackNavigationProp<ClientsStackParamList, 'ClientsList'>;
 
 export const ClientsList: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
   const { clients, loading, error, refetch, deleteClient } = useClients();
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Pull-to-refresh handler
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  }, [refetch]);
 
   const handleDeleteClient = (client: Client) => {
     Alert.alert(
@@ -39,116 +60,160 @@ export const ClientsList: React.FC = () => {
     );
   };
 
-  if (loading) {
-    return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Ładowanie klientów...</Text>
-      </View>
-    );
-  }
-
-  if (error) {
-    return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>Błąd: {error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={refetch}>
-          <Text style={styles.retryButtonText}>Spróbuj ponownie</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  if (clients.length === 0) {
-    return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.emptyText}>Brak klientów w bazie</Text>
-        <Text style={styles.emptySubtext}>
-          Dodaj testowego klienta w panelu Supabase
-        </Text>
-        <TouchableOpacity style={styles.retryButton} onPress={refetch}>
-          <Text style={styles.retryButtonText}>Odśwież</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
   const handleClientPress = (client: Client) => {
     navigation.navigate('ClientTimeline', { client });
   };
 
+  // Screen Header
+  const ScreenHeader = () => (
+    <View style={styles.headerContainer}>
+      <Text style={styles.headerTitle}>Klienci</Text>
+      <Text style={styles.headerCount}>{clients.length}</Text>
+    </View>
+  );
+
+  // Loading state
+  if (loading && !refreshing) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+        <ScreenHeader />
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Ładowanie klientów...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+        <ScreenHeader />
+        <View style={styles.centerContainer}>
+          <Text style={styles.errorText}>Błąd: {error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={refetch}>
+            <Text style={styles.retryButtonText}>Spróbuj ponownie</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   const renderClient = ({ item }: { item: Client }) => (
     <TouchableOpacity
-      style={styles.clientCard}
+      style={styles.row}
       onPress={() => handleClientPress(item)}
       activeOpacity={0.7}
     >
-      <View style={styles.clientCardHeader}>
-        <View style={styles.clientCardInfo}>
-          <Text style={styles.clientName}>{item.name || 'Brak nazwy'}</Text>
-          <Text style={styles.clientPhone}>{item.phone}</Text>
-        </View>
-        <View style={styles.clientCardActions}>
-          <TouchableOpacity
-            style={styles.deleteButton}
-            onPress={() => handleDeleteClient(item)}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Text style={styles.deleteButtonText}>🗑️</Text>
-          </TouchableOpacity>
-          <Text style={styles.chevron}>›</Text>
-        </View>
+      {/* Left: Avatar placeholder */}
+      <View style={styles.avatarContainer}>
+        <Text style={styles.avatarText}>
+          {(item.name || item.phone || '?').charAt(0).toUpperCase()}
+        </Text>
       </View>
-      {item.address && (
-        <Text style={styles.clientAddress}>📍 {item.address}</Text>
-      )}
-      {item.notes && (
-        <Text style={styles.clientNotes}>{item.notes}</Text>
-      )}
-      <Text style={styles.clientDate}>
-        Utworzono: {new Date(item.created_at).toLocaleDateString('pl-PL')}
-      </Text>
+
+      {/* Center: Name + Phone */}
+      <View style={styles.rowCenter}>
+        <Text style={styles.clientName} numberOfLines={1}>
+          {item.name || 'Brak nazwy'}
+        </Text>
+        <Text style={styles.clientPhone} numberOfLines={1}>
+          {item.phone}
+        </Text>
+        {item.address && (
+          <Text style={styles.clientAddress} numberOfLines={1}>
+            📍 {item.address}
+          </Text>
+        )}
+      </View>
+
+      {/* Right: Delete + Chevron */}
+      <View style={styles.rowRight}>
+        <TouchableOpacity
+          style={styles.deleteButton}
+          onPress={() => handleDeleteClient(item)}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Text style={styles.deleteButtonText}>🗑️</Text>
+        </TouchableOpacity>
+        <Text style={styles.chevron}>›</Text>
+      </View>
     </TouchableOpacity>
   );
 
+  // Separator
+  const ItemSeparator = () => <View style={styles.separator} />;
+
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Lista klientów ({clients.length})</Text>
-        <TouchableOpacity onPress={refetch}>
-          <Text style={styles.refreshButton}>🔄 Odśwież</Text>
-        </TouchableOpacity>
-      </View>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+      <ScreenHeader />
       <FlatList
         data={clients}
         renderItem={renderClient}
         keyExtractor={(item) => item.id}
+        ItemSeparatorComponent={ItemSeparator}
         contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyIcon}>👥</Text>
+            <Text style={styles.emptyTitle}>Brak klientów</Text>
+            <Text style={styles.emptyText}>
+              Przeciągnij w dół, aby odświeżyć lub dodaj klienta w zakładce "Dodaj".
+            </Text>
+          </View>
+        }
       />
-    </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: commonStyles.screen,
-  centerContainer: {
-    ...commonStyles.centered,
+  safeArea: {
+    flex: 1,
     backgroundColor: colors.background,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
-  header: {
-    ...commonStyles.rowBetween,
-    padding: spacing.lg,
-    backgroundColor: colors.white,
+  headerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  title: {
-    ...commonStyles.heading,
+  headerTitle: {
+    fontSize: typography.xxl,
+    fontWeight: typography.bold,
+    color: colors.textPrimary,
   },
-  refreshButton: {
+  headerCount: {
     fontSize: typography.base,
-    color: colors.primary,
     fontWeight: typography.medium,
+    color: colors.textTertiary,
+    marginLeft: spacing.sm,
+    backgroundColor: colors.borderLight,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.xl,
   },
   loadingText: {
     marginTop: spacing.md,
@@ -161,13 +226,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     textAlign: 'center',
   },
-  emptyText: {
-    ...commonStyles.emptyStateTitle,
-  },
-  emptySubtext: {
-    ...commonStyles.emptyStateText,
-    marginBottom: spacing.lg,
-  },
   retryButton: {
     backgroundColor: colors.primary,
     paddingHorizontal: spacing.xxl,
@@ -179,64 +237,98 @@ const styles = StyleSheet.create({
     fontSize: typography.base,
     fontWeight: typography.semibold,
   },
+
+  // List
   listContent: {
-    padding: spacing.lg,
+    paddingBottom: spacing.xl,
   },
-  clientCard: {
-    ...commonStyles.card,
-    marginBottom: spacing.md,
-  },
-  clientCardHeader: {
+
+  // Row
+  row: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    backgroundColor: colors.surface,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
   },
-  clientCardInfo: {
+  avatarContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+  },
+  avatarText: {
+    fontSize: typography.lg,
+    fontWeight: typography.bold,
+    color: colors.primary,
+  },
+  rowCenter: {
     flex: 1,
   },
-  clientCardActions: {
+  clientName: {
+    fontSize: typography.lg,
+    fontWeight: typography.semibold,
+    color: colors.textPrimary,
+    marginBottom: 2,
+  },
+  clientPhone: {
+    fontSize: typography.sm,
+    color: colors.primary,
+  },
+  clientAddress: {
+    fontSize: typography.xs,
+    color: colors.textTertiary,
+    marginTop: 2,
+  },
+  rowRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
   },
   deleteButton: {
     padding: 8,
     borderRadius: 8,
     backgroundColor: colors.errorLight,
+    marginRight: spacing.sm,
   },
   deleteButtonText: {
-    fontSize: 16,
+    fontSize: 14,
   },
   chevron: {
     fontSize: 24,
-    color: colors.primaryLight,
+    color: colors.textTertiary,
     fontWeight: '300',
   },
-  clientName: {
+  separator: {
+    height: 1,
+    backgroundColor: colors.borderLight,
+    marginLeft: 72,
+  },
+
+  // Empty state
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 40,
+  },
+  emptyIcon: {
+    fontSize: 48,
+    marginBottom: spacing.md,
+  },
+  emptyTitle: {
     fontSize: typography.lg,
-    fontWeight: typography.bold,
+    fontWeight: typography.semibold,
     color: colors.textPrimary,
-    marginBottom: 4,
-  },
-  clientPhone: {
-    fontSize: typography.sm,
-    color: colors.primary,
     marginBottom: spacing.sm,
   },
-  clientAddress: {
-    fontSize: typography.sm,
-    color: colors.textSecondary,
-    marginBottom: 4,
-  },
-  clientNotes: {
+  emptyText: {
     fontSize: typography.sm,
     color: colors.textTertiary,
-    fontStyle: 'italic',
-    marginBottom: spacing.sm,
-  },
-  clientDate: {
-    fontSize: typography.xs,
-    color: colors.textTertiary,
-    marginTop: 4,
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });
