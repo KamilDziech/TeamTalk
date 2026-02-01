@@ -2,12 +2,15 @@
  * ClientsStackNavigator
  *
  * Stack navigator for the Clients tab, enabling navigation to client details/timeline.
+ * Supports dynamic theming.
  */
 
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ClientsList } from '@/components/ClientsList';
 import { ClientTimelineScreen } from '@/screens/ClientTimelineScreen';
+import { useTheme } from '@/contexts/ThemeContext';
+import { typography } from '@/styles/theme';
 import type { Client } from '@/types';
 
 export type ClientsStackParamList = {
@@ -18,16 +21,20 @@ export type ClientsStackParamList = {
 const Stack = createNativeStackNavigator<ClientsStackParamList>();
 
 export const ClientsStackNavigator: React.FC = () => {
+  const { colors } = useTheme();
+
   return (
     <Stack.Navigator
       screenOptions={{
         headerStyle: {
-          backgroundColor: '#007AFF',
+          backgroundColor: colors.surface,
         },
-        headerTintColor: '#fff',
+        headerTintColor: colors.textPrimary,
         headerTitleStyle: {
-          fontWeight: 'bold',
+          fontWeight: typography.semibold,
+          fontSize: typography.lg,
         },
+        headerShadowVisible: false,
       }}
     >
       <Stack.Screen

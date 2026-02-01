@@ -3,6 +3,7 @@
  *
  * Stack navigator for the Call Queue tab, enabling navigation to call details.
  * Settings button is only available from this tab.
+ * Supports dynamic theming.
  */
 
 import React from 'react';
@@ -10,8 +11,9 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { CallLogsList } from '@/components/CallLogsList';
 import { CallDetailsScreen } from '@/screens/CallDetailsScreen';
 import { SettingsButton } from '@/components/SettingsButton';
+import { useTheme } from '@/contexts/ThemeContext';
 import type { GroupedCallLog } from '@/components/CallLogsList';
-import { colors, typography } from '@/styles/theme';
+import { typography } from '@/styles/theme';
 
 export type CallLogsStackParamList = {
     CallLogsList: undefined;
@@ -21,11 +23,13 @@ export type CallLogsStackParamList = {
 const Stack = createNativeStackNavigator<CallLogsStackParamList>();
 
 export const CallLogsStackNavigator: React.FC = () => {
+    const { colors } = useTheme();
+
     return (
         <Stack.Navigator
             screenOptions={{
                 headerStyle: {
-                    backgroundColor: colors.white,
+                    backgroundColor: colors.surface,
                 },
                 headerTintColor: colors.textPrimary,
                 headerTitleStyle: {

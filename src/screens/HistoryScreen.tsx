@@ -24,7 +24,8 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialIcons } from '@expo/vector-icons';
 import { supabase } from '@/api/supabaseClient';
 import { contactLookupService } from '@/services/ContactLookupService';
-import { colors, spacing, radius, typography } from '@/styles/theme';
+import { useTheme } from '@/contexts/ThemeContext';
+import { spacing, radius, typography } from '@/styles/theme';
 import type { CallLog, Client, VoiceReport, Profile } from '@/types';
 import type { HistoryStackParamList } from '@/navigation/HistoryStackNavigator';
 
@@ -68,6 +69,8 @@ const formatRelativeTime = (timestamp: string): string => {
 
 export const HistoryScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
+  const { colors, isDark } = useTheme();
+  const styles = createStyles(colors);
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
   const [filteredItems, setFilteredItems] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -264,7 +267,7 @@ export const HistoryScreen: React.FC = () => {
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Ładowanie historii...</Text>
@@ -327,132 +330,134 @@ export const HistoryScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
-  },
-  headerContainer: {
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  headerTitle: {
-    fontSize: typography.xxl,
-    fontWeight: typography.bold,
-    color: colors.textPrimary,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: spacing.md,
-    fontSize: typography.base,
-    color: colors.textSecondary,
-  },
+// Dynamic styles generator
+const createStyles = (colors: ReturnType<typeof import('@/contexts/ThemeContext').useTheme>['colors']) =>
+  StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: colors.background,
+      paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+    },
+    headerContainer: {
+      backgroundColor: colors.surface,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.lg,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    headerTitle: {
+      fontSize: typography.xxl,
+      fontWeight: typography.bold,
+      color: colors.textPrimary,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    loadingText: {
+      marginTop: spacing.md,
+      fontSize: typography.base,
+      color: colors.textSecondary,
+    },
 
-  // Search
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.md,
-    marginBottom: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  searchInput: {
-    flex: 1,
-    marginLeft: spacing.sm,
-    fontSize: typography.base,
-    color: colors.textPrimary,
-    paddingVertical: spacing.xs,
-  },
-  resultsCount: {
-    fontSize: typography.sm,
-    color: colors.textTertiary,
-    marginHorizontal: spacing.lg,
-    marginVertical: spacing.sm,
-  },
+    // Search
+    searchContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      marginHorizontal: spacing.lg,
+      marginTop: spacing.md,
+      marginBottom: spacing.xs,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    searchInput: {
+      flex: 1,
+      marginLeft: spacing.sm,
+      fontSize: typography.base,
+      color: colors.textPrimary,
+      paddingVertical: spacing.xs,
+    },
+    resultsCount: {
+      fontSize: typography.sm,
+      color: colors.textTertiary,
+      marginHorizontal: spacing.lg,
+      marginVertical: spacing.sm,
+    },
 
-  // List
-  listContent: {
-    paddingBottom: spacing.xl,
-  },
+    // List
+    listContent: {
+      paddingBottom: spacing.xl,
+    },
 
-  // Row
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-  },
-  iconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: spacing.md,
-    backgroundColor: colors.borderLight,
-  },
-  rowCenter: {
-    flex: 1,
-  },
-  primaryText: {
-    fontSize: typography.lg,
-    fontWeight: typography.semibold,
-    color: colors.textPrimary,
-    marginBottom: 2,
-  },
-  secondaryText: {
-    fontSize: typography.sm,
-    color: colors.textSecondary,
-  },
-  rowRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  timeText: {
-    fontSize: typography.sm,
-    color: colors.textTertiary,
-    marginRight: spacing.xs,
-  },
-  separator: {
-    height: 1,
-    backgroundColor: colors.borderLight,
-    marginLeft: 72,
-  },
+    // Row
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.lg,
+    },
+    iconContainer: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: spacing.md,
+      backgroundColor: colors.borderLight,
+    },
+    rowCenter: {
+      flex: 1,
+    },
+    primaryText: {
+      fontSize: typography.lg,
+      fontWeight: typography.semibold,
+      color: colors.textPrimary,
+      marginBottom: 2,
+    },
+    secondaryText: {
+      fontSize: typography.sm,
+      color: colors.textSecondary,
+    },
+    rowRight: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    timeText: {
+      fontSize: typography.sm,
+      color: colors.textTertiary,
+      marginRight: spacing.xs,
+    },
+    separator: {
+      height: 1,
+      backgroundColor: colors.borderLight,
+      marginLeft: 72,
+    },
 
-  // Empty
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 60,
-    paddingHorizontal: 40,
-  },
-  emptyTitle: {
-    fontSize: typography.lg,
-    fontWeight: typography.semibold,
-    color: colors.textPrimary,
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  emptyText: {
-    fontSize: typography.sm,
-    color: colors.textTertiary,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-});
+    // Empty
+    emptyContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingVertical: 60,
+      paddingHorizontal: 40,
+    },
+    emptyTitle: {
+      fontSize: typography.lg,
+      fontWeight: typography.semibold,
+      color: colors.textPrimary,
+      marginTop: spacing.md,
+      marginBottom: spacing.sm,
+    },
+    emptyText: {
+      fontSize: typography.sm,
+      color: colors.textTertiary,
+      textAlign: 'center',
+      lineHeight: 20,
+    },
+  });

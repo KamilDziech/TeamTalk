@@ -18,7 +18,8 @@ import { useRoute, RouteProp } from '@react-navigation/native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { voiceReportService } from '@/services/VoiceReportService';
 import { contactLookupService } from '@/services/ContactLookupService';
-import { colors, spacing, radius, typography } from '@/styles/theme';
+import { useTheme } from '@/contexts/ThemeContext';
+import { spacing, radius, typography } from '@/styles/theme';
 import type { HistoryStackParamList } from '@/navigation/HistoryStackNavigator';
 
 type NoteDetailRouteProp = RouteProp<HistoryStackParamList, 'NoteDetail'>;
@@ -71,6 +72,8 @@ const formatFullDate = (timestamp: string): string => {
 export const NoteDetailScreen: React.FC = () => {
     const route = useRoute<NoteDetailRouteProp>();
     const { item } = route.params;
+    const { colors } = useTheme();
+    const styles = createStyles(colors);
     const [isPlaying, setIsPlaying] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
 
@@ -226,139 +229,141 @@ export const NoteDetailScreen: React.FC = () => {
     );
 };
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: colors.surface,
-    },
-    content: {
-        padding: spacing.lg,
-        paddingBottom: spacing.xxxl,
-    },
+// Dynamic styles generator
+const createStyles = (colors: ReturnType<typeof import('@/contexts/ThemeContext').useTheme>['colors']) =>
+    StyleSheet.create({
+        container: {
+            flex: 1,
+            backgroundColor: colors.surface,
+        },
+        content: {
+            padding: spacing.lg,
+            paddingBottom: spacing.xxxl,
+        },
 
-    // Header
-    header: {
-        marginBottom: spacing.md,
-    },
-    displayName: {
-        fontSize: 28,
-        fontWeight: typography.bold,
-        color: colors.textPrimary,
-        letterSpacing: 0.5,
-    },
-    phoneNumber: {
-        fontSize: typography.base,
-        color: colors.textSecondary,
-        marginTop: spacing.xs,
-    },
-    dateText: {
-        fontSize: typography.sm,
-        color: colors.textTertiary,
-        marginTop: spacing.sm,
-    },
+        // Header
+        header: {
+            marginBottom: spacing.md,
+        },
+        displayName: {
+            fontSize: 28,
+            fontWeight: typography.bold,
+            color: colors.textPrimary,
+            letterSpacing: 0.5,
+        },
+        phoneNumber: {
+            fontSize: typography.base,
+            color: colors.textSecondary,
+            marginTop: spacing.xs,
+        },
+        dateText: {
+            fontSize: typography.sm,
+            color: colors.textTertiary,
+            marginTop: spacing.sm,
+        },
 
-    // Separator
-    separator: {
-        height: 1,
-        backgroundColor: colors.borderLight,
-        marginVertical: spacing.lg,
-    },
+        // Separator
+        separator: {
+            height: 1,
+            backgroundColor: colors.borderLight,
+            marginVertical: spacing.lg,
+        },
 
-    // Note Section
-    noteSection: {
-        marginBottom: spacing.lg,
-    },
-    sectionHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: spacing.sm,
-    },
-    sectionTitle: {
-        fontSize: typography.base,
-        fontWeight: typography.semibold,
-        color: colors.textSecondary,
-        marginLeft: spacing.sm,
-    },
+        // Note Section
+        noteSection: {
+            marginBottom: spacing.lg,
+        },
+        sectionHeader: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginBottom: spacing.sm,
+        },
+        sectionTitle: {
+            fontSize: typography.base,
+            fontWeight: typography.semibold,
+            color: colors.textSecondary,
+            marginLeft: spacing.sm,
+        },
 
-    // Paper-like note area
-    notePaper: {
-        backgroundColor: colors.background,
-        borderRadius: radius.lg,
-        padding: spacing.lg,
-        borderLeftWidth: 4,
-        borderLeftColor: colors.primary,
-    },
-    noteContent: {},
-    noteHeader: {
-        fontSize: typography.base,
-        fontWeight: typography.semibold,
-        color: colors.textPrimary,
-        marginBottom: spacing.sm,
-        marginTop: spacing.sm,
-    },
-    noteParagraph: {
-        fontSize: typography.base,
-        color: colors.textPrimary,
-        lineHeight: 24,
-        marginBottom: spacing.sm,
-    },
-    bulletRow: {
-        flexDirection: 'row',
-        marginBottom: spacing.xs,
-        paddingLeft: spacing.sm,
-    },
-    bullet: {
-        fontSize: typography.base,
-        color: colors.primary,
-        marginRight: spacing.sm,
-        lineHeight: 24,
-    },
-    bulletText: {
-        flex: 1,
-        fontSize: typography.base,
-        color: colors.textPrimary,
-        lineHeight: 24,
-    },
-    transcriptionText: {
-        fontSize: typography.base,
-        color: colors.textPrimary,
-        lineHeight: 26,
-    },
+        // Paper-like note area
+        notePaper: {
+            backgroundColor: colors.background,
+            borderRadius: radius.lg,
+            padding: spacing.lg,
+            borderLeftWidth: 4,
+            borderLeftColor: colors.primary,
+        },
+        noteContent: {},
+        noteHeader: {
+            fontSize: typography.base,
+            fontWeight: typography.semibold,
+            color: colors.textPrimary,
+            marginBottom: spacing.sm,
+            marginTop: spacing.sm,
+        },
+        noteParagraph: {
+            fontSize: typography.base,
+            color: colors.textPrimary,
+            lineHeight: 24,
+            marginBottom: spacing.sm,
+        },
+        bulletRow: {
+            flexDirection: 'row',
+            marginBottom: spacing.xs,
+            paddingLeft: spacing.sm,
+        },
+        bullet: {
+            fontSize: typography.base,
+            color: colors.primary,
+            marginRight: spacing.sm,
+            lineHeight: 24,
+        },
+        bulletText: {
+            flex: 1,
+            fontSize: typography.base,
+            color: colors.textPrimary,
+            lineHeight: 24,
+        },
+        transcriptionText: {
+            fontSize: typography.base,
+            color: colors.textPrimary,
+            lineHeight: 26,
+        },
 
-    // Audio Button
-    audioButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: 'transparent',
-        borderWidth: 1,
-        borderColor: colors.primary,
-        borderRadius: radius.lg,
-        paddingVertical: spacing.md,
-        paddingHorizontal: spacing.lg,
-        marginBottom: spacing.lg,
-    },
-    audioButtonActive: {
-        backgroundColor: colors.error,
-        borderColor: colors.error,
-    },
-    audioButtonText: {
-        fontSize: typography.base,
-        fontWeight: typography.semibold,
-        color: colors.primary,
-        marginLeft: spacing.sm,
-    },
-    audioButtonTextActive: {
-        color: colors.textInverse,
-    },
+        // Audio Button
+        audioButton: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'transparent',
+            borderWidth: 1,
+            borderColor: colors.primary,
+            borderRadius: radius.lg,
+            paddingVertical: spacing.md,
+            paddingHorizontal: spacing.lg,
+            marginBottom: spacing.lg,
+        },
+        audioButtonActive: {
+            backgroundColor: colors.error,
+            borderColor: colors.error,
+        },
+        audioButtonText: {
+            fontSize: typography.base,
+            fontWeight: typography.semibold,
+            color: colors.primary,
+            marginLeft: spacing.sm,
+        },
+        audioButtonTextActive: {
+            color: colors.textInverse,
+        },
 
-    // Footer
-    footer: {
-        alignItems: 'center',
-        paddingTop: spacing.lg,
-    },
-    footerText: {
-        fontSize: typography.sm,
-        color: colors.textTertiary,
-    },
-});
+        // Footer
+        footer: {
+            alignItems: 'center',
+            paddingTop: spacing.lg,
+        },
+        footerText: {
+            fontSize: typography.sm,
+            color: colors.textTertiary,
+        },
+    });

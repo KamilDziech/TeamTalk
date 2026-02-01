@@ -2,7 +2,7 @@
  * SettingsButton
  *
  * Shared settings button component for navigation headers.
- * Opens a modal with push notification toggle and logout option.
+ * Opens a modal with theme selection, push notification toggle, and logout option.
  */
 
 import React, { useState } from 'react';
@@ -17,11 +17,26 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme, ThemeMode } from '@/contexts/ThemeContext';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
-import { colors, spacing, radius, typography } from '@/styles/theme';
+import { spacing, radius, typography } from '@/styles/theme';
+
+// Theme option interface
+interface ThemeOption {
+    mode: ThemeMode;
+    label: string;
+    icon: string;
+}
+
+const THEME_OPTIONS: ThemeOption[] = [
+    { mode: 'system', label: 'Systemowy', icon: '🖥️' },
+    { mode: 'light', label: 'Jasny', icon: '☀️' },
+    { mode: 'dark', label: 'Ciemny', icon: '🌙' },
+];
 
 export const SettingsButton: React.FC = () => {
     const { signOut, profile } = useAuth();
+    const { colors, mode, setMode, isDark } = useTheme();
     const { notificationsEnabled, toggleNotifications } = usePushNotifications();
     const [modalVisible, setModalVisible] = useState(false);
 
@@ -54,6 +69,10 @@ export const SettingsButton: React.FC = () => {
         }
     };
 
+    const handleThemeChange = (newMode: ThemeMode) => {
+        setMode(newMode);
+    };
+
     return (
         <>
             {/* Gear Icon */}
@@ -61,7 +80,11 @@ export const SettingsButton: React.FC = () => {
                 onPress={() => setModalVisible(true)}
                 style={styles.settingsButton}
             >
-                <MaterialIcons name="settings" size={24} color={colors.textSecondary} />
+                <MaterialIcons
+                    name="settings"
+                    size={24}
+                    color={isDark ? colors.textSecondary : colors.textSecondary}
+                />
             </TouchableOpacity>
 
             {/* Settings Modal */}
@@ -76,36 +99,92 @@ export const SettingsButton: React.FC = () => {
                     activeOpacity={1}
                     onPress={() => setModalVisible(false)}
                 >
-                    <View style={styles.modalContent}>
+                    <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
                         {/* Header */}
                         <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Ustawienia</Text>
+                            <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+                                Ustawienia
+                            </Text>
                             {profile && (
-                                <Text style={styles.modalSubtitle}>{profile.display_name}</Text>
+                                <Text style={[styles.modalSubtitle, { color: colors.textTertiary }]}>
+                                    {profile.display_name}
+                                </Text>
                             )}
                         </View>
+
+                        {/* Theme Section */}
+                        <View style={styles.sectionContainer}>
+                            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+                                Motyw Aplikacji
+                            </Text>
+                            <View style={styles.themeOptionsContainer}>
+                                {THEME_OPTIONS.map((option) => (
+                                    <TouchableOpacity
+                                        key={option.mode}
+                                        style={[
+                                            styles.themeOption,
+                                            {
+                                                backgroundColor: mode === option.mode
+                                                    ? colors.primaryLight
+                                                    : colors.background,
+                                                borderColor: mode === option.mode
+                                                    ? colors.primary
+                                                    : colors.border,
+                                            },
+                                        ]}
+                                        onPress={() => handleThemeChange(option.mode)}
+                                    >
+                                        <Text style={styles.themeIcon}>{option.icon}</Text>
+                                        <Text
+                                            style={[
+                                                styles.themeLabel,
+                                                {
+                                                    color: mode === option.mode
+                                                        ? colors.primary
+                                                        : colors.textPrimary,
+                                                    fontWeight: mode === option.mode ? '600' : '400',
+                                                },
+                                            ]}
+                                        >
+                                            {option.label}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        </View>
+
+                        {/* Separator */}
+                        <View style={[styles.separator, { backgroundColor: colors.border }]} />
 
                         {/* Push Notifications Toggle */}
                         <View style={styles.settingsRow}>
                             <View style={styles.settingsRowLeft}>
-                                <MaterialIcons name="notifications" size={22} color={colors.textPrimary} />
-                                <Text style={styles.settingsRowText}>Powiadomienia Push</Text>
+                                <MaterialIcons
+                                    name="notifications"
+                                    size={22}
+                                    color={colors.textPrimary}
+                                />
+                                <Text style={[styles.settingsRowText, { color: colors.textPrimary }]}>
+                                    Powiadomienia Push
+                                </Text>
                             </View>
                             <Switch
                                 value={notificationsEnabled}
                                 onValueChange={handleToggleNotifications}
-                                trackColor={{ false: colors.borderLight, true: colors.primaryLight }}
+                                trackColor={{ false: colors.border, true: colors.primaryLight }}
                                 thumbColor={notificationsEnabled ? colors.primary : colors.textTertiary}
                             />
                         </View>
 
                         {/* Separator */}
-                        <View style={styles.separator} />
+                        <View style={[styles.separator, { backgroundColor: colors.border }]} />
 
                         {/* Logout Button */}
                         <TouchableOpacity style={styles.logoutRow} onPress={handleLogout}>
                             <MaterialIcons name="logout" size={22} color={colors.error} />
-                            <Text style={styles.logoutText}>Wyloguj</Text>
+                            <Text style={[styles.logoutText, { color: colors.error }]}>
+                                Wyloguj
+                            </Text>
                         </TouchableOpacity>
 
                         {/* Cancel */}
@@ -113,7 +192,9 @@ export const SettingsButton: React.FC = () => {
                             style={styles.cancelButton}
                             onPress={() => setModalVisible(false)}
                         >
-                            <Text style={styles.cancelText}>Anuluj</Text>
+                            <Text style={[styles.cancelText, { color: colors.textSecondary }]}>
+                                Anuluj
+                            </Text>
                         </TouchableOpacity>
                     </View>
                 </TouchableOpacity>
@@ -132,13 +213,12 @@ const styles = StyleSheet.create({
     // Modal
     modalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.4)',
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
         justifyContent: 'center',
         alignItems: 'center',
         padding: spacing.lg,
     },
     modalContent: {
-        backgroundColor: colors.surface,
         borderRadius: radius.xl,
         width: '100%',
         maxWidth: 320,
@@ -151,12 +231,40 @@ const styles = StyleSheet.create({
     modalTitle: {
         fontSize: typography.lg,
         fontWeight: typography.bold,
-        color: colors.textPrimary,
     },
     modalSubtitle: {
         fontSize: typography.sm,
-        color: colors.textTertiary,
         marginTop: spacing.xs,
+    },
+
+    // Section
+    sectionContainer: {
+        marginBottom: spacing.md,
+    },
+    sectionTitle: {
+        fontSize: typography.sm,
+        fontWeight: typography.medium,
+        marginBottom: spacing.sm,
+    },
+    themeOptionsContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+    },
+    themeOption: {
+        flex: 1,
+        alignItems: 'center',
+        paddingVertical: spacing.md,
+        paddingHorizontal: spacing.sm,
+        borderRadius: radius.md,
+        borderWidth: 2,
+        marginHorizontal: spacing.xs,
+    },
+    themeIcon: {
+        fontSize: 20,
+        marginBottom: spacing.xs,
+    },
+    themeLabel: {
+        fontSize: typography.xs,
     },
 
     // Settings row
@@ -172,14 +280,12 @@ const styles = StyleSheet.create({
     },
     settingsRowText: {
         fontSize: typography.base,
-        color: colors.textPrimary,
         marginLeft: spacing.md,
     },
 
     // Separator
     separator: {
         height: 1,
-        backgroundColor: colors.borderLight,
         marginVertical: spacing.sm,
     },
 
@@ -191,7 +297,6 @@ const styles = StyleSheet.create({
     },
     logoutText: {
         fontSize: typography.base,
-        color: colors.error,
         marginLeft: spacing.md,
         fontWeight: typography.medium,
     },
@@ -204,6 +309,5 @@ const styles = StyleSheet.create({
     },
     cancelText: {
         fontSize: typography.base,
-        color: colors.textSecondary,
     },
 });

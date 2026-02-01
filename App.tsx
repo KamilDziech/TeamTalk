@@ -19,6 +19,7 @@ import { AppNavigator } from './src/navigation/AppNavigator';
 import { callLogScanner } from './src/services/CallLogScanner';
 import { deviceService } from './src/services/DeviceService';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
+import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import { AuthScreen } from './src/screens/AuthScreen';
 
 const BATTERY_OPTIMIZATION_SHOWN_KEY = 'battery_optimization_shown';
@@ -39,6 +40,7 @@ Notifications.setNotificationHandler({
  */
 const AppContent: React.FC = () => {
   const { session, profile, loading } = useAuth();
+  const { colors, isDark } = useTheme();
   const appState = useRef(AppState.currentState);
 
   useEffect(() => {
@@ -133,23 +135,23 @@ const AppContent: React.FC = () => {
   if (loading) {
     console.log('🔄 AppContent: Still loading...');
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={styles.loadingText}>Ładowanie...</Text>
+      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Ładowanie...</Text>
       </View>
     );
   }
 
   // Show auth screen if not authenticated
   if (!session) {
-    return <AuthScreen onAuthSuccess={() => {}} />;
+    return <AuthScreen onAuthSuccess={() => { }} />;
   }
 
   // Show main app when authenticated
   return (
     <NavigationContainer>
       <AppNavigator />
-      <StatusBar style="light" />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
     </NavigationContainer>
   );
 };
@@ -159,9 +161,11 @@ const AppContent: React.FC = () => {
  */
 export default function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 

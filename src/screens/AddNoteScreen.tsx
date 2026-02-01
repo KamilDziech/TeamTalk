@@ -27,7 +27,8 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '@/api/supabaseClient';
 import { VoiceRecordingScreen } from './VoiceRecordingScreen';
-import { colors, spacing, radius, typography, shadows, commonStyles } from '@/styles/theme';
+import { useTheme } from '@/contexts/ThemeContext';
+import { spacing, radius, typography, shadows, commonStyles } from '@/styles/theme';
 import type { CallLog, Client } from '@/types';
 
 interface CallLogWithClient extends CallLog {
@@ -36,6 +37,8 @@ interface CallLogWithClient extends CallLog {
 }
 
 export const AddNoteScreen: React.FC = () => {
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
   const [callLogs, setCallLogs] = useState<CallLogWithClient[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -270,160 +273,162 @@ export const AddNoteScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  // Layout
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.xl,
-    backgroundColor: colors.background,
-  },
-  loadingText: {
-    marginTop: spacing.md,
-    fontSize: typography.base,
-    color: colors.textSecondary,
-  },
+// Dynamic styles generator
+const createStyles = (colors: ReturnType<typeof import('@/contexts/ThemeContext').useTheme>['colors']) =>
+  StyleSheet.create({
+    // Layout
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    centerContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: spacing.xl,
+      backgroundColor: colors.background,
+    },
+    loadingText: {
+      marginTop: spacing.md,
+      fontSize: typography.base,
+      color: colors.textSecondary,
+    },
 
-  // Header - Light theme with subtle warning
-  header: {
-    backgroundColor: colors.white,
-    padding: spacing.lg,
-    paddingTop: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  headerTitle: {
-    fontSize: typography.lg,
-    fontWeight: typography.semibold,
-    color: colors.textPrimary,
-    marginBottom: spacing.xs,
-  },
-  headerSubtitle: {
-    fontSize: typography.sm,
-    color: colors.textSecondary,
-  },
+    // Header
+    header: {
+      backgroundColor: colors.surface,
+      padding: spacing.lg,
+      paddingTop: spacing.sm,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    headerTitle: {
+      fontSize: typography.lg,
+      fontWeight: typography.semibold,
+      color: colors.textPrimary,
+      marginBottom: spacing.xs,
+    },
+    headerSubtitle: {
+      fontSize: typography.sm,
+      color: colors.textSecondary,
+    },
 
-  // List
-  listHeader: {
-    paddingBottom: spacing.sm,
-  },
-  listHeaderText: {
-    fontSize: typography.sm,
-    color: colors.error,
-    fontWeight: typography.medium,
-  },
-  listContent: {
-    padding: spacing.lg,
-  },
+    // List
+    listHeader: {
+      paddingBottom: spacing.sm,
+    },
+    listHeaderText: {
+      fontSize: typography.sm,
+      color: colors.error,
+      fontWeight: typography.medium,
+    },
+    listContent: {
+      padding: spacing.lg,
+    },
 
-  // Cards
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.xl,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.error,
-    ...shadows.sm,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  clientInfo: {
-    flex: 1,
-  },
-  clientName: {
-    fontSize: typography.lg,
-    fontWeight: typography.semibold,
-    color: colors.textPrimary,
-    marginBottom: spacing.xs,
-  },
-  clientPhone: {
-    fontSize: typography.sm,
-    color: colors.primary,
-  },
-  cardDetails: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: spacing.md,
-  },
-  timestamp: {
-    fontSize: typography.sm,
-    color: colors.textSecondary,
-  },
-  callType: {
-    fontSize: typography.sm,
-    color: colors.textSecondary,
-    fontWeight: typography.medium,
-  },
+    // Cards
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.xl,
+      padding: spacing.lg,
+      marginBottom: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderLeftWidth: 4,
+      borderLeftColor: colors.error,
+      ...shadows.sm,
+    },
+    cardHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: spacing.md,
+    },
+    clientInfo: {
+      flex: 1,
+    },
+    clientName: {
+      fontSize: typography.lg,
+      fontWeight: typography.semibold,
+      color: colors.textPrimary,
+      marginBottom: spacing.xs,
+    },
+    clientPhone: {
+      fontSize: typography.sm,
+      color: colors.primary,
+    },
+    cardDetails: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: spacing.md,
+    },
+    timestamp: {
+      fontSize: typography.sm,
+      color: colors.textSecondary,
+    },
+    callType: {
+      fontSize: typography.sm,
+      color: colors.textSecondary,
+      fontWeight: typography.medium,
+    },
 
-  // Alert badge
-  requiresNoteAlert: {
-    backgroundColor: colors.errorLight,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    alignItems: 'center',
-  },
-  requiresNoteText: {
-    color: colors.error,
-    fontSize: typography.sm,
-    fontWeight: typography.semibold,
-  },
+    // Alert badge
+    requiresNoteAlert: {
+      backgroundColor: colors.errorLight,
+      borderRadius: radius.md,
+      padding: spacing.md,
+      marginBottom: spacing.md,
+      alignItems: 'center',
+    },
+    requiresNoteText: {
+      color: colors.error,
+      fontSize: typography.sm,
+      fontWeight: typography.semibold,
+    },
 
-  // Action buttons
-  cardActions: {
-    flexDirection: 'row',
-  },
-  recordButton: {
-    flex: 1,
-    backgroundColor: colors.error,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    alignItems: 'center',
-  },
-  recordButtonText: {
-    color: colors.textInverse,
-    fontSize: typography.base,
-    fontWeight: typography.semibold,
-  },
-  skipButton: {
-    backgroundColor: colors.textTertiary,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    alignItems: 'center',
-    minWidth: 80,
-  },
-  skipButtonText: {
-    color: colors.textInverse,
-    fontSize: typography.sm,
-    fontWeight: typography.semibold,
-  },
+    // Action buttons
+    cardActions: {
+      flexDirection: 'row',
+    },
+    recordButton: {
+      flex: 1,
+      backgroundColor: colors.error,
+      borderRadius: radius.lg,
+      padding: spacing.md,
+      alignItems: 'center',
+    },
+    recordButtonText: {
+      color: colors.textInverse,
+      fontSize: typography.base,
+      fontWeight: typography.semibold,
+    },
+    skipButton: {
+      backgroundColor: colors.textTertiary,
+      borderRadius: radius.lg,
+      padding: spacing.md,
+      alignItems: 'center',
+      minWidth: 80,
+    },
+    skipButtonText: {
+      color: colors.textInverse,
+      fontSize: typography.sm,
+      fontWeight: typography.semibold,
+    },
 
-  // Empty state
-  emptyContainer: {
-    ...commonStyles.emptyState,
-    flex: 1,
-  },
-  emptyIcon: {
-    ...commonStyles.emptyStateIcon,
-  },
-  emptyText: {
-    fontSize: typography.xl,
-    fontWeight: typography.semibold,
-    color: colors.success,
-    marginBottom: spacing.sm,
-  },
-  emptySubtext: {
-    ...commonStyles.emptyStateText,
-  },
-});
+    // Empty state
+    emptyContainer: {
+      ...commonStyles.emptyState,
+      flex: 1,
+    },
+    emptyIcon: {
+      ...commonStyles.emptyStateIcon,
+    },
+    emptyText: {
+      fontSize: typography.xl,
+      fontWeight: typography.semibold,
+      color: colors.success,
+      marginBottom: spacing.sm,
+    },
+    emptySubtext: {
+      ...commonStyles.emptyStateText,
+    },
+  });

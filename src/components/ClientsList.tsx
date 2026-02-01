@@ -22,14 +22,17 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useClients } from '@/hooks/useClients';
+import { useTheme } from '@/contexts/ThemeContext';
 import type { Client } from '@/types';
 import type { ClientsStackParamList } from '@/navigation/ClientsStackNavigator';
-import { colors, spacing, radius, typography } from '@/styles/theme';
+import { spacing, radius, typography } from '@/styles/theme';
 
 type NavigationProp = NativeStackNavigationProp<ClientsStackParamList, 'ClientsList'>;
 
 export const ClientsList: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
+  const { colors, isDark } = useTheme();
+  const styles = createStyles(colors);
   const { clients, loading, error, refetch, deleteClient } = useClients();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -76,7 +79,7 @@ export const ClientsList: React.FC = () => {
   if (loading && !refreshing) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
         <ScreenHeader />
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
@@ -90,7 +93,7 @@ export const ClientsList: React.FC = () => {
   if (error) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
         <ScreenHeader />
         <View style={styles.centerContainer}>
           <Text style={styles.errorText}>Błąd: {error}</Text>
@@ -149,7 +152,7 @@ export const ClientsList: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
       <ScreenHeader />
       <FlatList
         data={clients}
@@ -179,156 +182,158 @@ export const ClientsList: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
-  },
-  headerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  headerTitle: {
-    fontSize: typography.xxl,
-    fontWeight: typography.bold,
-    color: colors.textPrimary,
-  },
-  headerCount: {
-    fontSize: typography.base,
-    fontWeight: typography.medium,
-    color: colors.textTertiary,
-    marginLeft: spacing.sm,
-    backgroundColor: colors.borderLight,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: radius.sm,
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.xl,
-  },
-  loadingText: {
-    marginTop: spacing.md,
-    fontSize: typography.base,
-    color: colors.textSecondary,
-  },
-  errorText: {
-    fontSize: typography.base,
-    color: colors.error,
-    marginBottom: spacing.md,
-    textAlign: 'center',
-  },
-  retryButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: spacing.xxl,
-    paddingVertical: spacing.md,
-    borderRadius: radius.md,
-  },
-  retryButtonText: {
-    color: colors.textInverse,
-    fontSize: typography.base,
-    fontWeight: typography.semibold,
-  },
+// Dynamic styles generator
+const createStyles = (colors: ReturnType<typeof import('@/contexts/ThemeContext').useTheme>['colors']) =>
+  StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: colors.background,
+      paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+    },
+    headerContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.lg,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    headerTitle: {
+      fontSize: typography.xxl,
+      fontWeight: typography.bold,
+      color: colors.textPrimary,
+    },
+    headerCount: {
+      fontSize: typography.base,
+      fontWeight: typography.medium,
+      color: colors.textTertiary,
+      marginLeft: spacing.sm,
+      backgroundColor: colors.borderLight,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 2,
+      borderRadius: radius.sm,
+    },
+    centerContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: spacing.xl,
+    },
+    loadingText: {
+      marginTop: spacing.md,
+      fontSize: typography.base,
+      color: colors.textSecondary,
+    },
+    errorText: {
+      fontSize: typography.base,
+      color: colors.error,
+      marginBottom: spacing.md,
+      textAlign: 'center',
+    },
+    retryButton: {
+      backgroundColor: colors.primary,
+      paddingHorizontal: spacing.xxl,
+      paddingVertical: spacing.md,
+      borderRadius: radius.md,
+    },
+    retryButtonText: {
+      color: colors.textInverse,
+      fontSize: typography.base,
+      fontWeight: typography.semibold,
+    },
 
-  // List
-  listContent: {
-    paddingBottom: spacing.xl,
-  },
+    // List
+    listContent: {
+      paddingBottom: spacing.xl,
+    },
 
-  // Row
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-  },
-  avatarContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.primaryLight,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: spacing.md,
-  },
-  avatarText: {
-    fontSize: typography.lg,
-    fontWeight: typography.bold,
-    color: colors.primary,
-  },
-  rowCenter: {
-    flex: 1,
-  },
-  clientName: {
-    fontSize: typography.lg,
-    fontWeight: typography.semibold,
-    color: colors.textPrimary,
-    marginBottom: 2,
-  },
-  clientPhone: {
-    fontSize: typography.sm,
-    color: colors.primary,
-  },
-  clientAddress: {
-    fontSize: typography.xs,
-    color: colors.textTertiary,
-    marginTop: 2,
-  },
-  rowRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  deleteButton: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: colors.errorLight,
-    marginRight: spacing.sm,
-  },
-  deleteButtonText: {
-    fontSize: 14,
-  },
-  chevron: {
-    fontSize: 24,
-    color: colors.textTertiary,
-    fontWeight: '300',
-  },
-  separator: {
-    height: 1,
-    backgroundColor: colors.borderLight,
-    marginLeft: 72,
-  },
+    // Row
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.lg,
+    },
+    avatarContainer: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: colors.primaryLight,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: spacing.md,
+    },
+    avatarText: {
+      fontSize: typography.lg,
+      fontWeight: typography.bold,
+      color: colors.primary,
+    },
+    rowCenter: {
+      flex: 1,
+    },
+    clientName: {
+      fontSize: typography.lg,
+      fontWeight: typography.semibold,
+      color: colors.textPrimary,
+      marginBottom: 2,
+    },
+    clientPhone: {
+      fontSize: typography.sm,
+      color: colors.primary,
+    },
+    clientAddress: {
+      fontSize: typography.xs,
+      color: colors.textTertiary,
+      marginTop: 2,
+    },
+    rowRight: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    deleteButton: {
+      padding: 8,
+      borderRadius: 8,
+      backgroundColor: colors.errorLight,
+      marginRight: spacing.sm,
+    },
+    deleteButtonText: {
+      fontSize: 14,
+    },
+    chevron: {
+      fontSize: 24,
+      color: colors.textTertiary,
+      fontWeight: '300',
+    },
+    separator: {
+      height: 1,
+      backgroundColor: colors.borderLight,
+      marginLeft: 72,
+    },
 
-  // Empty state
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 60,
-    paddingHorizontal: 40,
-  },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: spacing.md,
-  },
-  emptyTitle: {
-    fontSize: typography.lg,
-    fontWeight: typography.semibold,
-    color: colors.textPrimary,
-    marginBottom: spacing.sm,
-  },
-  emptyText: {
-    fontSize: typography.sm,
-    color: colors.textTertiary,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-});
+    // Empty state
+    emptyContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingVertical: 60,
+      paddingHorizontal: 40,
+    },
+    emptyIcon: {
+      fontSize: 48,
+      marginBottom: spacing.md,
+    },
+    emptyTitle: {
+      fontSize: typography.lg,
+      fontWeight: typography.semibold,
+      color: colors.textPrimary,
+      marginBottom: spacing.sm,
+    },
+    emptyText: {
+      fontSize: typography.sm,
+      color: colors.textTertiary,
+      textAlign: 'center',
+      lineHeight: 20,
+    },
+  });

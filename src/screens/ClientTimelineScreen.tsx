@@ -19,6 +19,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/api/supabaseClient';
 import { voiceReportService } from '@/services/VoiceReportService';
+import { useTheme } from '@/contexts/ThemeContext';
 import type { Client, CallLog, VoiceReport } from '@/types';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
@@ -36,6 +37,8 @@ interface TimelineItem {
 
 export const ClientTimelineScreen: React.FC<Props> = ({ route }) => {
   const { client } = route.params;
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
   const [timelineItems, setTimelineItems] = useState<TimelineItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -148,13 +151,13 @@ export const ClientTimelineScreen: React.FC<Props> = ({ route }) => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'missed':
-        return '#FF3B30';
+        return colors.error;
       case 'reserved':
-        return '#FF9500';
+        return colors.warning;
       case 'completed':
-        return '#34C759';
+        return colors.success;
       default:
-        return '#666';
+        return colors.textSecondary;
     }
   };
 
@@ -391,258 +394,259 @@ export const ClientTimelineScreen: React.FC<Props> = ({ route }) => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#666',
-  },
-  clientHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  clientInfo: {
-    flex: 1,
-  },
-  clientName: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#333',
-  },
-  clientPhone: {
-    fontSize: 16,
-    color: '#007AFF',
-    marginTop: 2,
-  },
-  clientAddress: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 4,
-  },
-  callButton: {
-    backgroundColor: '#34C759',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-  },
-  callButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#007AFF',
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 2,
-  },
-  listContent: {
-    padding: 16,
-  },
-  timelineItem: {
-    flexDirection: 'row',
-    marginBottom: 0,
-  },
-  timelineConnector: {
-    width: 24,
-    alignItems: 'center',
-  },
-  timelineDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginTop: 4,
-  },
-  timelineLine: {
-    flex: 1,
-    width: 2,
-    backgroundColor: '#ddd',
-    marginVertical: 4,
-  },
-  timelineContent: {
-    flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 14,
-    marginLeft: 8,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  timelineHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  timelineDate: {
-    fontSize: 13,
-    color: '#666',
-  },
-  statusBadge: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-  },
-  statusText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  handledBy: {
-    fontSize: 12,
-    color: '#999',
-    marginBottom: 8,
-  },
-  voiceReportSection: {
-    marginTop: 8,
-  },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#007AFF',
-    marginBottom: 6,
-  },
-  summaryContainer: {
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
-    padding: 10,
-  },
-  summaryHeader: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 4,
-    marginTop: 2,
-  },
-  summaryText: {
-    fontSize: 13,
-    color: '#444',
-    lineHeight: 18,
-    marginBottom: 2,
-  },
-  bulletRow: {
-    flexDirection: 'row',
-    marginBottom: 2,
-  },
-  bullet: {
-    fontSize: 13,
-    color: '#007AFF',
-    marginRight: 6,
-  },
-  bulletText: {
-    flex: 1,
-    fontSize: 13,
-    color: '#444',
-    lineHeight: 18,
-  },
-  actions: {
-    flexDirection: 'row',
-
-    marginTop: 10,
-  },
-  actionButton: {
-    flex: 1,
-    backgroundColor: '#007AFF',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    alignItems: 'center',
-  },
-  actionButtonActive: {
-    backgroundColor: '#FF3B30',
-  },
-  actionButtonSecondary: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#007AFF',
-  },
-  actionButtonText: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  actionButtonTextSecondary: {
-    color: '#007AFF',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  noReportBadge: {
-    marginTop: 8,
-    padding: 8,
-    backgroundColor: '#FFF0F0',
-    borderRadius: 6,
-  },
-  noReportText: {
-    fontSize: 12,
-    color: '#FF3B30',
-    fontWeight: '500',
-  },
-  transcriptionSection: {
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-  },
-  transcriptionText: {
-    fontSize: 13,
-    color: '#444',
-    lineHeight: 20,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
-    padding: 10,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 60,
-  },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 16,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-  },
-});
+// Dynamic styles generator
+const createStyles = (colors: ReturnType<typeof import('@/contexts/ThemeContext').useTheme>['colors']) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    loadingText: {
+      marginTop: 12,
+      fontSize: 16,
+      color: colors.textSecondary,
+    },
+    clientHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      padding: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    clientInfo: {
+      flex: 1,
+    },
+    clientName: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: colors.textPrimary,
+    },
+    clientPhone: {
+      fontSize: 16,
+      color: colors.primary,
+      marginTop: 2,
+    },
+    clientAddress: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      marginTop: 4,
+    },
+    callButton: {
+      backgroundColor: colors.success,
+      paddingVertical: 10,
+      paddingHorizontal: 16,
+      borderRadius: 8,
+    },
+    callButtonText: {
+      color: colors.textInverse,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    statsRow: {
+      flexDirection: 'row',
+      backgroundColor: colors.surface,
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    statItem: {
+      flex: 1,
+      alignItems: 'center',
+    },
+    statValue: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: colors.primary,
+    },
+    statLabel: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      marginTop: 2,
+    },
+    listContent: {
+      padding: 16,
+    },
+    timelineItem: {
+      flexDirection: 'row',
+      marginBottom: 0,
+    },
+    timelineConnector: {
+      width: 24,
+      alignItems: 'center',
+    },
+    timelineDot: {
+      width: 12,
+      height: 12,
+      borderRadius: 6,
+      marginTop: 4,
+    },
+    timelineLine: {
+      flex: 1,
+      width: 2,
+      backgroundColor: colors.borderLight,
+      marginVertical: 4,
+    },
+    timelineContent: {
+      flex: 1,
+      backgroundColor: colors.surface,
+      borderRadius: 12,
+      padding: 14,
+      marginLeft: 8,
+      marginBottom: 12,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.1,
+      shadowRadius: 3,
+      elevation: 2,
+    },
+    timelineHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 8,
+    },
+    timelineDate: {
+      fontSize: 13,
+      color: colors.textSecondary,
+    },
+    statusBadge: {
+      paddingVertical: 4,
+      paddingHorizontal: 8,
+      borderRadius: 12,
+    },
+    statusText: {
+      fontSize: 11,
+      fontWeight: '600',
+    },
+    handledBy: {
+      fontSize: 12,
+      color: colors.textTertiary,
+      marginBottom: 8,
+    },
+    voiceReportSection: {
+      marginTop: 8,
+    },
+    sectionTitle: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.primary,
+      marginBottom: 6,
+    },
+    summaryContainer: {
+      backgroundColor: colors.background,
+      borderRadius: 8,
+      padding: 10,
+    },
+    summaryHeader: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.textPrimary,
+      marginBottom: 4,
+      marginTop: 2,
+    },
+    summaryText: {
+      fontSize: 13,
+      color: colors.textSecondary,
+      lineHeight: 18,
+      marginBottom: 2,
+    },
+    bulletRow: {
+      flexDirection: 'row',
+      marginBottom: 2,
+    },
+    bullet: {
+      fontSize: 13,
+      color: colors.primary,
+      marginRight: 6,
+    },
+    bulletText: {
+      flex: 1,
+      fontSize: 13,
+      color: colors.textSecondary,
+      lineHeight: 18,
+    },
+    actions: {
+      flexDirection: 'row',
+      marginTop: 10,
+    },
+    actionButton: {
+      flex: 1,
+      backgroundColor: colors.primary,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: 6,
+      alignItems: 'center',
+    },
+    actionButtonActive: {
+      backgroundColor: colors.error,
+    },
+    actionButtonSecondary: {
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.primary,
+    },
+    actionButtonText: {
+      color: colors.textInverse,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    actionButtonTextSecondary: {
+      color: colors.primary,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    noReportBadge: {
+      marginTop: 8,
+      padding: 8,
+      backgroundColor: colors.errorLight,
+      borderRadius: 6,
+    },
+    noReportText: {
+      fontSize: 12,
+      color: colors.error,
+      fontWeight: '500',
+    },
+    transcriptionSection: {
+      marginTop: 10,
+      paddingTop: 10,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
+    transcriptionText: {
+      fontSize: 13,
+      color: colors.textSecondary,
+      lineHeight: 20,
+      backgroundColor: colors.background,
+      borderRadius: 8,
+      padding: 10,
+    },
+    emptyContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingVertical: 60,
+    },
+    emptyIcon: {
+      fontSize: 48,
+      marginBottom: 16,
+    },
+    emptyTitle: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: colors.textPrimary,
+      marginBottom: 8,
+    },
+    emptyText: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      textAlign: 'center',
+    },
+  });

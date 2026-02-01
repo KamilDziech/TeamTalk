@@ -18,9 +18,6 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
-  SafeAreaView,
-  StatusBar,
-  Platform,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -29,7 +26,8 @@ import { supabase } from '@/api/supabaseClient';
 import { callLogScanner } from '@/services/CallLogScanner';
 import { contactLookupService } from '@/services/ContactLookupService';
 import { useAuth } from '@/contexts/AuthContext';
-import { colors, spacing, radius, typography } from '@/styles/theme';
+import { useTheme } from '@/contexts/ThemeContext';
+import { spacing, radius, typography } from '@/styles/theme';
 import type { CallLog, Client, Profile, CallLogVisibility } from '@/types';
 import type { CallLogsStackParamList } from '@/navigation/CallLogsStackNavigator';
 
@@ -132,6 +130,8 @@ type NavigationProp = NativeStackNavigationProp<CallLogsStackParamList, 'CallLog
 export const CallLogsList: React.FC = () => {
   console.log('📋 CallLogsList: Component rendering START');
   const { user } = useAuth();
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
   const navigation = useNavigation<NavigationProp>();
   const [groupedLogs, setGroupedLogs] = useState<GroupedCallLog[]>([]);
   const [profiles, setProfiles] = useState<Map<string, Profile>>(new Map());
@@ -490,177 +490,180 @@ export const CallLogsList: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  // Container
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
+// Dynamic styles generator
+const createStyles = (colors: ReturnType<typeof import('@/contexts/ThemeContext').useTheme>['colors']) =>
+  StyleSheet.create({
+    // Container
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
 
-  // Header
-  headerContainer: {
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  headerTitle: {
-    fontSize: typography.xxl,
-    fontWeight: typography.bold,
-    color: colors.textPrimary,
-  },
+    // Header
+    headerContainer: {
+      backgroundColor: colors.surface,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.lg,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    headerTitle: {
+      fontSize: typography.xxl,
+      fontWeight: typography.bold,
+      color: colors.textPrimary,
+    },
 
-  // Layout
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.xl,
-    backgroundColor: colors.background,
-  },
-  loadingText: {
-    marginTop: spacing.md,
-    fontSize: typography.base,
-    color: colors.textSecondary,
-  },
-  listContent: {
-    paddingVertical: spacing.sm,
-  },
+    // Layout
+    centerContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: spacing.xl,
+      backgroundColor: colors.background,
+    },
+    loadingText: {
+      marginTop: spacing.md,
+      fontSize: typography.base,
+      color: colors.textSecondary,
+    },
+    listContent: {
+      paddingVertical: spacing.sm,
+    },
 
-  // Row - Minimalist call log style
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-  },
-  iconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: spacing.md,
-    backgroundColor: colors.borderLight,
-  },
-  rowCenter: {
-    flex: 1,
-  },
-  phoneText: {
-    fontSize: typography.lg,
-    fontWeight: typography.semibold,
-    color: colors.textPrimary,
-    marginBottom: 2,
-  },
-  subtitleText: {
-    fontSize: typography.sm,
-    color: colors.textSecondary,
-  },
-  handlerText: {
-    fontSize: typography.xs,
-    color: colors.primary,
-    marginTop: 2,
-  },
-  rowRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  timeText: {
-    fontSize: typography.sm,
-    color: colors.textTertiary,
-    marginRight: spacing.xs,
-  },
-  multiAgentIcon: {
-    marginRight: spacing.xs,
-  },
-  separator: {
-    height: 1,
-    backgroundColor: colors.borderLight,
-    marginLeft: 72,
-  },
+    // Row - Minimalist call log style
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.lg,
+    },
+    iconContainer: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: spacing.md,
+      backgroundColor: colors.borderLight,
+    },
+    rowCenter: {
+      flex: 1,
+    },
+    phoneText: {
+      fontSize: typography.lg,
+      fontWeight: typography.semibold,
+      color: colors.textPrimary,
+      marginBottom: 2,
+    },
+    subtitleText: {
+      fontSize: typography.sm,
+      color: colors.textSecondary,
+    },
+    handlerText: {
+      fontSize: typography.xs,
+      color: colors.primary,
+      marginTop: 2,
+    },
+    rowRight: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    timeText: {
+      fontSize: typography.sm,
+      color: colors.textTertiary,
+      marginRight: spacing.xs,
+    },
+    multiAgentIcon: {
+      marginRight: spacing.xs,
+    },
+    separator: {
+      height: 1,
+      backgroundColor: colors.borderLight,
+      marginLeft: 72,
+    },
 
-  // Sync status bar
-  syncStatusBar: {
-    backgroundColor: colors.primary,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  syncSpinner: {
-    marginRight: spacing.sm,
-  },
-  syncStatusText: {
-    color: colors.textInverse,
-    fontSize: typography.sm,
-    fontWeight: typography.medium,
-  },
+    // Sync status bar
+    syncStatusBar: {
+      backgroundColor: colors.primary,
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.lg,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    syncSpinner: {
+      marginRight: spacing.sm,
+    },
+    syncStatusText: {
+      color: colors.textInverse,
+      fontSize: typography.sm,
+      fontWeight: typography.medium,
+    },
 
-  // Empty state
-  emptyListContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    paddingVertical: spacing.xxxl,
-    paddingHorizontal: spacing.xl,
-  },
-  emptyText: {
-    fontSize: typography.lg,
-    fontWeight: typography.semibold,
-    color: colors.textPrimary,
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm,
-  },
-  emptySubtext: {
-    fontSize: typography.base,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: spacing.lg,
-  },
-  pullHint: {
-    marginTop: spacing.lg,
-    fontSize: typography.xs,
-    color: colors.textTertiary,
-  },
+    // Empty state
+    emptyListContent: {
+      flexGrow: 1,
+      justifyContent: 'center',
+    },
+    emptyContainer: {
+      alignItems: 'center',
+      paddingVertical: spacing.xxxl,
+      paddingHorizontal: spacing.xl,
+    },
+    emptyText: {
+      fontSize: typography.lg,
+      fontWeight: typography.semibold,
+      color: colors.textPrimary,
+      marginTop: spacing.lg,
+      marginBottom: spacing.sm,
+    },
+    emptySubtext: {
+      fontSize: typography.base,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      marginBottom: spacing.lg,
+    },
+    pullHint: {
+      marginTop: spacing.lg,
+      fontSize: typography.xs,
+      color: colors.textTertiary,
+    },
 
-  // Footer buttons
-  footerContainer: {
-    paddingVertical: spacing.xl,
-    paddingHorizontal: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    marginTop: spacing.lg,
-  },
-  fullRescanButton: {
-    backgroundColor: colors.infoLight,
-    padding: spacing.lg,
-    borderRadius: radius.lg,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.info,
-    marginBottom: spacing.md,
-  },
-  fullRescanButtonText: {
-    color: colors.info,
-    fontSize: typography.sm,
-    fontWeight: typography.semibold,
-  },
-  clearQueueButton: {
-    backgroundColor: colors.errorLight,
-    padding: spacing.lg,
-    borderRadius: radius.lg,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.error,
-  },
-  clearQueueButtonText: {
-    color: colors.error,
-    fontSize: typography.sm,
-    fontWeight: typography.semibold,
-  },
-});
+    // Footer buttons
+    footerContainer: {
+      paddingVertical: spacing.xl,
+      paddingHorizontal: spacing.lg,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      marginTop: spacing.lg,
+    },
+    fullRescanButton: {
+      backgroundColor: colors.infoLight,
+      padding: spacing.lg,
+      borderRadius: radius.lg,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.info,
+      marginBottom: spacing.md,
+    },
+    fullRescanButtonText: {
+      color: colors.info,
+      fontSize: typography.sm,
+      fontWeight: typography.semibold,
+    },
+    clearQueueButton: {
+      backgroundColor: colors.errorLight,
+      padding: spacing.lg,
+      borderRadius: radius.lg,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.error,
+    },
+    clearQueueButtonText: {
+      color: colors.error,
+      fontSize: typography.sm,
+      fontWeight: typography.semibold,
+    },
+  });
+

@@ -27,11 +27,14 @@ import {
 } from 'react-native';
 import * as Contacts from 'expo-contacts';
 import { supabase } from '@/api/supabaseClient';
-import { colors, spacing, radius, typography } from '@/styles/theme';
+import { useTheme } from '@/contexts/ThemeContext';
+import { spacing, radius, typography } from '@/styles/theme';
 
 export const AddClientScreen: React.FC<{ onClientAdded?: () => void }> = ({
   onClientAdded,
 }) => {
+  const { colors, isDark } = useTheme();
+  const styles = createStyles(colors);
   const [phone, setPhone] = useState('');
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
@@ -393,166 +396,168 @@ export const AddClientScreen: React.FC<{ onClientAdded?: () => void }> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
-  },
-  headerContainer: {
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  headerTitle: {
-    fontSize: typography.xxl,
-    fontWeight: typography.bold,
-    color: colors.textPrimary,
-  },
-  container: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: spacing.lg,
-    paddingBottom: spacing.xxxl,
-  },
+// Dynamic styles generator
+const createStyles = (colors: ReturnType<typeof import('@/contexts/ThemeContext').useTheme>['colors']) =>
+  StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: colors.background,
+      paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+    },
+    headerContainer: {
+      backgroundColor: colors.surface,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.lg,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    headerTitle: {
+      fontSize: typography.xxl,
+      fontWeight: typography.bold,
+      color: colors.textPrimary,
+    },
+    container: {
+      flex: 1,
+    },
+    scrollContent: {
+      padding: spacing.lg,
+      paddingBottom: spacing.xxxl,
+    },
 
-  // Contacts button - standard primary button size
-  contactsButton: {
-    backgroundColor: colors.success,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: radius.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.md,
-  },
-  contactsButtonDisabled: {
-    opacity: 0.7,
-  },
-  contactsButtonIcon: {
-    fontSize: 20,
-    marginRight: spacing.sm,
-  },
-  contactsButtonText: {
-    color: colors.textInverse,
-    fontSize: typography.base,
-    fontWeight: typography.semibold,
-  },
+    // Contacts button
+    contactsButton: {
+      backgroundColor: colors.success,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.lg,
+      borderRadius: radius.lg,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: spacing.md,
+    },
+    contactsButtonDisabled: {
+      opacity: 0.7,
+    },
+    contactsButtonIcon: {
+      fontSize: 20,
+      marginRight: spacing.sm,
+    },
+    contactsButtonText: {
+      color: colors.textInverse,
+      fontSize: typography.base,
+      fontWeight: typography.semibold,
+    },
 
-  orDivider: {
-    textAlign: 'center',
-    color: colors.textTertiary,
-    fontSize: typography.sm,
-    marginVertical: spacing.md,
-  },
+    orDivider: {
+      textAlign: 'center',
+      color: colors.textTertiary,
+      fontSize: typography.sm,
+      marginVertical: spacing.md,
+    },
 
-  // Form
-  form: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-  },
-  fieldContainer: {
-    marginBottom: spacing.lg,
-  },
-  label: {
-    fontSize: typography.sm,
-    fontWeight: typography.semibold,
-    color: colors.textSecondary,
-    marginBottom: spacing.sm,
-  },
-  required: {
-    color: colors.error,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    fontSize: typography.base,
-    color: colors.textPrimary,
-    backgroundColor: colors.background,
-  },
-  textArea: {
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
+    // Form
+    form: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.lg,
+      padding: spacing.lg,
+    },
+    fieldContainer: {
+      marginBottom: spacing.lg,
+    },
+    label: {
+      fontSize: typography.sm,
+      fontWeight: typography.semibold,
+      color: colors.textSecondary,
+      marginBottom: spacing.sm,
+    },
+    required: {
+      color: colors.error,
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.md,
+      fontSize: typography.base,
+      color: colors.textPrimary,
+      backgroundColor: colors.background,
+    },
+    textArea: {
+      minHeight: 80,
+      textAlignVertical: 'top',
+    },
 
-  // Submit button
-  submitButton: {
-    backgroundColor: colors.primary,
-    paddingVertical: spacing.md,
-    borderRadius: radius.lg,
-    alignItems: 'center',
-    marginTop: spacing.sm,
-  },
-  submitButtonDisabled: {
-    opacity: 0.6,
-  },
-  submitButtonText: {
-    color: colors.textInverse,
-    fontSize: typography.base,
-    fontWeight: typography.semibold,
-  },
+    // Submit button
+    submitButton: {
+      backgroundColor: colors.primary,
+      paddingVertical: spacing.md,
+      borderRadius: radius.lg,
+      alignItems: 'center',
+      marginTop: spacing.sm,
+    },
+    submitButtonDisabled: {
+      opacity: 0.6,
+    },
+    submitButtonText: {
+      color: colors.textInverse,
+      fontSize: typography.base,
+      fontWeight: typography.semibold,
+    },
 
-  // Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-    padding: spacing.lg,
-    maxHeight: '60%',
-  },
-  modalTitle: {
-    fontSize: typography.lg,
-    fontWeight: typography.bold,
-    color: colors.textPrimary,
-    marginBottom: spacing.xs,
-  },
-  modalSubtitle: {
-    fontSize: typography.sm,
-    color: colors.textSecondary,
-    marginBottom: spacing.md,
-  },
-  phoneNumbersList: {
-    maxHeight: 200,
-  },
-  phoneNumberItem: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.background,
-    borderRadius: radius.md,
-    marginBottom: spacing.sm,
-  },
-  phoneNumberLabel: {
-    fontSize: typography.xs,
-    color: colors.textTertiary,
-    textTransform: 'uppercase',
-  },
-  phoneNumberValue: {
-    fontSize: typography.lg,
-    color: colors.textPrimary,
-    fontWeight: typography.medium,
-    marginTop: 2,
-  },
-  modalCancelButton: {
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-    marginTop: spacing.md,
-  },
-  modalCancelText: {
-    fontSize: typography.base,
-    color: colors.textSecondary,
-    fontWeight: typography.medium,
-  },
-});
+    // Modal
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'flex-end',
+    },
+    modalContent: {
+      backgroundColor: colors.surface,
+      borderTopLeftRadius: radius.xl,
+      borderTopRightRadius: radius.xl,
+      padding: spacing.lg,
+      maxHeight: '60%',
+    },
+    modalTitle: {
+      fontSize: typography.lg,
+      fontWeight: typography.bold,
+      color: colors.textPrimary,
+      marginBottom: spacing.xs,
+    },
+    modalSubtitle: {
+      fontSize: typography.sm,
+      color: colors.textSecondary,
+      marginBottom: spacing.md,
+    },
+    phoneNumbersList: {
+      maxHeight: 200,
+    },
+    phoneNumberItem: {
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.md,
+      backgroundColor: colors.background,
+      borderRadius: radius.md,
+      marginBottom: spacing.sm,
+    },
+    phoneNumberLabel: {
+      fontSize: typography.xs,
+      color: colors.textTertiary,
+      textTransform: 'uppercase',
+    },
+    phoneNumberValue: {
+      fontSize: typography.lg,
+      color: colors.textPrimary,
+      fontWeight: typography.medium,
+      marginTop: 2,
+    },
+    modalCancelButton: {
+      paddingVertical: spacing.md,
+      alignItems: 'center',
+      marginTop: spacing.md,
+    },
+    modalCancelText: {
+      fontSize: typography.base,
+      color: colors.textSecondary,
+      fontWeight: typography.medium,
+    },
+  });

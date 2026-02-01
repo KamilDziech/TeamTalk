@@ -24,7 +24,8 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { supabase } from '@/api/supabaseClient';
 import { contactLookupService } from '@/services/ContactLookupService';
 import { useAuth } from '@/contexts/AuthContext';
-import { colors, spacing, radius, typography } from '@/styles/theme';
+import { useTheme } from '@/contexts/ThemeContext';
+import { spacing, radius, typography } from '@/styles/theme';
 import type { GroupedCallLog } from '@/components/CallLogsList';
 import type { CallLogsStackParamList } from '@/navigation/CallLogsStackNavigator';
 import type { Profile, CallLogStatus } from '@/types';
@@ -92,6 +93,8 @@ export const CallDetailsScreen: React.FC = () => {
     const route = useRoute<CallDetailsRouteProp>();
     const navigation = useNavigation();
     const { user } = useAuth();
+    const { colors } = useTheme();
+    const styles = createStyles(colors);
     const [group, setGroup] = useState<GroupedCallLog>(route.params.group);
     const [profiles, setProfiles] = useState<Map<string, Profile>>(new Map());
     const [isHistoryExpanded, setIsHistoryExpanded] = useState(true);
@@ -506,200 +509,202 @@ export const CallDetailsScreen: React.FC = () => {
     );
 };
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: colors.surface,
-    },
-    content: {
-        paddingHorizontal: spacing.lg,
-        paddingTop: spacing.lg,
-        paddingBottom: spacing.xxxl,
-    },
+// Dynamic styles generator
+const createStyles = (colors: ReturnType<typeof import('@/contexts/ThemeContext').useTheme>['colors']) =>
+    StyleSheet.create({
+        container: {
+            flex: 1,
+            backgroundColor: colors.surface,
+        },
+        content: {
+            paddingHorizontal: spacing.lg,
+            paddingTop: spacing.lg,
+            paddingBottom: spacing.xxxl,
+        },
 
-    // Header - Clean, no card
-    header: {
-        paddingVertical: spacing.md,
-    },
-    titleRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    primaryTitle: {
-        fontSize: 28,
-        fontWeight: typography.bold,
-        color: colors.textPrimary,
-        letterSpacing: 0.5,
-    },
-    multiAgentHeaderIcon: {
-        marginLeft: spacing.sm,
-    },
-    secondaryInfo: {
-        fontSize: typography.base,
-        color: colors.textSecondary,
-        marginTop: spacing.xs,
-    },
-    multiAgentInline: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginTop: spacing.xs,
-    },
-    multiAgentText: {
-        color: '#F59E0B',
-        fontSize: typography.sm,
-        fontWeight: typography.medium,
-        marginLeft: spacing.xs,
-    },
-    slaInline: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginTop: spacing.xs,
-    },
-    slaText: {
-        color: colors.error,
-        fontSize: typography.sm,
-        fontWeight: typography.semibold,
-        marginLeft: spacing.xs,
-    },
-    handlerName: {
-        fontSize: typography.sm,
-        color: colors.primary,
-        marginTop: spacing.xs,
-    },
-    address: {
-        fontSize: typography.sm,
-        color: colors.textTertiary,
-        marginTop: spacing.sm,
-    },
+        // Header
+        header: {
+            paddingVertical: spacing.md,
+        },
+        titleRow: {
+            flexDirection: 'row',
+            alignItems: 'center',
+        },
+        primaryTitle: {
+            fontSize: 28,
+            fontWeight: typography.bold,
+            color: colors.textPrimary,
+            letterSpacing: 0.5,
+        },
+        multiAgentHeaderIcon: {
+            marginLeft: spacing.sm,
+        },
+        secondaryInfo: {
+            fontSize: typography.base,
+            color: colors.textSecondary,
+            marginTop: spacing.xs,
+        },
+        multiAgentInline: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginTop: spacing.xs,
+        },
+        multiAgentText: {
+            color: '#F59E0B',
+            fontSize: typography.sm,
+            fontWeight: typography.medium,
+            marginLeft: spacing.xs,
+        },
+        slaInline: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginTop: spacing.xs,
+        },
+        slaText: {
+            color: colors.error,
+            fontSize: typography.sm,
+            fontWeight: typography.semibold,
+            marginLeft: spacing.xs,
+        },
+        handlerName: {
+            fontSize: typography.sm,
+            color: colors.primary,
+            marginTop: spacing.xs,
+        },
+        address: {
+            fontSize: typography.sm,
+            color: colors.textTertiary,
+            marginTop: spacing.sm,
+        },
 
-    // Separator
-    separator: {
-        height: 1,
-        backgroundColor: colors.borderLight,
-        marginVertical: spacing.lg,
-    },
+        // Separator
+        separator: {
+            height: 1,
+            backgroundColor: colors.borderLight,
+            marginVertical: spacing.lg,
+        },
 
-    // History Section - Light gray background
-    historySection: {
-        marginBottom: spacing.sm,
-        backgroundColor: colors.background,
-        borderRadius: radius.lg,
-        paddingHorizontal: spacing.md,
-    },
-    historyHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingVertical: spacing.sm,
-    },
-    historyHeaderLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    historyHeaderText: {
-        fontSize: typography.base,
-        color: colors.textSecondary,
-        fontWeight: typography.medium,
-        marginLeft: spacing.sm,
-    },
-    historyList: {
-        marginTop: spacing.sm,
-    },
-    historyEntry: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingVertical: spacing.md,
-    },
-    historyEntryBorder: {
-        borderBottomWidth: 1,
-        borderBottomColor: colors.borderLight,
-    },
-    historyEntryLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    statusDot: {
-        width: 10,
-        height: 10,
-        borderRadius: 5,
-        marginRight: spacing.md,
-    },
-    historyTime: {
-        fontSize: typography.sm,
-        color: colors.textPrimary,
-        fontWeight: typography.medium,
-    },
-    historyElapsed: {
-        fontSize: typography.xs,
-        color: colors.textTertiary,
-    },
-    historyAgent: {
-        fontSize: typography.sm,
-        color: colors.primary,
-    },
+        // History Section
+        historySection: {
+            marginBottom: spacing.sm,
+            backgroundColor: colors.background,
+            borderRadius: radius.lg,
+            paddingHorizontal: spacing.md,
+        },
+        historyHeader: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            paddingVertical: spacing.sm,
+        },
+        historyHeaderLeft: {
+            flexDirection: 'row',
+            alignItems: 'center',
+        },
+        historyHeaderText: {
+            fontSize: typography.base,
+            color: colors.textSecondary,
+            fontWeight: typography.medium,
+            marginLeft: spacing.sm,
+        },
+        historyList: {
+            marginTop: spacing.sm,
+        },
+        historyEntry: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            paddingVertical: spacing.md,
+        },
+        historyEntryBorder: {
+            borderBottomWidth: 1,
+            borderBottomColor: colors.borderLight,
+        },
+        historyEntryLeft: {
+            flexDirection: 'row',
+            alignItems: 'center',
+        },
+        statusDot: {
+            width: 10,
+            height: 10,
+            borderRadius: 5,
+            marginRight: spacing.md,
+        },
+        historyTime: {
+            fontSize: typography.sm,
+            color: colors.textPrimary,
+            fontWeight: typography.medium,
+        },
+        historyElapsed: {
+            fontSize: typography.xs,
+            color: colors.textTertiary,
+        },
+        historyAgent: {
+            fontSize: typography.sm,
+            color: colors.primary,
+        },
 
-    // Actions Section - Flat, Vertical
-    actionsSection: {
-        marginBottom: spacing.lg,
-    },
-    button: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: spacing.md,
-        borderRadius: radius.lg,
-        marginBottom: spacing.sm,
-    },
-    buttonText: {
-        color: colors.textInverse,
-        fontSize: typography.base,
-        fontWeight: typography.semibold,
-        marginLeft: spacing.sm,
-    },
-    reserveButton: {
-        backgroundColor: colors.warning,
-    },
-    callButton: {
-        backgroundColor: colors.primary,
-    },
-    completeButton: {
-        backgroundColor: colors.success,
-    },
-    buttonOutlined: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: spacing.md,
-        borderRadius: radius.lg,
-        borderWidth: 1,
-        borderColor: colors.border,
-        backgroundColor: 'transparent',
-        marginBottom: spacing.sm,
-    },
-    buttonOutlinedText: {
-        color: colors.textSecondary,
-        fontSize: typography.base,
-        fontWeight: typography.semibold,
-        marginLeft: spacing.sm,
-    },
-    buttonOutlinedPurple: {
-        borderColor: '#7C4DFF',
-    },
-    buttonOutlinedPurpleText: {
-        color: '#7C4DFF',
-        fontSize: typography.base,
-        fontWeight: typography.semibold,
-        marginLeft: spacing.sm,
-    },
+        // Actions Section
+        actionsSection: {
+            marginBottom: spacing.lg,
+        },
+        button: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingVertical: spacing.md,
+            borderRadius: radius.lg,
+            marginBottom: spacing.sm,
+        },
+        buttonText: {
+            color: colors.textInverse,
+            fontSize: typography.base,
+            fontWeight: typography.semibold,
+            marginLeft: spacing.sm,
+        },
+        reserveButton: {
+            backgroundColor: colors.warning,
+        },
+        callButton: {
+            backgroundColor: colors.primary,
+        },
+        completeButton: {
+            backgroundColor: colors.success,
+        },
+        buttonOutlined: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingVertical: spacing.md,
+            borderRadius: radius.lg,
+            borderWidth: 1,
+            borderColor: colors.border,
+            backgroundColor: 'transparent',
+            marginBottom: spacing.sm,
+        },
+        buttonOutlinedText: {
+            color: colors.textSecondary,
+            fontSize: typography.base,
+            fontWeight: typography.semibold,
+            marginLeft: spacing.sm,
+        },
+        buttonOutlinedPurple: {
+            borderColor: '#7C4DFF',
+        },
+        buttonOutlinedPurpleText: {
+            color: '#7C4DFF',
+            fontSize: typography.base,
+            fontWeight: typography.semibold,
+            marginLeft: spacing.sm,
+        },
 
-    // Info Section
-    infoSection: {
-        paddingVertical: spacing.md,
-        alignItems: 'center',
-    },
-    infoText: {
-        fontSize: typography.sm,
-        color: colors.textTertiary,
-    },
-});
+        // Info Section
+        infoSection: {
+            paddingVertical: spacing.md,
+            alignItems: 'center',
+        },
+        infoText: {
+            fontSize: typography.sm,
+            color: colors.textTertiary,
+        },
+    });
