@@ -66,33 +66,50 @@ export const AddNoteScreen: React.FC = () => {
         `)
         .eq('status', 'completed')
         .order('timestamp', { ascending: false })
-        .limit(50);
+        .limit(100);
 
       if (error) throw error;
 
-      // Sprawdź które mają voice_report
-      const logsWithReportStatus = await Promise.all(
-        (logs || []).map(async (log) => {
-          const { data: report } = await supabase
-            .from('voice_reports')
-            .select('id')
-            .eq('call_log_id', log.id)
-            .single();
+      // Fetch all voice reports in one query
+      const callLogIds = logs?.map((log: any) => log.id) || [];
+      const { data: reports } = await supabase
+        .from('voice_reports')
+        .select('call_log_id')
+        .in('call_log_id', callLogIds);
 
-          return {
-            ...log,
-            client: log.clients,
-            hasVoiceReport: !!report,
-          };
-        })
-      );
+      const reportMap = new Set(reports?.map((r) => r.call_log_id) || []);
 
-      // Filtruj tylko te BEZ notatki (do których można jeszcze dodać notatkę)
+      const logsWithReportStatus = (logs || []).map((log: any) => ({
+        ...log,
+        client: log.clients,
+        hasVoiceReport: reportMap.has(log.id),
+      }));
+
+      // Filtruj tylko te BEZ notatki
       const logsNeedingNotes = logsWithReportStatus.filter(
-        (log) => !log.hasVoiceReport
+        (log: any) => !log.hasVoiceReport
       );
 
-      setCallLogs(logsNeedingNotes as CallLogWithClient[]);
+      // GROUP by client_id or caller_phone to show only ONE card per client
+      // This prevents showing 10 cards when someone called 10 times
+      const groupedMap = new Map<string, any>();
+
+      logsNeedingNotes.forEach((log: any) => {
+        const groupKey = log.client_id || log.caller_phone || 'unknown';
+
+        // Keep only the NEWEST completed call for each client/number
+        const existing = groupedMap.get(groupKey);
+        if (!existing || new Date(log.timestamp) > new Date(existing.timestamp)) {
+          groupedMap.set(groupKey, log);
+        }
+      });
+
+      // Convert map to array - one call per client/number
+      const groupedLogs = Array.from(groupedMap.values()).sort(
+        (a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      );
+
+      setCallLogs(groupedLogs as CallLogWithClient[]);
     } catch (error) {
       console.error('Error fetching call logs:', error);
     } finally {
@@ -111,7 +128,45 @@ export const AddNoteScreen: React.FC = () => {
     setIsRecordingModalVisible(true);
   };
 
-  const handleRecordingComplete = () => {
+  const handleRecordingComplete = async () => {
+    if (!selectedCall) return;
+
+    // Find and mark all other completed calls from the same client as merged
+    // This prevents showing duplicate entries when client called multiple times
+    try {
+      const groupKey = selectedCall.client_id || selectedCall.caller_phone;
+
+      if (groupKey) {
+        // Find all other completed calls without voice_report from this client
+        const query = supabase
+          .from('call_logs')
+          .select('id')
+          .eq('status', 'completed')
+          .neq('id', selectedCall.id); // Exclude the one we just added note to
+
+        if (selectedCall.client_id) {
+          query.eq('client_id', selectedCall.client_id);
+        } else {
+          query.eq('caller_phone', selectedCall.caller_phone);
+        }
+
+        const { data: otherCalls } = await query;
+
+        if (otherCalls && otherCalls.length > 0) {
+          // Mark these calls as 'merged' so they won't appear again
+          const otherCallIds = otherCalls.map((c: any) => c.id);
+          await supabase
+            .from('call_logs')
+            .update({ type: 'merged', status: 'completed' })
+            .in('id', otherCallIds);
+
+          console.log(`Merged ${otherCalls.length} duplicate completed calls`);
+        }
+      }
+    } catch (error) {
+      console.error('Error merging duplicate calls:', error);
+    }
+
     setIsRecordingModalVisible(false);
     setSelectedCall(null);
     // Refresh the list to remove the completed item
