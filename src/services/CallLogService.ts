@@ -23,7 +23,24 @@ export class CallLogService {
   }
 
   /**
+   * Generate deduplication key for call log
+   * Format: {client_id|caller_phone}_{timestamp_rounded_to_30s}
+   * This prevents duplicate entries when multiple devices receive the same call
+   */
+  private generateDedupKey(
+    clientId: string | null,
+    callerPhone: string,
+    timestamp: Date
+  ): string {
+    const identifier = clientId || callerPhone;
+    const timestampInSeconds = Math.floor(timestamp.getTime() / 1000);
+    const roundedTimestamp = Math.floor(timestampInSeconds / 30);
+    return `${identifier}_${roundedTimestamp}`;
+  }
+
+  /**
    * Creates a new missed call log record
+   * Uses dedup_key to prevent duplicates when multiple devices receive same call
    *
    * @param clientId - The ID of the client who called
    * @param phoneNumber - The phone number of the caller
@@ -33,19 +50,25 @@ export class CallLogService {
    */
   async createMissedCall(clientId: string, phoneNumber: string, recipientId?: string): Promise<CallLog> {
     const recipients = recipientId ? [recipientId] : [];
+    const timestamp = new Date();
+    const dedupKey = this.generateDedupKey(clientId, phoneNumber, timestamp);
 
     const { data, error } = await this.supabase
       .from('call_logs')
-      .insert({
+      .upsert({
         client_id: clientId,
         employee_id: recipientId || null,
         type: 'missed',
         status: 'missed',
-        timestamp: new Date().toISOString(),
+        timestamp: timestamp.toISOString(),
         reservation_by: null,
         reservation_at: null,
         recipients: recipients,
         caller_phone: phoneNumber,
+        dedup_key: dedupKey,
+      }, {
+        onConflict: 'dedup_key',
+        ignoreDuplicates: true,
       })
       .select()
       .single();

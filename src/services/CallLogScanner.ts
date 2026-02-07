@@ -295,8 +295,24 @@ export class CallLogScanner {
   }
 
   /**
+   * Generate deduplication key for call log
+   * Format: {client_id|caller_phone}_{timestamp_rounded_to_30s}
+   */
+  private generateDedupKey(
+    clientId: string | null,
+    callerPhone: string,
+    timestamp: Date
+  ): string {
+    const identifier = clientId || callerPhone;
+    const timestampInSeconds = Math.floor(timestamp.getTime() / 1000);
+    const roundedTimestamp = Math.floor(timestampInSeconds / 30);
+    return `${identifier}_${roundedTimestamp}`;
+  }
+
+  /**
    * Create a call_logs entry for missed call from KNOWN client
    * All calls are shared and visible to entire team
+   * Uses dedup_key to prevent duplicates when multiple devices receive same call
    */
   private async createMissedCallLog(
     client: Client,
@@ -306,8 +322,9 @@ export class CallLogScanner {
   ): Promise<void> {
     try {
       const recipients = recipientId ? [recipientId] : [];
+      const dedupKey = this.generateDedupKey(client.id, callerPhone, callDate);
 
-      const { error } = await supabase.from('call_logs').insert({
+      const { error } = await supabase.from('call_logs').upsert({
         client_id: client.id,
         employee_id: recipientId,
         type: 'missed',
@@ -317,12 +334,16 @@ export class CallLogScanner {
         reservation_at: null,
         recipients: recipients,
         caller_phone: callerPhone,
+        dedup_key: dedupKey,
+      }, {
+        onConflict: 'dedup_key',
+        ignoreDuplicates: true,
       });
 
       if (error) {
         console.error('Error creating call log:', error);
       } else {
-        console.log(`Created call log for missed call from ${client.name}`);
+        console.log(`Created call log for missed call from ${client.name} (dedup: ${dedupKey})`);
       }
     } catch (error) {
       console.error('Error in createMissedCallLog:', error);
@@ -332,6 +353,7 @@ export class CallLogScanner {
   /**
    * Create a call_logs entry for missed call from UNKNOWN number
    * All calls are shared and visible to entire team
+   * Uses dedup_key to prevent duplicates when multiple devices receive same call
    */
   private async createUnknownCallerLog(
     normalizedPhone: string,
@@ -341,8 +363,9 @@ export class CallLogScanner {
   ): Promise<void> {
     try {
       const recipients = recipientId ? [recipientId] : [];
+      const dedupKey = this.generateDedupKey(null, normalizedPhone, callDate);
 
-      const { error } = await supabase.from('call_logs').insert({
+      const { error } = await supabase.from('call_logs').upsert({
         client_id: null,
         employee_id: recipientId,
         type: 'missed',
@@ -352,12 +375,16 @@ export class CallLogScanner {
         reservation_at: null,
         recipients: recipients,
         caller_phone: normalizedPhone,
+        dedup_key: dedupKey,
+      }, {
+        onConflict: 'dedup_key',
+        ignoreDuplicates: true,
       });
 
       if (error) {
         console.error('Error creating unknown caller log:', error);
       } else {
-        console.log(`Created call log for unknown caller: ${originalPhone}`);
+        console.log(`Created call log for unknown caller: ${originalPhone} (dedup: ${dedupKey})`);
       }
     } catch (error) {
       console.error('Error in createUnknownCallerLog:', error);
