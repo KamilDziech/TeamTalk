@@ -150,20 +150,20 @@ export const CallDetailsScreen: React.FC = () => {
             if (error) throw error;
 
             if (logs && logs.length > 0) {
-                const logsWithReports = await Promise.all(
-                    logs.map(async (log: any) => {
-                        const { data: report } = await supabase
-                            .from('voice_reports')
-                            .select('id')
-                            .eq('call_log_id', log.id)
-                            .single();
-                        return {
-                            ...log,
-                            client: log.clients,
-                            hasVoiceReport: !!report,
-                        };
-                    })
-                );
+                // Fetch all voice reports in one query instead of N queries
+                const callLogIds = logs.map((log: any) => log.id);
+                const { data: reports } = await supabase
+                    .from('voice_reports')
+                    .select('call_log_id')
+                    .in('call_log_id', callLogIds);
+
+                const reportMap = new Set(reports?.map((r) => r.call_log_id) || []);
+
+                const logsWithReports = logs.map((log: any) => ({
+                    ...log,
+                    client: log.clients,
+                    hasVoiceReport: reportMap.has(log.id),
+                }));
 
                 const sortedLogs = logsWithReports.sort(
                     (a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
@@ -210,20 +210,53 @@ export const CallDetailsScreen: React.FC = () => {
         const missedCalls = group.allCalls.filter((c) => c.status === 'missed');
         if (missedCalls.length === 0) return;
 
+        const reservationTime = new Date().toISOString();
+
+        // OPTIMISTIC UPDATE - Natychmiast zaktualizuj UI
+        const updatedCalls = group.allCalls.map((call) => {
+            if (call.status === 'missed') {
+                return {
+                    ...call,
+                    status: 'reserved' as CallLogStatus,
+                    reservation_by: user.id,
+                    reservation_at: reservationTime,
+                };
+            }
+            return call;
+        });
+
+        setGroup({
+            ...group,
+            latestCall: {
+                ...group.latestCall,
+                status: 'reserved' as CallLogStatus,
+                reservation_by: user.id,
+                reservation_at: reservationTime,
+            },
+            allCalls: updatedCalls,
+        });
+
+        // Update database in parallel (background)
         try {
-            for (const call of missedCalls) {
-                await supabase
+            const updatePromises = missedCalls.map((call) =>
+                supabase
                     .from('call_logs')
                     .update({
                         status: 'reserved' as CallLogStatus,
                         reservation_by: user.id,
-                        reservation_at: new Date().toISOString(),
+                        reservation_at: reservationTime,
                     })
-                    .eq('id', call.id);
-            }
+                    .eq('id', call.id)
+            );
+
+            await Promise.all(updatePromises);
+
+            // Refresh data after updates complete (to sync any changes from other users)
             await refreshData();
         } catch (error) {
             console.error('Error reserving calls:', error);
+            // Rollback optimistic update on error
+            await refreshData();
         }
     };
 
@@ -239,41 +272,77 @@ export const CallDetailsScreen: React.FC = () => {
     // Release reservation
     const handleRelease = async () => {
         const reservedCalls = group.allCalls.filter((c) => c.status === 'reserved');
+        if (reservedCalls.length === 0) return;
 
+        // OPTIMISTIC UPDATE
+        const updatedCalls = group.allCalls.map((call) => {
+            if (call.status === 'reserved') {
+                return {
+                    ...call,
+                    status: 'missed' as CallLogStatus,
+                    reservation_by: null,
+                    reservation_at: null,
+                };
+            }
+            return call;
+        });
+
+        setGroup({
+            ...group,
+            latestCall: {
+                ...group.latestCall,
+                status: 'missed' as CallLogStatus,
+                reservation_by: null,
+                reservation_at: null,
+            },
+            allCalls: updatedCalls,
+        });
+
+        // Update database in parallel
         try {
-            for (const call of reservedCalls) {
-                await supabase
+            const updatePromises = reservedCalls.map((call) =>
+                supabase
                     .from('call_logs')
                     .update({
                         status: 'missed' as CallLogStatus,
                         reservation_by: null,
                         reservation_at: null,
                     })
-                    .eq('id', call.id);
-            }
+                    .eq('id', call.id)
+            );
+
+            await Promise.all(updatePromises);
             await refreshData();
         } catch (error) {
             console.error('Error releasing calls:', error);
+            await refreshData();
         }
     };
 
     // Mark as complete
     const handleComplete = async () => {
         const reservedCalls = group.allCalls.filter((c) => c.status === 'reserved');
+        if (reservedCalls.length === 0) return;
 
+        // Navigate back immediately for instant feedback
+        navigation.goBack();
+
+        // Update database in parallel (background)
         try {
-            for (const call of reservedCalls) {
-                await supabase
+            const updatePromises = reservedCalls.map((call) =>
+                supabase
                     .from('call_logs')
                     .update({
                         type: 'completed',
                         status: 'completed' as CallLogStatus,
                     })
-                    .eq('id', call.id);
-            }
-            navigation.goBack();
+                    .eq('id', call.id)
+            );
+
+            await Promise.all(updatePromises);
         } catch (error) {
             console.error('Error completing calls:', error);
+            Alert.alert('Błąd', 'Nie udało się oznaczyć jako wykonane. Spróbuj ponownie.');
         }
     };
 
