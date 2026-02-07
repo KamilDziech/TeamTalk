@@ -353,6 +353,10 @@ export const CallDetailsScreen: React.FC = () => {
     const slaStatus = checkSlaExceeded(group);
     const activeCalls = group.allCalls.filter((c) => c.status === 'missed' || c.status === 'reserved');
 
+    // Check if current user is the owner of the reservation
+    const isOwner = group.latestCall.status === 'reserved' &&
+                    group.latestCall.reservation_by === user?.id;
+
     // Display values - Priority: 1. Device contacts, 2. CRM client, 3. Phone number
     const phoneNumber = group.client?.phone || group.callerPhone || null;
     const deviceContactName = contactLookupService.lookupContactName(phoneNumber);
@@ -505,32 +509,56 @@ export const CallDetailsScreen: React.FC = () => {
                     </TouchableOpacity>
                 )}
 
-                {/* Status: reserved -> Vertical buttons */}
+                {/* Status: reserved -> Show buttons ONLY if current user is the owner */}
                 {hasReservedCalls && !hasMissedCalls && (
                     <>
-                        <TouchableOpacity
-                            style={[styles.button, styles.callButton]}
-                            onPress={handleCall}
-                        >
-                            <MaterialIcons name="call" size={20} color={colors.textInverse} />
-                            <Text style={styles.buttonText}>Zadzwoń</Text>
-                        </TouchableOpacity>
+                        {isOwner ? (
+                            <>
+                                {/* Owner can call and complete */}
+                                <TouchableOpacity
+                                    style={[styles.button, styles.callButton]}
+                                    onPress={handleCall}
+                                >
+                                    <MaterialIcons name="call" size={20} color={colors.textInverse} />
+                                    <Text style={styles.buttonText}>Zadzwoń</Text>
+                                </TouchableOpacity>
 
-                        <TouchableOpacity
-                            style={[styles.button, styles.completeButton]}
-                            onPress={handleComplete}
-                        >
-                            <MaterialIcons name="check" size={20} color={colors.textInverse} />
-                            <Text style={styles.buttonText}>Wykonane</Text>
-                        </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.button, styles.completeButton]}
+                                    onPress={handleComplete}
+                                >
+                                    <MaterialIcons name="check" size={20} color={colors.textInverse} />
+                                    <Text style={styles.buttonText}>Wykonane</Text>
+                                </TouchableOpacity>
 
-                        <TouchableOpacity
-                            style={styles.buttonOutlined}
-                            onPress={handleRelease}
-                        >
-                            <MaterialIcons name="lock-open" size={20} color={colors.textSecondary} />
-                            <Text style={styles.buttonOutlinedText}>Uwolnij</Text>
-                        </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.buttonOutlined}
+                                    onPress={handleRelease}
+                                >
+                                    <MaterialIcons name="lock-open" size={20} color={colors.textSecondary} />
+                                    <Text style={styles.buttonOutlinedText}>Uwolnij</Text>
+                                </TouchableOpacity>
+                            </>
+                        ) : (
+                            <>
+                                {/* Non-owner sees read-only message */}
+                                <View style={styles.reservedByOtherContainer}>
+                                    <MaterialIcons name="lock" size={24} color={colors.primary} />
+                                    <Text style={styles.reservedByOtherText}>
+                                        {handlerName || 'Inny użytkownik'} obsługuje to połączenie
+                                    </Text>
+                                </View>
+
+                                {/* Non-owner can release if needed (emergency unlock) */}
+                                <TouchableOpacity
+                                    style={styles.buttonOutlined}
+                                    onPress={handleRelease}
+                                >
+                                    <MaterialIcons name="lock-open" size={20} color={colors.textSecondary} />
+                                    <Text style={styles.buttonOutlinedText}>Uwolnij (awaryjnie)</Text>
+                                </TouchableOpacity>
+                            </>
+                        )}
                     </>
                 )}
             </View>
@@ -689,6 +717,25 @@ const createStyles = (colors: ReturnType<typeof import('@/contexts/ThemeContext'
         // Actions Section
         actionsSection: {
             marginBottom: spacing.lg,
+        },
+        reservedByOtherContainer: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: colors.background,
+            paddingVertical: spacing.lg,
+            paddingHorizontal: spacing.md,
+            borderRadius: radius.lg,
+            marginBottom: spacing.md,
+            borderWidth: 1,
+            borderColor: colors.border,
+        },
+        reservedByOtherText: {
+            fontSize: typography.base,
+            color: colors.textPrimary,
+            fontWeight: typography.medium,
+            marginLeft: spacing.sm,
+            textAlign: 'center',
         },
         button: {
             flexDirection: 'row',
