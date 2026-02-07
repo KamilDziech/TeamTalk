@@ -2,10 +2,11 @@
  * SettingsButton
  *
  * Shared settings button component for navigation headers.
- * Opens a modal with theme selection, push notification toggle, and logout option.
+ * Opens a modal with theme selection, Dual SIM configuration,
+ * push notification toggle, and logout option.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -14,12 +15,16 @@ import {
     StyleSheet,
     Modal,
     Switch,
+    ActivityIndicator,
+    ScrollView,
+    Platform,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme, ThemeMode } from '@/contexts/ThemeContext';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { spacing, radius, typography } from '@/styles/theme';
+import { simDetectionService } from '@/services/SimDetectionService';
 
 // Theme option interface
 interface ThemeOption {
@@ -39,6 +44,58 @@ export const SettingsButton: React.FC = () => {
     const { colors, mode, setMode, isDark } = useTheme();
     const { notificationsEnabled, toggleNotifications } = usePushNotifications();
     const [modalVisible, setModalVisible] = useState(false);
+
+    // Dual SIM state
+    const [detectedSims, setDetectedSims] = useState<{ id: string; displayName: string }[]>([]);
+    const [selectedSimId, setSelectedSimId] = useState<string | null>(null);
+    const [isLoadingSims, setIsLoadingSims] = useState(false);
+    const [showDualSimSection, setShowDualSimSection] = useState(false);
+
+    // Load SIM info when modal opens
+    useEffect(() => {
+        if (modalVisible && Platform.OS === 'android') {
+            loadSimInfo();
+        }
+    }, [modalVisible]);
+
+    const loadSimInfo = async () => {
+        setIsLoadingSims(true);
+        try {
+            const sims = await simDetectionService.getDetectedSims();
+            const businessSimId = await simDetectionService.getBusinessSimId();
+            setDetectedSims(sims);
+            setSelectedSimId(businessSimId);
+            setShowDualSimSection(sims.length > 1);
+        } catch (error) {
+            console.error('Error loading SIM info:', error);
+        } finally {
+            setIsLoadingSims(false);
+        }
+    };
+
+    const handleSimSelect = async (simId: string) => {
+        await simDetectionService.setBusinessSimId(simId);
+        setSelectedSimId(simId);
+    };
+
+    const handleResetSimSelection = async () => {
+        Alert.alert(
+            'Resetuj wybór SIM',
+            'Czy na pewno chcesz zresetować wybór karty służbowej? Przy następnej synchronizacji zostaniesz poproszony o ponowny wybór.',
+            [
+                { text: 'Anuluj', style: 'cancel' },
+                {
+                    text: 'Resetuj',
+                    style: 'destructive',
+                    onPress: async () => {
+                        await simDetectionService.resetSimSelection();
+                        setSelectedSimId(null);
+                        Alert.alert('Gotowe', 'Wybór karty SIM został zresetowany.');
+                    },
+                },
+            ]
+        );
+    };
 
     const handleLogout = () => {
         setModalVisible(false);
@@ -152,6 +209,99 @@ export const SettingsButton: React.FC = () => {
                                 ))}
                             </View>
                         </View>
+
+                        {/* Dual SIM Section - only show if multiple SIMs detected */}
+                        {showDualSimSection && (
+                            <>
+                                {/* Separator */}
+                                <View style={[styles.separator, { backgroundColor: colors.border }]} />
+
+                                <View style={styles.sectionContainer}>
+                                    <View style={styles.settingsRowLeft}>
+                                        <MaterialIcons
+                                            name="sim-card"
+                                            size={22}
+                                            color={colors.textPrimary}
+                                        />
+                                        <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginLeft: spacing.sm, marginBottom: 0 }]}>
+                                            Konfiguracja Dual SIM
+                                        </Text>
+                                    </View>
+                                    <Text style={[styles.simSubtitle, { color: colors.textTertiary }]}>
+                                        Wybierz kartę służbową:
+                                    </Text>
+
+                                    {isLoadingSims ? (
+                                        <ActivityIndicator size="small" color={colors.primary} />
+                                    ) : (
+                                        <View style={styles.simOptionsContainer}>
+                                            {detectedSims.map((sim, index) => (
+                                                <TouchableOpacity
+                                                    key={sim.id}
+                                                    style={[
+                                                        styles.simOption,
+                                                        {
+                                                            backgroundColor: selectedSimId === sim.id
+                                                                ? colors.primaryLight
+                                                                : colors.background,
+                                                            borderColor: selectedSimId === sim.id
+                                                                ? colors.primary
+                                                                : colors.border,
+                                                        },
+                                                    ]}
+                                                    onPress={() => handleSimSelect(sim.id)}
+                                                >
+                                                    <MaterialIcons
+                                                        name={selectedSimId === sim.id ? 'radio-button-checked' : 'radio-button-unchecked'}
+                                                        size={20}
+                                                        color={selectedSimId === sim.id ? colors.primary : colors.textTertiary}
+                                                    />
+                                                    <View style={styles.simOptionTextContainer}>
+                                                        <Text
+                                                            style={[
+                                                                styles.simOptionLabel,
+                                                                {
+                                                                    color: selectedSimId === sim.id
+                                                                        ? colors.primary
+                                                                        : colors.textPrimary,
+                                                                },
+                                                            ]}
+                                                        >
+                                                            SIM {index + 1}
+                                                        </Text>
+                                                        <Text
+                                                            style={[
+                                                                styles.simOptionId,
+                                                                { color: colors.textTertiary },
+                                                            ]}
+                                                            numberOfLines={1}
+                                                        >
+                                                            ID: {simDetectionService.shortenId(sim.id)}
+                                                        </Text>
+                                                    </View>
+                                                    {selectedSimId === sim.id && (
+                                                        <Text style={[styles.simBadge, { backgroundColor: colors.success, color: '#fff' }]}>
+                                                            Służbowa
+                                                        </Text>
+                                                    )}
+                                                </TouchableOpacity>
+                                            ))}
+                                        </View>
+                                    )}
+
+                                    {/* Reset SIM selection */}
+                                    <TouchableOpacity
+                                        style={styles.resetSimButton}
+                                        onPress={handleResetSimSelection}
+                                    >
+                                        <MaterialIcons name="refresh" size={16} color={colors.textSecondary} />
+                                        <Text style={[styles.resetSimText, { color: colors.textSecondary }]}>
+                                            Resetuj wybór SIM
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </>
+                        )}
 
                         {/* Separator */}
                         <View style={[styles.separator, { backgroundColor: colors.border }]} />
@@ -309,5 +459,55 @@ const styles = StyleSheet.create({
     },
     cancelText: {
         fontSize: typography.base,
+    },
+
+    // Dual SIM styles
+    simSubtitle: {
+        fontSize: typography.sm,
+        marginTop: spacing.xs,
+        marginBottom: spacing.sm,
+    },
+    simOptionsContainer: {
+        marginTop: spacing.xs,
+    },
+    simOption: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: spacing.md,
+        paddingHorizontal: spacing.md,
+        borderRadius: radius.md,
+        borderWidth: 2,
+        marginBottom: spacing.sm,
+    },
+    simOptionTextContainer: {
+        flex: 1,
+        marginLeft: spacing.sm,
+    },
+    simOptionLabel: {
+        fontSize: typography.base,
+        fontWeight: typography.medium,
+    },
+    simOptionId: {
+        fontSize: typography.xs,
+        marginTop: 2,
+    },
+    simBadge: {
+        fontSize: typography.xs,
+        paddingHorizontal: spacing.sm,
+        paddingVertical: 2,
+        borderRadius: radius.sm,
+        overflow: 'hidden',
+        fontWeight: typography.medium,
+    },
+    resetSimButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: spacing.xs,
+        paddingVertical: spacing.sm,
+    },
+    resetSimText: {
+        fontSize: typography.sm,
+        marginLeft: spacing.xs,
     },
 });

@@ -4,11 +4,12 @@ System CRM AI dla zespołu instalatorskiego - aplikacja mobilna do zarządzania 
 
 ## Funkcje
 
-- **Kolejka połączeń** - Automatyczne wykrywanie nieodebranych od znanych klientów
+- **Wspólna Kolejka** - Wszystkie nieodebrane połączenia widoczne dla całego zespołu
+- **Etykiety Adresatów** - Informacja "Do: Kamil, Marcin" pokazująca kto odbierał
 - **System rezerwacji** - Rezerwowanie połączeń do oddzwonienia (Realtime sync między urządzeniami)
-- **Notatki głosowe** - Nagrywanie, transkrypcja (Whisper) i streszczanie (Claude AI)
+- **Notatki głosowe** - Nagrywanie i transkrypcja (Whisper)
 - **Historia rozmów** - Pełna historia z możliwością odsłuchania i przeszukiwania
-- **Inteligentna widoczność** - Prywatne kolejki dla nieznanych numerów, publiczne dla klientów
+- **Dual SIM** - Automatyczna detekcja kart SIM, synchronizacja tylko połączeń z karty służbowej
 
 ## Wymagania
 
@@ -41,7 +42,6 @@ Utwórz plik `.env` w katalogu głównym:
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=your-anon-key
 OPENAI_API_KEY=sk-your-openai-key
-CLAUDE_API_KEY=sk-ant-your-claude-key
 ```
 
 ## Uruchomienie (Development)
@@ -66,7 +66,6 @@ npx eas login
 npx eas secret:create --name SUPABASE_URL --value "https://xxx.supabase.co" --scope project
 npx eas secret:create --name SUPABASE_ANON_KEY --value "xxx" --scope project
 npx eas secret:create --name OPENAI_API_KEY --value "sk-xxx" --scope project
-npx eas secret:create --name CLAUDE_API_KEY --value "sk-ant-xxx" --scope project
 ```
 
 ### Budowanie APK (do testów)
@@ -125,10 +124,11 @@ https://supabase.com/dashboard/project/YOUR_PROJECT_ID/sql
 ### Tabele
 
 - `clients` - Dane klientów
-- `call_logs` - Historia połączeń
-- `voice_reports` - Notatki głosowe z transkrypcją i AI summary
-- `profiles` - Profile użytkowników
+- `call_logs` - Historia połączeń (z kolumną `recipients` - lista adresatów)
+- `voice_reports` - Notatki głosowe z transkrypcją
+- `profiles` - Profile użytkowników (imiona wyświetlane w etykietach "Do:")
 - `devices` - Tokeny push notifications
+- `ignored_numbers` - Numery zablokowane/prywatne
 
 ## Testowanie
 

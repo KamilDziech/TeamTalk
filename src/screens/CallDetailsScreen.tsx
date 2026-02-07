@@ -277,29 +277,6 @@ export const CallDetailsScreen: React.FC = () => {
         }
     };
 
-    // Publicize private call
-    const handlePublicize = async () => {
-        try {
-            const callerPhone = group.callerPhone || group.allCalls[0]?.caller_phone;
-
-            if (callerPhone) {
-                await supabase
-                    .from('call_logs')
-                    .update({ visibility: 'public' })
-                    .eq('caller_phone', callerPhone);
-            } else {
-                await supabase
-                    .from('call_logs')
-                    .update({ visibility: 'public' })
-                    .eq('id', group.latestCall.id);
-            }
-            await refreshData();
-        } catch (error) {
-            console.error('Error publicizing call:', error);
-            Alert.alert('Błąd', 'Nie udało się upublicznić połączenia.');
-        }
-    };
-
     // Calculate statuses
     const hasMissedCalls = group.allCalls.some((c) => c.status === 'missed');
     const hasReservedCalls = group.allCalls.some((c) => c.status === 'reserved');
@@ -318,6 +295,12 @@ export const CallDetailsScreen: React.FC = () => {
     const handlerName = group.latestCall.reservation_by && group.latestCall.status === 'reserved'
         ? getDisplayName(group.latestCall.reservation_by)
         : null;
+
+    // Recipients label: "Do: Kamil, Marcin" - shows who received the call
+    const recipientNames = group.recipients
+        .map((id) => getDisplayName(id))
+        .filter(Boolean)
+        .join(', ');
 
     return (
         <ScrollView
@@ -339,6 +322,11 @@ export const CallDetailsScreen: React.FC = () => {
                 {/* Secondary info (phone if name is shown) */}
                 {displaySecondary && (
                     <Text style={styles.secondaryInfo}>{displaySecondary}</Text>
+                )}
+
+                {/* Recipients label - shows who received the call */}
+                {recipientNames && (
+                    <Text style={styles.recipientsLabel}>Do: {recipientNames}</Text>
                 )}
 
                 {/* Multi-agent Alert - Amber text inline */}
@@ -448,17 +436,6 @@ export const CallDetailsScreen: React.FC = () => {
                     </TouchableOpacity>
                 )}
 
-                {/* For missed calls with private - show Upublicznij */}
-                {hasMissedCalls && group.isPrivate && (
-                    <TouchableOpacity
-                        style={[styles.buttonOutlined, styles.buttonOutlinedPurple]}
-                        onPress={handlePublicize}
-                    >
-                        <MaterialIcons name="campaign" size={20} color="#7C4DFF" />
-                        <Text style={styles.buttonOutlinedPurpleText}>Upublicznij</Text>
-                    </TouchableOpacity>
-                )}
-
                 {/* Status: reserved -> Vertical buttons */}
                 {hasReservedCalls && !hasMissedCalls && (
                     <>
@@ -485,16 +462,6 @@ export const CallDetailsScreen: React.FC = () => {
                             <MaterialIcons name="lock-open" size={20} color={colors.textSecondary} />
                             <Text style={styles.buttonOutlinedText}>Uwolnij</Text>
                         </TouchableOpacity>
-
-                        {group.isPrivate && (
-                            <TouchableOpacity
-                                style={[styles.buttonOutlined, styles.buttonOutlinedPurple]}
-                                onPress={handlePublicize}
-                            >
-                                <MaterialIcons name="campaign" size={20} color="#7C4DFF" />
-                                <Text style={styles.buttonOutlinedPurpleText}>Upublicznij</Text>
-                            </TouchableOpacity>
-                        )}
                     </>
                 )}
             </View>
@@ -565,6 +532,12 @@ const createStyles = (colors: ReturnType<typeof import('@/contexts/ThemeContext'
             fontSize: typography.sm,
             fontWeight: typography.semibold,
             marginLeft: spacing.xs,
+        },
+        recipientsLabel: {
+            fontSize: typography.sm,
+            color: colors.info,
+            marginTop: spacing.xs,
+            fontStyle: 'italic',
         },
         handlerName: {
             fontSize: typography.sm,
@@ -684,15 +657,6 @@ const createStyles = (colors: ReturnType<typeof import('@/contexts/ThemeContext'
         },
         buttonOutlinedText: {
             color: colors.textSecondary,
-            fontSize: typography.base,
-            fontWeight: typography.semibold,
-            marginLeft: spacing.sm,
-        },
-        buttonOutlinedPurple: {
-            borderColor: '#7C4DFF',
-        },
-        buttonOutlinedPurpleText: {
-            color: '#7C4DFF',
             fontSize: typography.base,
             fontWeight: typography.semibold,
             marginLeft: spacing.sm,

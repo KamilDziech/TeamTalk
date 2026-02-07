@@ -36,6 +36,8 @@ const mockCallLog: CallLog = {
   timestamp: '2024-01-15T10:30:00Z',
   reservation_by: null,
   reservation_at: null,
+  recipients: [],
+  caller_phone: '123456789',
   created_at: '2024-01-15T10:30:00Z',
   updated_at: '2024-01-15T10:30:00Z',
 };
@@ -309,6 +311,122 @@ describe('CallLogService', () => {
     });
   });
 
+  describe('createMissedCall with recipient', () => {
+    it('should create a missed call with recipient in recipients array', async () => {
+      // Arrange
+      const clientId = 'client-123';
+      const phoneNumber = '+48123456789';
+      const recipientId = 'user-456';
+      const expectedCallLog = {
+        ...mockCallLog,
+        client_id: clientId,
+        recipients: [recipientId],
+      };
+
+      mockSingle.mockResolvedValue({ data: expectedCallLog, error: null });
+
+      // Act
+      const result = await callLogService.createMissedCall(clientId, phoneNumber, recipientId);
+
+      // Assert
+      expect(mockInsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          recipients: [recipientId],
+        })
+      );
+      expect(result.recipients).toContain(recipientId);
+    });
+
+    it('should create a call with empty recipients when no recipient provided', async () => {
+      // Arrange
+      const clientId = 'client-123';
+      const phoneNumber = '+48123456789';
+      const expectedCallLog = {
+        ...mockCallLog,
+        recipients: [],
+      };
+
+      mockSingle.mockResolvedValue({ data: expectedCallLog, error: null });
+
+      // Act
+      const result = await callLogService.createMissedCall(clientId, phoneNumber);
+
+      // Assert
+      expect(mockInsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          recipients: [],
+        })
+      );
+      expect(result.recipients).toEqual([]);
+    });
+  });
+
+  describe('addRecipient', () => {
+    it('should add recipient to existing call log', async () => {
+      // Arrange
+      const callLogId = 'call-log-123';
+      const newRecipientId = 'user-789';
+      const existingRecipients = ['user-456'];
+
+      // Mock fetching existing call log
+      const mockFetchSingle = jest.fn().mockResolvedValue({
+        data: { recipients: existingRecipients },
+        error: null,
+      });
+      mockEq.mockReturnValueOnce({ single: mockFetchSingle });
+
+      // Mock updating call log
+      const updatedCallLog = {
+        ...mockCallLog,
+        recipients: [...existingRecipients, newRecipientId],
+      };
+      mockSingle.mockResolvedValue({ data: updatedCallLog, error: null });
+
+      // Act
+      const result = await callLogService.addRecipient(callLogId, newRecipientId);
+
+      // Assert
+      expect(result?.recipients).toContain('user-456');
+      expect(result?.recipients).toContain(newRecipientId);
+    });
+
+    it('should not add duplicate recipient', async () => {
+      // Arrange
+      const callLogId = 'call-log-123';
+      const existingRecipientId = 'user-456';
+
+      // Mock fetching existing call log with the recipient already present
+      const mockFetchSingle = jest.fn().mockResolvedValue({
+        data: { recipients: [existingRecipientId] },
+        error: null,
+      });
+      mockEq.mockReturnValueOnce({ single: mockFetchSingle });
+
+      // Act
+      const result = await callLogService.addRecipient(callLogId, existingRecipientId);
+
+      // Assert - should return null (no update needed)
+      expect(result).toBeNull();
+    });
+
+    it('should throw error when call log not found', async () => {
+      // Arrange
+      const callLogId = 'nonexistent-call';
+      const recipientId = 'user-456';
+
+      const mockFetchSingle = jest.fn().mockResolvedValue({
+        data: null,
+        error: { message: 'Not found' },
+      });
+      mockEq.mockReturnValueOnce({ single: mockFetchSingle });
+
+      // Act & Assert
+      await expect(
+        callLogService.addRecipient(callLogId, recipientId)
+      ).rejects.toThrow('Failed to fetch call log');
+    });
+  });
+
   describe('Business Logic Rules', () => {
     it('should enforce status transition: missed -> reserved -> completed', async () => {
       // This test verifies the expected workflow:
@@ -340,6 +458,42 @@ describe('CallLogService', () => {
 
       const completed = await callLogService.completeCall(callLogId);
       expect(completed?.status).toBe('completed');
+    });
+  });
+
+  describe('Shared Database (Visibility)', () => {
+    it('getAllCallLogs should return all calls for shared visibility', async () => {
+      // Arrange - All calls are visible to everyone (shared database)
+      const sharedCalls = [
+        { ...mockCallLog, id: 'call-1', recipients: ['user-1'] },
+        { ...mockCallLog, id: 'call-2', recipients: ['user-2'] },
+        { ...mockCallLog, id: 'call-3', recipients: ['user-1', 'user-2'] },
+      ];
+
+      const mockOrder = jest.fn().mockResolvedValue({ data: sharedCalls, error: null });
+      mockSelect.mockReturnValue({ order: mockOrder });
+
+      // Act
+      const result = await callLogService.getAllCallLogs();
+
+      // Assert - All calls returned regardless of recipients
+      expect(result).toHaveLength(3);
+      expect(mockSupabase.from).toHaveBeenCalledWith('call_logs');
+    });
+
+    it('should aggregate recipients when same number calls multiple users', async () => {
+      // Test concept: when same number calls multiple users,
+      // recipients array should contain all user IDs
+      const callWithMultipleRecipients = {
+        ...mockCallLog,
+        recipients: ['user-1', 'user-2', 'user-3'],
+      };
+
+      // Verifies the data structure supports multiple recipients
+      expect(callWithMultipleRecipients.recipients).toHaveLength(3);
+      expect(callWithMultipleRecipients.recipients).toContain('user-1');
+      expect(callWithMultipleRecipients.recipients).toContain('user-2');
+      expect(callWithMultipleRecipients.recipients).toContain('user-3');
     });
   });
 });

@@ -8,7 +8,6 @@
  * eas secret:create --name SUPABASE_URL --value "https://xxx.supabase.co" --scope project
  * eas secret:create --name SUPABASE_ANON_KEY --value "xxx" --scope project
  * eas secret:create --name OPENAI_API_KEY --value "sk-xxx" --scope project
- * eas secret:create --name CLAUDE_API_KEY --value "sk-ant-xxx" --scope project
  */
 
 require('dotenv').config();
@@ -82,7 +81,6 @@ module.exports = {
       supabaseUrl: process.env.SUPABASE_URL,
       supabaseAnonKey: process.env.SUPABASE_ANON_KEY,
       openaiApiKey: process.env.OPENAI_API_KEY,
-      claudeApiKey: process.env.CLAUDE_API_KEY,
       // EAS configuration
       eas: {
         projectId: "70a863dc-ad69-43ce-a26e-58c4accd11f7"

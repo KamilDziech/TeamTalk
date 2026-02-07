@@ -5,7 +5,7 @@
 - [x] Stworzenie struktury bazy danych w Supabase:
     - Tabela `clients` (id, phone, name, address, notes).
     - Tabela `call_logs` (id, client_id, employee_id, type: 'missed'/'completed', status: 'missed'/'reserved'/'completed', timestamp, reservation_by).
-    - Tabela `voice_reports` (id, call_log_id, audio_url, transcription, ai_summary).
+    - Tabela `voice_reports` (id, call_log_id, audio_url, transcription).
 - [x] Włączenie Supabase Realtime dla tabeli `call_logs`.
 - [x] CallLogService z testami TDD (12/12 ✓).
 - **Kryterium sukcesu:** ✅ Możliwość ręcznego dodania klienta w panelu Supabase i wyświetlenia go w surowym widoku aplikacji.
@@ -107,7 +107,7 @@ reserved (Zarezerwowane przez Ciebie)
 ## Faza 3.5: Zakładka Notatka ✅ UKOŃCZONA
 
 ### Filtrowanie
-- [x] Wyświetla TYLKO połączenia o statusie `completed` bez `voice_report` i bez `ai_summary`.
+- [x] Wyświetla TYLKO połączenia o statusie `completed` bez `voice_report`.
 
 ### UI
 - [x] Po kliknięciu [WYKONANE] w Kolejce, rekord natychmiast pojawia się tutaj.
@@ -137,17 +137,12 @@ reserved (Zarezerwowane przez Ciebie)
 - [x] Automatyczna transkrypcja po uploade.
 - [x] Obsługa języka polskiego.
 
-### 4.4 Streszczenie AI ✅
-- [x] Integracja z Claude API (model: claude-3-haiku).
-- [x] Generowanie streszczenia z transkrypcji.
-- [x] Format: temat rozmowy, ustalenia, zadania do wykonania.
-
-### 4.5 Tryb Offline ✅
+### 4.4 Tryb Offline ✅
 - [x] Kolejkowanie nieudanych uploadów w AsyncStorage.
 - [x] Metoda processPendingUploads() do ponowienia.
 - [ ] Automatyczny retry po odzyskaniu sieci (TODO).
 
-### 4.6 Integracja z UI ✅
+### 4.5 Integracja z UI ✅
 - [x] Modal nagrywania otwiera się z zakładki Notatka.
 - [x] Po zapisaniu notatki lista się odświeża.
 - [x] Połączenie znika z listy "WYMAGA NOTATKI".
@@ -156,7 +151,6 @@ reserved (Zarezerwowane przez Ciebie)
 ```bash
 # Dodaj do pliku .env:
 OPENAI_API_KEY=sk-xxx
-CLAUDE_API_KEY=sk-ant-xxx
 ```
 
 ### Supabase Storage:
@@ -165,7 +159,7 @@ CLAUDE_API_KEY=sk-ant-xxx
 -- Storage → New bucket → "voice-reports" (public)
 ```
 
-**Kryterium sukcesu:** ✅ Użytkownik nagrywa notatkę, aplikacja transkrybuje i streszcza audio, alert "WYMAGA NOTATKI" znika.
+**Kryterium sukcesu:** ✅ Użytkownik nagrywa notatkę, aplikacja transkrybuje audio, alert "WYMAGA NOTATKI" znika.
 
 ---
 
@@ -181,15 +175,14 @@ CLAUDE_API_KEY=sk-ant-xxx
 - [x] Karta rozmowy: nazwa klienta, data/godzina, kto obsłużył.
 
 ### Prezentacja Notatek
-- [x] Streszczenie AI w formie czytelnej listy punktowej.
+- [x] Pełna transkrypcja w czytelnym formacie.
 - [x] Przycisk "▶ Odtwórz" - odsłuchanie nagrania z Supabase Storage.
-- [x] Przycisk "Pełna notatka" - rozwijanie pełnej transkrypcji.
 
 ### Wyszukiwarka
 - [x] Pasek wyszukiwania na górze ekranu.
-- [x] Filtrowanie po nazwisku klienta lub słowach kluczowych w streszczeniu.
+- [x] Filtrowanie po nazwisku klienta lub słowach kluczowych w transkrypcji.
 
-**Kryterium sukcesu:** ✅ Historia rozmów z możliwością odsłuchania nagrań i przeczytania streszczeń AI.
+**Kryterium sukcesu:** ✅ Historia rozmów z możliwością odsłuchania nagrań i przeczytania transkrypcji.
 
 ---
 
@@ -271,72 +264,66 @@ CLAUDE_API_KEY=sk-ant-xxx
 
 ---
 
-## Faza 8: Inteligentna Widoczność Połączeń 🔄 W TRAKCIE
+## Faza 8: Wspólna Baza Połączeń ✅ UKOŃCZONA
 
 ### Cel
-Rozszerzenie mechanizmu synchronizacji połączeń o system widoczności, który pozwala na:
-- Automatyczne upublicznianie połączeń od znanych klientów
-- Prywatne kolejki dla nieznanych numerów (potencjalni nowi klienci)
-- Automatyczną aktywację wspólnej widoczności gdy numer dzwoni do różnych pracowników
+Pełne współdzielenie wszystkich rekordów połączeń między członkami zespołu z etykietami adresatów.
 
-### 8.1 Baza Danych
-- [ ] Dodanie kolumny `visibility` do tabeli `call_logs` (wartości: 'private', 'public')
-- [ ] Dodanie kolumny `original_receiver_id` (kto pierwszy odebrał/zarejestrował połączenie)
-- [ ] Indeks na kolumnie `visibility` dla szybkiego filtrowania
-- [ ] Migracja SQL: `20240201000000_call_visibility.sql`
+### 8.1 Logika Wspólnej Bazy (Shared Database) ✅
+- [x] Pełna widoczność: Każde nieodebrane połączenie widoczne dla wszystkich w zakładce 'Kolejka'
+- [x] Agregacja adresatów: Jeśli ten sam numer dzwoni do kilku osób, aktualizuj istniejący rekord (kolumna `recipients`)
+- [x] Filtr `ignored_numbers` - jedyny mechanizm blokowania numerów
 
-### 8.2 Logika Widoczności (Backend)
+### 8.2 Identyfikacja Adresatów (Recipient Labeling) ✅
+- [x] Kolumna `recipients` typu array w tabeli `call_logs`
+- [x] Etykieta "Do: [Imię1, Imię2]" na kartach połączeń
+- [x] Pobieranie imion z tabeli `profiles`
+- [x] Styl: mniejszy druk, kolor niebieski/szary
 
-**Zasada 1 - Znany Klient:**
-- Jeśli numer dzwoniący istnieje w tabeli `clients` → `visibility = 'public'`
-- Wszyscy członkowie zespołu widzą to połączenie od razu
+### 8.3 Uproszczony Workflow ✅
+- [x] Usunięto przycisk "Upublicznij" - wszystko publiczne od początku
+- [x] Zachowano mechanizm rezerwacji z informacją o adresatach
+- [x] Usunięto kolumny `visibility` i `original_receiver_id`
 
-**Zasada 2 - Nieznany Numer (Pierwszy raz):**
-- Jeśli numeru nie ma w bazie → `visibility = 'private'`
-- Rekord przypisany do `original_receiver_id` (osoba do której dzwoniono)
-- Tylko ta osoba widzi to połączenie w swojej kolejce
+### 8.4 Migracja Bazy Danych ✅
+- [x] Migracja SQL: `20240206000000_shared_database.sql`
+- [x] Usunięto triggery i funkcje związane z widocznością
+- [x] Indeks GIN na kolumnie `recipients` dla wydajnych zapytań
 
-**Zasada 3 - Aktywacja Wspólna:**
-- Jeśli nieodebrane połączenie od numeru, który jest już w `call_logs` jako `private`, ale dzwonił do INNEGO użytkownika
-- Zmień status wszystkich rekordów tego numeru na `visibility = 'public'`
-- Logika: "Jeśli dzwoni do wielu osób, to prawdopodobnie to klient firmowy"
+**Kryterium sukcesu:** ✅
+- Wszystkie połączenia widoczne dla całego zespołu
+- Etykiety "Do: ..." pokazują kto odbierał połączenie
+- Brak podziału na prywatne/publiczne
 
-### 8.3 Interfejs (UI)
+---
 
-**Kolejka połączeń - Filtrowanie:**
-- Wyświetlaj tylko rekordy gdzie:
-  - `visibility = 'public'` (widoczne dla całego zespołu)
-  - LUB `visibility = 'private'` AND `original_receiver_id == current_user_id`
+## Faza 9: Inteligentna Detekcja Dual SIM ✅ UKOŃCZONA
 
-**Oznaczenia wizualne:**
-- Nieznany numer w prywatnej kolejce: etykieta "🔒 Potencjalny klient (Tylko Ty to widzisz)"
-- Kolor/ikona odróżniająca prywatne od publicznych
+### 9.1 Detekcja SIM
+- [x] Automatyczne wykrywanie unikalnych identyfikatorów kart SIM z CallLog
+- [x] Serwis `SimDetectionService` do zarządzania konfiguracją SIM
+- [x] Przechowywanie wyboru karty służbowej w AsyncStorage
 
-### 8.4 Akcja Ręczna - Upublicznij
-- [ ] Przycisk "📢 Upublicznij" na karcie prywatnego połączenia
-- [ ] Po kliknięciu: `visibility = 'public'` dla tego numeru
-- [ ] Umożliwia ręczne wrzucenie nowego klienta do wspólnej kolejki
-- [ ] Użyteczne gdy pracownik wie, że to nowy klient firmowy
+### 9.2 Konfiguracja UI
+- [x] Sekcja "Konfiguracja Dual SIM" w ustawieniach (widoczna tylko przy Dual SIM)
+- [x] Lista wykrytych kart SIM z możliwością wyboru służbowej
+- [x] Przycisk "Resetuj wybór SIM" do ręcznego resetu
 
-### 8.5 Migracja Danych
-- [ ] Istniejące rekordy z `client_id != null` → `visibility = 'public'`
-- [ ] Obsługa edge case'ów dla połączeń bez klienta
+### 9.3 Filtrowanie Połączeń
+- [x] Warunek w `CallLogScanner`: ignoruj połączenia z kart innych niż służbowa
+- [x] Logi informujące o odfiltrowanych połączeniach
 
-**Kryterium sukcesu:**
-- Połączenia od znanych klientów widoczne dla wszystkich
-- Połączenia od nieznanych numerów widoczne tylko dla odbiorcy
-- Automatyczne upublicznienie gdy numer dzwoni do wielu pracowników
-- Możliwość ręcznego upublicznienia przez pracownika
+**Kryterium sukcesu:** ✅ Połączenia tylko z wybranej karty służbowej trafiają do bazy danych i kolejki. Użytkownik może wybrać kartę służbową w ustawieniach.
 
 ---
 
 ## Definicja MVP (Cel końcowy)
 System uznajemy za gotowy, gdy:
-1. **Prywatność:** Aplikacja monitoruje TYLKO numerów z bazy `clients`, ignoruje resztę.
-2. **Nieodebrane:** Nieodebrane od znanych klientów są wykrywane i widoczne dla całego zespołu.
+1. **Monitorowanie:** Aplikacja wykrywa nieodebrane połączenia i dodaje je do wspólnej kolejki.
+2. **Wspólna Baza:** Wszystkie połączenia są widoczne dla całego zespołu z etykietami adresatów ("Do: Kamil, Marcin").
 3. **Rezerwacje:** Można zarezerwować oddzwonienie, unikając dublowania pracy (Realtime sync).
-4. **Notatki:** Po rozmowie można ręcznie dodać notatkę głosową, która jest transkrybowana i streszczana przez AI.
+4. **Notatki:** Po rozmowie można ręcznie dodać notatkę głosową, która jest automatycznie transkrybowana.
 5. **Alerty:** Połączenia bez notatek są oznaczone "WYMAGA NOTATKI" do czasu uzupełnienia.
 6. **Bezpieczeństwo:** Aplikacja zabezpieczona systemem logowania, sesja pamiętana lokalnie.
 7. **Standardy:** Kod w języku angielskim, interfejs w języku polskim, zmiany w repozytorium Git.
-8. **Widoczność:** Inteligentny system widoczności połączeń - prywatne dla nieznanych, publiczne dla klientów.
+8. **Dual SIM:** Filtrowanie połączeń tylko z wybranej karty służbowej.

@@ -1,16 +1,13 @@
 /**
  * VoiceReportService
  *
- * Handles voice note recording, upload, transcription and AI summarization.
+ * Handles voice note recording, upload and transcription.
  *
  * Workflow:
  * 1. Record audio using expo-av
  * 2. Upload to Supabase Storage
  * 3. Transcribe using OpenAI Whisper API
- * 4. Summarize using Claude API
- * 5. Save voice_report to database
- *
- * Phase 4 implementation
+ * 4. Save voice_report to database
  */
 
 import { Audio } from 'expo-av';
@@ -83,7 +80,6 @@ const isHallucinationOrEmpty = (text: string | null): boolean => {
 
 // Get API keys from environment
 const getOpenAIKey = () => Constants.expoConfig?.extra?.openaiApiKey || process.env.OPENAI_API_KEY;
-const getClaudeKey = () => Constants.expoConfig?.extra?.claudeApiKey || process.env.CLAUDE_API_KEY;
 
 export class VoiceReportService {
   private recording: Audio.Recording | null = null;
@@ -342,88 +338,6 @@ export class VoiceReportService {
   }
 
   /**
-   * Generate AI summary using Claude API
-   * Returns 'ERROR_EMPTY' if the transcription appears to be invalid or hallucination
-   */
-  async generateSummary(transcription: string, clientName?: string): Promise<string | null> {
-    const apiKey = getClaudeKey();
-    if (!apiKey) {
-      console.warn('Claude API key not configured, skipping summary');
-      return null;
-    }
-
-    // Don't process if transcription is marked as empty
-    if (transcription === 'ERROR_EMPTY') {
-      return 'ERROR_EMPTY';
-    }
-
-    try {
-      console.log('Generating AI summary with Claude...');
-
-      const systemPrompt = `Jesteś asystentem CRM pomagającym w zarządzaniu relacjami z klientami.
-Twoim zadaniem jest streszczenie notatki głosowej z rozmowy telefonicznej.
-
-WAŻNE: Zwróć ERROR_EMPTY TYLKO jeśli transkrypcja:
-- jest pusta lub zawiera tylko znaki przestankowe
-- zawiera TYLKO typowe halucynacje AI (np. "Dziękuję za oglądanie", "Subscribe", "Napisy stworzone przez...")
-- jest całkowicie niezrozumiała (losowe litery/słowa bez sensu)
-
-NIE zwracaj ERROR_EMPTY dla:
-- krótkich ale zrozumiałych notatek
-- nieformalnego języka lub potocznych wyrażeń
-- notatek technicznych lub wewnętrznych
-
-Jeśli transkrypcja zawiera jakąkolwiek sensowną treść, stwórz zwięzłe podsumowanie:
-1. **Temat:** (1 zdanie)
-2. **Szczegóły:** (jeśli są)
-
-Odpowiadaj po polsku. Bądź zwięzły.`;
-
-      const userPrompt = clientName
-        ? `Notatka z rozmowy z klientem "${clientName}":\n\n${transcription}`
-        : `Notatka z rozmowy:\n\n${transcription}`;
-
-      const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-          model: 'claude-3-haiku-20240307',
-          max_tokens: 1024,
-          system: systemPrompt,
-          messages: [
-            { role: 'user', content: userPrompt },
-          ],
-        }),
-      });
-
-      if (!claudeResponse.ok) {
-        const errorData = await claudeResponse.text();
-        console.error('Claude API error:', errorData);
-        return null;
-      }
-
-      const result = await claudeResponse.json();
-      const summary = result.content?.[0]?.text?.trim() || null;
-      console.log('Summary generated:', summary?.substring(0, 100) + '...');
-
-      // Check if Claude detected invalid transcription
-      if (summary === 'ERROR_EMPTY' || summary?.startsWith('ERROR_EMPTY')) {
-        console.log('Claude detected invalid transcription');
-        return 'ERROR_EMPTY';
-      }
-
-      return summary;
-    } catch (error) {
-      console.error('Error generating summary:', error);
-      return null;
-    }
-  }
-
-  /**
    * Save voice report to database
    */
   async saveVoiceReport(
@@ -461,12 +375,11 @@ Odpowiadaj po polsku. Bądź zwięzły.`;
   }
 
   /**
-   * Full workflow: Upload, transcribe, summarize and save
+   * Full workflow: Upload, transcribe and save
    */
   async processVoiceReport(
     callLogId: string,
-    audioUri: string,
-    clientName?: string
+    audioUri: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
       // Step 1: Upload audio
@@ -480,14 +393,8 @@ Odpowiadaj po polsku. Bądź zwięzły.`;
       // Step 2: Transcribe
       const transcription = await this.transcribeAudio(audioUrl);
 
-      // Step 3: Generate summary (only if transcription succeeded)
-      let aiSummary: string | null = null;
-      if (transcription) {
-        aiSummary = await this.generateSummary(transcription, clientName);
-      }
-
-      // Step 4: Save to database
-      const saved = await this.saveVoiceReport(callLogId, audioUrl, transcription, aiSummary);
+      // Step 3: Save to database (no AI summary)
+      const saved = await this.saveVoiceReport(callLogId, audioUrl, transcription, null);
       if (!saved) {
         return { success: false, error: 'Failed to save voice report to database.' };
       }

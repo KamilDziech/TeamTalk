@@ -5,7 +5,7 @@
  * - Creating missed call records
  * - Reserving calls for callback
  * - Completing calls
- * - Querying call logs by status
+ * - Querying call logs
  *
  * Follows SOLID principles:
  * - Single Responsibility: Only handles call log business logic
@@ -13,7 +13,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { CallLog, CallLogVisibility, Database } from '@/types';
+import type { CallLog, Database } from '@/types';
 
 export class CallLogService {
   private supabase: SupabaseClient<Database>;
@@ -27,20 +27,25 @@ export class CallLogService {
    *
    * @param clientId - The ID of the client who called
    * @param phoneNumber - The phone number of the caller
+   * @param recipientId - The ID of the user who missed this call
    * @returns The created call log
    * @throws Error if the database operation fails
    */
-  async createMissedCall(clientId: string, phoneNumber: string): Promise<CallLog> {
+  async createMissedCall(clientId: string, phoneNumber: string, recipientId?: string): Promise<CallLog> {
+    const recipients = recipientId ? [recipientId] : [];
+
     const { data, error } = await this.supabase
       .from('call_logs')
       .insert({
         client_id: clientId,
-        employee_id: null,
+        employee_id: recipientId || null,
         type: 'missed',
         status: 'missed',
         timestamp: new Date().toISOString(),
         reservation_by: null,
         reservation_at: null,
+        recipients: recipients,
+        caller_phone: phoneNumber,
       })
       .select()
       .single();
@@ -149,52 +154,38 @@ export class CallLogService {
   }
 
   /**
-   * Retrieves call logs visible to the current user
-   * - All 'public' calls (from known clients)
-   * - 'private' calls only if original_receiver_id matches current user
+   * Retrieves all call logs (shared database - all visible to everyone)
    *
-   * @param userId - The ID of the current user
-   * @returns Array of visible call logs
+   * @returns Array of all call logs
    * @throws Error if the query fails
    */
-  async getVisibleCallLogs(userId: string): Promise<CallLog[]> {
-    // Get all public calls
-    const { data: publicCalls, error: publicError } = await this.supabase
+  async getAllCallLogs(): Promise<CallLog[]> {
+    const { data, error } = await this.supabase
       .from('call_logs')
       .select('*')
-      .eq('visibility', 'public');
+      .order('timestamp', { ascending: false });
 
-    if (publicError) {
-      throw new Error('Failed to fetch public calls');
+    if (error) {
+      throw new Error('Failed to fetch call logs');
     }
 
-    // Get private calls for this user only
-    const { data: privateCalls, error: privateError } = await this.supabase
-      .from('call_logs')
-      .select('*')
-      .eq('visibility', 'private')
-      .eq('original_receiver_id', userId);
-
-    if (privateError) {
-      throw new Error('Failed to fetch private calls');
-    }
-
-    return [...(publicCalls || []), ...(privateCalls || [])];
+    return data || [];
   }
 
   /**
-   * Publicizes a call log (makes it visible to all team members)
-   * Also publicizes all other calls from the same caller_phone
+   * Adds a recipient to an existing call log
+   * Used for aggregation when same number calls multiple employees
    *
-   * @param callLogId - The ID of the call log to publicize
+   * @param callLogId - The ID of the call log
+   * @param recipientId - The ID of the recipient to add
    * @returns The updated call log
    * @throws Error if the update fails
    */
-  async publicizeCall(callLogId: string): Promise<CallLog | null> {
-    // First get the call log to find the caller_phone
+  async addRecipient(callLogId: string, recipientId: string): Promise<CallLog | null> {
+    // First get current recipients
     const { data: callLog, error: fetchError } = await this.supabase
       .from('call_logs')
-      .select('*')
+      .select('recipients')
       .eq('id', callLogId)
       .single();
 
@@ -202,39 +193,28 @@ export class CallLogService {
       throw new Error('Failed to fetch call log');
     }
 
-    // If there's a caller_phone, publicize all calls from this number
-    if (callLog.caller_phone) {
-      const { error: updateAllError } = await this.supabase
-        .from('call_logs')
-        .update({ visibility: 'public' as CallLogVisibility })
-        .eq('caller_phone', callLog.caller_phone);
+    const currentRecipients = callLog.recipients || [];
 
-      if (updateAllError) {
-        throw new Error('Failed to publicize calls from this number');
-      }
-    } else {
-      // Just update this single call
-      const { error } = await this.supabase
-        .from('call_logs')
-        .update({ visibility: 'public' as CallLogVisibility })
-        .eq('id', callLogId);
-
-      if (error) {
-        throw new Error('Failed to publicize call');
-      }
+    // Don't add duplicate recipients
+    if (currentRecipients.includes(recipientId)) {
+      return null;
     }
 
-    // Return the updated call
-    const { data: updatedCall, error: refetchError } = await this.supabase
+    // Add new recipient
+    const updatedRecipients = [...currentRecipients, recipientId];
+
+    const { data, error } = await this.supabase
       .from('call_logs')
-      .select('*')
+      .update({ recipients: updatedRecipients })
       .eq('id', callLogId)
+      .select()
       .single();
 
-    if (refetchError) {
-      throw new Error('Failed to fetch updated call');
+    if (error || !data) {
+      throw new Error('Failed to add recipient');
     }
 
-    return updatedCall;
+    return data;
   }
 }
+

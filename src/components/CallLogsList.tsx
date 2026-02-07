@@ -5,6 +5,7 @@
  * Displays minimalist, clickable rows mimicking native Android call history.
  * Tapping a row navigates to CallDetailsScreen.
  *
+ * Shared database model: All calls visible to everyone with recipient labels.
  * Workflow: missed ↔ reserved → completed (completed nie wyświetla się w kolejce)
  */
 
@@ -28,7 +29,7 @@ import { contactLookupService } from '@/services/ContactLookupService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { spacing, radius, typography } from '@/styles/theme';
-import type { CallLog, Client, Profile, CallLogVisibility } from '@/types';
+import type { CallLog, Client, Profile } from '@/types';
 import type { CallLogsStackParamList } from '@/navigation/CallLogsStackNavigator';
 
 interface CallLogWithClient extends CallLog {
@@ -47,8 +48,8 @@ export interface GroupedCallLog {
   allCalls: CallLogWithClient[];
   firstCallTime: string;
   lastCallTime: string;
-  visibility: CallLogVisibility;
-  isPrivate: boolean;
+  // Recipients: user IDs who missed this call
+  recipients: string[];
   // Multi-agent alert: true if this number contacted multiple agents
   isMultiAgent: boolean;
   involvedAgentIds: string[];
@@ -82,13 +83,19 @@ const groupCallLogsByClient = (logs: CallLogWithClient[]): GroupedCallLog[] => {
 
     const missedCalls = calls.filter((c) => c.status === 'missed');
     const hasClient = calls[0].client_id !== null;
-    const visibility = calls[0].visibility || 'public';
+    // Collect recipients from all calls
+    const allRecipients = new Set<string>();
+    calls.forEach((call) => {
+      if (call.recipients) {
+        call.recipients.forEach((r: string) => allRecipients.add(r));
+      }
+    });
 
     // Multi-agent detection: collect unique agent IDs
     const agentIds = new Set<string>();
     calls.forEach((call) => {
-      if (call.original_receiver_id) {
-        agentIds.add(call.original_receiver_id);
+      if (call.recipients) {
+        call.recipients.forEach((r: string) => agentIds.add(r));
       }
       if (call.employee_id) {
         agentIds.add(call.employee_id);
@@ -107,8 +114,7 @@ const groupCallLogsByClient = (logs: CallLogWithClient[]): GroupedCallLog[] => {
       allCalls: calls,
       firstCallTime: calls[calls.length - 1].timestamp,
       lastCallTime: calls[0].timestamp,
-      visibility: visibility,
-      isPrivate: visibility === 'private',
+      recipients: Array.from(allRecipients),
       isMultiAgent,
       involvedAgentIds,
     });
@@ -177,38 +183,19 @@ export const CallLogsList: React.FC = () => {
   const fetchCallLogs = async () => {
     try {
       setLoading(true);
-      const currentUserId = user?.id;
 
-      // Fetch PUBLIC call logs
-      const { data: publicLogs, error: publicError } = await supabase
+      // Fetch ALL call logs (shared database - all visible to everyone)
+      const { data: allLogs, error } = await supabase
         .from('call_logs')
         .select(`*, clients (*)`)
-        .eq('visibility', 'public')
         .order('timestamp', { ascending: false })
-        .limit(50);
+        .limit(100);
 
-      if (publicError) throw publicError;
-
-      // Fetch PRIVATE call logs for current user
-      let privateLogs: typeof publicLogs = [];
-      if (currentUserId) {
-        const { data, error: privateError } = await supabase
-          .from('call_logs')
-          .select(`*, clients (*)`)
-          .eq('visibility', 'private')
-          .eq('original_receiver_id', currentUserId)
-          .order('timestamp', { ascending: false })
-          .limit(50);
-
-        if (privateError) throw privateError;
-        privateLogs = data || [];
-      }
-
-      const allLogs = [...(publicLogs || []), ...(privateLogs || [])];
+      if (error) throw error;
 
       // Check for voice reports
       const logsWithReports = await Promise.all(
-        allLogs.map(async (log: any) => {
+        (allLogs || []).map(async (log: any) => {
           const { data: report } = await supabase
             .from('voice_reports')
             .select('id')
@@ -348,10 +335,16 @@ export const CallLogsList: React.FC = () => {
     const displaySecondary = hasContactName ? phoneNumber : null;
     const displayCount = missedCount > 1 ? ` (${missedCount})` : '';
 
-    // Handler name for reserved calls (only if not same as contact name)
+    // Handler name for reserved calls
     const handlerName = item.latestCall.reservation_by && item.latestCall.status === 'reserved'
       ? getDisplayName(item.latestCall.reservation_by)
       : null;
+
+    // Recipients label: "Do: Kamil, Marcin"
+    const recipientNames = item.recipients
+      .map((id) => getDisplayName(id))
+      .filter(Boolean)
+      .join(', ');
 
     // Time of last call
     const lastCallTime = new Date(item.lastCallTime).toLocaleTimeString('pl-PL', {
@@ -374,7 +367,7 @@ export const CallLogsList: React.FC = () => {
           <MaterialIcons name={iconName} size={24} color={statusColor} />
         </View>
 
-        {/* Center: Name/Phone + Subtitle */}
+        {/* Center: Name/Phone + Subtitle + Recipients */}
         <View style={styles.rowCenter}>
           <Text style={styles.phoneText}>
             {displayPrimary}{displayCount}
@@ -382,10 +375,10 @@ export const CallLogsList: React.FC = () => {
           {displaySecondary && (
             <Text style={styles.subtitleText}>{displaySecondary}</Text>
           )}
-          {handlerName && !displaySecondary && (
-            <Text style={styles.subtitleText}>{handlerName}</Text>
+          {recipientNames && (
+            <Text style={styles.recipientLabel}>Do: {recipientNames}</Text>
           )}
-          {handlerName && displaySecondary && (
+          {handlerName && (
             <Text style={styles.handlerText}>Obsługuje: {handlerName}</Text>
           )}
         </View>
@@ -542,6 +535,11 @@ const createStyles = (colors: ReturnType<typeof import('@/contexts/ThemeContext'
     handlerText: {
       fontSize: typography.xs,
       color: colors.primary,
+      marginTop: 2,
+    },
+    recipientLabel: {
+      fontSize: typography.xs,
+      color: colors.textSecondary,
       marginTop: 2,
     },
     rowRight: {

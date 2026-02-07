@@ -179,13 +179,11 @@ export const HistoryScreen: React.FC = () => {
       const deviceContactName = contactLookupService.lookupContactName(phoneNumber) || '';
       const clientName = item.client?.name?.toLowerCase() || '';
       const callerPhone = item.callLog.caller_phone?.toLowerCase() || '';
-      const summary = item.voiceReport.ai_summary?.toLowerCase() || '';
       const transcription = item.voiceReport.transcription?.toLowerCase() || '';
       return (
         deviceContactName.toLowerCase().includes(query) ||
         clientName.includes(query) ||
         callerPhone.includes(query) ||
-        summary.includes(query) ||
         transcription.includes(query)
       );
     });
@@ -215,9 +213,6 @@ export const HistoryScreen: React.FC = () => {
     // Format time
     const relativeTime = formatRelativeTime(item.callLog.timestamp);
 
-    // Check if has summary
-    const hasSummary = !!item.voiceReport.ai_summary;
-
     return (
       <TouchableOpacity
         style={styles.row}
@@ -227,7 +222,7 @@ export const HistoryScreen: React.FC = () => {
         {/* Left: Icon */}
         <View style={styles.iconContainer}>
           <MaterialIcons
-            name={hasSummary ? 'task-alt' : 'check-circle'}
+            name="check-circle"
             size={24}
             color={colors.success}
           />

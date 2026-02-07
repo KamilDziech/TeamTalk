@@ -174,20 +174,7 @@ export const NoteDetailScreen: React.FC = () => {
             {/* Separator */}
             <View style={styles.separator} />
 
-            {/* AI Summary Section */}
-            {item.voiceReport.ai_summary && (
-                <View style={styles.noteSection}>
-                    <View style={styles.sectionHeader}>
-                        <MaterialIcons name="auto-awesome" size={18} color={colors.primary} />
-                        <Text style={styles.sectionTitle}>Streszczenie AI</Text>
-                    </View>
-                    <View style={styles.notePaper}>
-                        {renderNoteContent(item.voiceReport.ai_summary)}
-                    </View>
-                </View>
-            )}
-
-            {/* Full Transcription Section */}
+            {/* Transcription Section */}
             {item.voiceReport.transcription && (
                 <View style={styles.noteSection}>
                     <View style={styles.sectionHeader}>
