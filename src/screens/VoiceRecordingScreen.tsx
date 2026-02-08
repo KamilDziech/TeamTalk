@@ -294,7 +294,16 @@ export const VoiceRecordingScreen: React.FC<VoiceRecordingScreenProps> = ({
   const renderTextNoteForm = () => {
     return (
       <View style={styles.textNoteContainer}>
-        <Text style={styles.textNoteLabel}>Wpisz notatkę:</Text>
+        <View style={styles.textNoteHeader}>
+          <Text style={styles.textNoteLabel}>Wpisz notatkę:</Text>
+          <TouchableOpacity
+            style={[styles.saveTextButton, !textNote.trim() && styles.saveTextButtonDisabled]}
+            onPress={handleSaveTextNote}
+            disabled={!textNote.trim()}
+          >
+            <Text style={styles.saveTextButtonText}>💾 Zapisz</Text>
+          </TouchableOpacity>
+        </View>
 
         <TextInput
           style={styles.textNoteInput}
@@ -305,14 +314,6 @@ export const VoiceRecordingScreen: React.FC<VoiceRecordingScreenProps> = ({
           onChangeText={setTextNote}
           autoFocus
         />
-
-        <TouchableOpacity
-          style={[styles.saveTextButton, !textNote.trim() && styles.saveTextButtonDisabled]}
-          onPress={handleSaveTextNote}
-          disabled={!textNote.trim()}
-        >
-          <Text style={styles.saveTextButtonText}>💾 Zapisz notatkę</Text>
-        </TouchableOpacity>
       </View>
     );
   };
@@ -688,12 +689,20 @@ const styles = StyleSheet.create({
   textNoteContainer: {
     flex: 1,
   },
+  textNoteHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#f5f5f5',
+    borderBottomWidth: 1,
+    borderBottomColor: '#ddd',
+  },
   textNoteLabel: {
     fontSize: 16,
     fontWeight: '600',
     color: '#333',
-    marginBottom: 8,
-    paddingHorizontal: 16,
   },
   textNoteInput: {
     flex: 1,
@@ -703,23 +712,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
     textAlignVertical: 'top',
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: '#ddd',
   },
   saveTextButton: {
     backgroundColor: '#2563EB',
-    padding: 16,
-    borderRadius: 0,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 6,
     alignItems: 'center',
-    marginTop: 0,
   },
   saveTextButtonDisabled: {
     backgroundColor: '#ccc',
   },
   saveTextButtonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
   },
 });
