@@ -12,7 +12,6 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CallLogsStackNavigator } from '@/navigation/CallLogsStackNavigator';
 import { ClientsStackNavigator } from '@/navigation/ClientsStackNavigator';
-import { AddClientScreen } from '@/screens/AddClientScreen';
 import { AddNoteScreen } from '@/screens/AddNoteScreen';
 import { useTheme } from '@/contexts/ThemeContext';
 import { typography, shadows } from '@/styles/theme';
@@ -86,15 +85,6 @@ export const AppNavigator: React.FC = () => {
           title: 'Dodaj Notatkę',
           tabBarLabel: 'Notatka',
           tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>🎤</Text>,
-        }}
-      />
-      <Tab.Screen
-        name="AddClient"
-        component={AddClientScreen}
-        options={{
-          title: 'Dodaj Klienta',
-          tabBarLabel: 'Dodaj',
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>➕</Text>,
         }}
       />
     </Tab.Navigator>
