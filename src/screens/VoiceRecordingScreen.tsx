@@ -293,23 +293,18 @@ export const VoiceRecordingScreen: React.FC<VoiceRecordingScreenProps> = ({
   // Render text note form for manual entry
   const renderTextNoteForm = () => {
     return (
-      <KeyboardAvoidingView
-        style={styles.textNoteContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <ScrollView style={styles.textNoteScroll}>
-          <Text style={styles.textNoteLabel}>Wpisz notatkę:</Text>
-          <TextInput
-            style={styles.textNoteInput}
-            multiline
-            numberOfLines={10}
-            placeholder="Opisz rozmowę z klientem..."
-            placeholderTextColor="#999"
-            value={textNote}
-            onChangeText={setTextNote}
-            autoFocus
-          />
-        </ScrollView>
+      <View style={styles.textNoteContainer}>
+        <Text style={styles.textNoteLabel}>Wpisz notatkę:</Text>
+
+        <TextInput
+          style={styles.textNoteInput}
+          multiline
+          placeholder="Opisz rozmowę z klientem..."
+          placeholderTextColor="#999"
+          value={textNote}
+          onChangeText={setTextNote}
+          autoFocus
+        />
 
         <View style={styles.textNoteActions}>
           <TouchableOpacity
@@ -324,7 +319,7 @@ export const VoiceRecordingScreen: React.FC<VoiceRecordingScreenProps> = ({
             <Text style={styles.cancelButtonText}>Anuluj</Text>
           </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
+      </View>
     );
   };
 
@@ -693,9 +688,6 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
   },
-  textNoteScroll: {
-    flex: 1,
-  },
   textNoteLabel: {
     fontSize: 16,
     fontWeight: '600',
@@ -703,13 +695,13 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   textNoteInput: {
+    flex: 1,
     backgroundColor: '#fff',
     borderRadius: 12,
     padding: 16,
     fontSize: 16,
     color: '#333',
     textAlignVertical: 'top',
-    minHeight: 200,
     borderWidth: 1,
     borderColor: '#ddd',
   },
