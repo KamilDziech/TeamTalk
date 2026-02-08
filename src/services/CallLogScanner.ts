@@ -269,10 +269,18 @@ export class CallLogScanner {
           await this.sendMissedCallNotification(client);
           console.log(`✅ NEW call from: ${client.name} (${call.phoneNumber}) at ${callDate.toLocaleString()}`);
         } else {
-          // UNKNOWN NUMBER
-          await this.createUnknownCallerLog(normalizedNumber, call.phoneNumber, callDate, currentUserId);
-          await this.sendUnknownCallerNotification(call.phoneNumber);
-          console.log(`📞 NEW call from unknown: ${call.phoneNumber} at ${callDate.toLocaleString()}`);
+          // UNKNOWN NUMBER - auto-create client
+          const newClient = await this.createClientFromPhoneNumber(normalizedNumber, call.phoneNumber);
+          if (newClient) {
+            await this.createMissedCallLog(newClient, callDate, normalizedNumber, currentUserId);
+            await this.sendMissedCallNotification(newClient);
+            console.log(`✅ NEW call from auto-created client: ${newClient.phone} (${call.phoneNumber}) at ${callDate.toLocaleString()}`);
+          } else {
+            // Fallback if client creation fails
+            await this.createUnknownCallerLog(normalizedNumber, call.phoneNumber, callDate, currentUserId);
+            await this.sendUnknownCallerNotification(call.phoneNumber);
+            console.log(`📞 NEW call from unknown (client creation failed): ${call.phoneNumber} at ${callDate.toLocaleString()}`);
+          }
         }
 
         newCallsCount++;
@@ -388,6 +396,54 @@ export class CallLogScanner {
       }
     } catch (error) {
       console.error('Error in createUnknownCallerLog:', error);
+    }
+  }
+
+  /**
+   * Auto-create a new client from phone number
+   * Automatically adds new numbers to clients database
+   */
+  private async createClientFromPhoneNumber(
+    normalizedPhone: string,
+    originalPhone: string
+  ): Promise<Client | null> {
+    try {
+      console.log(`📝 Auto-creating client for phone: ${originalPhone}`);
+
+      // Check if client already exists (double-check to avoid race condition)
+      const { data: existingClient } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('phone', normalizedPhone)
+        .single();
+
+      if (existingClient) {
+        console.log(`✅ Client already exists: ${existingClient.id}`);
+        return existingClient as Client;
+      }
+
+      // Create new client with phone number (name is null)
+      const { data: newClient, error } = await supabase
+        .from('clients')
+        .insert({
+          phone: normalizedPhone,
+          name: null,
+          address: null,
+          notes: null,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating client:', error);
+        return null;
+      }
+
+      console.log(`✅ Auto-created client: ${newClient.id} (${normalizedPhone})`);
+      return newClient as Client;
+    } catch (error) {
+      console.error('Error in createClientFromPhoneNumber:', error);
+      return null;
     }
   }
 
