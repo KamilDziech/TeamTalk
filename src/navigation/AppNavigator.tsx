@@ -12,7 +12,6 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CallLogsStackNavigator } from '@/navigation/CallLogsStackNavigator';
 import { ClientsStackNavigator } from '@/navigation/ClientsStackNavigator';
-import { HistoryStackNavigator } from '@/navigation/HistoryStackNavigator';
 import { AddClientScreen } from '@/screens/AddClientScreen';
 import { AddNoteScreen } from '@/screens/AddNoteScreen';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -96,16 +95,6 @@ export const AppNavigator: React.FC = () => {
           title: 'Dodaj Klienta',
           tabBarLabel: 'Dodaj',
           tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>➕</Text>,
-        }}
-      />
-      <Tab.Screen
-        name="History"
-        component={HistoryStackNavigator}
-        options={{
-          title: 'Historia Rozmów',
-          tabBarLabel: 'Historia',
-          headerShown: false,
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>📋</Text>,
         }}
       />
     </Tab.Navigator>
