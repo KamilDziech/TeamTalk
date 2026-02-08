@@ -218,64 +218,66 @@ export const AddNoteScreen: React.FC = () => {
   };
 
   const renderCallLog = ({ item }: { item: CallLogWithClient }) => {
+    const displayName = item.client?.name || item.caller_phone || 'Nieznany numer';
+    const displayPhone = item.client?.phone || (item.caller_phone ? `+48${item.caller_phone}` : '');
+    const callTime = new Date(item.timestamp).toLocaleTimeString('pl-PL', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
     return (
-      <View style={styles.card}>
-        {/* Czerwony wskaźnik WYMAGA NOTATKI */}
-        <View style={styles.requiresNoteAlert}>
-          <Text style={styles.requiresNoteText}>🔴 WYMAGA NOTATKI</Text>
-        </View>
-
-        <View style={styles.cardHeader}>
-          <View style={styles.clientInfo}>
-            <Text style={styles.clientName}>
-              {item.client?.name || item.caller_phone || 'Nieznany numer'}
-            </Text>
-            <Text style={styles.clientPhone}>
-              {item.client?.phone || (item.caller_phone ? `+48${item.caller_phone}` : '')}
-            </Text>
+      <>
+        {/* Main row - tappable */}
+        <TouchableOpacity
+          style={styles.row}
+          onPress={() => handleSelectCall(item, 'voice')}
+          activeOpacity={0.7}
+        >
+          {/* Left: Icon */}
+          <View style={styles.iconContainer}>
+            <Text style={styles.iconText}>🔴</Text>
           </View>
-        </View>
 
-        <View style={styles.cardDetails}>
-          <Text style={styles.timestamp}>
-            {new Date(item.timestamp).toLocaleString('pl-PL')}
-          </Text>
-          <Text style={styles.callType}>Rozmowa wykonana</Text>
-        </View>
+          {/* Center: Name + Phone */}
+          <View style={styles.rowCenter}>
+            <Text style={styles.nameText}>{displayName}</Text>
+            {displayPhone && <Text style={styles.phoneText}>{displayPhone}</Text>}
+            <Text style={styles.statusText}>Wymaga notatki</Text>
+          </View>
 
-        {/* Action buttons */}
-        <View style={styles.cardActions}>
+          {/* Right: Time */}
+          <View style={styles.rowRight}>
+            <Text style={styles.timeText}>{callTime}</Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* Action buttons row */}
+        <View style={styles.actionsRow}>
           <TouchableOpacity
-            style={styles.recordButton}
+            style={styles.actionButton}
             onPress={() => handleSelectCall(item, 'voice')}
             activeOpacity={0.7}
           >
-            <Text style={styles.recordButtonText}>
-              🎤 Nagraj
-            </Text>
+            <Text style={styles.actionButtonText}>🎤 Nagraj</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.textButton}
+            style={styles.actionButton}
             onPress={() => handleSelectCall(item, 'text')}
             activeOpacity={0.7}
           >
-            <Text style={styles.textButtonText}>
-              ✏️ Napisz
-            </Text>
+            <Text style={styles.actionButtonText}>✏️ Napisz</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.skipButton}
+            style={styles.deleteButton}
             onPress={() => handleSkipCall(item)}
             activeOpacity={0.7}
           >
-            <Text style={styles.skipButtonText}>
-              🗑️
-            </Text>
+            <Text style={styles.deleteButtonText}>🗑️ Pomiń</Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </>
     );
   };
 
@@ -316,6 +318,7 @@ export const AddNoteScreen: React.FC = () => {
               </Text>
             </View>
           }
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
         />
       )}
 
@@ -383,7 +386,11 @@ const createStyles = (colors: ReturnType<typeof import('@/contexts/ThemeContext'
 
     // List
     listHeader: {
-      paddingBottom: spacing.sm,
+      backgroundColor: colors.surface,
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.lg,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
     },
     listHeaderText: {
       fontSize: typography.sm,
@@ -391,108 +398,93 @@ const createStyles = (colors: ReturnType<typeof import('@/contexts/ThemeContext'
       fontWeight: typography.medium,
     },
     listContent: {
-      padding: spacing.lg,
+      paddingVertical: spacing.sm,
     },
 
-    // Cards
-    card: {
-      backgroundColor: colors.surface,
-      borderRadius: radius.xl,
-      padding: spacing.lg,
-      marginBottom: spacing.md,
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderLeftWidth: 4,
-      borderLeftColor: colors.error,
-      ...shadows.sm,
-    },
-    cardHeader: {
+    // Minimalist row (like CallLogsList)
+    row: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginBottom: spacing.md,
+      backgroundColor: colors.surface,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.lg,
     },
-    clientInfo: {
+    iconContainer: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: spacing.md,
+      backgroundColor: colors.errorLight,
+    },
+    iconText: {
+      fontSize: 20,
+    },
+    rowCenter: {
       flex: 1,
     },
-    clientName: {
+    nameText: {
       fontSize: typography.lg,
       fontWeight: typography.semibold,
       color: colors.textPrimary,
-      marginBottom: spacing.xs,
+      marginBottom: 2,
     },
-    clientPhone: {
-      fontSize: typography.sm,
-      color: colors.primary,
-    },
-    cardDetails: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      marginBottom: spacing.md,
-    },
-    timestamp: {
+    phoneText: {
       fontSize: typography.sm,
       color: colors.textSecondary,
     },
-    callType: {
-      fontSize: typography.sm,
-      color: colors.textSecondary,
-      fontWeight: typography.medium,
-    },
-
-    // Alert badge
-    requiresNoteAlert: {
-      backgroundColor: colors.errorLight,
-      borderRadius: radius.md,
-      padding: spacing.md,
-      marginBottom: spacing.md,
-      alignItems: 'center',
-    },
-    requiresNoteText: {
+    statusText: {
+      fontSize: typography.xs,
       color: colors.error,
+      marginTop: 2,
+    },
+    rowRight: {
+      alignItems: 'flex-end',
+    },
+    timeText: {
+      fontSize: typography.sm,
+      color: colors.textTertiary,
+    },
+    separator: {
+      height: 1,
+      backgroundColor: colors.borderLight,
+      marginLeft: 72,
+    },
+
+    // Action buttons row
+    actionsRow: {
+      flexDirection: 'row',
+      backgroundColor: colors.surface,
+      paddingHorizontal: spacing.lg,
+      paddingBottom: spacing.md,
+      gap: spacing.sm,
+    },
+    actionButton: {
+      flex: 1,
+      backgroundColor: colors.primary,
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.md,
+      borderRadius: radius.md,
+      alignItems: 'center',
+    },
+    actionButtonText: {
+      color: colors.textInverse,
       fontSize: typography.sm,
       fontWeight: typography.semibold,
     },
-
-    // Action buttons
-    cardActions: {
-      flexDirection: 'row',
-      gap: spacing.xs,
-    },
-    recordButton: {
-      flex: 1,
-      backgroundColor: colors.error,
-      borderRadius: radius.lg,
-      padding: spacing.md,
-      alignItems: 'center',
-    },
-    recordButtonText: {
-      color: colors.textInverse,
-      fontSize: typography.base,
-      fontWeight: typography.semibold,
-    },
-    textButton: {
-      flex: 1,
-      backgroundColor: colors.info,
-      borderRadius: radius.lg,
-      padding: spacing.md,
-      alignItems: 'center',
-    },
-    textButtonText: {
-      color: colors.textInverse,
-      fontSize: typography.base,
-      fontWeight: typography.semibold,
-    },
-    skipButton: {
-      backgroundColor: colors.textTertiary,
-      borderRadius: radius.lg,
-      padding: spacing.md,
+    deleteButton: {
+      backgroundColor: colors.borderLight,
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.md,
+      borderRadius: radius.md,
       alignItems: 'center',
       minWidth: 80,
     },
-    skipButtonText: {
-      color: colors.textInverse,
+    deleteButtonText: {
+      color: colors.textSecondary,
       fontSize: typography.sm,
-      fontWeight: typography.semibold,
+      fontWeight: typography.medium,
     },
 
     // Empty state
