@@ -15,6 +15,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Linking,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/api/supabaseClient';
@@ -54,6 +55,37 @@ export const ClientTimelineScreen: React.FC<Props> = ({ route, navigation }) => 
         setClient(updatedClient);
       },
     });
+  };
+
+  const handleDeleteClient = () => {
+    Alert.alert(
+      'Usuń klienta',
+      `Czy na pewno chcesz usunąć klienta "${client.name || client.phone}"?\n\nTa operacja usunie również wszystkie połączenia i notatki powiązane z tym klientem.`,
+      [
+        { text: 'Anuluj', style: 'cancel' },
+        {
+          text: 'Usuń',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { error } = await supabase
+                .from('clients')
+                .delete()
+                .eq('id', client.id);
+
+              if (error) {
+                throw error;
+              }
+
+              navigation.goBack();
+            } catch (err) {
+              console.error('Error deleting client:', err);
+              Alert.alert('Błąd', 'Nie udało się usunąć klienta. Spróbuj ponownie.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const fetchTimeline = useCallback(async () => {
@@ -361,11 +393,14 @@ export const ClientTimelineScreen: React.FC<Props> = ({ route, navigation }) => 
           )}
         </View>
         <View style={styles.headerButtons}>
-          <TouchableOpacity style={styles.editButton} onPress={handleEditClient}>
-            <Text style={styles.editButtonText}>✏️</Text>
-          </TouchableOpacity>
           <TouchableOpacity style={styles.callButton} onPress={handleCall}>
-            <Text style={styles.callButtonText}>📞</Text>
+            <Text style={styles.buttonIcon}>📞</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.editButton} onPress={handleEditClient}>
+            <Text style={styles.buttonIcon}>✏️</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteClient}>
+            <Text style={styles.buttonIcon}>🗑️</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -467,6 +502,12 @@ const createStyles = (colors: ReturnType<typeof import('@/contexts/ThemeContext'
       flexDirection: 'row',
       gap: 8,
     },
+    callButton: {
+      backgroundColor: colors.success,
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+      borderRadius: 8,
+    },
     editButton: {
       backgroundColor: colors.surface,
       borderWidth: 1,
@@ -475,16 +516,13 @@ const createStyles = (colors: ReturnType<typeof import('@/contexts/ThemeContext'
       paddingHorizontal: 14,
       borderRadius: 8,
     },
-    editButtonText: {
-      fontSize: 16,
-    },
-    callButton: {
-      backgroundColor: colors.success,
+    deleteButton: {
+      backgroundColor: colors.errorLight,
       paddingVertical: 10,
       paddingHorizontal: 14,
       borderRadius: 8,
     },
-    callButtonText: {
+    buttonIcon: {
       fontSize: 16,
     },
     statsRow: {

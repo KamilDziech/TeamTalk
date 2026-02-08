@@ -13,7 +13,6 @@ import {
   StyleSheet,
   ActivityIndicator,
   TouchableOpacity,
-  Alert,
   RefreshControl,
   SafeAreaView,
   StatusBar,
@@ -33,7 +32,7 @@ export const ClientsList: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
   const { colors, isDark } = useTheme();
   const styles = createStyles(colors);
-  const { clients, loading, error, refetch, deleteClient } = useClients();
+  const { clients, loading, error, refetch } = useClients();
   const [refreshing, setRefreshing] = useState(false);
 
   // Pull-to-refresh handler
@@ -42,26 +41,6 @@ export const ClientsList: React.FC = () => {
     await refetch();
     setRefreshing(false);
   }, [refetch]);
-
-  const handleDeleteClient = (client: Client) => {
-    Alert.alert(
-      'Usuń klienta',
-      `Czy na pewno chcesz usunąć klienta "${client.name || client.phone}"?\n\nTa operacja usunie również wszystkie połączenia i notatki powiązane z tym klientem.`,
-      [
-        { text: 'Anuluj', style: 'cancel' },
-        {
-          text: 'Usuń',
-          style: 'destructive',
-          onPress: async () => {
-            const success = await deleteClient(client.id);
-            if (success) {
-              console.log('🗑️ Client deleted:', client.name);
-            }
-          },
-        },
-      ]
-    );
-  };
 
   const handleClientPress = (client: Client) => {
     navigation.navigate('ClientTimeline', { client });
@@ -133,17 +112,8 @@ export const ClientsList: React.FC = () => {
         )}
       </View>
 
-      {/* Right: Delete + Chevron */}
-      <View style={styles.rowRight}>
-        <TouchableOpacity
-          style={styles.deleteButton}
-          onPress={() => handleDeleteClient(item)}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Text style={styles.deleteButtonText}>🗑️</Text>
-        </TouchableOpacity>
-        <Text style={styles.chevron}>›</Text>
-      </View>
+      {/* Right: Chevron */}
+      <Text style={styles.chevron}>›</Text>
     </TouchableOpacity>
   );
 
@@ -287,19 +257,6 @@ const createStyles = (colors: ReturnType<typeof import('@/contexts/ThemeContext'
       fontSize: typography.xs,
       color: colors.textTertiary,
       marginTop: 2,
-    },
-    rowRight: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    deleteButton: {
-      padding: 8,
-      borderRadius: 8,
-      backgroundColor: colors.errorLight,
-      marginRight: spacing.sm,
-    },
-    deleteButtonText: {
-      fontSize: 14,
     },
     chevron: {
       fontSize: 24,
