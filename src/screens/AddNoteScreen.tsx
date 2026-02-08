@@ -233,11 +233,6 @@ export const AddNoteScreen: React.FC = () => {
           onPress={() => handleSelectCall(item, 'voice')}
           activeOpacity={0.7}
         >
-          {/* Left: Icon */}
-          <View style={styles.iconContainer}>
-            <Text style={styles.iconText}>🔴</Text>
-          </View>
-
           {/* Center: Name + Phone */}
           <View style={styles.rowCenter}>
             <Text style={styles.nameText}>{displayName}</Text>
@@ -409,18 +404,6 @@ const createStyles = (colors: ReturnType<typeof import('@/contexts/ThemeContext'
       paddingVertical: spacing.md,
       paddingHorizontal: spacing.lg,
     },
-    iconContainer: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginRight: spacing.md,
-      backgroundColor: colors.errorLight,
-    },
-    iconText: {
-      fontSize: 20,
-    },
     rowCenter: {
       flex: 1,
     },
@@ -449,10 +432,9 @@ const createStyles = (colors: ReturnType<typeof import('@/contexts/ThemeContext'
     separator: {
       height: 1,
       backgroundColor: colors.borderLight,
-      marginLeft: 72,
     },
 
-    // Action buttons row
+    // Action buttons row - subtle style
     actionsRow: {
       flexDirection: 'row',
       backgroundColor: colors.surface,
@@ -462,28 +444,31 @@ const createStyles = (colors: ReturnType<typeof import('@/contexts/ThemeContext'
     },
     actionButton: {
       flex: 1,
-      backgroundColor: colors.primary,
-      paddingVertical: spacing.sm,
-      paddingHorizontal: spacing.md,
-      borderRadius: radius.md,
+      backgroundColor: 'transparent',
+      paddingVertical: spacing.xs,
+      paddingHorizontal: spacing.sm,
+      borderRadius: radius.sm,
       alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.border,
     },
     actionButtonText: {
-      color: colors.textInverse,
-      fontSize: typography.sm,
-      fontWeight: typography.semibold,
+      color: colors.textSecondary,
+      fontSize: typography.xs,
+      fontWeight: typography.medium,
     },
     deleteButton: {
-      backgroundColor: colors.borderLight,
-      paddingVertical: spacing.sm,
-      paddingHorizontal: spacing.md,
-      borderRadius: radius.md,
+      backgroundColor: 'transparent',
+      paddingVertical: spacing.xs,
+      paddingHorizontal: spacing.sm,
+      borderRadius: radius.sm,
       alignItems: 'center',
-      minWidth: 80,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
     deleteButtonText: {
-      color: colors.textSecondary,
-      fontSize: typography.sm,
+      color: colors.textTertiary,
+      fontSize: typography.xs,
       fontWeight: typography.medium,
     },
 
