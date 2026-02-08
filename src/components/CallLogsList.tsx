@@ -147,16 +147,17 @@ export const CallLogsList: React.FC = () => {
 
   useEffect(() => {
     console.log('📋 CallLogsList: useEffect running');
-    loadDeviceContacts();
-    fetchCallLogs();
-    fetchProfiles();
+    initializeData();
     setupRealtimeSubscription();
   }, []);
 
-  // Load device contacts for caller ID
-  const loadDeviceContacts = async () => {
+  // Load device contacts FIRST, then fetch data
+  const initializeData = async () => {
     const loaded = await contactLookupService.loadDeviceContacts();
     console.log('📱 Device contacts loaded:', loaded);
+    console.log('📱 Now fetching call logs and profiles...');
+    await fetchProfiles();
+    await fetchCallLogs();
   };
 
   const fetchProfiles = async () => {

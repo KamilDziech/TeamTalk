@@ -12,7 +12,7 @@
  * Faza 4: Pełna implementacja nagrywania audio
  */
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -86,9 +86,9 @@ export const AddNoteScreen: React.FC = () => {
         hasVoiceReport: reportMap.has(log.id),
       }));
 
-      // Filtruj tylko te BEZ notatki
+      // Filtruj tylko te BEZ notatki i NIE pominięte/zmergowane
       const logsNeedingNotes = logsWithReportStatus.filter(
-        (log: any) => !log.hasVoiceReport
+        (log: any) => !log.hasVoiceReport && log.type !== 'skipped' && log.type !== 'merged'
       );
 
       // GROUP by client_id or caller_phone to show only ONE card per client
@@ -180,12 +180,12 @@ export const AddNoteScreen: React.FC = () => {
     setSelectedCall(null);
   };
 
-  // Skip/Delete call without adding note
+  // Skip call without adding note - mark as 'skipped' so it goes to History without note
   const handleSkipCall = (callLog: CallLogWithClient) => {
     const displayName = callLog.client?.name || callLog.caller_phone || 'Nieznany numer';
     Alert.alert(
       'Pomiń połączenie',
-      `Czy na pewno chcesz usunąć to połączenie bez dodawania notatki?\n\nKlient: ${displayName}\n\nTa operacja jest nieodwracalna.`,
+      `Czy na pewno chcesz pominąć to połączenie bez dodawania notatki?\n\nKlient: ${displayName}\n\nPołączenie pojawi się w Historii bez notatki (pomarańczowa ikona mikrofonu).`,
       [
         { text: 'Anuluj', style: 'cancel' },
         {
@@ -193,15 +193,15 @@ export const AddNoteScreen: React.FC = () => {
           style: 'destructive',
           onPress: async () => {
             try {
-              // Delete the call log entry
+              // Mark as 'skipped' type - will appear in History but not in AddNote anymore
               const { error } = await supabase
                 .from('call_logs')
-                .delete()
+                .update({ type: 'skipped' })
                 .eq('id', callLog.id);
 
               if (error) {
-                console.error('Error deleting call log:', error);
-                Alert.alert('Błąd', 'Nie udało się usunąć połączenia.');
+                console.error('Error skipping call log:', error);
+                Alert.alert('Błąd', 'Nie udało się pominąć połączenia.');
                 return;
               }
 
@@ -209,7 +209,7 @@ export const AddNoteScreen: React.FC = () => {
               fetchCallLogsNeedingNotes();
             } catch (error) {
               console.error('Error skipping call:', error);
-              Alert.alert('Błąd', 'Wystąpił błąd podczas usuwania.');
+              Alert.alert('Błąd', 'Wystąpił błąd podczas pomijania.');
             }
           },
         },

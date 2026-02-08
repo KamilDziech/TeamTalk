@@ -42,15 +42,18 @@ const normalizePhoneNumber = (phone: string): string => {
  */
 export const loadDeviceContacts = async (): Promise<boolean> => {
     try {
+        console.log('📱 Requesting contacts permissions...');
         const { status } = await Contacts.requestPermissionsAsync();
+        console.log(`📱 Contacts permission status: ${status}`);
 
         if (status !== 'granted') {
-            console.log('📱 Contacts permission not granted');
+            console.log('📱 Contacts permission NOT granted - caller ID will not work');
             contactsPermissionGranted = false;
             return false;
         }
 
         contactsPermissionGranted = true;
+        console.log('📱 Fetching contacts from device...');
 
         const { data } = await Contacts.getContactsAsync({
             fields: [
@@ -60,6 +63,8 @@ export const loadDeviceContacts = async (): Promise<boolean> => {
                 Contacts.Fields.PhoneNumbers,
             ],
         });
+
+        console.log(`📱 Retrieved ${data.length} contacts from device`);
 
         // Build cache: normalized phone -> contact name
         contactCache.clear();
@@ -78,16 +83,17 @@ export const loadDeviceContacts = async (): Promise<boolean> => {
                     const normalizedPhone = normalizePhoneNumber(phoneEntry.number);
                     if (normalizedPhone && normalizedPhone.length >= 7) {
                         contactCache.set(normalizedPhone, name);
+                        console.log(`📱 Cached: ${phoneEntry.number} -> ${normalizedPhone} = ${name}`);
                     }
                 }
             }
         }
 
         contactsLoaded = true;
-        console.log(`📱 Loaded ${contactCache.size} phone numbers from device contacts`);
+        console.log(`📱 ✅ Loaded ${contactCache.size} phone numbers from ${data.length} contacts`);
         return true;
     } catch (error) {
-        console.error('Error loading device contacts:', error);
+        console.error('📱 ❌ Error loading device contacts:', error);
         return false;
     }
 };
@@ -97,11 +103,19 @@ export const loadDeviceContacts = async (): Promise<boolean> => {
  * Returns null if not found in device contacts
  */
 export const lookupContactName = (phone: string | null): string | null => {
-    if (!phone) return null;
-    if (!contactsLoaded) return null;
+    if (!phone) {
+        console.log('📱 Lookup: phone is null');
+        return null;
+    }
+    if (!contactsLoaded) {
+        console.log('📱 Lookup: contacts not loaded yet');
+        return null;
+    }
 
     const normalizedPhone = normalizePhoneNumber(phone);
-    return contactCache.get(normalizedPhone) || null;
+    const result = contactCache.get(normalizedPhone) || null;
+    console.log(`📱 Lookup: "${phone}" -> normalized: "${normalizedPhone}" -> result: ${result ? `"${result}"` : 'NOT FOUND'}`);
+    return result;
 };
 
 /**

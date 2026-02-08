@@ -2,7 +2,7 @@
  * Database types for Supabase tables
  */
 
-export type CallLogType = 'missed' | 'completed' | 'merged';
+export type CallLogType = 'missed' | 'completed' | 'merged' | 'skipped';
 export type CallLogStatus = 'missed' | 'reserved' | 'completed';
 
 export interface Client {

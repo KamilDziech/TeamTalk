@@ -55,7 +55,7 @@ export class CallLogService {
 
     const { data, error } = await this.supabase
       .from('call_logs')
-      .upsert({
+      .insert({
         client_id: clientId,
         employee_id: recipientId || null,
         type: 'missed',
@@ -66,12 +66,24 @@ export class CallLogService {
         recipients: recipients,
         caller_phone: phoneNumber,
         dedup_key: dedupKey,
-      }, {
-        onConflict: 'dedup_key',
-        ignoreDuplicates: true,
       })
       .select()
       .single();
+
+    // If duplicate, fetch and return the existing record
+    if (error && error.code === '23505') {
+      const { data: existing, error: fetchError } = await this.supabase
+        .from('call_logs')
+        .select()
+        .eq('dedup_key', dedupKey)
+        .single();
+
+      if (fetchError || !existing) {
+        throw new Error('Duplicate call exists but could not fetch it');
+      }
+
+      return existing as CallLog;
+    }
 
     if (error || !data) {
       throw new Error('Failed to create missed call log');

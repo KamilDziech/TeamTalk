@@ -22,9 +22,35 @@ export const useClients = () => {
       setLoading(true);
       setError(null);
 
+      // Fetch only clients that have at least one completed call
+      // This ensures Historia shows only clients with call history (completed calls)
+      const { data: completedCallLogs, error: callLogsError } = await supabase
+        .from('call_logs')
+        .select('client_id')
+        .eq('status', 'completed')
+        .not('client_id', 'is', null);
+
+      if (callLogsError) {
+        throw callLogsError;
+      }
+
+      // Get unique client IDs
+      const clientIds = [...new Set(
+        completedCallLogs?.map((log) => log.client_id).filter((id): id is string => id !== null) || []
+      )];
+
+      console.log('👥 Historia: Found', clientIds.length, 'clients with completed calls');
+
+      if (clientIds.length === 0) {
+        setClients([]);
+        return;
+      }
+
+      // Fetch client details
       const { data, error: fetchError } = await supabase
         .from('clients')
         .select('*')
+        .in('id', clientIds)
         .order('created_at', { ascending: false });
 
       if (fetchError) {

@@ -5,7 +5,7 @@
  * Refactored: SafeArea fix, pull-to-refresh, consistent styling.
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -18,9 +18,10 @@ import {
   StatusBar,
   Platform,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useClients } from '@/hooks/useClients';
+import { contactLookupService } from '@/services/ContactLookupService';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { Client } from '@/types';
 import type { ClientsStackParamList } from '@/navigation/ClientsStackNavigator';
@@ -29,14 +30,21 @@ import { spacing, radius, typography } from '@/styles/theme';
 type NavigationProp = NativeStackNavigationProp<ClientsStackParamList, 'ClientsList'>;
 
 export const ClientsList: React.FC = () => {
+  console.log('👥 ClientsList: Component rendering');
   const navigation = useNavigation<NavigationProp>();
   const { colors, isDark } = useTheme();
   const styles = createStyles(colors);
   const { clients, loading, error, refetch } = useClients();
   const [refreshing, setRefreshing] = useState(false);
 
+  // Load device contacts for caller ID
+  useEffect(() => {
+    contactLookupService.loadDeviceContacts();
+  }, []);
+
   // Pull-to-refresh handler
   const handleRefresh = useCallback(async () => {
+    console.log('👥 ClientsList: Pull to refresh');
     setRefreshing(true);
     await refetch();
     setRefreshing(false);
@@ -84,38 +92,45 @@ export const ClientsList: React.FC = () => {
     );
   }
 
-  const renderClient = ({ item }: { item: Client }) => (
-    <TouchableOpacity
-      style={styles.row}
-      onPress={() => handleClientPress(item)}
-      activeOpacity={0.7}
-    >
-      {/* Left: Avatar placeholder */}
-      <View style={styles.avatarContainer}>
-        <Text style={styles.avatarText}>
-          {(item.name || item.phone || '?').charAt(0).toUpperCase()}
-        </Text>
-      </View>
+  const renderClient = ({ item }: { item: Client }) => {
+    // Priority: 1. Device contacts, 2. CRM client name, 3. Phone number
+    const deviceContactName = contactLookupService.lookupContactName(item.phone);
+    const crmClientName = item.name;
+    const displayName = deviceContactName || crmClientName || item.phone || 'Nieznany';
 
-      {/* Center: Name + Phone */}
-      <View style={styles.rowCenter}>
-        <Text style={styles.clientName} numberOfLines={1}>
-          {item.name || 'Brak nazwy'}
-        </Text>
-        <Text style={styles.clientPhone} numberOfLines={1}>
-          {item.phone}
-        </Text>
-        {item.address && (
-          <Text style={styles.clientAddress} numberOfLines={1}>
-            📍 {item.address}
+    return (
+      <TouchableOpacity
+        style={styles.row}
+        onPress={() => handleClientPress(item)}
+        activeOpacity={0.7}
+      >
+        {/* Left: Avatar placeholder */}
+        <View style={styles.avatarContainer}>
+          <Text style={styles.avatarText}>
+            {displayName.charAt(0).toUpperCase()}
           </Text>
-        )}
+        </View>
+
+        {/* Center: Name + Phone */}
+        <View style={styles.rowCenter}>
+          <Text style={styles.clientName} numberOfLines={1}>
+            {displayName}
+          </Text>
+          <Text style={styles.clientPhone} numberOfLines={1}>
+            {item.phone}
+          </Text>
+          {item.address && (
+            <Text style={styles.clientAddress} numberOfLines={1}>
+              📍 {item.address}
+            </Text>
+          )}
       </View>
 
       {/* Right: Chevron */}
       <Text style={styles.chevron}>›</Text>
     </TouchableOpacity>
-  );
+    );
+  };
 
   // Separator
   const ItemSeparator = () => <View style={styles.separator} />;

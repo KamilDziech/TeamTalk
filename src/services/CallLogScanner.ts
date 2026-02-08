@@ -332,7 +332,7 @@ export class CallLogScanner {
       const recipients = recipientId ? [recipientId] : [];
       const dedupKey = this.generateDedupKey(client.id, callerPhone, callDate);
 
-      const { error } = await supabase.from('call_logs').upsert({
+      const { error } = await supabase.from('call_logs').insert({
         client_id: client.id,
         employee_id: recipientId,
         type: 'missed',
@@ -343,10 +343,13 @@ export class CallLogScanner {
         recipients: recipients,
         caller_phone: callerPhone,
         dedup_key: dedupKey,
-      }, {
-        onConflict: 'dedup_key',
-        ignoreDuplicates: true,
       });
+
+      // Ignore duplicate key error (23505) - this is expected for deduplication
+      if (error && error.code === '23505') {
+        console.log(`Duplicate call already exists (dedup: ${dedupKey}) - ignoring`);
+        return;
+      }
 
       if (error) {
         console.error('Error creating call log:', error);
@@ -373,7 +376,7 @@ export class CallLogScanner {
       const recipients = recipientId ? [recipientId] : [];
       const dedupKey = this.generateDedupKey(null, normalizedPhone, callDate);
 
-      const { error } = await supabase.from('call_logs').upsert({
+      const { error } = await supabase.from('call_logs').insert({
         client_id: null,
         employee_id: recipientId,
         type: 'missed',
@@ -384,10 +387,13 @@ export class CallLogScanner {
         recipients: recipients,
         caller_phone: normalizedPhone,
         dedup_key: dedupKey,
-      }, {
-        onConflict: 'dedup_key',
-        ignoreDuplicates: true,
       });
+
+      // Ignore duplicate key error (23505) - this is expected for deduplication
+      if (error && error.code === '23505') {
+        console.log(`Duplicate call already exists (dedup: ${dedupKey}) - ignoring`);
+        return;
+      }
 
       if (error) {
         console.error('Error creating unknown caller log:', error);
@@ -433,6 +439,21 @@ export class CallLogScanner {
         })
         .select()
         .single();
+
+      // If duplicate key error (race condition), fetch the existing client
+      if (error && error.code === '23505') {
+        console.log(`⚠️ Client creation race condition detected, fetching existing client`);
+        const { data: racedClient } = await supabase
+          .from('clients')
+          .select('*')
+          .eq('phone', normalizedPhone)
+          .single();
+
+        if (racedClient) {
+          console.log(`✅ Fetched existing client after race: ${racedClient.id}`);
+          return racedClient as Client;
+        }
+      }
 
       if (error) {
         console.error('Error creating client:', error);

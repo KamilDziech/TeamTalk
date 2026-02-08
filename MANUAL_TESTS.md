@@ -53,39 +53,39 @@
 
 ---
 
-## 2. Zarządzanie Klientami
+## 2. Automatyczne Zarządzanie Klientami
 
-### TEST 2.1: Dodanie klienta ręcznie
+### TEST 2.1: Auto-generowanie klienta przy nieodebranym połączeniu
 | Status | Krok |
 |--------|------|
-| ⏳ | 1. Przejdź do zakładki "Klienci" (👥) |
-| ⏳ | 2. Kliknij "+" (Dodaj klienta) |
-| ⏳ | 3. Wypełnij: Telefon (np. +48123456789), Imię, Adres, Notatki |
-| ⏳ | 4. Kliknij "Zapisz" |
-| ⏳ | **Oczekiwany rezultat:** Klient pojawia się na liście klientów |
+| ⏳ | 1. Upewnij się że numer **📞C** NIE istnieje w bazie klientów |
+| ⏳ | 2. Z **📞C** wykonaj nieodebrane połączenie do **📱A** |
+| ⏳ | 3. Sprawdź zakładkę "Kolejka" |
+| ⏳ | **Oczekiwany rezultat:** Połączenie pojawia się w kolejce, klient jest automatycznie tworzony w bazie (bez nazwy, tylko numer telefonu) |
 
-### TEST 2.2: Dodanie klienta z kontaktów telefonu
+### TEST 2.2: Wyświetlanie nazw z kontaktów telefonu
 | Status | Krok |
 |--------|------|
-| ⏳ | 1. Na ekranie dodawania klienta kliknij "📇 Wybierz z kontaktów telefonu" |
-| ⏳ | 2. Wybierz kontakt z listy |
-| ⏳ | 3. Jeśli kontakt ma kilka numerów - wybierz odpowiedni |
-| ⏳ | 4. Kliknij "Zapisz" |
-| ⏳ | **Oczekiwany rezultat:** Dane kontaktu (imię, numer, adres) są automatycznie wypełnione i klient zapisany |
+| ⏳ | 1. Upewnij się że numer **📞C** jest zapisany w kontaktach telefonu **📱A** z nazwą (np. "Jan Kowalski") |
+| ⏳ | 2. Z **📞C** wykonaj nieodebrane połączenie |
+| ⏳ | 3. Sprawdź zakładkę "Kolejka" |
+| ⏳ | **Oczekiwany rezultat:** W Kolejce wyświetla się nazwa z kontaktów telefonu "Jan Kowalski" (nie "Brak nazwy") |
 
-### TEST 2.3: Walidacja numeru telefonu
+### TEST 2.3: Edycja danych klienta w timeline
 | Status | Krok |
 |--------|------|
-| ⏳ | 1. Spróbuj dodać klienta z niepoprawnym numerem (np. "abc", "12345") |
-| ⏳ | **Oczekiwany rezultat:** Wyświetla się komunikat błędu o niepoprawnym formacie numeru |
+| ⏳ | 1. Przejdź do zakładki "Historia", wybierz klienta |
+| ⏳ | 2. W timeline klienta kliknij "Edytuj" |
+| ⏳ | 3. Zmień adres lub dodaj notatki |
+| ⏳ | 4. Zapisz zmiany |
+| ⏳ | **Oczekiwany rezultat:** Zmiany są widoczne w timeline klienta |
 
-### TEST 2.4: Edycja klienta
+### TEST 2.4: Race condition przy wielokrotnych połączeniach
 | Status | Krok |
 |--------|------|
-| ⏳ | 1. Na liście klientów wybierz klienta |
-| ⏳ | 2. Zmień dane (np. imię lub adres) |
-| ⏳ | 3. Zapisz zmiany |
-| ⏳ | **Oczekiwany rezultat:** Zmiany są widoczne na liście klientów |
+| ⏳ | 1. Z **📞C** (nowy numer) zadzwoń kilka razy szybko po sobie do **📱A** i **📱B** |
+| ⏳ | 2. Sprawdź logi aplikacji |
+| ⏳ | **Oczekiwany rezultat:** Tylko JEDEN klient jest tworzony (bez duplikatów), logi pokazują "⚠️ Client creation race condition detected" |
 
 ---
 
@@ -99,13 +99,13 @@
 | ⏳ | 3. Na **📱A** poczekaj max. 1 minutę lub użyj Pull-to-Refresh na ekranie "Kolejka" |
 | ⏳ | **Oczekiwany rezultat:** Nieodebrane połączenie pojawia się w zakładce "Kolejka" |
 
-### TEST 3.2: Nieodebrane od numeru spoza bazy (ignorowanie)
+### TEST 3.2: Nieodebrane od numeru spoza bazy (auto-dodawanie klienta)
 | Status | Krok |
 |--------|------|
 | ⏳ | 1. Upewnij się, że numer **📞C** NIE jest dodany jako klient |
 | ⏳ | 2. Z **📞C** zadzwoń do **📱A** i rozłącz przed odebraniem |
 | ⏳ | 3. Odśwież listę w "Kolejka" |
-| ⏳ | **Oczekiwany rezultat:** Połączenie NIE pojawia się w kolejce (prywatność) |
+| ⏳ | **Oczekiwany rezultat:** Połączenie pojawia się w kolejce, klient jest automatycznie tworzony w bazie (widoczny po dodaniu notatki w zakładce "Historia") |
 
 ### TEST 3.3: Powiadomienie push o nieodebranym
 | Status | Krok |
@@ -160,12 +160,21 @@
 | ⏳ | 2. Kliknij przycisk "ZADZWOŃ" |
 | ⏳ | **Oczekiwany rezultat:** Otwiera się systemowy dialer z numerem klienta |
 
-### TEST 5.2: Oznaczenie jako "WYKONANE"
+### TEST 5.2: Oznaczenie jako "WYKONANE" - przejście do zakładki Notatka
 | Status | Krok |
 |--------|------|
 | ⏳ | 1. Na **📱A** przy zarezerwowanym połączeniu kliknij "WYKONANE" |
-| ⏳ | 2. Sprawdź zakładkę "Notatka" |
-| ⏳ | **Oczekiwany rezultat:** Połączenie znika z "Kolejka" i pojawia się w "Notatka" z alertem "🔴 WYMAGA NOTATKI" |
+| ⏳ | 2. Obserwuj co się dzieje |
+| ⏳ | **Oczekiwany rezultat:** Aplikacja automatycznie przechodzi do zakładki "Notatka" (🎤) gdzie połączenie pojawia się na liście wymagających notatki |
+
+### TEST 5.3: Wybór typu notatki i pominięcie
+| Status | Krok |
+|--------|------|
+| ⏳ | 1. W zakładce "Notatka" przy połączeniu widoczne są 3 przyciski: "🎤 Nagraj", "✏️ Napisz", "🗑️ Pomiń" |
+| ⏳ | 2. Kliknij "🗑️ Pomiń" |
+| ⏳ | 3. Potwierdź w dialogu |
+| ⏳ | 4. Sprawdź zakładkę "Historia" |
+| ⏳ | **Oczekiwany rezultat:** Połączenie znika z "Notatka" i pojawia się w "Historia" jako klient z completed połączeniem (bez notatki) |
 
 ---
 
@@ -174,13 +183,37 @@
 ### TEST 6.1: Nagrywanie notatki głosowej
 | Status | Krok |
 |--------|------|
-| ⏳ | 1. W zakładce "Notatka" kliknij na połączenie wymagające notatki |
-| ⏳ | 2. Kliknij przycisk nagrywania (🎤) |
-| ⏳ | 3. Nagraj krótką wiadomość głosową (5-10 sekund) |
-| ⏳ | 4. Kliknij stop |
-| ⏳ | 5. Odsłuchaj podgląd nagrania |
-| ⏳ | 6. Kliknij "Zapisz" |
-| ⏳ | **Oczekiwany rezultat:** Nagranie zostaje wysłane, pojawia się transkrypcja AI |
+| ⏳ | 1. W zakładce "Notatka" wybierz połączenie i kliknij "🎤 Nagraj" |
+| ⏳ | 2. Modal notatki głosowej otwiera się |
+| ⏳ | 3. Kliknij przycisk nagrywania (duży 🎤 na środku ekranu) |
+| ⏳ | 4. Nagraj krótką wiadomość głosową (5-10 sekund) |
+| ⏳ | 5. Kliknij stop |
+| ⏳ | 6. Odsłuchaj podgląd nagrania |
+| ⏳ | 7. Kliknij "Zapisz" |
+| ⏳ | **Oczekiwany rezultat:** Nagranie zostaje wysłane, pojawia się transkrypcja AI, połączenie znika z "Notatka" i trafia do "Historia" |
+
+### TEST 6.1a: Zapisanie notatki tekstowej
+| Status | Krok |
+|--------|------|
+| ⏳ | 1. W zakładce "Notatka" wybierz połączenie i kliknij "✏️ Napisz" |
+| ⏳ | 2. Wpisz notatkę w pole tekstowe (np. "Klient chce wycenę okien PVC") |
+| ⏳ | 3. Kliknij przycisk "💾 Zapisz" |
+| ⏳ | **Oczekiwany rezultat:** Notatka zostaje zapisana, połączenie znika z "Notatka" i trafia do "Historia" |
+
+### TEST 6.1b: Anulowanie notatki
+| Status | Krok |
+|--------|------|
+| ⏳ | 1. Otwórz modal notatki (głosowej lub tekstowej) |
+| ⏳ | 2. Kliknij "X" (zamknij) lub "Anuluj" |
+| ⏳ | **Oczekiwany rezultat:** Modal się zamyka, połączenie pozostaje w zakładce "Notatka" (nie jest pomijane) |
+
+### TEST 6.1c: Nagrywanie notatki ręcznie z zakładki "Notatka"
+| Status | Krok |
+|--------|------|
+| ⏳ | 1. Przejdź do zakładki "Notatka" (🎤) |
+| ⏳ | 2. Kliknij na połączenie z listy wymagających notatki |
+| ⏳ | 3. Postępuj jak w TEST 6.1 (kroki 2-6) |
+| ⏳ | **Oczekiwany rezultat:** Notatka zostaje zapisana i połączenie znika z listy "Wymaga notatki" |
 
 ### TEST 6.2: Transkrypcja po polsku
 | Status | Krok |
@@ -189,40 +222,73 @@
 | ⏳ | 2. Sprawdź wygenerowaną transkrypcję |
 | ⏳ | **Oczekiwany rezultat:** Transkrypcja poprawnie oddaje polskie słowa |
 
-### TEST 6.3: Zniknięcie alertu po dodaniu notatki
+### TEST 6.3: Przeniesienie do historii po dodaniu notatki
 | Status | Krok |
 |--------|------|
 | ⏳ | 1. Po zapisaniu notatki sprawdź zakładkę "Notatka" |
-| ⏳ | **Oczekiwany rezultat:** Połączenie zniknęło z listy "WYMAGA NOTATKI" |
+| ⏳ | 2. Sprawdź zakładkę "Historia" |
+| ⏳ | **Oczekiwany rezultat:** Połączenie zniknęło z zakładki "Notatka" i pojawia się w "Historia" jako klient z completed połączeniem |
+
+### TEST 6.4: Pominięcie połączenia bez notatki
+| Status | Krok |
+|--------|------|
+| ⏳ | 1. W zakładce "Notatka" przy połączeniu kliknij "🗑️ Pomiń" |
+| ⏳ | 2. Potwierdź w dialogu |
+| ⏳ | 3. Sprawdź zakładkę "Historia" |
+| ⏳ | **Oczekiwany rezultat:** Połączenie znika z "Notatka", klient pojawia się w "Historia" (ma completed połączenie ale bez voice_report) |
 
 ---
 
-## 7. Historia Rozmów
+## 7. Historia Klientów
 
-### TEST 7.1: Wyświetlanie historii
+### TEST 7.1: Wyświetlanie listy klientów w Historii
 | Status | Krok |
 |--------|------|
-| ⏳ | 1. Przejdź do zakładki "Historia" (📋) |
-| ⏳ | **Oczekiwany rezultat:** Lista rozmów z notatkami, posortowana od najnowszych |
+| ⏳ | 1. Oznacz kilka połączeń od różnych numerów jako "WYKONANE" i dodaj notatki |
+| ⏳ | 2. Przejdź do zakładki "Historia" (📜) |
+| ⏳ | **Oczekiwany rezultat:** Lista pokazuje zgrupowanych KLIENTÓW (nie poszczególne połączenia), którzy mają przynajmniej jedno completed połączenie |
 
-### TEST 7.2: Odtwarzanie nagrania
+### TEST 7.1a: Nazwy z kontaktów telefonu w Historii
 | Status | Krok |
 |--------|------|
-| ⏳ | 1. W "Historia" wybierz rozmowę z nagraną notatką |
+| ⏳ | 1. W zakładce "Historia" sprawdź nazwy klientów |
+| ⏳ | 2. Porównaj z kontaktami w telefonie |
+| ⏳ | **Oczekiwany rezultat:** Jeśli numer klienta jest w kontaktach telefonu - wyświetla się nazwa z kontaktów (priorytet 1), inaczej nazwa z CRM lub numer telefonu |
+
+### TEST 7.1b: Klient nie pojawia się przed dodaniem notatki
+| Status | Krok |
+|--------|------|
+| ⏳ | 1. Odbierz nieodebrane połączenie (pojawia się w "Kolejka") |
+| ⏳ | 2. Zarezerwuj i oznacz jako "WYKONANE" (pojawia się w "Notatka") |
+| ⏳ | 3. Sprawdź zakładkę "Historia" |
+| ⏳ | **Oczekiwany rezultat:** Klient NIE pojawia się w Historii dopóki nie dodasz notatki lub nie pominiesz (completed bez voice_report) |
+
+### TEST 7.2: Timeline klienta - historia połączeń
+| Status | Krok |
+|--------|------|
+| ⏳ | 1. W "Historia" kliknij na klienta który dzwonił kilka razy |
+| ⏳ | 2. Sprawdź ekran szczegółów/timeline |
+| ⏳ | **Oczekiwany rezultat:** Otwiera się timeline z listą WSZYSTKICH połączeń tego klienta (z datą, godziną, notatkami) |
+
+### TEST 7.3: Odtwarzanie notatki głosowej z timeline
+| Status | Krok |
+|--------|------|
+| ⏳ | 1. W timeline klienta wybierz połączenie z notatką głosową |
 | ⏳ | 2. Kliknij przycisk "▶ Odtwórz" |
 | ⏳ | **Oczekiwany rezultat:** Nagranie odtwarza się poprawnie |
 
-### TEST 7.3: Wyszukiwanie w historii
+### TEST 7.4: Przejście z Historii gdy brak klientów
 | Status | Krok |
 |--------|------|
-| ⏳ | 1. W pasku wyszukiwania wpisz nazwisko klienta lub słowo z notatki |
-| ⏳ | **Oczekiwany rezultat:** Lista filtruje się do pasujących wyników |
+| ⏳ | 1. Na czystym koncie (bez completed połączeń) przejdź do "Historia" |
+| ⏳ | **Oczekiwany rezultat:** Pusty stan z komunikatem "Brak historii" lub podobnym |
 
-### TEST 7.4: Szczegóły notatki
+### TEST 7.5: Odświeżanie Historii przy pull-to-refresh
 | Status | Krok |
 |--------|------|
-| ⏳ | 1. Kliknij na rozmowę w historii |
-| ⏳ | **Oczekiwany rezultat:** Otwiera się ekran z pełną transkrypcją i danymi klienta |
+| ⏳ | 1. W zakładce "Historia" pociągnij w dół (pull-to-refresh) |
+| ⏳ | 2. Obserwuj czy lista się odświeża |
+| ⏳ | **Oczekiwany rezultat:** Lista klientów odświeża się, nowo completed klienci pojawiają się na liście |
 
 ---
 
@@ -306,20 +372,22 @@
 
 ---
 
-## 12. Timeline Klienta
+## 12. Timeline Klienta (w zakładce Historia)
 
-### TEST 12.1: Przejście do historii klienta
+### TEST 12.1: Przejście do timeline klienta
 | Status | Krok |
 |--------|------|
-| ⏳ | 1. W zakładce "Klienci" wybierz klienta z kilkoma rozmowami |
-| ⏳ | 2. Sprawdź ekran szczegółów klienta |
-| ⏳ | **Oczekiwany rezultat:** Widoczna lista wszystkich rozmów i notatek z tym klientem |
+| ⏳ | 1. W zakładce "Historia" (📜) wybierz klienta z kilkoma completed połączeniami |
+| ⏳ | 2. Sprawdź ekran szczegółów/timeline klienta |
+| ⏳ | **Oczekiwany rezultat:** Widoczna lista wszystkich completed rozmów (z datą, godziną) i notatek z tym klientem |
 
-### TEST 12.2: Statystyki klienta
+### TEST 12.2: Odtwarzanie różnych typów notatek
 | Status | Krok |
 |--------|------|
-| ⏳ | 1. Na ekranie szczegółów klienta sprawdź statystyki |
-| ⏳ | **Oczekiwany rezultat:** Widoczne: liczba połączeń, liczba notatek, liczba nieodebranych |
+| ⏳ | 1. W timeline klienta znajdź połączenie z notatką głosową |
+| ⏳ | 2. Kliknij "▶ Odtwórz" |
+| ⏳ | 3. Znajdź połączenie z notatką tekstową |
+| ⏳ | **Oczekiwany rezultat:** Notatka głosowa odtwarza się, notatka tekstowa wyświetla transkrypcję/tekst |
 
 ---
 
@@ -328,18 +396,18 @@
 | Sekcja | Liczba testów | Zaliczone | Niezaliczone |
 |--------|---------------|-----------|--------------|
 | 1. Autoryzacja | 4 | | |
-| 2. Zarządzanie Klientami | 4 | | |
+| 2. Automatyczne Zarządzanie Klientami | 4 | | |
 | 3. Wykrywanie Połączeń | 3 | | |
 | 4. Synchronizacja Realtime | 4 | | |
-| 5. Workflow Obsługi | 2 | | |
-| 6. Notatki Głosowe | 3 | | |
-| 7. Historia | 4 | | |
+| 5. Workflow Obsługi | 3 | | |
+| 6. Notatki Głosowe | 7 | | |
+| 7. Historia Klientów | 7 | | |
 | 8. Powiadomienia Zespołowe | 1 | | |
 | 9. SLA i Accordion | 3 | | |
 | 10. Dual SIM | 3 | | |
 | 11. Ustawienia | 2 | | |
 | 12. Timeline Klienta | 2 | | |
-| **RAZEM** | **35** | | |
+| **RAZEM** | **43** | | |
 
 ---
 
@@ -353,6 +421,42 @@
 
 ---
 
-**Data wykonania testów:** _______________  
-**Tester:** _______________  
+## ⚠️ WYMAGANE PRZED TESTAMI
+
+### Migracje bazy danych
+**KRYTYCZNE:** Przed rozpoczęciem testów należy zastosować poniższe migracje w bazie Supabase:
+
+#### 1. Naprawa polityk RLS
+1. Otwórz: https://supabase.com/dashboard (Twój projekt)
+2. Przejdź do **SQL Editor** → **New query**
+3. Wklej zawartość pliku: `/supabase/migrations/20260208000000_fix_rls_policies.sql`
+4. Kliknij **Run**
+5. Zweryfikuj sukces: `Success. No rows returned`
+
+**Dlaczego:** Naprawia błędne polityki RLS które blokowały zapis połączeń do bazy
+
+#### 2. Dodanie UNIQUE constraint dla dedup_key
+1. Wklej zawartość: `/supabase/migrations/20260208100000_add_dedup_constraint.sql`
+2. Kliknij **Run**
+
+**Dlaczego:** Zapobiega duplikowaniu połączeń gdy wiele urządzeń otrzymuje to samo połączenie
+
+#### 3. Dodanie typu 'skipped' dla call_logs
+1. Wklej zawartość: `/supabase/migrations/20260208200000_add_skipped_type.sql`
+2. Kliknij **Run**
+
+**Dlaczego:** Umożliwia oznaczanie połączeń jako "pominięte" (completed bez notatki)
+
+### Uprawnienia aplikacji
+Aplikacja wymaga następujących uprawnień:
+- ✅ **READ_CALL_LOG** - wykrywanie nieodebranych połączeń
+- ✅ **READ_CONTACTS** - wyświetlanie nazw z kontaktów telefonu (zamiast numerów)
+- ✅ **Notifications** - powiadomienia o nowych połączeniach
+
+**Ważne:** Bez uprawnienia READ_CONTACTS w Kolejce i Historii będą wyświetlane tylko numery telefonu lub "Brak nazwy"
+
+---
+
+**Data wykonania testów:** _______________
+**Tester:** _______________
 **Wersja aplikacji:** _______________

@@ -324,10 +324,7 @@ export const CallDetailsScreen: React.FC = () => {
         const reservedCalls = group.allCalls.filter((c) => c.status === 'reserved');
         if (reservedCalls.length === 0) return;
 
-        // Navigate back immediately for instant feedback
-        navigation.goBack();
-
-        // Update database in parallel (background)
+        // Update database first
         try {
             const updatePromises = reservedCalls.map((call) =>
                 supabase
@@ -340,6 +337,12 @@ export const CallDetailsScreen: React.FC = () => {
             );
 
             await Promise.all(updatePromises);
+
+            // Navigate to AddNote tab (without auto-opening modal)
+            const rootNavigation = navigation.getParent();
+            if (rootNavigation) {
+                rootNavigation.navigate('AddNote');
+            }
         } catch (error) {
             console.error('Error completing calls:', error);
             Alert.alert('Błąd', 'Nie udało się oznaczyć jako wykonane. Spróbuj ponownie.');

@@ -19,7 +19,7 @@ import {
   StatusBar,
   Platform,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialIcons } from '@expo/vector-icons';
 import { supabase } from '@/api/supabaseClient';
@@ -33,7 +33,7 @@ import type { HistoryStackParamList } from '@/navigation/HistoryStackNavigator';
 export interface HistoryItem {
   callLog: CallLog;
   client: Client | null;
-  voiceReport: VoiceReport;
+  voiceReport: VoiceReport | null; // Can be null if user clicked "Skip" without adding note
 }
 
 type NavigationProp = NativeStackNavigationProp<HistoryStackParamList, 'HistoryList'>;
@@ -68,6 +68,7 @@ const formatRelativeTime = (timestamp: string): string => {
 };
 
 export const HistoryScreen: React.FC = () => {
+  console.log('📜 Historia: Component rendering');
   const navigation = useNavigation<NavigationProp>();
   const { colors, isDark } = useTheme();
   const styles = createStyles(colors);
@@ -77,16 +78,19 @@ export const HistoryScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Load contacts once on mount
   useEffect(() => {
-    loadDeviceContacts();
-    fetchHistory();
+    console.log('📜 Historia: useEffect mount');
+    loadContacts();
   }, []);
 
-  const loadDeviceContacts = async () => {
+  const loadContacts = async () => {
     await contactLookupService.loadDeviceContacts();
+    console.log('📱 Contacts loaded');
   };
 
   const fetchHistory = useCallback(async () => {
+    console.log('📜 Historia: fetchHistory called');
     try {
       // Fetch completed call_logs
       const { data: callLogs, error: callLogsError } = await supabase
@@ -95,12 +99,25 @@ export const HistoryScreen: React.FC = () => {
         .eq('status', 'completed')
         .order('timestamp', { ascending: false });
 
+      console.log('📜 Historia: Query result:', {
+        error: callLogsError,
+        count: callLogs?.length || 0,
+        data: callLogs?.map(cl => ({
+          id: cl.id.substring(0, 8),
+          phone: cl.caller_phone,
+          status: cl.status,
+          type: cl.type,
+          timestamp: cl.timestamp,
+        }))
+      });
+
       if (callLogsError) {
         console.error('Error fetching call logs:', callLogsError);
         return;
       }
 
       if (!callLogs || callLogs.length === 0) {
+        console.log('📜 Historia: No completed calls found, clearing list');
         setHistoryItems([]);
         setFilteredItems([]);
         return;
@@ -121,11 +138,9 @@ export const HistoryScreen: React.FC = () => {
       const voiceReportMap = new Map(
         voiceReports?.map((vr) => [vr.call_log_id, vr]) || []
       );
-      const callLogsWithReports = callLogs.filter((cl) =>
-        voiceReportMap.has(cl.id)
-      );
 
-      if (callLogsWithReports.length === 0) {
+      // Show ALL completed calls (with or without voice reports)
+      if (callLogs.length === 0) {
         setHistoryItems([]);
         setFilteredItems([]);
         return;
@@ -133,7 +148,7 @@ export const HistoryScreen: React.FC = () => {
 
       // Fetch clients
       const clientIds = [...new Set(
-        callLogsWithReports
+        callLogs
           .map((cl) => cl.client_id)
           .filter((id): id is string => id !== null)
       )];
@@ -147,14 +162,12 @@ export const HistoryScreen: React.FC = () => {
         clientMap = new Map(clients?.map((c) => [c.id, c]) || []);
       }
 
-      // Combine data
-      const items: HistoryItem[] = callLogsWithReports
-        .map((callLog) => ({
-          callLog,
-          client: callLog.client_id ? clientMap.get(callLog.client_id) || null : null,
-          voiceReport: voiceReportMap.get(callLog.id)!,
-        }))
-        .filter((item) => item.voiceReport);
+      // Combine data - show all completed (with or without voice reports)
+      const items: HistoryItem[] = callLogs.map((callLog) => ({
+        callLog,
+        client: callLog.client_id ? clientMap.get(callLog.client_id) || null : null,
+        voiceReport: voiceReportMap.get(callLog.id) || null, // Can be null if skipped
+      }));
 
       setHistoryItems(items);
       setFilteredItems(items);
@@ -165,6 +178,14 @@ export const HistoryScreen: React.FC = () => {
       setRefreshing(false);
     }
   }, []);
+
+  // Fetch history every time screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      console.log('📜 Historia: Screen focused!');
+      fetchHistory();
+    }, [fetchHistory])
+  );
 
   // Filter items when search query changes
   useEffect(() => {
@@ -179,7 +200,7 @@ export const HistoryScreen: React.FC = () => {
       const deviceContactName = contactLookupService.lookupContactName(phoneNumber) || '';
       const clientName = item.client?.name?.toLowerCase() || '';
       const callerPhone = item.callLog.caller_phone?.toLowerCase() || '';
-      const transcription = item.voiceReport.transcription?.toLowerCase() || '';
+      const transcription = item.voiceReport?.transcription?.toLowerCase() || '';
       return (
         deviceContactName.toLowerCase().includes(query) ||
         clientName.includes(query) ||
@@ -191,12 +212,18 @@ export const HistoryScreen: React.FC = () => {
   }, [searchQuery, historyItems]);
 
   const handleRefresh = () => {
+    console.log('📜 Historia: handleRefresh called');
     setRefreshing(true);
     fetchHistory();
   };
 
   const handleRowPress = (item: HistoryItem) => {
-    navigation.navigate('NoteDetail', { item });
+    // If has voice report - show detail view
+    if (item.voiceReport) {
+      navigation.navigate('NoteDetail', { item });
+    }
+    // If no voice report (skipped) - do nothing or show a message
+    // User can see it's skipped by the orange microphone icon
   };
 
   // Render minimalist row
@@ -213,18 +240,21 @@ export const HistoryScreen: React.FC = () => {
     // Format time
     const relativeTime = formatRelativeTime(item.callLog.timestamp);
 
+    // Check if has voice report
+    const hasVoiceReport = !!item.voiceReport;
+
     return (
       <TouchableOpacity
         style={styles.row}
         onPress={() => handleRowPress(item)}
         activeOpacity={0.7}
       >
-        {/* Left: Icon */}
+        {/* Left: Icon - check-circle for with note, mic-none for skipped */}
         <View style={styles.iconContainer}>
           <MaterialIcons
-            name="check-circle"
+            name={hasVoiceReport ? "check-circle" : "mic-none"}
             size={24}
-            color={colors.success}
+            color={hasVoiceReport ? colors.success : colors.warning}
           />
         </View>
 
