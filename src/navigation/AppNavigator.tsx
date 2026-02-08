@@ -73,8 +73,8 @@ export const AppNavigator: React.FC = () => {
         name="Clients"
         component={ClientsStackNavigator}
         options={{
-          title: 'Klienci',
-          tabBarLabel: 'Klienci',
+          title: 'Historia',
+          tabBarLabel: 'Historia',
           headerShown: false,
           tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>👥</Text>,
         }}

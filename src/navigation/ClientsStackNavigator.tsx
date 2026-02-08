@@ -43,7 +43,7 @@ export const ClientsStackNavigator: React.FC = () => {
         name="ClientsList"
         component={ClientsList}
         options={{
-          title: 'Klienci',
+          title: 'Historia',
           headerShown: false,
         }}
       />

@@ -49,7 +49,7 @@ export const ClientsList: React.FC = () => {
   // Screen Header
   const ScreenHeader = () => (
     <View style={styles.headerContainer}>
-      <Text style={styles.headerTitle}>Klienci</Text>
+      <Text style={styles.headerTitle}>Historia</Text>
       <Text style={styles.headerCount}>{clients.length}</Text>
     </View>
   );
