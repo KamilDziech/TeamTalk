@@ -375,7 +375,7 @@ export const VoiceRecordingScreen: React.FC<VoiceRecordingScreenProps> = ({
 
             {transcription && (
               <View style={styles.resultBox}>
-                <Text style={styles.resultLabel}>Transkrypcja:</Text>
+                <Text style={styles.resultLabel}>Notatka:</Text>
                 <Text style={styles.resultText}>{transcription}</Text>
               </View>
             )}

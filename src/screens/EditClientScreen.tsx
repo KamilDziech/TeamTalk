@@ -5,7 +5,7 @@
  * Name is displayed but not editable (fetched from contacts).
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -22,6 +22,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
 import { spacing, radius, typography } from '@/styles/theme';
 import { supabase } from '@/api/supabaseClient';
+import { contactLookupService } from '@/services/ContactLookupService';
 import type { Client } from '@/types';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
@@ -41,6 +42,17 @@ export const EditClientScreen: React.FC<Props> = ({ route, navigation }) => {
   const [address, setAddress] = useState(client.address || '');
   const [notes, setNotes] = useState(client.notes || '');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    contactLookupService.loadDeviceContacts();
+  }, []);
+
+  const getClientDisplayName = (): string => {
+    // Priority: 1. Device contacts, 2. CRM client name, 3. Phone number
+    const deviceContactName = contactLookupService.lookupContactName(client.phone);
+    const crmClientName = client.name;
+    return deviceContactName || crmClientName || client.phone || 'Nieznany';
+  };
 
   const handleSave = async () => {
     setLoading(true);
@@ -92,7 +104,7 @@ export const EditClientScreen: React.FC<Props> = ({ route, navigation }) => {
           <View style={styles.infoCard}>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Nazwa</Text>
-              <Text style={styles.infoValue}>{client.name || 'Nieznany'}</Text>
+              <Text style={styles.infoValue}>{getClientDisplayName()}</Text>
             </View>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Telefon</Text>

@@ -20,8 +20,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/api/supabaseClient';
 import { voiceReportService } from '@/services/VoiceReportService';
+import { contactLookupService } from '@/services/ContactLookupService';
 import { useTheme } from '@/contexts/ThemeContext';
-import type { Client, CallLog, VoiceReport } from '@/types';
+import type { Client, CallLog, VoiceReport, Profile } from '@/types';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 type ClientsStackParamList = {
@@ -43,6 +44,7 @@ export const ClientTimelineScreen: React.FC<Props> = ({ route, navigation }) => 
   const styles = createStyles(colors);
   const [client, setClient] = useState<Client>(initialClient);
   const [timelineItems, setTimelineItems] = useState<TimelineItem[]>([]);
+  const [profiles, setProfiles] = useState<Map<string, Profile>>(new Map());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
@@ -86,6 +88,34 @@ export const ClientTimelineScreen: React.FC<Props> = ({ route, navigation }) => 
         },
       ]
     );
+  };
+
+  const fetchProfiles = async () => {
+    try {
+      const { data, error } = await supabase.from('profiles').select('*');
+      if (error) {
+        console.error('Error fetching profiles:', error);
+        return;
+      }
+      const profileMap = new Map<string, Profile>();
+      data?.forEach((profile: Profile) => profileMap.set(profile.id, profile));
+      setProfiles(profileMap);
+    } catch (error) {
+      console.error('Error fetching profiles:', error);
+    }
+  };
+
+  const getDisplayName = (userId: string | null): string | null => {
+    if (!userId) return null;
+    const profile = profiles.get(userId);
+    return profile?.display_name || null;
+  };
+
+  const getClientDisplayName = (): string => {
+    // Priority: 1. Device contacts, 2. CRM client name, 3. Phone number
+    const deviceContactName = contactLookupService.lookupContactName(client.phone);
+    const crmClientName = client.name;
+    return deviceContactName || crmClientName || client.phone || 'Nieznany klient';
   };
 
   const fetchTimeline = useCallback(async () => {
@@ -138,6 +168,8 @@ export const ClientTimelineScreen: React.FC<Props> = ({ route, navigation }) => 
   }, [client.id]);
 
   useEffect(() => {
+    contactLookupService.loadDeviceContacts();
+    fetchProfiles();
     fetchTimeline();
   }, [fetchTimeline]);
 
@@ -305,7 +337,7 @@ export const ClientTimelineScreen: React.FC<Props> = ({ route, navigation }) => 
 
           {item.callLog.reservation_by && (
             <Text style={styles.handledBy}>
-              Obsłużył: {item.callLog.reservation_by}
+              Obsłużył: {getDisplayName(item.callLog.reservation_by) || item.callLog.reservation_by}
             </Text>
           )}
 
@@ -339,7 +371,7 @@ export const ClientTimelineScreen: React.FC<Props> = ({ route, navigation }) => 
                   onPress={() => toggleExpanded(item.callLog.id)}
                 >
                   <Text style={styles.actionButtonTextSecondary}>
-                    {isExpanded ? '▲ Zwiń' : '▼ Transkrypcja'}
+                    {isExpanded ? '▲ Zwiń' : '▼ Notatka'}
                   </Text>
                 </TouchableOpacity>
               )}
@@ -356,7 +388,7 @@ export const ClientTimelineScreen: React.FC<Props> = ({ route, navigation }) => 
           {/* Expanded Transcription */}
           {isExpanded && item.voiceReport?.transcription && (
             <View style={styles.transcriptionSection}>
-              <Text style={styles.sectionTitle}>📄 Pełna transkrypcja</Text>
+              <Text style={styles.sectionTitle}>📄 Pełna notatka</Text>
               <Text style={styles.transcriptionText}>
                 {item.voiceReport.transcription}
               </Text>
@@ -383,7 +415,7 @@ export const ClientTimelineScreen: React.FC<Props> = ({ route, navigation }) => 
       {/* Client Header */}
       <View style={styles.clientHeader}>
         <View style={styles.clientInfo}>
-          <Text style={styles.clientName}>{client.name || 'Nieznany klient'}</Text>
+          <Text style={styles.clientName}>{getClientDisplayName()}</Text>
           <Text style={styles.clientPhone}>{client.phone}</Text>
           {client.address && (
             <Text style={styles.clientAddress}>📍 {client.address}</Text>
