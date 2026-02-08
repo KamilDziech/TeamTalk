@@ -26,6 +26,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 type ClientsStackParamList = {
   ClientsList: undefined;
   ClientTimeline: { client: Client };
+  EditClient: { client: Client; onClientUpdated?: (updatedClient: Client) => void };
 };
 
 type Props = NativeStackScreenProps<ClientsStackParamList, 'ClientTimeline'>;
@@ -35,15 +36,25 @@ interface TimelineItem {
   voiceReport: VoiceReport | null;
 }
 
-export const ClientTimelineScreen: React.FC<Props> = ({ route }) => {
-  const { client } = route.params;
+export const ClientTimelineScreen: React.FC<Props> = ({ route, navigation }) => {
+  const { client: initialClient } = route.params;
   const { colors } = useTheme();
   const styles = createStyles(colors);
+  const [client, setClient] = useState<Client>(initialClient);
   const [timelineItems, setTimelineItems] = useState<TimelineItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [playingAudio, setPlayingAudio] = useState<string | null>(null);
+
+  const handleEditClient = () => {
+    navigation.navigate('EditClient', {
+      client,
+      onClientUpdated: (updatedClient: Client) => {
+        setClient(updatedClient);
+      },
+    });
+  };
 
   const fetchTimeline = useCallback(async () => {
     try {
@@ -345,10 +356,18 @@ export const ClientTimelineScreen: React.FC<Props> = ({ route }) => {
           {client.address && (
             <Text style={styles.clientAddress}>📍 {client.address}</Text>
           )}
+          {client.notes && (
+            <Text style={styles.clientNotes}>📝 {client.notes}</Text>
+          )}
         </View>
-        <TouchableOpacity style={styles.callButton} onPress={handleCall}>
-          <Text style={styles.callButtonText}>📞 Zadzwoń</Text>
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity style={styles.editButton} onPress={handleEditClient}>
+            <Text style={styles.editButtonText}>✏️</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.callButton} onPress={handleCall}>
+            <Text style={styles.callButtonText}>📞</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Stats */}
@@ -438,16 +457,35 @@ const createStyles = (colors: ReturnType<typeof import('@/contexts/ThemeContext'
       color: colors.textSecondary,
       marginTop: 4,
     },
+    clientNotes: {
+      fontSize: 13,
+      color: colors.textTertiary,
+      marginTop: 4,
+      fontStyle: 'italic',
+    },
+    headerButtons: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    editButton: {
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+      borderRadius: 8,
+    },
+    editButtonText: {
+      fontSize: 16,
+    },
     callButton: {
       backgroundColor: colors.success,
       paddingVertical: 10,
-      paddingHorizontal: 16,
+      paddingHorizontal: 14,
       borderRadius: 8,
     },
     callButtonText: {
-      color: colors.textInverse,
-      fontSize: 14,
-      fontWeight: '600',
+      fontSize: 16,
     },
     statsRow: {
       flexDirection: 'row',

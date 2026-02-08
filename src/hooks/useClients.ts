@@ -61,5 +61,34 @@ export const useClients = () => {
     }
   };
 
-  return { clients, loading, error, refetch: fetchClients, deleteClient }
+  const updateClient = async (
+    clientId: string,
+    updates: { address?: string | null; notes?: string | null }
+  ): Promise<Client | null> => {
+    try {
+      const { data, error: updateError } = await supabase
+        .from('clients')
+        .update(updates)
+        .eq('id', clientId)
+        .select()
+        .single();
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      // Update local state
+      setClients((prev) =>
+        prev.map((c) => (c.id === clientId ? { ...c, ...data } : c))
+      );
+
+      return data;
+    } catch (err) {
+      console.error('Error updating client:', err);
+      setError(err instanceof Error ? err.message : 'Błąd aktualizacji');
+      return null;
+    }
+  };
+
+  return { clients, loading, error, refetch: fetchClients, deleteClient, updateClient }
 };

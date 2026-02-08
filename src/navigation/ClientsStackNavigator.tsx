@@ -9,6 +9,7 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ClientsList } from '@/components/ClientsList';
 import { ClientTimelineScreen } from '@/screens/ClientTimelineScreen';
+import { EditClientScreen } from '@/screens/EditClientScreen';
 import { useTheme } from '@/contexts/ThemeContext';
 import { typography } from '@/styles/theme';
 import type { Client } from '@/types';
@@ -16,6 +17,7 @@ import type { Client } from '@/types';
 export type ClientsStackParamList = {
   ClientsList: undefined;
   ClientTimeline: { client: Client };
+  EditClient: { client: Client; onClientUpdated?: (updatedClient: Client) => void };
 };
 
 const Stack = createNativeStackNavigator<ClientsStackParamList>();
@@ -52,6 +54,14 @@ export const ClientsStackNavigator: React.FC = () => {
           title: route.params.client.name || 'Historia klienta',
           headerShown: true,
         })}
+      />
+      <Stack.Screen
+        name="EditClient"
+        component={EditClientScreen}
+        options={{
+          title: 'Edytuj klienta',
+          headerShown: true,
+        }}
       />
     </Stack.Navigator>
   );
