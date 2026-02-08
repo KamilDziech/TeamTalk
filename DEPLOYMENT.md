@@ -19,6 +19,7 @@ Wykonaj wszystkie migracje w Supabase Dashboard → SQL Editor:
 11. supabase/migrations/20240210000000_audio_cleanup_function.sql ⭐
 12. supabase/migrations/20240211000000_performance_indexes.sql
 13. supabase/migrations/20240212000000_prevent_duplicate_calls.sql
+14. supabase/migrations/20240213000000_migrate_unknown_callers_to_clients.sql ⭐
 ```
 
 ## 2. Konfiguracja Storage Bucket
