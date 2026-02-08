@@ -449,7 +449,9 @@ export const VoiceRecordingScreen: React.FC<VoiceRecordingScreenProps> = ({
       </View>
 
       {/* Main content */}
-      <View style={styles.content}>{renderContent()}</View>
+      <View style={[styles.content, mode === 'text' && styles.contentNoPadding]}>
+        {renderContent()}
+      </View>
     </SafeAreaView>
   );
 };
@@ -508,6 +510,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+  },
+  contentNoPadding: {
+    padding: 0,
+    justifyContent: 'flex-start',
+    alignItems: 'stretch',
   },
   recordingContainer: {
     alignItems: 'center',
@@ -680,8 +687,6 @@ const styles = StyleSheet.create({
   // Text note form styles
   textNoteContainer: {
     flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 0,
   },
   textNoteLabel: {
     fontSize: 16,
