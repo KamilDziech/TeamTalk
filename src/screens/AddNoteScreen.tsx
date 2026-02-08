@@ -26,7 +26,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '@/api/supabaseClient';
-import { VoiceRecordingScreen } from './VoiceRecordingScreen';
+import { VoiceRecordingScreen, NoteMode } from './VoiceRecordingScreen';
 import { useTheme } from '@/contexts/ThemeContext';
 import { spacing, radius, typography, shadows, commonStyles } from '@/styles/theme';
 import type { CallLog, Client } from '@/types';
@@ -44,6 +44,7 @@ export const AddNoteScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedCall, setSelectedCall] = useState<CallLogWithClient | null>(null);
   const [isRecordingModalVisible, setIsRecordingModalVisible] = useState(false);
+  const [noteMode, setNoteMode] = useState<NoteMode>('voice');
 
   // Fetch data when screen comes into focus
   useFocusEffect(
@@ -123,8 +124,9 @@ export const AddNoteScreen: React.FC = () => {
     fetchCallLogsNeedingNotes();
   };
 
-  const handleSelectCall = (callLog: CallLogWithClient) => {
+  const handleSelectCall = (callLog: CallLogWithClient, mode: NoteMode = 'voice') => {
     setSelectedCall(callLog);
+    setNoteMode(mode);
     setIsRecordingModalVisible(true);
   };
 
@@ -245,11 +247,21 @@ export const AddNoteScreen: React.FC = () => {
         <View style={styles.cardActions}>
           <TouchableOpacity
             style={styles.recordButton}
-            onPress={() => handleSelectCall(item)}
+            onPress={() => handleSelectCall(item, 'voice')}
             activeOpacity={0.7}
           >
             <Text style={styles.recordButtonText}>
-              🎤 Nagraj notatkę
+              🎤 Nagraj
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.textButton}
+            onPress={() => handleSelectCall(item, 'text')}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.textButtonText}>
+              ✏️ Napisz
             </Text>
           </TouchableOpacity>
 
@@ -259,7 +271,7 @@ export const AddNoteScreen: React.FC = () => {
             activeOpacity={0.7}
           >
             <Text style={styles.skipButtonText}>
-              🗑️ Pomiń
+              🗑️
             </Text>
           </TouchableOpacity>
         </View>
@@ -307,7 +319,7 @@ export const AddNoteScreen: React.FC = () => {
         />
       )}
 
-      {/* Voice Recording Modal */}
+      {/* Voice/Text Recording Modal */}
       <Modal
         visible={isRecordingModalVisible}
         animationType="slide"
@@ -319,6 +331,7 @@ export const AddNoteScreen: React.FC = () => {
             callLogId={selectedCall.id}
             client={selectedCall.client}
             callerPhone={selectedCall.caller_phone}
+            mode={noteMode}
             onComplete={handleRecordingComplete}
             onCancel={handleRecordingCancel}
           />
@@ -443,6 +456,7 @@ const createStyles = (colors: ReturnType<typeof import('@/contexts/ThemeContext'
     // Action buttons
     cardActions: {
       flexDirection: 'row',
+      gap: spacing.xs,
     },
     recordButton: {
       flex: 1,
@@ -452,6 +466,18 @@ const createStyles = (colors: ReturnType<typeof import('@/contexts/ThemeContext'
       alignItems: 'center',
     },
     recordButtonText: {
+      color: colors.textInverse,
+      fontSize: typography.base,
+      fontWeight: typography.semibold,
+    },
+    textButton: {
+      flex: 1,
+      backgroundColor: colors.info,
+      borderRadius: radius.lg,
+      padding: spacing.md,
+      alignItems: 'center',
+    },
+    textButtonText: {
       color: colors.textInverse,
       fontSize: typography.base,
       fontWeight: typography.semibold,

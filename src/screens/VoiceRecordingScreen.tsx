@@ -16,15 +16,22 @@ import {
   ActivityIndicator,
   Alert,
   SafeAreaView,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from 'react-native';
 import { voiceReportService } from '@/services/VoiceReportService';
 import { deviceService } from '@/services/DeviceService';
 import type { Client } from '@/types';
 
+export type NoteMode = 'voice' | 'text';
+
 interface VoiceRecordingScreenProps {
   callLogId: string;
   client: Client | null;
   callerPhone?: string | null;
+  mode?: NoteMode;
   onComplete: () => void;
   onCancel: () => void;
 }
@@ -37,6 +44,7 @@ export const VoiceRecordingScreen: React.FC<VoiceRecordingScreenProps> = ({
   callLogId,
   client,
   callerPhone,
+  mode = 'voice',
   onComplete,
   onCancel,
 }) => {
@@ -50,6 +58,7 @@ export const VoiceRecordingScreen: React.FC<VoiceRecordingScreenProps> = ({
   const [transcription, setTranscription] = useState<string | null>(null);
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [textNote, setTextNote] = useState('');
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -225,6 +234,40 @@ export const VoiceRecordingScreen: React.FC<VoiceRecordingScreenProps> = ({
     setErrorMessage(null);
   };
 
+  // Save text note (no audio recording)
+  const handleSaveTextNote = async () => {
+    if (!textNote.trim()) {
+      Alert.alert('Błąd', 'Wpisz treść notatki');
+      return;
+    }
+
+    setState('processing');
+    setProcessingStep('Zapisywanie notatki...');
+
+    try {
+      // Save text note without audio
+      const saved = await voiceReportService.saveVoiceReport(
+        callLogId,
+        null, // no audio
+        textNote.trim(), // text as transcription
+        null // no AI summary for manual notes
+      );
+
+      if (saved) {
+        setState('completed');
+        // Notify team about new note
+        deviceService.notifyNewVoiceReport(displayName);
+      } else {
+        setErrorMessage('Nie udało się zapisać notatki.');
+        setState('error');
+      }
+    } catch (error) {
+      console.error('Error saving text note:', error);
+      setErrorMessage('Wystąpił błąd podczas zapisywania.');
+      setState('error');
+    }
+  };
+
   // Render recording button based on state
   const renderRecordButton = () => {
     if (state === 'recording') {
@@ -247,8 +290,54 @@ export const VoiceRecordingScreen: React.FC<VoiceRecordingScreenProps> = ({
     );
   };
 
+  // Render text note form for manual entry
+  const renderTextNoteForm = () => {
+    return (
+      <KeyboardAvoidingView
+        style={styles.textNoteContainer}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView style={styles.textNoteScroll}>
+          <Text style={styles.textNoteLabel}>Wpisz notatkę:</Text>
+          <TextInput
+            style={styles.textNoteInput}
+            multiline
+            numberOfLines={10}
+            placeholder="Opisz rozmowę z klientem..."
+            placeholderTextColor="#999"
+            value={textNote}
+            onChangeText={setTextNote}
+            autoFocus
+          />
+        </ScrollView>
+
+        <View style={styles.textNoteActions}>
+          <TouchableOpacity
+            style={[styles.saveTextButton, !textNote.trim() && styles.saveTextButtonDisabled]}
+            onPress={handleSaveTextNote}
+            disabled={!textNote.trim()}
+          >
+            <Text style={styles.saveTextButtonText}>💾 Zapisz notatkę</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
+            <Text style={styles.cancelButtonText}>Anuluj</Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    );
+  };
+
   // Render content based on state
   const renderContent = () => {
+    // Text mode uses different UI
+    if (mode === 'text') {
+      if (state === 'idle') {
+        return renderTextNoteForm();
+      }
+      // For processing/completed/error states, use standard rendering
+    }
+
     switch (state) {
       case 'idle':
         return (
@@ -358,7 +447,9 @@ export const VoiceRecordingScreen: React.FC<VoiceRecordingScreenProps> = ({
         <TouchableOpacity style={styles.closeButton} onPress={onCancel}>
           <Text style={styles.closeButtonText}>✕</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Notatka głosowa</Text>
+        <Text style={styles.headerTitle}>
+          {mode === 'text' ? 'Notatka tekstowa' : 'Notatka głosowa'}
+        </Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -596,5 +687,48 @@ const styles = StyleSheet.create({
     color: '#C62828',
     textAlign: 'center',
     marginBottom: 20,
+  },
+  // Text note form styles
+  textNoteContainer: {
+    flex: 1,
+    padding: 20,
+  },
+  textNoteScroll: {
+    flex: 1,
+  },
+  textNoteLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 12,
+  },
+  textNoteInput: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    color: '#333',
+    textAlignVertical: 'top',
+    minHeight: 200,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  textNoteActions: {
+    marginTop: 16,
+    gap: 12,
+  },
+  saveTextButton: {
+    backgroundColor: '#2563EB',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  saveTextButtonDisabled: {
+    backgroundColor: '#ccc',
+  },
+  saveTextButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
