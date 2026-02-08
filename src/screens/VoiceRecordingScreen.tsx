@@ -184,32 +184,13 @@ export const VoiceRecordingScreen: React.FC<VoiceRecordingScreenProps> = ({
 
       setTranscription(transcriptionResult);
 
-      // Generate AI summary
-      let summary: string | null = null;
-      if (transcriptionResult) {
-        setProcessingStep('Generowanie streszczenia AI...');
-        summary = await voiceReportService.generateSummary(
-          transcriptionResult,
-          client?.name || undefined
-        );
-
-        // Check for hallucination in summary
-        if (summary === 'ERROR_EMPTY') {
-          setErrorMessage('Nie wykryto mowy w nagraniu. Spróbuj nagrać jeszcze raz.');
-          setState('error');
-          return;
-        }
-
-        setAiSummary(summary);
-      }
-
-      // Save to database
+      // Save to database (no AI summary)
       setProcessingStep('Zapisywanie...');
       const saved = await voiceReportService.saveVoiceReport(
         callLogId,
         audioUrl,
         transcriptionResult,
-        summary
+        null // no AI summary
       );
 
       if (saved) {
