@@ -10,7 +10,6 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { CallLogsList } from '@/components/CallLogsList';
 import { CallDetailsScreen } from '@/screens/CallDetailsScreen';
-import { SettingsButton } from '@/components/SettingsButton';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { GroupedCallLog } from '@/components/CallLogsList';
 import { typography } from '@/styles/theme';
@@ -37,7 +36,6 @@ export const CallLogsStackNavigator: React.FC = () => {
                     fontSize: typography.lg,
                 },
                 headerShadowVisible: false,
-                headerRight: () => <SettingsButton />,
             }}
         >
             <Stack.Screen
