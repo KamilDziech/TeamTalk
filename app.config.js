@@ -12,6 +12,16 @@
 
 require('dotenv').config();
 
+// Generate build timestamp
+const buildTime = new Date().toLocaleString('pl-PL', {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  timeZone: 'Europe/Warsaw',
+});
+
 module.exports = {
   expo: {
     name: "TeamTalk",
@@ -81,6 +91,8 @@ module.exports = {
       supabaseUrl: process.env.SUPABASE_URL,
       supabaseAnonKey: process.env.SUPABASE_ANON_KEY,
       openaiApiKey: process.env.OPENAI_API_KEY,
+      // Build info
+      buildTime: buildTime,
       // EAS configuration
       eas: {
         projectId: "70a863dc-ad69-43ce-a26e-58c4accd11f7"

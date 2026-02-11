@@ -20,6 +20,7 @@ import {
   StatusBar,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme, ThemeMode } from '@/contexts/ThemeContext';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
@@ -270,6 +271,13 @@ export const SettingsScreen: React.FC = () => {
             <Text style={styles.logoutText}>Wyloguj</Text>
           </TouchableOpacity>
         </View>
+
+        {/* App Version */}
+        <View style={styles.versionContainer}>
+          <Text style={styles.versionText}>
+            Wersja: {Constants.expoConfig?.extra?.buildTime || 'dev'}
+          </Text>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -420,5 +428,14 @@ const createStyles = (colors: ReturnType<typeof import('@/contexts/ThemeContext'
       marginLeft: spacing.md,
       fontWeight: typography.medium,
       color: colors.error,
+    },
+    versionContainer: {
+      alignItems: 'center',
+      paddingVertical: spacing.lg,
+      marginTop: spacing.md,
+    },
+    versionText: {
+      fontSize: typography.xs,
+      color: colors.textTertiary,
     },
   });
