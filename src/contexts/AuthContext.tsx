@@ -83,6 +83,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const fetchProfile = async (userId: string) => {
     try {
+      // Wait a bit for trigger to complete
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -91,18 +94,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       if (error) {
         // Profile might not exist yet (trigger hasn't run)
-        console.log('Profile not found, might be created by trigger');
+        console.log('Profile not found, will be created by trigger or manually');
 
-        // Try to create profile from user metadata
-        const displayName = user?.user_metadata?.display_name || 'Użytkownik';
+        // Get current user to access metadata
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        const displayName = currentUser?.user_metadata?.display_name || 'Użytkownik';
+
+        // Try to create profile manually
         const { data: newProfile, error: insertError } = await supabase
           .from('profiles')
-          .upsert({ id: userId, display_name: displayName } as any)
+          .upsert({
+            id: userId,
+            display_name: displayName,
+            email: currentUser?.email || null
+          } as any)
           .select()
           .single();
 
         if (!insertError && newProfile) {
           setProfile(newProfile);
+        } else {
+          console.error('Error creating profile:', insertError);
         }
         return;
       }

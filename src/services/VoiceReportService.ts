@@ -12,9 +12,8 @@
 
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system/legacy';
-import { supabase } from '@/api/supabaseClient';
+import { supabase, supabaseUrl } from '@/api/supabaseClient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Constants from 'expo-constants';
 
 // Types
 export interface VoiceReportData {
@@ -32,54 +31,6 @@ export interface PendingUpload {
 }
 
 const PENDING_UPLOADS_KEY = 'voice_reports_pending_uploads';
-
-// Hallucination patterns - common AI hallucinations for empty/silent recordings
-const HALLUCINATION_PATTERNS = [
-  /^dzi[eę]kuj[eę]?\s*(za\s*ogl[aą]danie|za\s*uwag[eę])/i,
-  /^thank\s*you\s*(for\s*watching|for\s*listening)/i,
-  /^thanks\s*for\s*watching/i,
-  /^subscribe/i,
-  /^like\s*(and\s*)?subscribe/i,
-  /^napisy\s*(stworzone|wygenerowane)/i,
-  /^subtitles?\s*(by|created)/i,
-  /^\.+$/,  // Only dots
-  /^\s*$/,  // Empty or whitespace only
-  /^(do\s*)?zobaczenia/i,
-  /^see\s*you/i,
-  /^bye(\s*bye)?$/i,
-  /^(to|te)?\s*(tyle|wszystko)/i,
-  /^muzyka$/i,
-  /^music$/i,
-  /^\[.*\]$/,  // Just brackets like [muzyka] or [silence]
-];
-
-// Minimum transcription length to be considered valid
-const MIN_TRANSCRIPTION_LENGTH = 10;
-
-/**
- * Check if transcription appears to be a hallucination or empty
- */
-const isHallucinationOrEmpty = (text: string | null): boolean => {
-  if (!text) return true;
-
-  const trimmed = text.trim();
-
-  // Check length
-  if (trimmed.length < MIN_TRANSCRIPTION_LENGTH) return true;
-
-  // Check against hallucination patterns
-  for (const pattern of HALLUCINATION_PATTERNS) {
-    if (pattern.test(trimmed)) {
-      console.log('Hallucination detected:', trimmed);
-      return true;
-    }
-  }
-
-  return false;
-};
-
-// Get API keys from environment
-const getOpenAIKey = () => Constants.expoConfig?.extra?.openaiApiKey || process.env.OPENAI_API_KEY;
 
 export class VoiceReportService {
   private recording: Audio.Recording | null = null;
@@ -282,18 +233,12 @@ export class VoiceReportService {
   }
 
   /**
-   * Transcribe audio using OpenAI Whisper API
+   * Transcribe audio using Supabase Edge Function (which calls OpenAI Whisper)
    * Returns 'ERROR_EMPTY' if transcription is empty, too short, or appears to be hallucination
    */
   async transcribeAudio(audioUrl: string): Promise<string | null> {
-    const apiKey = getOpenAIKey();
-    if (!apiKey) {
-      console.warn('OpenAI API key not configured, skipping transcription');
-      return null;
-    }
-
     try {
-      console.log('Transcribing audio with Whisper...');
+      console.log('Transcribing audio via Edge Function...');
 
       // React Native requires file object format for FormData
       const formData = new FormData();
@@ -302,35 +247,33 @@ export class VoiceReportService {
         type: 'audio/m4a',
         name: 'audio.m4a',
       } as any);
-      formData.append('model', 'whisper-1');
-      formData.append('language', 'pl'); // Polish language
 
-      const whisperResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      // Call Supabase Edge Function
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/transcribe-audio`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${apiKey}`,
+          'Authorization': `Bearer ${session?.access_token || ''}`,
         },
         body: formData,
       });
 
-      if (!whisperResponse.ok) {
-        const errorData = await whisperResponse.text();
-        console.error('Whisper API error:', errorData);
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('Edge Function error:', errorData);
         return null;
       }
 
-      const result = await whisperResponse.json();
-      const transcription = result.text;
+      const result = await response.json();
 
-      console.log('Transcription completed:', transcription?.substring(0, 100) + '...');
-
-      // Check for hallucination or empty transcription
-      if (isHallucinationOrEmpty(transcription)) {
+      if (result.isEmptyOrHallucination) {
         console.log('Transcription appears to be empty or hallucination');
         return 'ERROR_EMPTY';
       }
 
-      return transcription;
+      console.log('Transcription completed:', result.transcription?.substring(0, 100) + '...');
+      return result.transcription;
     } catch (error) {
       console.error('Error transcribing audio:', error);
       return null;
