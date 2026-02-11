@@ -43,20 +43,37 @@ sudo systemctl enable nginx
 
 ---
 
-## Etap 2: Konfiguracja domeny (darmowa opcja)
+## Etap 2: Konfiguracja domeny
 
-### 2.1 DuckDNS
+### Zalecane rejestratory (PL)
 
-1. Zarejestruj się na https://www.duckdns.org (przez GitHub/Google)
-2. Utwórz subdomenę, np. `teamtalk-api`
-3. Zapisz token
+| Rejestrator | Cena .pl | Cena .com |
+|-------------|----------|-----------|
+| OVH | ~29 zł/rok | ~49 zł/rok |
+| home.pl | ~39 zł/rok | ~59 zł/rok |
+| nazwa.pl | ~35 zł/rok | ~55 zł/rok |
+| Cloudflare | - | ~45 zł/rok |
 
-```bash
-# Skrypt aktualizacji IP (cron co 5 min)
-echo "*/5 * * * * curl -s 'https://www.duckdns.org/update?domains=teamtalk-api&token=TWOJ_TOKEN&ip='" | crontab -
+### 2.1 Rejestracja domeny
+
+1. Zarejestruj domenę, np. `teamtalk.pl` lub `ekotak-api.pl`
+2. Skonfiguruj DNS:
+
+```
+Typ     Nazwa           Wartość              TTL
+A       api             <IP_TWOJEGO_SERWERA> 3600
+A       @               <IP_TWOJEGO_SERWERA> 3600
 ```
 
-Wynik: `teamtalk-api.duckdns.org`
+Wynik: `api.teamtalk.pl` lub `api.ekotak.pl`
+
+### 2.2 Sprawdzenie propagacji DNS
+
+```bash
+# Poczekaj 5-30 minut po zmianie DNS
+nslookup api.teamtalk.pl
+dig api.teamtalk.pl
+```
 
 ---
 
@@ -108,14 +125,14 @@ POSTGRES_PORT=5432
 ############
 # API
 ############
-SITE_URL=https://teamtalk-api.duckdns.org
-API_EXTERNAL_URL=https://teamtalk-api.duckdns.org
+SITE_URL=https://api.teamtalk.pl
+API_EXTERNAL_URL=https://api.teamtalk.pl
 
 ############
 # Studio
 ############
 STUDIO_PORT=3000
-SUPABASE_PUBLIC_URL=https://teamtalk-api.duckdns.org
+SUPABASE_PUBLIC_URL=https://api.teamtalk.pl
 
 ############
 # Auth
@@ -153,7 +170,7 @@ sudo nano /etc/nginx/sites-available/supabase
 ```nginx
 server {
     listen 80;
-    server_name teamtalk-api.duckdns.org;
+    server_name api.teamtalk.pl;
 
     location / {
         proxy_pass http://localhost:8000;
@@ -173,7 +190,7 @@ server {
 # Studio (opcjonalnie - dostęp do dashboardu)
 server {
     listen 80;
-    server_name studio.teamtalk-api.duckdns.org;
+    server_name studio.api.teamtalk.pl;
 
     location / {
         proxy_pass http://localhost:3000;
@@ -193,7 +210,7 @@ sudo systemctl reload nginx
 ### 4.3 Certyfikat SSL
 
 ```bash
-sudo certbot --nginx -d teamtalk-api.duckdns.org
+sudo certbot --nginx -d api.teamtalk.pl
 ```
 
 ---
@@ -224,7 +241,7 @@ psql "postgresql://postgres:[LOCAL_PASSWORD]@localhost:5432/postgres" < schema.s
 
 `.env.production` (self-hosted):
 ```env
-SUPABASE_URL=https://teamtalk-api.duckdns.org
+SUPABASE_URL=https://api.teamtalk.pl
 SUPABASE_ANON_KEY=<twoj_anon_key_z_self_hosted>
 ```
 
@@ -305,7 +322,7 @@ docker compose logs -f rest
 ### Health check
 
 ```bash
-curl https://teamtalk-api.duckdns.org/rest/v1/ -I
+curl https://api.teamtalk.pl/rest/v1/ -I
 ```
 
 ---
@@ -327,9 +344,9 @@ curl https://teamtalk-api.duckdns.org/rest/v1/ -I
 |---------|-------|
 | Serwer domowy | 0 zł (prąd ~20-30 zł/msc) |
 | VPS (alternatywa) | 20-50 zł/msc |
-| Domena DuckDNS | 0 zł |
+| Domena .pl | ~30-40 zł/rok (~3 zł/msc) |
 | SSL Let's Encrypt | 0 zł |
-| **Razem** | **0 - 50 zł/msc** |
+| **Razem** | **~3 - 55 zł/msc** |
 
 vs Supabase Pro: ~100 zł/msc
 
