@@ -43,9 +43,9 @@ coverage/
 .idea/
 google-services.json
 
-#docs
+# docs
+docs/
 TODO.MD
-roadmap.md*.apk
+*.apk
 AppIcons.zip
-MANUAL_TEST.md
 migrations/
