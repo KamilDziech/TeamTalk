@@ -18,12 +18,14 @@ import type { Database } from '@/types';
 export const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl || process.env.SUPABASE_URL;
 const supabaseAnonKey = Constants.expoConfig?.extra?.supabaseAnonKey || process.env.SUPABASE_ANON_KEY;
 
-// Debug logging
-console.log('🔧 Supabase Config:', {
-  urlSet: !!supabaseUrl,
-  keySet: !!supabaseAnonKey,
-  urlPreview: supabaseUrl ? supabaseUrl.substring(0, 30) + '...' : 'NOT SET',
-});
+// Debug logging (only in development)
+if (__DEV__) {
+  console.log('🔧 Supabase Config:', {
+    urlSet: !!supabaseUrl,
+    keySet: !!supabaseAnonKey,
+    urlPreview: supabaseUrl ? supabaseUrl.substring(0, 30) + '...' : 'NOT SET',
+  });
+}
 
 // Validate environment variables
 if (!supabaseUrl) {
@@ -78,7 +80,7 @@ export const isSupabaseConfigured = (): boolean => {
 export const getCurrentSession = async () => {
   const { data, error } = await supabase.auth.getSession();
   if (error) {
-    console.error('Error getting session:', error);
+    if (__DEV__) console.error('Error getting session:', error);
     return null;
   }
   return data.session;
@@ -133,7 +135,7 @@ export const signOut = async () => {
 export const getCurrentUser = async () => {
   const { data: { user }, error } = await supabase.auth.getUser();
   if (error) {
-    console.error('Error getting user:', error);
+    if (__DEV__) console.error('Error getting user:', error);
     return null;
   }
   return user;
@@ -150,7 +152,7 @@ export const getUserProfile = async (userId: string) => {
     .single();
 
   if (error) {
-    console.error('Error getting profile:', error);
+    if (__DEV__) console.error('Error getting profile:', error);
     return null;
   }
   return data;
