@@ -157,23 +157,11 @@ export const VoiceRecordingScreen: React.FC<VoiceRecordingScreenProps> = ({
     if (!audioUri) return;
 
     setState('processing');
-    setProcessingStep('Przesyłanie nagrania...');
+    setProcessingStep('Transkrypcja audio...');
 
     try {
-      // Upload audio
-      setProcessingStep('Przesyłanie nagrania...');
-      const audioUrl = await voiceReportService.uploadAudio(audioUri, callLogId);
-
-      if (!audioUrl) {
-        // Save locally for retry
-        setErrorMessage('Nie udało się przesłać nagrania. Zapisano do ponowienia.');
-        setState('error');
-        return;
-      }
-
-      // Transcribe
-      setProcessingStep('Transkrypcja audio...');
-      const transcriptionResult = await voiceReportService.transcribeAudio(audioUrl);
+      // Transcribe from local file (no upload to storage)
+      const transcriptionResult = await voiceReportService.transcribeAudio(audioUri);
 
       // Check for empty/invalid transcription
       if (transcriptionResult === 'ERROR_EMPTY' || !transcriptionResult) {
@@ -184,16 +172,19 @@ export const VoiceRecordingScreen: React.FC<VoiceRecordingScreenProps> = ({
 
       setTranscription(transcriptionResult);
 
-      // Save to database (no AI summary)
+      // Save to database (text only, no audio URL)
       setProcessingStep('Zapisywanie...');
       const saved = await voiceReportService.saveVoiceReport(
         callLogId,
-        audioUrl,
+        null, // no audio URL - we only keep transcription
         transcriptionResult,
         null // no AI summary
       );
 
       if (saved) {
+        // Delete local audio file after successful save
+        await voiceReportService.deleteLocalAudio(audioUri);
+
         setState('completed');
 
         // Notify team about new voice report

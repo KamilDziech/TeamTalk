@@ -318,29 +318,46 @@ export class VoiceReportService {
   }
 
   /**
-   * Full workflow: Upload, transcribe and save
+   * Delete local audio file
+   */
+  async deleteLocalAudio(audioUri: string): Promise<void> {
+    try {
+      const fileInfo = await FileSystem.getInfoAsync(audioUri);
+      if (fileInfo.exists) {
+        await FileSystem.deleteAsync(audioUri, { idempotent: true });
+        console.log('Local audio file deleted:', audioUri);
+      }
+    } catch (error) {
+      console.error('Error deleting local audio:', error);
+    }
+  }
+
+  /**
+   * Full workflow: Transcribe from local file and save text only
+   * Audio is deleted after successful transcription (not stored in database)
    */
   async processVoiceReport(
     callLogId: string,
     audioUri: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      // Step 1: Upload audio
-      const audioUrl = await this.uploadAudio(audioUri, callLogId);
-      if (!audioUrl) {
+      // Step 1: Transcribe from local file
+      const transcription = await this.transcribeAudio(audioUri);
+
+      if (!transcription) {
         // Save to pending uploads for retry
         await this.addToPendingUploads(callLogId, audioUri);
-        return { success: false, error: 'Failed to upload audio. Saved for retry.' };
+        return { success: false, error: 'Failed to transcribe audio. Saved for retry.' };
       }
 
-      // Step 2: Transcribe
-      const transcription = await this.transcribeAudio(audioUrl);
-
-      // Step 3: Save to database (no AI summary)
-      const saved = await this.saveVoiceReport(callLogId, audioUrl, transcription, null);
+      // Step 2: Save to database (text only, no audio URL)
+      const saved = await this.saveVoiceReport(callLogId, null, transcription, null);
       if (!saved) {
         return { success: false, error: 'Failed to save voice report to database.' };
       }
+
+      // Step 3: Delete local audio file after successful save
+      await this.deleteLocalAudio(audioUri);
 
       return { success: true };
     } catch (error) {
