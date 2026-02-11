@@ -5,7 +5,7 @@
  * Refactored: SafeArea fix, pull-to-refresh, consistent styling.
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -17,8 +17,10 @@ import {
   SafeAreaView,
   StatusBar,
   Platform,
+  TextInput,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { MaterialIcons } from '@expo/vector-icons';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useClients } from '@/hooks/useClients';
 import { contactLookupService } from '@/services/ContactLookupService';
@@ -36,6 +38,27 @@ export const ClientsList: React.FC = () => {
   const styles = createStyles(colors);
   const { clients, loading, error, refetch } = useClients();
   const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Filter clients based on search query
+  const filteredClients = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return clients;
+    }
+    const query = searchQuery.toLowerCase();
+    return clients.filter((client) => {
+      const deviceContactName = contactLookupService.lookupContactName(client.phone) || '';
+      const clientName = client.name?.toLowerCase() || '';
+      const phone = client.phone?.toLowerCase() || '';
+      const address = client.address?.toLowerCase() || '';
+      return (
+        deviceContactName.toLowerCase().includes(query) ||
+        clientName.includes(query) ||
+        phone.includes(query) ||
+        address.includes(query)
+      );
+    });
+  }, [searchQuery, clients]);
 
   // Load device contacts for caller ID
   useEffect(() => {
@@ -58,7 +81,28 @@ export const ClientsList: React.FC = () => {
   const ScreenHeader = () => (
     <View style={styles.headerContainer}>
       <Text style={styles.headerTitle}>Historia</Text>
-      <Text style={styles.headerCount}>{clients.length}</Text>
+      <Text style={styles.headerCount}>{filteredClients.length}</Text>
+    </View>
+  );
+
+  // Search Bar
+  const SearchBar = () => (
+    <View style={styles.searchContainer}>
+      <MaterialIcons name="search" size={20} color={colors.textTertiary} />
+      <TextInput
+        style={styles.searchInput}
+        placeholder="Szukaj po nazwie lub numerze..."
+        placeholderTextColor={colors.textTertiary}
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        autoCorrect={false}
+        autoCapitalize="none"
+      />
+      {searchQuery.length > 0 && (
+        <TouchableOpacity onPress={() => setSearchQuery('')}>
+          <MaterialIcons name="close" size={20} color={colors.textTertiary} />
+        </TouchableOpacity>
+      )}
     </View>
   );
 
@@ -139,8 +183,9 @@ export const ClientsList: React.FC = () => {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
       <ScreenHeader />
+      <SearchBar />
       <FlatList
-        data={clients}
+        data={filteredClients}
         renderItem={renderClient}
         keyExtractor={(item) => item.id}
         ItemSeparatorComponent={ItemSeparator}
@@ -198,6 +243,26 @@ const createStyles = (colors: ReturnType<typeof import('@/contexts/ThemeContext'
       paddingHorizontal: spacing.sm,
       paddingVertical: 2,
       borderRadius: radius.sm,
+    },
+    searchContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      marginHorizontal: spacing.lg,
+      marginTop: spacing.md,
+      marginBottom: spacing.sm,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    searchInput: {
+      flex: 1,
+      marginLeft: spacing.sm,
+      fontSize: typography.base,
+      color: colors.textPrimary,
+      paddingVertical: spacing.xs,
     },
     centerContainer: {
       flex: 1,
