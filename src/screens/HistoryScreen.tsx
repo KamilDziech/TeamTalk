@@ -36,6 +36,16 @@ export interface HistoryItem {
   voiceReport: VoiceReport | null; // Can be null if user clicked "Skip" without adding note
 }
 
+// Grouped history item - multiple calls from same client shown as one entry
+export interface HistoryGroup {
+  callerPhone: string;
+  client: Client | null;
+  callLogs: CallLog[];
+  voiceReport: VoiceReport | null; // Latest voice report (if any)
+  latestTimestamp: string;
+  callCount: number;
+}
+
 type NavigationProp = NativeStackNavigationProp<HistoryStackParamList, 'HistoryList'>;
 
 /**
@@ -72,8 +82,8 @@ export const HistoryScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
   const { colors, isDark } = useTheme();
   const styles = createStyles(colors);
-  const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
-  const [filteredItems, setFilteredItems] = useState<HistoryItem[]>([]);
+  const [historyGroups, setHistoryGroups] = useState<HistoryGroup[]>([]);
+  const [filteredGroups, setFilteredGroups] = useState<HistoryGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -118,8 +128,8 @@ export const HistoryScreen: React.FC = () => {
 
       if (!callLogs || callLogs.length === 0) {
         console.log('📜 Historia: No completed calls found, clearing list');
-        setHistoryItems([]);
-        setFilteredItems([]);
+        setHistoryGroups([]);
+        setFilteredGroups([]);
         return;
       }
 
@@ -141,8 +151,8 @@ export const HistoryScreen: React.FC = () => {
 
       // Show ALL completed calls (with or without voice reports)
       if (callLogs.length === 0) {
-        setHistoryItems([]);
-        setFilteredItems([]);
+        setHistoryGroups([]);
+        setFilteredGroups([]);
         return;
       }
 
@@ -162,15 +172,48 @@ export const HistoryScreen: React.FC = () => {
         clientMap = new Map(clients?.map((c) => [c.id, c]) || []);
       }
 
-      // Combine data - show all completed (with or without voice reports)
-      const items: HistoryItem[] = callLogs.map((callLog) => ({
-        callLog,
-        client: callLog.client_id ? clientMap.get(callLog.client_id) || null : null,
-        voiceReport: voiceReportMap.get(callLog.id) || null, // Can be null if skipped
-      }));
+      // Group call logs by caller_phone
+      const groupedByPhone = new Map<string, CallLog[]>();
+      for (const callLog of callLogs) {
+        const phone = callLog.caller_phone || 'unknown';
+        if (!groupedByPhone.has(phone)) {
+          groupedByPhone.set(phone, []);
+        }
+        groupedByPhone.get(phone)!.push(callLog);
+      }
 
-      setHistoryItems(items);
-      setFilteredItems(items);
+      // Create grouped items
+      const groups: HistoryGroup[] = [];
+      for (const [callerPhone, logs] of groupedByPhone) {
+        // Sort by timestamp descending to get latest first
+        logs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        const latestLog = logs[0];
+
+        // Find any voice report from these call logs (prefer the one with transcription)
+        let voiceReport: VoiceReport | null = null;
+        for (const log of logs) {
+          const vr = voiceReportMap.get(log.id);
+          if (vr) {
+            voiceReport = vr;
+            break; // Use first found (latest)
+          }
+        }
+
+        groups.push({
+          callerPhone,
+          client: latestLog.client_id ? clientMap.get(latestLog.client_id) || null : null,
+          callLogs: logs,
+          voiceReport,
+          latestTimestamp: latestLog.timestamp,
+          callCount: logs.length,
+        });
+      }
+
+      // Sort groups by latest timestamp
+      groups.sort((a, b) => new Date(b.latestTimestamp).getTime() - new Date(a.latestTimestamp).getTime());
+
+      setHistoryGroups(groups);
+      setFilteredGroups(groups);
     } catch (error) {
       console.error('Error in fetchHistory:', error);
     } finally {
@@ -187,20 +230,20 @@ export const HistoryScreen: React.FC = () => {
     }, [fetchHistory])
   );
 
-  // Filter items when search query changes
+  // Filter groups when search query changes
   useEffect(() => {
     if (!searchQuery.trim()) {
-      setFilteredItems(historyItems);
+      setFilteredGroups(historyGroups);
       return;
     }
 
     const query = searchQuery.toLowerCase();
-    const filtered = historyItems.filter((item) => {
-      const phoneNumber = item.client?.phone || item.callLog.caller_phone || '';
+    const filtered = historyGroups.filter((group) => {
+      const phoneNumber = group.client?.phone || group.callerPhone || '';
       const deviceContactName = contactLookupService.lookupContactName(phoneNumber) || '';
-      const clientName = item.client?.name?.toLowerCase() || '';
-      const callerPhone = item.callLog.caller_phone?.toLowerCase() || '';
-      const transcription = item.voiceReport?.transcription?.toLowerCase() || '';
+      const clientName = group.client?.name?.toLowerCase() || '';
+      const callerPhone = group.callerPhone?.toLowerCase() || '';
+      const transcription = group.voiceReport?.transcription?.toLowerCase() || '';
       return (
         deviceContactName.toLowerCase().includes(query) ||
         clientName.includes(query) ||
@@ -208,8 +251,8 @@ export const HistoryScreen: React.FC = () => {
         transcription.includes(query)
       );
     });
-    setFilteredItems(filtered);
-  }, [searchQuery, historyItems]);
+    setFilteredGroups(filtered);
+  }, [searchQuery, historyGroups]);
 
   const handleRefresh = () => {
     console.log('📜 Historia: handleRefresh called');
@@ -217,36 +260,46 @@ export const HistoryScreen: React.FC = () => {
     fetchHistory();
   };
 
-  const handleRowPress = (item: HistoryItem) => {
-    // If has voice report - show detail view
-    if (item.voiceReport) {
+  const handleRowPress = (group: HistoryGroup) => {
+    // Navigate to detail view with the first call log that has voice report
+    // or just the latest call log if no voice report
+    const callLogWithReport = group.callLogs.find(cl =>
+      group.voiceReport && group.voiceReport.call_log_id === cl.id
+    ) || group.callLogs[0];
+
+    const item: HistoryItem = {
+      callLog: callLogWithReport,
+      client: group.client,
+      voiceReport: group.voiceReport,
+    };
+
+    if (group.voiceReport) {
       navigation.navigate('NoteDetail', { item });
     }
-    // If no voice report (skipped) - do nothing or show a message
-    // User can see it's skipped by the orange microphone icon
+    // If no voice report (all skipped) - do nothing
   };
 
-  // Render minimalist row
-  const renderRow = ({ item }: { item: HistoryItem }) => {
+  // Render grouped row
+  const renderRow = ({ item: group }: { item: HistoryGroup }) => {
     // Get display name from device contacts or CRM
-    const phoneNumber = item.client?.phone || item.callLog.caller_phone || null;
+    const phoneNumber = group.client?.phone || group.callerPhone || null;
     const deviceContactName = contactLookupService.lookupContactName(phoneNumber);
-    const crmClientName = item.client?.name || null;
+    const crmClientName = group.client?.name || null;
 
     const hasContactName = !!(deviceContactName || crmClientName);
     const displayPrimary = deviceContactName || crmClientName || phoneNumber || 'Nieznany';
     const displaySecondary = hasContactName ? phoneNumber : null;
 
     // Format time
-    const relativeTime = formatRelativeTime(item.callLog.timestamp);
+    const relativeTime = formatRelativeTime(group.latestTimestamp);
 
     // Check if has voice report
-    const hasVoiceReport = !!item.voiceReport;
+    const hasVoiceReport = !!group.voiceReport;
 
     return (
       <TouchableOpacity
         style={styles.row}
-        onPress={() => handleRowPress(item)}
+        onPress={() => handleRowPress(group)}
         activeOpacity={0.7}
       >
         {/* Left: Icon - check-circle for with note, mic-none for skipped */}
@@ -258,11 +311,18 @@ export const HistoryScreen: React.FC = () => {
           />
         </View>
 
-        {/* Center: Name/Phone + Subtitle */}
+        {/* Center: Name/Phone + Subtitle + Call count */}
         <View style={styles.rowCenter}>
-          <Text style={styles.primaryText} numberOfLines={1}>
-            {displayPrimary}
-          </Text>
+          <View style={styles.rowCenterTop}>
+            <Text style={styles.primaryText} numberOfLines={1}>
+              {displayPrimary}
+            </Text>
+            {group.callCount > 1 && (
+              <View style={styles.callCountBadge}>
+                <Text style={styles.callCountText}>{group.callCount}</Text>
+              </View>
+            )}
+          </View>
           {displaySecondary && (
             <Text style={styles.secondaryText} numberOfLines={1}>
               {displaySecondary}
@@ -325,14 +385,14 @@ export const HistoryScreen: React.FC = () => {
 
       {/* Results count */}
       <Text style={styles.resultsCount}>
-        {filteredItems.length} {filteredItems.length === 1 ? 'rozmowa' : 'rozmów'}
+        {filteredGroups.length} {filteredGroups.length === 1 ? 'klient' : 'klientów'}
         {searchQuery ? ` dla "${searchQuery}"` : ''}
       </Text>
 
       {/* List */}
       <FlatList
-        data={filteredItems}
-        keyExtractor={(item) => item.callLog.id}
+        data={filteredGroups}
+        keyExtractor={(group) => group.callerPhone}
         renderItem={renderRow}
         ItemSeparatorComponent={ItemSeparator}
         contentContainerStyle={styles.listContent}
@@ -438,6 +498,22 @@ const createStyles = (colors: ReturnType<typeof import('@/contexts/ThemeContext'
     },
     rowCenter: {
       flex: 1,
+    },
+    rowCenterTop: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    callCountBadge: {
+      backgroundColor: colors.primary,
+      borderRadius: 10,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      marginLeft: spacing.sm,
+    },
+    callCountText: {
+      fontSize: typography.xs,
+      fontWeight: typography.bold,
+      color: colors.textInverse,
     },
     primaryText: {
       fontSize: typography.lg,

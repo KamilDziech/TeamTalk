@@ -19,7 +19,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/api/supabaseClient';
-import { voiceReportService } from '@/services/VoiceReportService';
 import { contactLookupService } from '@/services/ContactLookupService';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { Client, CallLog, VoiceReport, Profile } from '@/types';
@@ -48,7 +47,6 @@ export const ClientTimelineScreen: React.FC<Props> = ({ route, navigation }) => 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
-  const [playingAudio, setPlayingAudio] = useState<string | null>(null);
 
   const handleEditClient = () => {
     navigation.navigate('EditClient', {
@@ -190,24 +188,6 @@ export const ClientTimelineScreen: React.FC<Props> = ({ route, navigation }) => 
     });
   };
 
-  const handlePlayAudio = async (audioUrl: string, callLogId: string) => {
-    try {
-      if (playingAudio === callLogId) {
-        await voiceReportService.stopPlayback();
-        setPlayingAudio(null);
-      } else {
-        if (playingAudio) {
-          await voiceReportService.stopPlayback();
-        }
-        setPlayingAudio(callLogId);
-        await voiceReportService.playAudio(audioUrl);
-      }
-    } catch (error) {
-      console.error('Error playing audio:', error);
-      setPlayingAudio(null);
-    }
-  };
-
   const handleCall = () => {
     Linking.openURL(`tel:${client.phone}`);
   };
@@ -296,7 +276,6 @@ export const ClientTimelineScreen: React.FC<Props> = ({ route, navigation }) => 
 
   const renderTimelineItem = ({ item, index }: { item: TimelineItem; index: number }) => {
     const isExpanded = expandedItems.has(item.callLog.id);
-    const isPlaying = playingAudio === item.callLog.id;
     const hasVoiceReport = !!item.voiceReport;
 
     return (
@@ -350,31 +329,16 @@ export const ClientTimelineScreen: React.FC<Props> = ({ route, navigation }) => 
           )}
 
           {/* Action Buttons */}
-          {hasVoiceReport && (
+          {hasVoiceReport && item.voiceReport?.transcription && (
             <View style={styles.actions}>
-              {item.voiceReport?.audio_url && (
-                <TouchableOpacity
-                  style={[styles.actionButton, isPlaying && styles.actionButtonActive]}
-                  onPress={() =>
-                    handlePlayAudio(item.voiceReport!.audio_url!, item.callLog.id)
-                  }
-                >
-                  <Text style={styles.actionButtonText}>
-                    {isPlaying ? '⏹ Stop' : '▶ Odtwórz'}
-                  </Text>
-                </TouchableOpacity>
-              )}
-
-              {item.voiceReport?.transcription && (
-                <TouchableOpacity
-                  style={[styles.actionButton, styles.actionButtonSecondary]}
-                  onPress={() => toggleExpanded(item.callLog.id)}
-                >
-                  <Text style={styles.actionButtonTextSecondary}>
-                    {isExpanded ? '▲ Zwiń' : '▼ Notatka'}
-                  </Text>
-                </TouchableOpacity>
-              )}
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={() => toggleExpanded(item.callLog.id)}
+              >
+                <Text style={styles.actionButtonText}>
+                  {isExpanded ? '▲ Zwiń' : '▼ Notatka'}
+                </Text>
+              </TouchableOpacity>
             </View>
           )}
 
@@ -687,26 +651,15 @@ const createStyles = (colors: ReturnType<typeof import('@/contexts/ThemeContext'
     },
     actionButton: {
       flex: 1,
-      backgroundColor: colors.primary,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.primary,
       paddingVertical: 8,
       paddingHorizontal: 12,
       borderRadius: 6,
       alignItems: 'center',
     },
-    actionButtonActive: {
-      backgroundColor: colors.error,
-    },
-    actionButtonSecondary: {
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.primary,
-    },
     actionButtonText: {
-      color: colors.textInverse,
-      fontSize: 13,
-      fontWeight: '600',
-    },
-    actionButtonTextSecondary: {
       color: colors.primary,
       fontSize: 13,
       fontWeight: '600',

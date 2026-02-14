@@ -16,7 +16,6 @@ import {
 } from 'react-native';
 import { useRoute, RouteProp } from '@react-navigation/native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { voiceReportService } from '@/services/VoiceReportService';
 import { contactLookupService } from '@/services/ContactLookupService';
 import { useTheme } from '@/contexts/ThemeContext';
 import { spacing, radius, typography } from '@/styles/theme';
@@ -74,7 +73,6 @@ export const NoteDetailScreen: React.FC = () => {
     const { item } = route.params;
     const { colors } = useTheme();
     const styles = createStyles(colors);
-    const [isPlaying, setIsPlaying] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
 
     // Get display name from device contacts or CRM
@@ -83,23 +81,6 @@ export const NoteDetailScreen: React.FC = () => {
     const crmClientName = item.client?.name || null;
     const displayName = deviceContactName || crmClientName || phoneNumber || 'Nieznany numer';
     const displayPhone = (deviceContactName || crmClientName) ? phoneNumber : null;
-
-    const handlePlayAudio = async () => {
-        if (!item.voiceReport.audio_url) return;
-
-        try {
-            if (isPlaying) {
-                await voiceReportService.stopPlayback();
-                setIsPlaying(false);
-            } else {
-                setIsPlaying(true);
-                await voiceReportService.playAudio(item.voiceReport.audio_url);
-            }
-        } catch (error) {
-            console.error('Error playing audio:', error);
-            setIsPlaying(false);
-        }
-    };
 
     const onRefresh = () => {
         setRefreshing(true);
@@ -187,23 +168,6 @@ export const NoteDetailScreen: React.FC = () => {
                         </Text>
                     </View>
                 </View>
-            )}
-
-            {/* Audio Player */}
-            {item.voiceReport.audio_url && (
-                <TouchableOpacity
-                    style={[styles.audioButton, isPlaying && styles.audioButtonActive]}
-                    onPress={handlePlayAudio}
-                >
-                    <MaterialIcons
-                        name={isPlaying ? 'stop' : 'play-arrow'}
-                        size={24}
-                        color={isPlaying ? colors.textInverse : colors.primary}
-                    />
-                    <Text style={[styles.audioButtonText, isPlaying && styles.audioButtonTextActive]}>
-                        {isPlaying ? 'Zatrzymaj' : 'Odtwórz nagranie'}
-                    </Text>
-                </TouchableOpacity>
             )}
 
             {/* Info Footer */}
@@ -315,33 +279,6 @@ const createStyles = (colors: ReturnType<typeof import('@/contexts/ThemeContext'
             fontSize: typography.base,
             color: colors.textPrimary,
             lineHeight: 26,
-        },
-
-        // Audio Button
-        audioButton: {
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: 'transparent',
-            borderWidth: 1,
-            borderColor: colors.primary,
-            borderRadius: radius.lg,
-            paddingVertical: spacing.md,
-            paddingHorizontal: spacing.lg,
-            marginBottom: spacing.lg,
-        },
-        audioButtonActive: {
-            backgroundColor: colors.error,
-            borderColor: colors.error,
-        },
-        audioButtonText: {
-            fontSize: typography.base,
-            fontWeight: typography.semibold,
-            color: colors.primary,
-            marginLeft: spacing.sm,
-        },
-        audioButtonTextActive: {
-            color: colors.textInverse,
         },
 
         // Footer

@@ -38,7 +38,7 @@ interface VoiceRecordingScreenProps {
   onCancel: () => void;
 }
 
-type RecordingState = 'idle' | 'recording' | 'recorded' | 'processing' | 'completed' | 'error';
+type RecordingState = 'idle' | 'recording' | 'recorded' | 'transcribing' | 'review' | 'saving' | 'completed' | 'error';
 
 const MIN_RECORDING_DURATION_SECONDS = 2;
 
@@ -152,11 +152,11 @@ export const VoiceRecordingScreen: React.FC<VoiceRecordingScreenProps> = ({
     }
   };
 
-  // Process and save the recording
+  // Process recording - transcribe and show for review
   const handleSaveRecording = async () => {
     if (!audioUri) return;
 
-    setState('processing');
+    setState('transcribing');
     setProcessingStep('Transkrypcja audio...');
 
     try {
@@ -171,19 +171,38 @@ export const VoiceRecordingScreen: React.FC<VoiceRecordingScreenProps> = ({
       }
 
       setTranscription(transcriptionResult);
+      // Go to review state where user can edit transcription
+      setState('review');
+    } catch (error) {
+      console.error('Error transcribing:', error);
+      setErrorMessage('Wystąpił błąd podczas transkrypcji.');
+      setState('error');
+    }
+  };
 
-      // Save to database (text only, no audio URL)
-      setProcessingStep('Zapisywanie...');
+  // Confirm and save the edited transcription
+  const handleConfirmSave = async () => {
+    if (!transcription?.trim()) {
+      Alert.alert('Błąd', 'Notatka nie może być pusta');
+      return;
+    }
+
+    setState('saving');
+    setProcessingStep('Zapisywanie...');
+
+    try {
       const saved = await voiceReportService.saveVoiceReport(
         callLogId,
         null, // no audio URL - we only keep transcription
-        transcriptionResult,
+        transcription.trim(),
         null // no AI summary
       );
 
       if (saved) {
         // Delete local audio file after successful save
-        await voiceReportService.deleteLocalAudio(audioUri);
+        if (audioUri) {
+          await voiceReportService.deleteLocalAudio(audioUri);
+        }
 
         setState('completed');
 
@@ -194,8 +213,8 @@ export const VoiceRecordingScreen: React.FC<VoiceRecordingScreenProps> = ({
         setState('error');
       }
     } catch (error) {
-      console.error('Error processing recording:', error);
-      setErrorMessage('Wystąpił błąd podczas przetwarzania.');
+      console.error('Error saving:', error);
+      setErrorMessage('Wystąpił błąd podczas zapisywania.');
       setState('error');
     }
   };
@@ -350,12 +369,40 @@ export const VoiceRecordingScreen: React.FC<VoiceRecordingScreenProps> = ({
           </View>
         );
 
-      case 'processing':
+      case 'transcribing':
+      case 'saving':
         return (
           <View style={styles.processingContainer}>
             <ActivityIndicator size="large" color="#007AFF" />
             <Text style={styles.processingText}>{processingStep}</Text>
           </View>
+        );
+
+      case 'review':
+        return (
+          <KeyboardAvoidingView
+            style={styles.reviewContainer}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          >
+            <ScrollView style={styles.reviewScroll} keyboardShouldPersistTaps="handled">
+              <Text style={styles.reviewLabel}>Sprawdź i popraw transkrypcję:</Text>
+              <TextInput
+                style={styles.reviewInput}
+                multiline
+                value={transcription || ''}
+                onChangeText={setTranscription}
+                autoFocus
+              />
+              <View style={styles.reviewButtons}>
+                <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
+                  <Text style={styles.retryButtonText}>🔄 Nagraj ponownie</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.confirmButton} onPress={handleConfirmSave}>
+                  <Text style={styles.confirmButtonText}>✓ Zapisz</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </KeyboardAvoidingView>
         );
 
       case 'completed':
@@ -661,6 +708,50 @@ const createStyles = (colors: ReturnType<typeof import('@/contexts/ThemeContext'
     color: colors.error,
     textAlign: 'center',
     marginBottom: spacing.lg,
+  },
+  // Review transcription styles
+  reviewContainer: {
+    flex: 1,
+    width: '100%',
+  },
+  reviewScroll: {
+    flex: 1,
+    padding: spacing.lg,
+  },
+  reviewLabel: {
+    fontSize: typography.base,
+    fontWeight: typography.semibold,
+    color: colors.textPrimary,
+    marginBottom: spacing.md,
+  },
+  reviewInput: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.lg,
+    fontSize: typography.base,
+    color: colors.textPrimary,
+    minHeight: 150,
+    textAlignVertical: 'top',
+  },
+  reviewButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: spacing.xl,
+    gap: spacing.md,
+  },
+  confirmButton: {
+    flex: 1,
+    backgroundColor: colors.success,
+    paddingVertical: spacing.lg,
+    borderRadius: radius.md,
+    alignItems: 'center',
+  },
+  confirmButtonText: {
+    fontSize: typography.base,
+    color: colors.textInverse,
+    fontWeight: typography.bold,
   },
   // Text note form styles
   textNoteContainer: {

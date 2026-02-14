@@ -185,7 +185,7 @@ export const AddNoteScreen: React.FC = () => {
     const displayName = callLog.client?.name || callLog.caller_phone || 'Nieznany numer';
     Alert.alert(
       'Pomiń połączenie',
-      `Czy na pewno chcesz pominąć to połączenie bez dodawania notatki?\n\nKlient: ${displayName}\n\nPołączenie pojawi się w Historii bez notatki (pomarańczowa ikona mikrofonu).`,
+      `Czy na pewno chcesz pominąć to połączenie bez dodawania notatki?\n\nKlient: ${displayName}`,
       [
         { text: 'Anuluj', style: 'cancel' },
         {

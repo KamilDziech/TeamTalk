@@ -24,6 +24,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { simDetectionService } from './SimDetectionService';
 
 const LAST_SCAN_KEY = 'calllog_last_scan_timestamp';
+const NOTIFICATIONS_ENABLED_KEY = '@push_notifications_enabled';
 
 interface CallLogEntry {
   phoneNumber: string;
@@ -516,10 +517,31 @@ export class CallLogScanner {
   }
 
   /**
+   * Check if notifications are enabled in user settings
+   */
+  private async areNotificationsEnabled(): Promise<boolean> {
+    try {
+      const stored = await AsyncStorage.getItem(NOTIFICATIONS_ENABLED_KEY);
+      // Default to true if not set
+      return stored === null || stored === 'true';
+    } catch (error) {
+      console.error('Error checking notification state:', error);
+      return true; // Default to enabled on error
+    }
+  }
+
+  /**
    * Send local notification about missed call from known client
    */
   private async sendMissedCallNotification(client: Client): Promise<void> {
     try {
+      // Check if notifications are enabled in settings
+      const enabled = await this.areNotificationsEnabled();
+      if (!enabled) {
+        console.log('📵 Notifications disabled, skipping notification');
+        return;
+      }
+
       await Notifications.scheduleNotificationAsync({
         content: {
           title: '🔴 Nieodebrane połączenie',
@@ -538,6 +560,13 @@ export class CallLogScanner {
    */
   private async sendUnknownCallerNotification(phoneNumber: string): Promise<void> {
     try {
+      // Check if notifications are enabled in settings
+      const enabled = await this.areNotificationsEnabled();
+      if (!enabled) {
+        console.log('📵 Notifications disabled, skipping notification');
+        return;
+      }
+
       await Notifications.scheduleNotificationAsync({
         content: {
           title: '🔒 Potencjalny klient',
