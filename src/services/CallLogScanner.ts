@@ -264,27 +264,37 @@ export class CallLogScanner {
         }
 
         // Create new call log with current user as first recipient
+        // Only send notification if the call log was actually created (not a duplicate)
+        let created = false;
         if (client) {
           // KNOWN CLIENT
-          await this.createMissedCallLog(client, callDate, normalizedNumber, currentUserId);
-          await this.sendMissedCallNotification(client);
-          console.log(`✅ NEW call from: ${client.name} (${call.phoneNumber}) at ${callDate.toLocaleString()}`);
+          created = await this.createMissedCallLog(client, callDate, normalizedNumber, currentUserId);
+          if (created) {
+            await this.sendMissedCallNotification(client);
+            console.log(`✅ NEW call from: ${client.name} (${call.phoneNumber}) at ${callDate.toLocaleString()}`);
+          }
         } else {
           // UNKNOWN NUMBER - auto-create client
           const newClient = await this.createClientFromPhoneNumber(normalizedNumber, call.phoneNumber);
           if (newClient) {
-            await this.createMissedCallLog(newClient, callDate, normalizedNumber, currentUserId);
-            await this.sendMissedCallNotification(newClient);
-            console.log(`✅ NEW call from auto-created client: ${newClient.phone} (${call.phoneNumber}) at ${callDate.toLocaleString()}`);
+            created = await this.createMissedCallLog(newClient, callDate, normalizedNumber, currentUserId);
+            if (created) {
+              await this.sendMissedCallNotification(newClient);
+              console.log(`✅ NEW call from auto-created client: ${newClient.phone} (${call.phoneNumber}) at ${callDate.toLocaleString()}`);
+            }
           } else {
             // Fallback if client creation fails
-            await this.createUnknownCallerLog(normalizedNumber, call.phoneNumber, callDate, currentUserId);
-            await this.sendUnknownCallerNotification(call.phoneNumber);
-            console.log(`📞 NEW call from unknown (client creation failed): ${call.phoneNumber} at ${callDate.toLocaleString()}`);
+            created = await this.createUnknownCallerLog(normalizedNumber, call.phoneNumber, callDate, currentUserId);
+            if (created) {
+              await this.sendUnknownCallerNotification(call.phoneNumber);
+              console.log(`📞 NEW call from unknown (client creation failed): ${call.phoneNumber} at ${callDate.toLocaleString()}`);
+            }
           }
         }
 
-        newCallsCount++;
+        if (created) {
+          newCallsCount++;
+        }
       }
 
       // Update last scan timestamp do TERAZ (nie do ostatniego połączenia)
@@ -322,13 +332,14 @@ export class CallLogScanner {
    * Create a call_logs entry for missed call from KNOWN client
    * All calls are shared and visible to entire team
    * Uses dedup_key to prevent duplicates when multiple devices receive same call
+   * @returns true if call log was created, false if duplicate or error
    */
   private async createMissedCallLog(
     client: Client,
     callDate: Date,
     callerPhone: string,
     recipientId: string | null
-  ): Promise<void> {
+  ): Promise<boolean> {
     try {
       const recipients = recipientId ? [recipientId] : [];
       const dedupKey = this.generateDedupKey(client.id, callerPhone, callDate);
@@ -349,16 +360,19 @@ export class CallLogScanner {
       // Ignore duplicate key error (23505) - this is expected for deduplication
       if (error && error.code === '23505') {
         console.log(`Duplicate call already exists (dedup: ${dedupKey}) - ignoring`);
-        return;
+        return false;
       }
 
       if (error) {
         console.error('Error creating call log:', error);
-      } else {
-        console.log(`Created call log for missed call from ${client.name} (dedup: ${dedupKey})`);
+        return false;
       }
+
+      console.log(`Created call log for missed call from ${client.name} (dedup: ${dedupKey})`);
+      return true;
     } catch (error) {
       console.error('Error in createMissedCallLog:', error);
+      return false;
     }
   }
 
@@ -366,13 +380,14 @@ export class CallLogScanner {
    * Create a call_logs entry for missed call from UNKNOWN number
    * All calls are shared and visible to entire team
    * Uses dedup_key to prevent duplicates when multiple devices receive same call
+   * @returns true if call log was created, false if duplicate or error
    */
   private async createUnknownCallerLog(
     normalizedPhone: string,
     originalPhone: string,
     callDate: Date,
     recipientId: string | null
-  ): Promise<void> {
+  ): Promise<boolean> {
     try {
       const recipients = recipientId ? [recipientId] : [];
       const dedupKey = this.generateDedupKey(null, normalizedPhone, callDate);
@@ -393,16 +408,19 @@ export class CallLogScanner {
       // Ignore duplicate key error (23505) - this is expected for deduplication
       if (error && error.code === '23505') {
         console.log(`Duplicate call already exists (dedup: ${dedupKey}) - ignoring`);
-        return;
+        return false;
       }
 
       if (error) {
         console.error('Error creating unknown caller log:', error);
-      } else {
-        console.log(`Created call log for unknown caller: ${originalPhone} (dedup: ${dedupKey})`);
+        return false;
       }
+
+      console.log(`Created call log for unknown caller: ${originalPhone} (dedup: ${dedupKey})`);
+      return true;
     } catch (error) {
       console.error('Error in createUnknownCallerLog:', error);
+      return false;
     }
   }
 
