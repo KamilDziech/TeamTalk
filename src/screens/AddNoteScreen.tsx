@@ -138,35 +138,43 @@ export const AddNoteScreen: React.FC = () => {
   };
 
   const handleRecordingComplete = async () => {
+    console.log('📝 handleRecordingComplete called, selectedCall:', selectedCall?.id);
     if (!selectedCall) return;
 
     // Find and mark all other completed calls from the same phone number as merged
     // This prevents showing duplicate entries when client called multiple times
     try {
       const callerPhone = selectedCall.caller_phone;
+      console.log('📞 Looking for calls to merge with caller_phone:', callerPhone);
 
       if (callerPhone) {
         // Find all other completed calls from same phone number (most reliable grouping)
-        const { data: otherCalls } = await supabase
+        const { data: otherCalls, error: findError } = await supabase
           .from('call_logs')
-          .select('id')
+          .select('id, type, status')
           .eq('status', 'completed')
           .eq('caller_phone', callerPhone)
           .neq('id', selectedCall.id); // Exclude the one we just added note to
 
+        console.log('🔍 Found other calls:', otherCalls, 'Error:', findError);
+
         if (otherCalls && otherCalls.length > 0) {
           // Mark these calls as 'merged' so they won't appear again
           const otherCallIds = otherCalls.map((c: any) => c.id);
-          await supabase
+          const { error: updateError } = await supabase
             .from('call_logs')
             .update({ type: 'merged' })
             .in('id', otherCallIds);
 
-          console.log(`Merged ${otherCalls.length} duplicate completed calls for ${callerPhone}`);
+          console.log(`✅ Merged ${otherCalls.length} calls for ${callerPhone}, updateError:`, updateError);
+        } else {
+          console.log('ℹ️ No other calls to merge');
         }
+      } else {
+        console.log('⚠️ No caller_phone in selectedCall');
       }
     } catch (error) {
-      console.error('Error merging duplicate calls:', error);
+      console.error('❌ Error merging duplicate calls:', error);
     }
 
     setIsRecordingModalVisible(false);

@@ -118,11 +118,12 @@ export const ClientTimelineScreen: React.FC<Props> = ({ route, navigation }) => 
 
   const fetchTimeline = useCallback(async () => {
     try {
-      // Fetch all call_logs for this client
+      // Fetch all call_logs for this client (exclude merged duplicates)
       const { data: callLogs, error: callLogsError } = await supabase
         .from('call_logs')
         .select('*')
         .eq('client_id', client.id)
+        .neq('type', 'merged')
         .order('timestamp', { ascending: false });
 
       if (callLogsError) {
