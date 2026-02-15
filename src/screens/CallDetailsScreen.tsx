@@ -338,7 +338,10 @@ export const CallDetailsScreen: React.FC = () => {
 
             await Promise.all(updatePromises);
 
-            // Navigate to AddNote tab (without auto-opening modal)
+            // First go back to clear this screen from the stack
+            navigation.goBack();
+
+            // Then navigate to AddNote tab
             const rootNavigation = navigation.getParent();
             if (rootNavigation) {
                 rootNavigation.navigate('AddNote');
