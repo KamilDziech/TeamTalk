@@ -26,6 +26,7 @@ export interface CallLog {
   reservation_at: string | null;
   recipients: string[];  // Array of user IDs who received this call
   caller_phone: string | null;
+  merged_into_id: string | null;  // ID of the main call this was merged into
   created_at: string;
   updated_at: string;
 }

@@ -35,6 +35,7 @@ type Props = NativeStackScreenProps<ClientsStackParamList, 'ClientTimeline'>;
 interface TimelineItem {
   callLog: CallLog;
   voiceReport: VoiceReport | null;
+  mergedCalls: CallLog[];  // Other calls that were merged with this one
 }
 
 export const ClientTimelineScreen: React.FC<Props> = ({ route, navigation }) => {
@@ -118,12 +119,11 @@ export const ClientTimelineScreen: React.FC<Props> = ({ route, navigation }) => 
 
   const fetchTimeline = useCallback(async () => {
     try {
-      // Fetch all call_logs for this client (exclude merged duplicates)
+      // Fetch ALL call_logs for this client (including merged)
       const { data: callLogs, error: callLogsError } = await supabase
         .from('call_logs')
         .select('*')
         .eq('client_id', client.id)
-        .neq('type', 'merged')
         .order('timestamp', { ascending: false });
 
       if (callLogsError) {
@@ -151,11 +151,43 @@ export const ClientTimelineScreen: React.FC<Props> = ({ route, navigation }) => 
         voiceReports?.map((vr) => [vr.call_log_id, vr]) || []
       );
 
-      // Combine data
-      const items: TimelineItem[] = callLogs.map((callLog) => ({
-        callLog,
-        voiceReport: voiceReportMap.get(callLog.id) || null,
-      }));
+      // Separate main calls from merged calls
+      const mainCalls = callLogs.filter((cl) => cl.type !== 'merged');
+      const mergedCalls = callLogs.filter((cl) => cl.type === 'merged');
+
+      // Track which merged calls have been assigned
+      const assignedMergedIds = new Set<string>();
+
+      // Group merged calls with their main call
+      const items: TimelineItem[] = mainCalls.map((callLog) => {
+        // First: find merged calls that explicitly point to this call (new behavior)
+        const linkedMerged = mergedCalls.filter(
+          (mc) => mc.merged_into_id === callLog.id
+        );
+        linkedMerged.forEach((mc) => assignedMergedIds.add(mc.id));
+
+        // Second: for calls with voice report, find old merged calls (without merged_into_id)
+        // that have same caller_phone and were merged around the same time
+        let legacyMerged: CallLog[] = [];
+        if (voiceReportMap.has(callLog.id)) {
+          const mainTime = new Date(callLog.timestamp).getTime();
+          legacyMerged = mergedCalls.filter((mc) => {
+            if (assignedMergedIds.has(mc.id)) return false;
+            if (mc.merged_into_id) return false; // Has explicit link, skip
+            if (mc.caller_phone !== callLog.caller_phone) return false;
+            // Only group if within 24 hours
+            const mcTime = new Date(mc.timestamp).getTime();
+            return Math.abs(mcTime - mainTime) < 24 * 60 * 60 * 1000;
+          });
+          legacyMerged.forEach((mc) => assignedMergedIds.add(mc.id));
+        }
+
+        return {
+          callLog,
+          voiceReport: voiceReportMap.get(callLog.id) || null,
+          mergedCalls: [...linkedMerged, ...legacyMerged],
+        };
+      });
 
       setTimelineItems(items);
     } catch (error) {
@@ -278,6 +310,14 @@ export const ClientTimelineScreen: React.FC<Props> = ({ route, navigation }) => 
   const renderTimelineItem = ({ item, index }: { item: TimelineItem; index: number }) => {
     const isExpanded = expandedItems.has(item.callLog.id);
     const hasVoiceReport = !!item.voiceReport;
+    const hasMergedCalls = item.mergedCalls && item.mergedCalls.length > 0;
+    const totalCalls = 1 + (item.mergedCalls?.length || 0);
+
+    // Collect all call timestamps (main + merged), sorted by time
+    const allCallDates = [
+      item.callLog.timestamp,
+      ...(item.mergedCalls?.map((mc) => mc.timestamp) || []),
+    ].sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
 
     return (
       <View style={styles.timelineItem}>
@@ -295,9 +335,16 @@ export const ClientTimelineScreen: React.FC<Props> = ({ route, navigation }) => 
         {/* Content */}
         <View style={styles.timelineContent}>
           <View style={styles.timelineHeader}>
-            <Text style={styles.timelineDate}>
-              {formatDate(item.callLog.timestamp)}
-            </Text>
+            <View>
+              <Text style={styles.timelineDate}>
+                {formatDate(item.callLog.timestamp)}
+              </Text>
+              {hasMergedCalls && (
+                <Text style={styles.callCountLabel}>
+                  📞 {totalCalls} połączeń
+                </Text>
+              )}
+            </View>
             <View
               style={[
                 styles.statusBadge,
@@ -314,6 +361,18 @@ export const ClientTimelineScreen: React.FC<Props> = ({ route, navigation }) => 
               </Text>
             </View>
           </View>
+
+          {/* Show all call dates if there are merged calls */}
+          {hasMergedCalls && (
+            <View style={styles.mergedCallsSection}>
+              <Text style={styles.mergedCallsLabel}>Wszystkie próby połączeń:</Text>
+              {allCallDates.map((date, idx) => (
+                <Text key={idx} style={styles.mergedCallDate}>
+                  • {formatDate(date)}
+                </Text>
+              ))}
+            </View>
+          )}
 
           {item.callLog.reservation_by && (
             <Text style={styles.handledBy}>
@@ -405,7 +464,9 @@ export const ClientTimelineScreen: React.FC<Props> = ({ route, navigation }) => 
       {/* Stats */}
       <View style={styles.statsRow}>
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>{timelineItems.length}</Text>
+          <Text style={styles.statValue}>
+            {timelineItems.reduce((sum, i) => sum + 1 + (i.mergedCalls?.length || 0), 0)}
+          </Text>
           <Text style={styles.statLabel}>Połączeń</Text>
         </View>
         <View style={styles.statItem}>
@@ -416,7 +477,11 @@ export const ClientTimelineScreen: React.FC<Props> = ({ route, navigation }) => 
         </View>
         <View style={styles.statItem}>
           <Text style={styles.statValue}>
-            {timelineItems.filter((i) => i.callLog.status === 'missed').length}
+            {timelineItems.reduce((sum, i) => {
+              const mainMissed = i.callLog.status === 'missed' ? 1 : 0;
+              const mergedMissed = i.mergedCalls?.filter((mc) => mc.status === 'missed').length || 0;
+              return sum + mainMissed + mergedMissed;
+            }, 0)}
           </Text>
           <Text style={styles.statLabel}>Nieodebranych</Text>
         </View>
@@ -603,6 +668,30 @@ const createStyles = (colors: ReturnType<typeof import('@/contexts/ThemeContext'
       fontSize: 12,
       color: colors.textTertiary,
       marginBottom: 8,
+    },
+    callCountLabel: {
+      fontSize: 12,
+      color: colors.primary,
+      fontWeight: '600',
+      marginTop: 2,
+    },
+    mergedCallsSection: {
+      backgroundColor: colors.background,
+      borderRadius: 8,
+      padding: 10,
+      marginBottom: 8,
+    },
+    mergedCallsLabel: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.textSecondary,
+      marginBottom: 4,
+    },
+    mergedCallDate: {
+      fontSize: 12,
+      color: colors.textTertiary,
+      marginLeft: 4,
+      marginTop: 2,
     },
     voiceReportSection: {
       marginTop: 8,

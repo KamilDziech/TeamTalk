@@ -148,25 +148,36 @@ export const AddNoteScreen: React.FC = () => {
       console.log('📞 Looking for calls to merge with caller_phone:', callerPhone);
 
       if (callerPhone) {
-        // Find all other completed calls from same phone number (most reliable grouping)
+        // Find other completed calls from same phone that:
+        // - are NOT already merged/skipped
+        // - do NOT have a voice report (note) already
         const { data: otherCalls, error: findError } = await supabase
           .from('call_logs')
-          .select('id, type, status')
+          .select('id, type, status, voice_reports(id)')
           .eq('status', 'completed')
           .eq('caller_phone', callerPhone)
+          .eq('type', 'completed')  // Only get calls that are not yet merged/skipped
           .neq('id', selectedCall.id); // Exclude the one we just added note to
 
-        console.log('🔍 Found other calls:', otherCalls, 'Error:', findError);
+        // Filter out calls that already have a voice report
+        const callsWithoutNotes = otherCalls?.filter((c: any) =>
+          !c.voice_reports || c.voice_reports.length === 0
+        ) || [];
 
-        if (otherCalls && otherCalls.length > 0) {
-          // Mark these calls as 'merged' so they won't appear again
-          const otherCallIds = otherCalls.map((c: any) => c.id);
+        console.log('🔍 Found other calls to merge:', callsWithoutNotes.length, 'of', otherCalls?.length, 'Error:', findError);
+
+        if (callsWithoutNotes && callsWithoutNotes.length > 0) {
+          // Mark these calls as 'merged' and link to main call
+          const callIds = callsWithoutNotes.map((c: any) => c.id);
           const { error: updateError } = await supabase
             .from('call_logs')
-            .update({ type: 'merged' })
-            .in('id', otherCallIds);
+            .update({
+              type: 'merged',
+              merged_into_id: selectedCall.id  // Link to the main call with the note
+            })
+            .in('id', callIds);
 
-          console.log(`✅ Merged ${otherCalls.length} calls for ${callerPhone}, updateError:`, updateError);
+          console.log(`✅ Merged ${callsWithoutNotes.length} calls for ${callerPhone} into ${selectedCall.id}, updateError:`, updateError);
         } else {
           console.log('ℹ️ No other calls to merge');
         }
