@@ -102,11 +102,12 @@ export const HistoryScreen: React.FC = () => {
   const fetchHistory = useCallback(async () => {
     console.log('📜 Historia: fetchHistory called');
     try {
-      // Fetch completed call_logs
+      // Fetch completed call_logs (exclude 'merged' duplicates - they were grouped with another call)
       const { data: callLogs, error: callLogsError } = await supabase
         .from('call_logs')
         .select('*')
         .eq('status', 'completed')
+        .neq('type', 'merged')
         .order('timestamp', { ascending: false });
 
       console.log('📜 Historia: Query result:', {
@@ -199,13 +200,17 @@ export const HistoryScreen: React.FC = () => {
           }
         }
 
+        // Use call_count from voice_report if available (shows how many calls were grouped when note was recorded)
+        // Otherwise use the number of call logs in this group
+        const callCountFromReport = voiceReport?.call_count || logs.length;
+
         groups.push({
           callerPhone,
           client: latestLog.client_id ? clientMap.get(latestLog.client_id) || null : null,
           callLogs: logs,
           voiceReport,
           latestTimestamp: latestLog.timestamp,
-          callCount: logs.length,
+          callCount: callCountFromReport,
         });
       }
 

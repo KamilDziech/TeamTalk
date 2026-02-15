@@ -282,12 +282,14 @@ export class VoiceReportService {
 
   /**
    * Save voice report to database
+   * @param callCount Number of calls grouped together for this note (default 1)
    */
   async saveVoiceReport(
     callLogId: string,
     audioUrl: string | null,
     transcription: string | null,
-    aiSummary: string | null
+    aiSummary: string | null,
+    callCount: number = 1
   ): Promise<boolean> {
     try {
       console.log('Saving voice report to database...');
@@ -302,6 +304,7 @@ export class VoiceReportService {
         transcription: transcription,
         ai_summary: aiSummary,
         created_by: createdBy,
+        call_count: callCount,
       });
 
       if (error) {
@@ -309,7 +312,7 @@ export class VoiceReportService {
         return false;
       }
 
-      console.log('Voice report saved successfully');
+      console.log(`Voice report saved successfully (call_count: ${callCount})`);
       return true;
     } catch (error) {
       console.error('Error in saveVoiceReport:', error);
@@ -335,10 +338,12 @@ export class VoiceReportService {
   /**
    * Full workflow: Transcribe from local file and save text only
    * Audio is deleted after successful transcription (not stored in database)
+   * @param callCount Number of calls grouped together for this note (default 1)
    */
   async processVoiceReport(
     callLogId: string,
-    audioUri: string
+    audioUri: string,
+    callCount: number = 1
   ): Promise<{ success: boolean; error?: string }> {
     try {
       // Step 1: Transcribe from local file
@@ -351,7 +356,7 @@ export class VoiceReportService {
       }
 
       // Step 2: Save to database (text only, no audio URL)
-      const saved = await this.saveVoiceReport(callLogId, null, transcription, null);
+      const saved = await this.saveVoiceReport(callLogId, null, transcription, null, callCount);
       if (!saved) {
         return { success: false, error: 'Failed to save voice report to database.' };
       }

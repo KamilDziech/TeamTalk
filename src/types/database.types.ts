@@ -37,6 +37,7 @@ export interface VoiceReport {
   transcription: string | null;
   ai_summary: string | null;
   created_by: string | null;
+  call_count: number;  // How many calls were grouped together for this note
   created_at: string;
   updated_at: string;
 }

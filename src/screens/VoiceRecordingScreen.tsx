@@ -34,6 +34,7 @@ interface VoiceRecordingScreenProps {
   client: Client | null;
   callerPhone?: string | null;
   mode?: NoteMode;
+  callCount?: number;  // How many calls are being grouped with this note
   onComplete: () => void;
   onCancel: () => void;
 }
@@ -47,6 +48,7 @@ export const VoiceRecordingScreen: React.FC<VoiceRecordingScreenProps> = ({
   client,
   callerPhone,
   mode = 'voice',
+  callCount = 1,
   onComplete,
   onCancel,
 }) => {
@@ -195,7 +197,8 @@ export const VoiceRecordingScreen: React.FC<VoiceRecordingScreenProps> = ({
         callLogId,
         null, // no audio URL - we only keep transcription
         transcription.trim(),
-        null // no AI summary
+        null, // no AI summary
+        callCount
       );
 
       if (saved) {
@@ -245,7 +248,8 @@ export const VoiceRecordingScreen: React.FC<VoiceRecordingScreenProps> = ({
         callLogId,
         null, // no audio
         textNote.trim(), // text as transcription
-        null // no AI summary for manual notes
+        null, // no AI summary for manual notes
+        callCount
       );
 
       if (saved) {

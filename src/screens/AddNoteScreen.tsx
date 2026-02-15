@@ -34,6 +34,7 @@ import type { CallLog, Client } from '@/types';
 interface CallLogWithClient extends CallLog {
   client: Client | null;
   hasVoiceReport: boolean;
+  callCount: number;  // How many calls from this client are being grouped
 }
 
 export const AddNoteScreen: React.FC = () => {
@@ -93,22 +94,28 @@ export const AddNoteScreen: React.FC = () => {
 
       // GROUP by client_id or caller_phone to show only ONE card per client
       // This prevents showing 10 cards when someone called 10 times
-      const groupedMap = new Map<string, any>();
+      // Also count how many calls are in each group
+      const groupedMap = new Map<string, { log: any; count: number }>();
 
       logsNeedingNotes.forEach((log: any) => {
         const groupKey = log.client_id || log.caller_phone || 'unknown';
 
-        // Keep only the NEWEST completed call for each client/number
         const existing = groupedMap.get(groupKey);
-        if (!existing || new Date(log.timestamp) > new Date(existing.timestamp)) {
-          groupedMap.set(groupKey, log);
+        if (!existing) {
+          groupedMap.set(groupKey, { log, count: 1 });
+        } else {
+          // Keep the NEWEST completed call, but increment count
+          existing.count++;
+          if (new Date(log.timestamp) > new Date(existing.log.timestamp)) {
+            existing.log = log;
+          }
         }
       });
 
-      // Convert map to array - one call per client/number
-      const groupedLogs = Array.from(groupedMap.values()).sort(
-        (a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-      );
+      // Convert map to array - one call per client/number, with callCount
+      const groupedLogs = Array.from(groupedMap.values())
+        .map(({ log, count }) => ({ ...log, callCount: count }))
+        .sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
       setCallLogs(groupedLogs as CallLogWithClient[]);
     } catch (error) {
@@ -330,6 +337,7 @@ export const AddNoteScreen: React.FC = () => {
             client={selectedCall.client}
             callerPhone={selectedCall.caller_phone}
             mode={noteMode}
+            callCount={selectedCall.callCount}
             onComplete={handleRecordingComplete}
             onCancel={handleRecordingCancel}
           />
