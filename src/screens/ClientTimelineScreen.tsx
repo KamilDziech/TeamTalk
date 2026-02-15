@@ -18,6 +18,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '@/api/supabaseClient';
 import { contactLookupService } from '@/services/ContactLookupService';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -103,6 +104,35 @@ export const ClientTimelineScreen: React.FC<Props> = ({ route, navigation }) => 
       console.error('Error fetching profiles:', error);
     }
   };
+
+  // Fetch fresh client data from database
+  const fetchClient = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('id', initialClient.id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching client:', error);
+        return;
+      }
+
+      if (data) {
+        setClient(data);
+      }
+    } catch (error) {
+      console.error('Error fetching client:', error);
+    }
+  }, [initialClient.id]);
+
+  // Refresh client data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchClient();
+    }, [fetchClient])
+  );
 
   const getDisplayName = (userId: string | null): string | null => {
     if (!userId) return null;
@@ -206,6 +236,7 @@ export const ClientTimelineScreen: React.FC<Props> = ({ route, navigation }) => 
 
   const handleRefresh = () => {
     setRefreshing(true);
+    fetchClient();
     fetchTimeline();
   };
 
