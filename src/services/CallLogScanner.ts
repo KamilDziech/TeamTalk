@@ -226,7 +226,7 @@ export class CallLogScanner {
         }
 
         // Sprawdź duplikaty - podczas pełnego skanowania sprawdź dokładny timestamp
-        const duplicateWindow = this.skipDuplicateCheck ? 5 : 30; // 5 sekund dla full rescan, 30 dla normalnego
+        const duplicateWindow = 5; // 5-second window to detect duplicates from multiple devices
         const windowStart = new Date(callDate.getTime() - duplicateWindow * 1000).toISOString();
         const windowEnd = new Date(callDate.getTime() + duplicateWindow * 1000).toISOString();
 
@@ -324,7 +324,9 @@ export class CallLogScanner {
   ): string {
     const identifier = clientId || callerPhone;
     const timestampInSeconds = Math.floor(timestamp.getTime() / 1000);
-    const roundedTimestamp = Math.floor(timestampInSeconds / 30);
+    // Use 5-second window - enough to catch duplicates from multiple devices
+    // but allows detecting separate calls within a minute
+    const roundedTimestamp = Math.floor(timestampInSeconds / 5);
     return `${identifier}_${roundedTimestamp}`;
   }
 
