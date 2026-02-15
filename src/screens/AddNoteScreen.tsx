@@ -140,36 +140,29 @@ export const AddNoteScreen: React.FC = () => {
   const handleRecordingComplete = async () => {
     if (!selectedCall) return;
 
-    // Find and mark all other completed calls from the same client as merged
+    // Find and mark all other completed calls from the same phone number as merged
     // This prevents showing duplicate entries when client called multiple times
     try {
-      const groupKey = selectedCall.client_id || selectedCall.caller_phone;
+      const callerPhone = selectedCall.caller_phone;
 
-      if (groupKey) {
-        // Find all other completed calls without voice_report from this client
-        const query = supabase
+      if (callerPhone) {
+        // Find all other completed calls from same phone number (most reliable grouping)
+        const { data: otherCalls } = await supabase
           .from('call_logs')
           .select('id')
           .eq('status', 'completed')
+          .eq('caller_phone', callerPhone)
           .neq('id', selectedCall.id); // Exclude the one we just added note to
-
-        if (selectedCall.client_id) {
-          query.eq('client_id', selectedCall.client_id);
-        } else {
-          query.eq('caller_phone', selectedCall.caller_phone);
-        }
-
-        const { data: otherCalls } = await query;
 
         if (otherCalls && otherCalls.length > 0) {
           // Mark these calls as 'merged' so they won't appear again
           const otherCallIds = otherCalls.map((c: any) => c.id);
           await supabase
             .from('call_logs')
-            .update({ type: 'merged', status: 'completed' })
+            .update({ type: 'merged' })
             .in('id', otherCallIds);
 
-          console.log(`Merged ${otherCalls.length} duplicate completed calls`);
+          console.log(`Merged ${otherCalls.length} duplicate completed calls for ${callerPhone}`);
         }
       }
     } catch (error) {
