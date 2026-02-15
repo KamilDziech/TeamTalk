@@ -25,6 +25,7 @@ import { simDetectionService } from './SimDetectionService';
 
 const LAST_SCAN_KEY = 'calllog_last_scan_timestamp';
 const NOTIFICATIONS_ENABLED_KEY = '@push_notifications_enabled';
+const ADMIN_CHECK_CACHE_KEY = 'calllog_is_admin_cache';
 
 interface CallLogEntry {
   phoneNumber: string;
@@ -73,6 +74,33 @@ export class CallLogScanner {
     }
 
     this.initialized = true;
+  }
+
+  /**
+   * Check if current user is an admin
+   * Admin users' calls are not scanned to avoid polluting client data
+   */
+  private async isCurrentUserAdmin(): Promise<boolean> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return false;
+
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('is_admin')
+        .eq('id', user.id)
+        .single();
+
+      if (error || !profile) {
+        console.log('Could not fetch profile for admin check');
+        return false;
+      }
+
+      return profile.is_admin === true;
+    } catch (error) {
+      console.error('Error checking admin status:', error);
+      return false;
+    }
   }
 
   /**
@@ -157,6 +185,13 @@ export class CallLogScanner {
     try {
       // Inicjalizacja - załaduj lastScanTimestamp z AsyncStorage
       await this.initialize();
+
+      // Admin check - skip scanning for admin users
+      const isAdmin = await this.isCurrentUserAdmin();
+      if (isAdmin) {
+        console.log('👑 Admin user detected - skipping call scan to avoid polluting client data');
+        return;
+      }
 
       // Get all clients from database
       const { data: clients, error: clientsError } = await supabase

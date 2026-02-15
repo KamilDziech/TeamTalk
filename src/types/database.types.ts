@@ -46,6 +46,7 @@ export interface VoiceReport {
 export interface Profile {
   id: string;
   display_name: string;
+  is_admin: boolean;  // Admin users' calls are not scanned
   created_at: string;
   updated_at: string;
 }
