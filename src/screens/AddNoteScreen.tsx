@@ -237,6 +237,42 @@ export const AddNoteScreen: React.FC = () => {
                 return;
               }
 
+              // Merge other completed calls from same phone/client into this skipped call.
+              // This groups them in Historia just like calls with notes are grouped.
+              const callerPhone = callLog.caller_phone;
+              const clientId = callLog.client_id;
+              let otherCalls: { id: string; voice_reports: { id: string }[] }[] | null = null;
+
+              if (callerPhone) {
+                const { data } = await supabase
+                  .from('call_logs')
+                  .select('id, voice_reports(id)')
+                  .eq('status', 'completed')
+                  .eq('type', 'completed')
+                  .eq('caller_phone', callerPhone)
+                  .neq('id', callLog.id);
+                otherCalls = data;
+              } else if (clientId) {
+                const { data } = await supabase
+                  .from('call_logs')
+                  .select('id, voice_reports(id)')
+                  .eq('status', 'completed')
+                  .eq('type', 'completed')
+                  .eq('client_id', clientId)
+                  .neq('id', callLog.id);
+                otherCalls = data;
+              }
+
+              const callsToMerge = (otherCalls || []).filter(
+                (c) => !c.voice_reports || c.voice_reports.length === 0
+              );
+              if (callsToMerge.length > 0) {
+                await supabase
+                  .from('call_logs')
+                  .update({ type: 'merged', merged_into_id: callLog.id })
+                  .in('id', callsToMerge.map((c) => c.id));
+              }
+
               // Refresh the list
               fetchCallLogsNeedingNotes();
             } catch (error) {
