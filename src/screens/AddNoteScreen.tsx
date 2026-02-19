@@ -169,7 +169,8 @@ export const AddNoteScreen: React.FC = () => {
           .select('id, type, status, voice_reports(id)')
           .eq('status', 'completed')
           .eq('caller_phone', callerPhone)
-          .eq('type', 'completed')  // Only get calls that are not yet merged/skipped
+          .neq('type', 'merged')
+          .neq('type', 'skipped')
           .neq('id', selectedCall.id); // Exclude the one we just added note to
 
         // Filter out calls that already have a voice report
@@ -248,7 +249,8 @@ export const AddNoteScreen: React.FC = () => {
                   .from('call_logs')
                   .select('id, voice_reports(id)')
                   .eq('status', 'completed')
-                  .eq('type', 'completed')
+                  .neq('type', 'merged')
+                  .neq('type', 'skipped')
                   .eq('caller_phone', callerPhone)
                   .neq('id', callLog.id);
                 otherCalls = data;
@@ -257,7 +259,8 @@ export const AddNoteScreen: React.FC = () => {
                   .from('call_logs')
                   .select('id, voice_reports(id)')
                   .eq('status', 'completed')
-                  .eq('type', 'completed')
+                  .neq('type', 'merged')
+                  .neq('type', 'skipped')
                   .eq('client_id', clientId)
                   .neq('id', callLog.id);
                 otherCalls = data;

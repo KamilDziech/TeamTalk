@@ -127,11 +127,12 @@ export const ClientTimelineScreen: React.FC<Props> = ({ route, navigation }) => 
     }
   }, [initialClient.id]);
 
-  // Refresh client data when screen comes into focus
+  // Refresh client data and timeline when screen comes into focus
   useFocusEffect(
     useCallback(() => {
       fetchClient();
-    }, [fetchClient])
+      fetchTimeline();
+    }, [fetchClient, fetchTimeline])
   );
 
   const getDisplayName = (userId: string | null): string | null => {
