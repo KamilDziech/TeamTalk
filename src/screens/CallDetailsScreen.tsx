@@ -412,7 +412,7 @@ export const CallDetailsScreen: React.FC = () => {
                 {group.isMultiAgent && (
                     <View style={styles.multiAgentInline}>
                         <MaterialIcons name="warning" size={14} color="#F59E0B" />
-                        <Text style={styles.multiAgentText}>Kontaktował się z innymi agentami</Text>
+                        <Text style={styles.multiAgentText}>Kontaktował się z wieloma osobami</Text>
                     </View>
                 )}
 
