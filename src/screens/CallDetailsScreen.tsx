@@ -338,11 +338,11 @@ export const CallDetailsScreen: React.FC = () => {
 
             await Promise.all(updatePromises);
 
-            // First go back to clear this screen from the stack
-            navigation.goBack();
-
-            // Then navigate to AddNote tab
+            // Capture parent nav ref BEFORE goBack (navigation ref may be stale after popping)
             const rootNavigation = navigation.getParent();
+            // Clear this screen from the stack
+            navigation.goBack();
+            // Navigate to AddNote tab
             if (rootNavigation) {
                 rootNavigation.navigate('AddNote');
             }

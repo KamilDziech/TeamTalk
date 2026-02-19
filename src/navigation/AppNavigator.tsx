@@ -76,7 +76,7 @@ export const AppNavigator: React.FC = () => {
           title: 'Historia',
           tabBarLabel: 'Historia',
           headerShown: false,
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>📜</Text>,
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>🕐</Text>,
         }}
       />
       <Tab.Screen

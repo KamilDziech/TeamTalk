@@ -7,27 +7,35 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "environment": "development",
       "android": {
         "gradleCommand": ":app:assembleDebug",
         "buildType": "apk"
       },
       "env": {
-        "APP_ENV": "development"
+        "APP_ENV": "development",
+        "SUPABASE_URL": "https://sdibzfqjaapmgvrxbshc.supabase.co",
+        "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkaWJ6ZnFqYWFwbWd2cnhic2hjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExNTY2ODcsImV4cCI6MjA4NjczMjY4N30.JgMf0G5OuWYGAleHtP0KWZh1jZIuGnQe0RaTFOlPDco"
       }
     },
     "preview": {
       "distribution": "internal",
+      "environment": "preview",
       "android": {
         "buildType": "apk"
       },
       "env": {
-        "APP_ENV": "preview"
+        "APP_ENV": "preview",
+        "SUPABASE_URL": "https://gurlzgvxhogbzvbtcqbp.supabase.co",
+        "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd1cmx6Z3Z4aG9nYnp2YnRjcWJwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg3MDMyNzIsImV4cCI6MjA4NDI3OTI3Mn0.nXuA3sRp_Mho98FV9UQgDqmOVQ2IY4QMNJ_j8O64JsU",
+        "OPENAI_API_KEY": "REMOVED_SECRET"
       }
     },
     "production": {
       "distribution": "store",
+      "environment": "production",
       "android": {
-        "buildType": "app-bundle"
+        "buildType": "apk"
       },
       "env": {
         "APP_ENV": "production"
