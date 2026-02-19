@@ -104,14 +104,14 @@ export class CallLogScanner {
   }
 
   /**
-   * Reset timestamp i wykonaj pełne skanowanie (ostatnie 7 dni)
+   * Reset timestamp i wykonaj pełne skanowanie (ostatnie 2 dni)
    * Używaj do testów lub gdy brakuje połączeń
    */
   async fullRescan(): Promise<void> {
-    console.log('🔄 Starting full rescan (last 7 days)...');
+    console.log('🔄 Starting full rescan (last 2 days)...');
 
-    // Reset timestamp do 7 dni wstecz
-    this.lastScanTimestamp = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    // Reset timestamp do 2 dni wstecz
+    this.lastScanTimestamp = Date.now() - 2 * 24 * 60 * 60 * 1000;
     this.initialized = true;
     this.skipDuplicateCheck = true; // Skip duplicate check for full rescan
 
@@ -124,6 +124,9 @@ export class CallLogScanner {
 
   // Flag to skip duplicate check during full rescan
   private skipDuplicateCheck = false;
+
+  // Concurrency guard: prevents multiple simultaneous scans
+  private isScanning = false;
 
   /**
    * Zapisz lastScanTimestamp do AsyncStorage
@@ -182,6 +185,13 @@ export class CallLogScanner {
    * Privacy: Only processes numbers that exist in clients table
    */
   async scanMissedCalls(): Promise<void> {
+    // Concurrency guard: skip if scan already in progress (periodic + foreground + manual refresh)
+    if (this.isScanning) {
+      console.log('⏭️ scanMissedCalls: already in progress, skipping');
+      return;
+    }
+    this.isScanning = true;
+
     try {
       // Inicjalizacja - załaduj lastScanTimestamp z AsyncStorage
       await this.initialize();
@@ -225,6 +235,10 @@ export class CallLogScanner {
 
       console.log(`📞 Found ${missedCalls.length} missed calls since last scan`);
 
+      // Resolve current user ONCE before the loop — not on every iteration
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      const currentUserId = currentUser?.id || null;
+
       // Dual SIM configuration
       const hasMultipleSims = await simDetectionService.isMultipleSims();
       const businessSimId = await simDetectionService.getBusinessSimId();
@@ -235,9 +249,12 @@ export class CallLogScanner {
       // Process each missed call
       for (const call of missedCalls) {
         // Dual SIM filtering: ignore calls from non-business SIM
-        if (hasMultipleSims && businessSimId) {
-          const callSimId = call.phoneAccountId || (call.subscriptionId !== undefined ? String(call.subscriptionId) : null) || (call.simId !== undefined ? String(call.simId) : null);
-          if (callSimId && callSimId !== businessSimId) {
+        // Only filter if we have a phoneAccountId from the call log
+        if (hasMultipleSims && businessSimId && call.phoneAccountId) {
+          const callSimId = call.phoneAccountId;
+          // Filter calls that don't match the selected business SIM
+          if (callSimId !== businessSimId) {
+            console.log(`📱 Filtering call: callSimId=${callSimId}, businessSimId=${businessSimId}`);
             filteredBySim++;
             continue; // Skip calls from non-business SIM
           }
@@ -285,10 +302,6 @@ export class CallLogScanner {
           existingLogs = data;
         }
 
-        // Get current user for recipient tracking
-        const { data: { user } } = await supabase.auth.getUser();
-        const currentUserId = user?.id || null;
-
         // Check if similar call already exists - if so, add this user as recipient
         if (existingLogs && existingLogs.length > 0 && currentUserId) {
           const existingLogId = existingLogs[0].id;
@@ -300,10 +313,13 @@ export class CallLogScanner {
 
         // Create new call log with current user as first recipient
         // Only send notification if the call log was actually created (not a duplicate)
+        // Extract SIM identifier for dual SIM tracking
+        const phoneAccountId = call.phoneAccountId || null;
+
         let created = false;
         if (client) {
           // KNOWN CLIENT
-          created = await this.createMissedCallLog(client, callDate, normalizedNumber, currentUserId);
+          created = await this.createMissedCallLog(client, callDate, normalizedNumber, currentUserId, phoneAccountId);
           if (created) {
             await this.sendMissedCallNotification(client);
             console.log(`✅ NEW call from: ${client.name} (${call.phoneNumber}) at ${callDate.toLocaleString()}`);
@@ -312,14 +328,14 @@ export class CallLogScanner {
           // UNKNOWN NUMBER - auto-create client
           const newClient = await this.createClientFromPhoneNumber(normalizedNumber, call.phoneNumber);
           if (newClient) {
-            created = await this.createMissedCallLog(newClient, callDate, normalizedNumber, currentUserId);
+            created = await this.createMissedCallLog(newClient, callDate, normalizedNumber, currentUserId, phoneAccountId);
             if (created) {
               await this.sendMissedCallNotification(newClient);
               console.log(`✅ NEW call from auto-created client: ${newClient.phone} (${call.phoneNumber}) at ${callDate.toLocaleString()}`);
             }
           } else {
             // Fallback if client creation fails
-            created = await this.createUnknownCallerLog(normalizedNumber, call.phoneNumber, callDate, currentUserId);
+            created = await this.createUnknownCallerLog(normalizedNumber, call.phoneNumber, callDate, currentUserId, phoneAccountId);
             if (created) {
               await this.sendUnknownCallerNotification(call.phoneNumber);
               console.log(`📞 NEW call from unknown (client creation failed): ${call.phoneNumber} at ${callDate.toLocaleString()}`);
@@ -345,6 +361,8 @@ export class CallLogScanner {
       }
     } catch (error) {
       console.error('Error scanning call log:', error);
+    } finally {
+      this.isScanning = false;
     }
   }
 
@@ -375,7 +393,8 @@ export class CallLogScanner {
     client: Client,
     callDate: Date,
     callerPhone: string,
-    recipientId: string | null
+    recipientId: string | null,
+    phoneAccountId: string | null = null
   ): Promise<boolean> {
     try {
       const recipients = recipientId ? [recipientId] : [];
@@ -392,6 +411,7 @@ export class CallLogScanner {
         recipients: recipients,
         caller_phone: callerPhone,
         dedup_key: dedupKey,
+        phone_account_id: phoneAccountId,
       });
 
       // Ignore duplicate key error (23505) - this is expected for deduplication
@@ -423,7 +443,8 @@ export class CallLogScanner {
     normalizedPhone: string,
     originalPhone: string,
     callDate: Date,
-    recipientId: string | null
+    recipientId: string | null,
+    phoneAccountId: string | null = null
   ): Promise<boolean> {
     try {
       const recipients = recipientId ? [recipientId] : [];
@@ -440,6 +461,7 @@ export class CallLogScanner {
         recipients: recipients,
         caller_phone: normalizedPhone,
         dedup_key: dedupKey,
+        phone_account_id: phoneAccountId,
       });
 
       // Ignore duplicate key error (23505) - this is expected for deduplication
@@ -526,40 +548,21 @@ export class CallLogScanner {
 
   /**
    * Add a recipient to an existing call log (for aggregation)
-   * Called when same number calls multiple employees
+   * Called when same number calls multiple employees.
+   *
+   * Uses atomic PostgreSQL array_append via RPC to prevent the race condition
+   * where two devices simultaneously read the same array and overwrite each other.
+   * The DB function only appends if recipient is not already present.
    */
   private async addRecipientToCall(
     callLogId: string,
     recipientId: string
   ): Promise<void> {
     try {
-      // First get current recipients
-      const { data: callLog, error: fetchError } = await supabase
-        .from('call_logs')
-        .select('recipients')
-        .eq('id', callLogId)
-        .single();
-
-      if (fetchError || !callLog) {
-        console.error('Error fetching call log:', fetchError);
-        return;
-      }
-
-      const currentRecipients = callLog.recipients || [];
-
-      // Don't add duplicate recipients
-      if (currentRecipients.includes(recipientId)) {
-        console.log('Recipient already exists in call log');
-        return;
-      }
-
-      // Add new recipient to array
-      const updatedRecipients = [...currentRecipients, recipientId];
-
-      const { error } = await supabase
-        .from('call_logs')
-        .update({ recipients: updatedRecipients })
-        .eq('id', callLogId);
+      const { error } = await supabase.rpc('append_unique_recipient', {
+        p_call_log_id: callLogId,
+        p_recipient_id: recipientId,
+      });
 
       if (error) {
         console.error('Error adding recipient:', error);
