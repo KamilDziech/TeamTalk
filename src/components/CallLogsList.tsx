@@ -9,7 +9,7 @@
  * Workflow: missed ↔ reserved → completed (completed nie wyświetla się w kolejce)
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -161,25 +161,45 @@ export const CallLogsList: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
 
+  // Concurrency guard: prevents multiple simultaneous fetchCallLogs() calls
+  const isFetchingRef = useRef(false);
+  // Debounce timer for realtime subscription events
+  const realtimeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
     console.log('📋 CallLogsList: useEffect running');
     initializeData();
     const cleanup = setupRealtimeSubscription();
-    return cleanup;
+    return () => {
+      if (realtimeDebounceRef.current) {
+        clearTimeout(realtimeDebounceRef.current);
+      }
+      cleanup();
+    };
   }, []);
 
   // Load device contacts FIRST, then fetch data
   const initializeData = async () => {
-    const loaded = await contactLookupService.loadDeviceContacts();
-    console.log('📱 Device contacts loaded:', loaded);
-    console.log('📱 Now fetching call logs and profiles...');
-    await fetchProfiles();
-    await fetchCallLogs();
+    try {
+      const loaded = await contactLookupService.loadDeviceContacts();
+      console.log('📱 Device contacts loaded:', loaded);
+      await fetchProfiles();
+      await fetchCallLogs(true);
+    } catch (error) {
+      console.error('📋 initializeData error:', error);
+      // Safety net: ensure loading spinner is cleared even on unexpected errors
+      setLoading(false);
+    }
   };
 
   const fetchProfiles = async () => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
     try {
-      const { data, error } = await supabase.from('profiles').select('*');
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .abortSignal(controller.signal);
       if (error) {
         console.error('Error fetching profiles:', error);
         return;
@@ -189,6 +209,8 @@ export const CallLogsList: React.FC = () => {
       setProfiles(profileMap);
     } catch (error) {
       console.error('Error fetching profiles:', error);
+    } finally {
+      clearTimeout(timeoutId);
     }
   };
 
@@ -198,9 +220,24 @@ export const CallLogsList: React.FC = () => {
     return profile?.display_name || null;
   };
 
-  const fetchCallLogs = async () => {
+  // showLoading=true only for initial load; realtime/background calls pass false
+  const fetchCallLogs = async (showLoading = false) => {
+    // Concurrency guard: skip if a fetch is already in progress
+    if (isFetchingRef.current) {
+      console.log('📋 fetchCallLogs: already in progress, skipping');
+      return;
+    }
+    isFetchingRef.current = true;
+
+    // Timeout protection: abort the query if it takes longer than 10 seconds
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      console.warn('📋 fetchCallLogs: query timed out after 10s, aborting');
+      controller.abort();
+    }, 10000);
+
     try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
 
       // Fetch only queue items (missed + reserved) directly in the query
       const { data: allLogs, error } = await supabase
@@ -208,23 +245,30 @@ export const CallLogsList: React.FC = () => {
         .select(`*, clients (*)`)
         .in('status', ['missed', 'reserved'])
         .order('timestamp', { ascending: false })
-        .limit(200);
+        .limit(200)
+        .abortSignal(controller.signal);
 
       if (error) throw error;
 
       const queueLogs = (allLogs || []).map((log: any) => ({
         ...log,
         client: log.clients,
-        hasVoiceReport: false, // not needed in queue view, loaded on demand in details
+        hasVoiceReport: false,
       })) as CallLogWithClient[];
 
       const grouped = groupCallLogsByClient(queueLogs);
       console.log('📋 Grouped logs:', grouped.length, 'groups');
       setGroupedLogs(grouped);
-    } catch (error) {
-      console.error('Error fetching call logs:', error);
+    } catch (error: any) {
+      if (error?.name === 'AbortError' || error?.message?.includes('aborted')) {
+        console.error('📋 fetchCallLogs: aborted (timeout or unmount)');
+      } else {
+        console.error('Error fetching call logs:', error);
+      }
     } finally {
-      setLoading(false);
+      clearTimeout(timeoutId);
+      isFetchingRef.current = false;
+      if (showLoading) setLoading(false);
       setRefreshing(false);
     }
   };
@@ -240,7 +284,14 @@ export const CallLogsList: React.FC = () => {
           table: 'call_logs',
         },
         () => {
-          fetchCallLogs();
+          // Debounce: if multiple DB events fire in quick succession (e.g. during a scan),
+          // wait 500ms after the last event before fetching. Never show loading spinner.
+          if (realtimeDebounceRef.current) {
+            clearTimeout(realtimeDebounceRef.current);
+          }
+          realtimeDebounceRef.current = setTimeout(() => {
+            fetchCallLogs(false);
+          }, 500);
         }
       )
       .subscribe();
@@ -257,7 +308,7 @@ export const CallLogsList: React.FC = () => {
     try {
       console.log('🔄 Manual refresh - scanning call log...');
       await callLogScanner.scanMissedCalls();
-      await fetchCallLogs();
+      await fetchCallLogs(false);
       setSyncStatus('Zsynchronizowano');
     } catch (error) {
       console.error('Error during refresh:', error);
@@ -274,7 +325,7 @@ export const CallLogsList: React.FC = () => {
 
     try {
       await callLogScanner.fullRescan();
-      await fetchCallLogs();
+      await fetchCallLogs(false);
       setSyncStatus('Skanowanie zakończone');
     } catch (error) {
       console.error('Error during full rescan:', error);
@@ -305,9 +356,12 @@ export const CallLogsList: React.FC = () => {
               if (error) throw error;
 
               console.log('🗑️ Queue cleared');
-              fetchCallLogs();
+              // Reset concurrency guard so the forced fetch after delete can run
+              isFetchingRef.current = false;
+              fetchCallLogs(true);
             } catch (error) {
               console.error('Error clearing queue:', error);
+              setLoading(false);
               Alert.alert('Błąd', 'Nie udało się wyczyścić kolejki.');
             }
           },

@@ -83,7 +83,6 @@ export const loadDeviceContacts = async (): Promise<boolean> => {
                     const normalizedPhone = normalizePhoneNumber(phoneEntry.number);
                     if (normalizedPhone && normalizedPhone.length >= 7) {
                         contactCache.set(normalizedPhone, name);
-                        console.log(`📱 Cached: ${phoneEntry.number} -> ${normalizedPhone} = ${name}`);
                     }
                 }
             }
@@ -103,19 +102,9 @@ export const loadDeviceContacts = async (): Promise<boolean> => {
  * Returns null if not found in device contacts
  */
 export const lookupContactName = (phone: string | null): string | null => {
-    if (!phone) {
-        console.log('📱 Lookup: phone is null');
-        return null;
-    }
-    if (!contactsLoaded) {
-        console.log('📱 Lookup: contacts not loaded yet');
-        return null;
-    }
-
+    if (!phone || !contactsLoaded) return null;
     const normalizedPhone = normalizePhoneNumber(phone);
-    const result = contactCache.get(normalizedPhone) || null;
-    console.log(`📱 Lookup: "${phone}" -> normalized: "${normalizedPhone}" -> result: ${result ? `"${result}"` : 'NOT FOUND'}`);
-    return result;
+    return contactCache.get(normalizedPhone) || null;
 };
 
 /**
