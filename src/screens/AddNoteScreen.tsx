@@ -37,6 +37,19 @@ interface CallLogWithClient extends CallLog {
   callCount: number;  // How many calls from this client are being grouped
 }
 
+const formatCallDate = (timestamp: string): string => {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  const time = date.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+
+  if (date.toDateString() === now.toDateString()) return `Dzisiaj ${time}`;
+  if (date.toDateString() === yesterday.toDateString()) return `Wczoraj ${time}`;
+  return `${date.toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit' })} ${time}`;
+};
+
 export const AddNoteScreen: React.FC = () => {
   const { colors } = useTheme();
   const styles = createStyles(colors);
@@ -239,10 +252,7 @@ export const AddNoteScreen: React.FC = () => {
   const renderCallLog = ({ item }: { item: CallLogWithClient }) => {
     const displayName = item.client?.name || item.caller_phone || 'Nieznany numer';
     const displayPhone = item.client?.phone || (item.caller_phone ? `+48${item.caller_phone}` : '');
-    const callTime = new Date(item.timestamp).toLocaleTimeString('pl-PL', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    const callTime = formatCallDate(item.timestamp);
 
     return (
       <>

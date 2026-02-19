@@ -56,6 +56,22 @@ export interface GroupedCallLog {
 }
 
 /**
+ * Formats a timestamp as "Dzisiaj HH:MM", "Wczoraj HH:MM", or "DD.MM HH:MM"
+ */
+const formatCallDate = (timestamp: string): string => {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  const time = date.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+
+  if (date.toDateString() === now.toDateString()) return `Dzisiaj ${time}`;
+  if (date.toDateString() === yesterday.toDateString()) return `Wczoraj ${time}`;
+  return `${date.toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit' })} ${time}`;
+};
+
+/**
  * Groups call logs by client or phone number
  */
 const groupCallLogsByClient = (logs: CallLogWithClient[]): GroupedCallLog[] => {
@@ -333,11 +349,8 @@ export const CallLogsList: React.FC = () => {
       .filter(Boolean)
       .join(', ');
 
-    // Time of last call
-    const lastCallTime = new Date(item.lastCallTime).toLocaleTimeString('pl-PL', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    // Time of last call with relative date label
+    const lastCallTime = formatCallDate(item.lastCallTime);
 
     // Icon and color based on status
     const iconName = hasMissedCalls ? 'phone-missed' : 'phone-in-talk';
