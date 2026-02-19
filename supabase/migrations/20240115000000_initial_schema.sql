@@ -2,7 +2,7 @@
 -- Creates tables for clients, call_logs, and voice_reports
 -- Includes proper indexes, constraints, and RLS policies
 
--- Enable UUID extension
+-- Enable UUID extension (for backwards compatibility)
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ============================================================================
@@ -10,7 +10,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- Stores information about clients (customers)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS public.clients (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     phone VARCHAR(20) NOT NULL UNIQUE,
     name VARCHAR(255),
     address TEXT,
@@ -31,7 +31,7 @@ CREATE INDEX idx_clients_name ON public.clients(name) WHERE name IS NOT NULL;
 -- Supports reservation system for callbacks
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS public.call_logs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     client_id UUID NOT NULL REFERENCES public.clients(id) ON DELETE CASCADE,
     employee_id UUID,
     type VARCHAR(20) NOT NULL CHECK (type IN ('missed', 'completed')),
@@ -63,7 +63,7 @@ CREATE INDEX idx_call_logs_status_timestamp ON public.call_logs(status, timestam
 -- Stores voice notes, transcriptions, and AI summaries
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS public.voice_reports (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     call_log_id UUID NOT NULL REFERENCES public.call_logs(id) ON DELETE CASCADE,
     audio_url TEXT,
     transcription TEXT,

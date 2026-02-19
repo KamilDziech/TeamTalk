@@ -148,7 +148,8 @@ export const CallLogsList: React.FC = () => {
   useEffect(() => {
     console.log('📋 CallLogsList: useEffect running');
     initializeData();
-    setupRealtimeSubscription();
+    const cleanup = setupRealtimeSubscription();
+    return cleanup;
   }, []);
 
   // Load device contacts FIRST, then fetch data
@@ -185,36 +186,21 @@ export const CallLogsList: React.FC = () => {
     try {
       setLoading(true);
 
-      // Fetch ALL call logs (shared database - all visible to everyone)
+      // Fetch only queue items (missed + reserved) directly in the query
       const { data: allLogs, error } = await supabase
         .from('call_logs')
         .select(`*, clients (*)`)
+        .in('status', ['missed', 'reserved'])
         .order('timestamp', { ascending: false })
-        .limit(100);
+        .limit(200);
 
       if (error) throw error;
 
-      // Check for voice reports
-      const logsWithReports = await Promise.all(
-        (allLogs || []).map(async (log: any) => {
-          const { data: report } = await supabase
-            .from('voice_reports')
-            .select('id')
-            .eq('call_log_id', log.id)
-            .single();
-
-          return {
-            ...log,
-            client: log.clients,
-            hasVoiceReport: !!report,
-          };
-        })
-      );
-
-      // Filter only queue items (missed and reserved)
-      const queueLogs = (logsWithReports as CallLogWithClient[]).filter(
-        (log) => log.status === 'missed' || log.status === 'reserved'
-      );
+      const queueLogs = (allLogs || []).map((log: any) => ({
+        ...log,
+        client: log.clients,
+        hasVoiceReport: false, // not needed in queue view, loaded on demand in details
+      })) as CallLogWithClient[];
 
       const grouped = groupCallLogsByClient(queueLogs);
       console.log('📋 Grouped logs:', grouped.length, 'groups');
@@ -268,7 +254,7 @@ export const CallLogsList: React.FC = () => {
 
   const handleFullRescan = async () => {
     setRefreshing(true);
-    setSyncStatus('Pełne skanowanie (7 dni)...');
+    setSyncStatus('Pełne skanowanie (2 dni)...');
 
     try {
       await callLogScanner.fullRescan();
