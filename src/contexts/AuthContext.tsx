@@ -68,6 +68,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setSession(session);
         setUser(session?.user ?? null);
 
+        // If getSession() is stuck (race with TOKEN_REFRESHED), unblock loading here
+        if (event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') {
+          clearTimeout(safetyTimeout);
+          setLoading(false);
+        }
+
         if (session?.user) {
           await fetchProfile(session.user.id);
         } else {

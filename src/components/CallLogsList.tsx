@@ -181,13 +181,22 @@ export const CallLogsList: React.FC = () => {
   // Load device contacts FIRST, then fetch data
   const initializeData = async () => {
     try {
-      const loaded = await contactLookupService.loadDeviceContacts();
-      console.log('📱 Device contacts loaded:', loaded);
+      setLoading(true);
+
+      try {
+        const loaded = await contactLookupService.loadDeviceContacts();
+        console.log('📱 Device contacts loaded:', loaded);
+      } catch (contactsError) {
+        console.error('📱 Error loading contacts, non-fatal:', contactsError);
+      }
+
+      console.log('📱 Now fetching call logs and profiles...');
       await fetchProfiles();
-      await fetchCallLogs(true);
+      await fetchCallLogs();
+
     } catch (error) {
-      console.error('📋 initializeData error:', error);
-      // Safety net: ensure loading spinner is cleared even on unexpected errors
+      console.error('Critical error in initializeData:', error);
+    } finally {
       setLoading(false);
     }
   };
