@@ -142,8 +142,8 @@ export const HistoryScreen: React.FC = () => {
         .in('call_log_id', callLogIds);
 
       if (voiceReportsError) {
-        console.error('Error fetching voice reports:', voiceReportsError);
-        return;
+        // Non-fatal: display call logs without voice report data rather than showing nothing
+        console.error('Error fetching voice reports (non-fatal):', voiceReportsError);
       }
 
       const voiceReportMap = new Map(

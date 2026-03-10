@@ -238,18 +238,28 @@ export const CallDetailsScreen: React.FC = () => {
 
         // Update database in parallel (background)
         try {
-            const updatePromises = missedCalls.map((call) =>
-                supabase
-                    .from('call_logs')
-                    .update({
-                        status: 'reserved' as CallLogStatus,
-                        reservation_by: user.id,
-                        reservation_at: reservationTime,
-                    })
-                    .eq('id', call.id)
+            const updateResults = await Promise.allSettled(
+                missedCalls.map((call) =>
+                    supabase
+                        .from('call_logs')
+                        .update({
+                            status: 'reserved' as CallLogStatus,
+                            reservation_by: user.id,
+                            reservation_at: reservationTime,
+                        })
+                        .eq('id', call.id)
+                        .select()
+                        .then((r) => { if (r.error) throw r.error; return r.data; })
+                )
             );
 
-            await Promise.all(updatePromises);
+            const failed = updateResults.filter((r) => r.status === 'rejected');
+            if (failed.length > 0) {
+                console.error(`Error reserving ${failed.length} calls:`, failed);
+                // Rollback optimistic update on partial failure
+                await refreshData();
+                return;
+            }
 
             // Refresh data after updates complete (to sync any changes from other users)
             await refreshData();
@@ -300,18 +310,25 @@ export const CallDetailsScreen: React.FC = () => {
 
         // Update database in parallel
         try {
-            const updatePromises = reservedCalls.map((call) =>
-                supabase
-                    .from('call_logs')
-                    .update({
-                        status: 'missed' as CallLogStatus,
-                        reservation_by: null,
-                        reservation_at: null,
-                    })
-                    .eq('id', call.id)
+            const updateResults = await Promise.allSettled(
+                reservedCalls.map((call) =>
+                    supabase
+                        .from('call_logs')
+                        .update({
+                            status: 'missed' as CallLogStatus,
+                            reservation_by: null,
+                            reservation_at: null,
+                        })
+                        .eq('id', call.id)
+                        .select()
+                        .then((r) => { if (r.error) throw r.error; return r.data; })
+                )
             );
 
-            await Promise.all(updatePromises);
+            const failed = updateResults.filter((r) => r.status === 'rejected');
+            if (failed.length > 0) {
+                console.error(`Error releasing ${failed.length} calls:`, failed);
+            }
             await refreshData();
         } catch (error) {
             console.error('Error releasing calls:', error);
@@ -326,17 +343,26 @@ export const CallDetailsScreen: React.FC = () => {
 
         // Update database first
         try {
-            const updatePromises = reservedCalls.map((call) =>
-                supabase
-                    .from('call_logs')
-                    .update({
-                        type: 'completed',
-                        status: 'completed' as CallLogStatus,
-                    })
-                    .eq('id', call.id)
+            const updateResults = await Promise.allSettled(
+                reservedCalls.map((call) =>
+                    supabase
+                        .from('call_logs')
+                        .update({
+                            type: 'completed',
+                            status: 'completed' as CallLogStatus,
+                        })
+                        .eq('id', call.id)
+                        .select()
+                        .then((r) => { if (r.error) throw r.error; return r.data; })
+                )
             );
 
-            await Promise.all(updatePromises);
+            const failed = updateResults.filter((r) => r.status === 'rejected');
+            if (failed.length > 0) {
+                console.error(`Error completing ${failed.length} calls:`, failed);
+                Alert.alert('Błąd', 'Nie udało się oznaczyć wszystkich połączeń jako wykonane.');
+                return;
+            }
 
             // Capture parent nav ref BEFORE goBack (navigation ref may be stale after popping)
             const rootNavigation = navigation.getParent();

@@ -12,6 +12,7 @@ import * as Contacts from 'expo-contacts';
 // Cache to avoid repeated lookups
 const contactCache = new Map<string, string | null>();
 let contactsLoaded = false;
+let contactsLoading = false;
 let contactsPermissionGranted = false;
 
 /**
@@ -41,6 +42,12 @@ const normalizePhoneNumber = (phone: string): string => {
  * Load all contacts from device into cache
  */
 export const loadDeviceContacts = async (): Promise<boolean> => {
+    // Guard against concurrent calls — return current state while loading is in progress
+    if (contactsLoading) {
+        console.log('📱 Contacts already loading, skipping duplicate call');
+        return contactsLoaded;
+    }
+    contactsLoading = true;
     try {
         console.log('📱 Requesting contacts permissions...');
         const { status } = await Contacts.requestPermissionsAsync();
@@ -94,6 +101,8 @@ export const loadDeviceContacts = async (): Promise<boolean> => {
     } catch (error) {
         console.error('📱 ❌ Error loading device contacts:', error);
         return false;
+    } finally {
+        contactsLoading = false;
     }
 };
 

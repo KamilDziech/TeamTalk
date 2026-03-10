@@ -290,7 +290,7 @@ export const AddNoteScreen: React.FC = () => {
 
   const renderCallLog = ({ item }: { item: CallLogWithClient }) => {
     const displayName = item.client?.name || item.caller_phone || 'Nieznany numer';
-    const displayPhone = item.client?.phone || (item.caller_phone ? `+48${item.caller_phone}` : '');
+    const displayPhone = item.client?.phone || item.caller_phone || null;
     const callTime = formatCallDate(item.timestamp);
 
     return (

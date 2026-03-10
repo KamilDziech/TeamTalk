@@ -12,8 +12,10 @@ import { CallLogService } from '../CallLogService';
 import type { CallLog, CallLogStatus } from '@/types';
 
 // Mock Supabase client
+const mockRpc = jest.fn();
 const mockSupabase = {
   from: jest.fn(),
+  rpc: mockRpc,
 };
 
 // Mock data
@@ -53,6 +55,7 @@ describe('CallLogService', () => {
   beforeEach(() => {
     // Reset mocks
     jest.clearAllMocks();
+    mockRpc.mockResolvedValue({ error: null });
 
     // Setup mock chain
     mockSingle = jest.fn();
@@ -362,68 +365,55 @@ describe('CallLogService', () => {
   });
 
   describe('addRecipient', () => {
-    it('should add recipient to existing call log', async () => {
+    it('should add recipient via atomic RPC', async () => {
       // Arrange
       const callLogId = 'call-log-123';
       const newRecipientId = 'user-789';
-      const existingRecipients = ['user-456'];
-
-      // Mock fetching existing call log
-      const mockFetchSingle = jest.fn().mockResolvedValue({
-        data: { recipients: existingRecipients },
-        error: null,
-      });
-      mockEq.mockReturnValueOnce({ single: mockFetchSingle });
-
-      // Mock updating call log
       const updatedCallLog = {
         ...mockCallLog,
-        recipients: [...existingRecipients, newRecipientId],
+        recipients: ['user-456', newRecipientId],
       };
+
+      mockRpc.mockResolvedValue({ error: null });
       mockSingle.mockResolvedValue({ data: updatedCallLog, error: null });
 
       // Act
       const result = await callLogService.addRecipient(callLogId, newRecipientId);
 
       // Assert
-      expect(result?.recipients).toContain('user-456');
+      expect(mockRpc).toHaveBeenCalledWith('append_unique_recipient', {
+        p_call_log_id: callLogId,
+        p_recipient_id: newRecipientId,
+      });
       expect(result?.recipients).toContain(newRecipientId);
     });
 
-    it('should not add duplicate recipient', async () => {
+    it('should throw error when RPC fails', async () => {
       // Arrange
       const callLogId = 'call-log-123';
-      const existingRecipientId = 'user-456';
-
-      // Mock fetching existing call log with the recipient already present
-      const mockFetchSingle = jest.fn().mockResolvedValue({
-        data: { recipients: [existingRecipientId] },
-        error: null,
-      });
-      mockEq.mockReturnValueOnce({ single: mockFetchSingle });
-
-      // Act
-      const result = await callLogService.addRecipient(callLogId, existingRecipientId);
-
-      // Assert - should return null (no update needed)
-      expect(result).toBeNull();
-    });
-
-    it('should throw error when call log not found', async () => {
-      // Arrange
-      const callLogId = 'nonexistent-call';
       const recipientId = 'user-456';
 
-      const mockFetchSingle = jest.fn().mockResolvedValue({
-        data: null,
-        error: { message: 'Not found' },
-      });
-      mockEq.mockReturnValueOnce({ single: mockFetchSingle });
+      mockRpc.mockResolvedValue({ error: { message: 'RPC error' } });
 
       // Act & Assert
       await expect(
         callLogService.addRecipient(callLogId, recipientId)
-      ).rejects.toThrow('Failed to fetch call log');
+      ).rejects.toThrow('Failed to add recipient');
+    });
+
+    it('should return null when fetching updated record fails', async () => {
+      // Arrange
+      const callLogId = 'call-log-123';
+      const recipientId = 'user-456';
+
+      mockRpc.mockResolvedValue({ error: null });
+      mockSingle.mockResolvedValue({ data: null, error: { message: 'Not found' } });
+
+      // Act
+      const result = await callLogService.addRecipient(callLogId, recipientId);
+
+      // Assert - RPC succeeded but fetch returned null
+      expect(result).toBeNull();
     });
   });
 

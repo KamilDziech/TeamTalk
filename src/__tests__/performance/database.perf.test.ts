@@ -12,11 +12,13 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-// ── Konfiguracja dev ────────────────────────────────────────────────────────
-const DEV_URL = process.env.TEAMTALK_DEV_URL ?? 'https://sdibzfqjaapmgvrxbshc.supabase.co';
+// ── Konfiguracja bazy ────────────────────────────────────────────────────────
+// Używa zmiennych środowiskowych jeśli dostępne, fallback na produkcję (preview build)
+const DEV_URL = process.env.TEAMTALK_DEV_URL ?? process.env.SUPABASE_URL ?? 'https://gurlzgvxhogbzvbtcqbp.supabase.co';
 const DEV_SERVICE_ROLE =
   process.env.TEAMTALK_DEV_SERVICE_ROLE ??
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkaWJ6ZnFqYWFwbWd2cnhic2hjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTE1NjY4NywiZXhwIjoyMDg2NzMyNjg3fQ.MdY7K44IvU-RUaBsjQCcQ6c_eBVz3q-EH1qV74hnhCM';
+  process.env.SUPABASE_ANON_KEY ??
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd1cmx6Z3Z4aG9nYnp2YnRjcWJwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg3MDMyNzIsImV4cCI6MjA4NDI3OTI3Mn0.nXuA3sRp_Mho98FV9UQgDqmOVQ2IY4QMNJ_j8O64JsU';
 
 // Progi akceptowalne (ms)
 // Uwaga: pierwsze zapytanie po inicjalizacji klienta jest wolniejsze (cold start:

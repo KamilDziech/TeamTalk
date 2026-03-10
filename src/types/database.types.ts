@@ -27,6 +27,7 @@ export interface CallLog {
   recipients: string[];  // Array of user IDs who received this call
   caller_phone: string | null;
   merged_into_id: string | null;  // ID of the main call this was merged into
+  phone_account_id: string | null;  // SIM identifier for dual SIM filtering
   created_at: string;
   updated_at: string;
 }

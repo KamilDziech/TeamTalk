@@ -190,6 +190,13 @@ export class VoiceReportService {
     try {
       console.log('Uploading audio to Supabase Storage...');
 
+      // Verify file exists before attempting to read
+      const fileInfo = await FileSystem.getInfoAsync(audioUri);
+      if (!fileInfo.exists) {
+        console.error('uploadAudio: audio file not found at URI:', audioUri);
+        return null;
+      }
+
       // Read file as base64
       const base64 = await FileSystem.readAsStringAsync(audioUri, {
         encoding: 'base64',

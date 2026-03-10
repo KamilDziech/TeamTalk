@@ -1,4 +1,6 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+# EAS Build ignore file
+# This is a copy of .gitignore but WITHOUT .env
+# so that environment variables are available during local builds
 
 # dependencies
 node_modules/
@@ -28,9 +30,8 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
+# local env files (keep .env for build, ignore .env.local variants)
 .env*.local
-.env
 
 # typescript
 *.tsbuildinfo
@@ -49,4 +50,3 @@ TODO.MD
 *.apk
 AppIcons.zip
 migrations/
-apk-qrcode.png

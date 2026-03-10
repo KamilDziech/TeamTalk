@@ -127,6 +127,7 @@ export class CallLogScanner {
 
   // Concurrency guard: prevents multiple simultaneous scans
   private isScanning = false;
+  private periodicScanInterval: ReturnType<typeof setInterval> | null = null;
 
   /**
    * Zapisz lastScanTimestamp do AsyncStorage
@@ -695,14 +696,28 @@ export class CallLogScanner {
   }
 
   /**
+   * Stop periodic scanning (call this on logout)
+   */
+  stopPeriodicScanning(): void {
+    if (this.periodicScanInterval !== null) {
+      clearInterval(this.periodicScanInterval);
+      this.periodicScanInterval = null;
+      console.log('🛑 CallLogScanner: periodic scanning stopped');
+    }
+  }
+
+  /**
    * Start periodic scanning (call this on app launch)
    */
   startPeriodicScanning(intervalMinutes: number = 5): void {
+    // Clear previous interval to prevent duplicates (e.g. called again on token refresh)
+    this.stopPeriodicScanning();
+
     // Initial scan
     this.scanMissedCalls();
 
     // Periodic scanning
-    setInterval(() => {
+    this.periodicScanInterval = setInterval(() => {
       this.scanMissedCalls();
     }, intervalMinutes * 60 * 1000);
   }

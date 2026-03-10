@@ -22,7 +22,24 @@
       "Bash(sdkmanager:*)",
       "Bash(/root/Android/Sdk/cmdline-tools/latest/bin/sdkmanager:*)",
       "Bash(./gradlew assembleDebug:*)",
-      "Bash(supabase db push:*)"
+      "Bash(supabase db push:*)",
+      "Bash(eas secret:create:*)",
+      "Bash(eas env:create:*)",
+      "Bash(eas env:list:*)",
+      "Bash(iconv:*)",
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx jest:*)",
+      "Bash(xxd:*)",
+      "Bash(awk:*)",
+      "Bash(eas build:*)",
+      "Bash(supabase:*)",
+      "Bash(python3:*)",
+      "Bash(env:*)",
+      "Bash(npm test:*)",
+      "Read(//home/kamil/projects/ekotak/**)",
+      "Read(//home/kamil/**)"
     ]
   }
 }

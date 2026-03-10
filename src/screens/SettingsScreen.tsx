@@ -46,10 +46,10 @@ export const SettingsScreen: React.FC = () => {
   const { notificationsEnabled, toggleNotifications } = usePushNotifications();
 
   // Dual SIM state
+  const [dualSimEnabled, setDualSimEnabled] = useState(false);
   const [detectedSims, setDetectedSims] = useState<{ id: string; displayName: string }[]>([]);
   const [selectedSimId, setSelectedSimId] = useState<string | null>(null);
   const [isLoadingSims, setIsLoadingSims] = useState(false);
-  const [showDualSimSection, setShowDualSimSection] = useState(false);
 
   useEffect(() => {
     if (Platform.OS === 'android') {
@@ -60,11 +60,31 @@ export const SettingsScreen: React.FC = () => {
   const loadSimInfo = async () => {
     setIsLoadingSims(true);
     try {
-      const sims = await simDetectionService.getDetectedSims();
+      const enabled = await simDetectionService.isDualSimEnabled();
       const businessSimId = await simDetectionService.getBusinessSimId();
+      let sims = await simDetectionService.getDetectedSims();
+
+      // If dual SIM is enabled but we have dummy SIM IDs, refresh detection
+      if (enabled && sims.some(s => s.id.startsWith('sim_'))) {
+        console.log('📱 Detected dummy SIM IDs, refreshing from call log...');
+        sims = await simDetectionService.refreshSimDetection();
+
+        // If we got real phoneAccountIds, reset the business SIM selection
+        // since the old selection (sim_1/sim_2) is no longer valid
+        if (sims.length > 0 && !sims.some(s => s.id.startsWith('sim_'))) {
+          await simDetectionService.resetSimSelection();
+          setSelectedSimId(null);
+        }
+      }
+
+      setDualSimEnabled(enabled);
+      if (!sims.some(s => s.id.startsWith('sim_'))) {
+        // Only keep business SIM ID if it's not a dummy ID
+        setSelectedSimId(businessSimId?.startsWith('sim_') ? null : businessSimId);
+      } else {
+        setSelectedSimId(businessSimId);
+      }
       setDetectedSims(sims);
-      setSelectedSimId(businessSimId);
-      setShowDualSimSection(sims.length > 1);
     } catch (error) {
       console.error('Error loading SIM info:', error);
     } finally {
@@ -72,28 +92,24 @@ export const SettingsScreen: React.FC = () => {
     }
   };
 
+  const handleDualSimToggle = async (enabled: boolean) => {
+    setDualSimEnabled(enabled);
+    await simDetectionService.setDualSimEnabled(enabled);
+    if (enabled) {
+      // Refresh SIM detection from call log to get real phoneAccountIds
+      setIsLoadingSims(true);
+      const sims = await simDetectionService.refreshSimDetection();
+      setDetectedSims(sims);
+      setIsLoadingSims(false);
+    } else {
+      setSelectedSimId(null);
+      await simDetectionService.resetSimSelection();
+    }
+  };
+
   const handleSimSelect = async (simId: string) => {
     await simDetectionService.setBusinessSimId(simId);
     setSelectedSimId(simId);
-  };
-
-  const handleResetSimSelection = async () => {
-    Alert.alert(
-      'Resetuj wybór SIM',
-      'Czy na pewno chcesz zresetować wybór karty służbowej? Przy następnej synchronizacji zostaniesz poproszony o ponowny wybór.',
-      [
-        { text: 'Anuluj', style: 'cancel' },
-        {
-          text: 'Resetuj',
-          style: 'destructive',
-          onPress: async () => {
-            await simDetectionService.resetSimSelection();
-            setSelectedSimId(null);
-            Alert.alert('Gotowe', 'Wybór karty SIM został zresetowany.');
-          },
-        },
-      ]
-    );
   };
 
   const handleLogout = () => {
@@ -181,70 +197,88 @@ export const SettingsScreen: React.FC = () => {
         </View>
 
         {/* Dual SIM Section */}
-        {showDualSimSection && (
+        {Platform.OS === 'android' && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <MaterialIcons name="sim-card" size={22} color={colors.textPrimary} />
               <Text style={[styles.sectionTitle, { marginLeft: spacing.sm, marginBottom: 0 }]}>
-                Konfiguracja Dual SIM
+                Dual SIM
               </Text>
             </View>
-            <Text style={styles.simSubtitle}>Wybierz kartę służbową:</Text>
 
-            {isLoadingSims ? (
-              <ActivityIndicator size="small" color={colors.primary} />
-            ) : (
-              <View style={styles.simOptionsContainer}>
-                {detectedSims.map((sim, index) => (
-                  <TouchableOpacity
-                    key={sim.id}
-                    style={[
-                      styles.simOption,
-                      {
-                        backgroundColor: selectedSimId === sim.id
-                          ? colors.primaryLight
-                          : colors.surface,
-                        borderColor: selectedSimId === sim.id
-                          ? colors.primary
-                          : colors.border,
-                      },
-                    ]}
-                    onPress={() => handleSimSelect(sim.id)}
-                  >
-                    <MaterialIcons
-                      name={selectedSimId === sim.id ? 'radio-button-checked' : 'radio-button-unchecked'}
-                      size={20}
-                      color={selectedSimId === sim.id ? colors.primary : colors.textTertiary}
-                    />
-                    <View style={styles.simOptionTextContainer}>
-                      <Text
+            {/* Toggle for dual SIM */}
+            <View style={styles.settingsRow}>
+              <View style={styles.settingsRowLeft}>
+                <Text style={styles.settingsLabel}>Mam dwie karty SIM</Text>
+                <Text style={styles.settingsDescription}>
+                  Włącz jeśli masz kartę służbową i prywatną
+                </Text>
+              </View>
+              <Switch
+                value={dualSimEnabled}
+                onValueChange={handleDualSimToggle}
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor={colors.surface}
+              />
+            </View>
+
+            {/* SIM selection - only show when dual SIM is enabled */}
+            {dualSimEnabled && (
+              <>
+                <Text style={styles.simSubtitle}>Która karta jest służbowa?</Text>
+                {isLoadingSims ? (
+                  <ActivityIndicator size="small" color={colors.primary} style={{ marginVertical: spacing.md }} />
+                ) : (
+                  <View style={styles.simOptionsContainer}>
+                    {(detectedSims.length > 0 ? detectedSims : [
+                      { id: 'sim_1', displayName: 'SIM 1' },
+                      { id: 'sim_2', displayName: 'SIM 2' },
+                    ]).map((sim) => (
+                      <TouchableOpacity
+                        key={sim.id}
                         style={[
-                          styles.simOptionLabel,
+                          styles.simOption,
                           {
-                            color: selectedSimId === sim.id
+                            backgroundColor: selectedSimId === sim.id
+                              ? colors.primaryLight
+                              : colors.surface,
+                            borderColor: selectedSimId === sim.id
                               ? colors.primary
-                              : colors.textPrimary,
+                              : colors.border,
                           },
                         ]}
+                        onPress={() => handleSimSelect(sim.id)}
                       >
-                        SIM {index + 1}
-                      </Text>
-                      <Text style={styles.simOptionId} numberOfLines={1}>
-                        ID: {simDetectionService.shortenId(sim.id)}
-                      </Text>
-                    </View>
-                    {selectedSimId === sim.id && (
-                      <Text style={styles.simBadge}>Służbowa</Text>
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </View>
+                        <MaterialIcons
+                          name={selectedSimId === sim.id ? 'radio-button-checked' : 'radio-button-unchecked'}
+                          size={20}
+                          color={selectedSimId === sim.id ? colors.primary : colors.textTertiary}
+                        />
+                        <Text
+                          style={[
+                            styles.simOptionLabel,
+                            {
+                              color: selectedSimId === sim.id
+                                ? colors.primary
+                                : colors.textPrimary,
+                              marginLeft: spacing.sm,
+                            },
+                          ]}
+                        >
+                          {sim.displayName}
+                        </Text>
+                        {selectedSimId === sim.id && (
+                          <Text style={styles.simBadge}>Służbowa</Text>
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+                <Text style={styles.simHint}>
+                  Połączenia z drugiej karty będą ignorowane
+                </Text>
+              </>
             )}
-
-            <TouchableOpacity style={styles.resetSimButton} onPress={handleResetSimSelection}>
-              <MaterialIcons name="refresh" size={16} color={colors.textSecondary} />
-              <Text style={styles.resetSimText}>Resetuj wybór SIM</Text>
-            </TouchableOpacity>
           </View>
         )}
 
@@ -390,6 +424,13 @@ const createStyles = (colors: ReturnType<typeof import('@/contexts/ThemeContext'
       fontWeight: typography.medium,
       backgroundColor: colors.success,
       color: '#fff',
+      marginLeft: 'auto',
+    },
+    simHint: {
+      fontSize: typography.xs,
+      color: colors.textTertiary,
+      marginTop: spacing.sm,
+      fontStyle: 'italic',
     },
     resetSimButton: {
       flexDirection: 'row',
@@ -409,8 +450,16 @@ const createStyles = (colors: ReturnType<typeof import('@/contexts/ThemeContext'
       alignItems: 'center',
     },
     settingsRowLeft: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flex: 1,
+    },
+    settingsLabel: {
+      fontSize: typography.base,
+      color: colors.textPrimary,
+    },
+    settingsDescription: {
+      fontSize: typography.xs,
+      color: colors.textTertiary,
+      marginTop: 2,
     },
     settingsRowText: {
       fontSize: typography.base,

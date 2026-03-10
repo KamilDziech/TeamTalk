@@ -22,6 +22,7 @@ import { deviceService } from './src/services/DeviceService';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import { AuthScreen } from './src/screens/AuthScreen';
+import { supabase } from './src/api/supabaseClient';
 
 const BATTERY_OPTIMIZATION_SHOWN_KEY = 'battery_optimization_shown';
 
@@ -43,12 +44,23 @@ const AppContent: React.FC = () => {
   const { session, profile, loading } = useAuth();
   const { colors, isDark } = useTheme();
   const appState = useRef(AppState.currentState);
+  const wasLoggedInRef = useRef(false);
 
   useEffect(() => {
-    if (session) {
-      // Initialize app when authenticated
+    const isLoggedIn = !!session;
+
+    // initializeApp tylko przy przejściu z niezalogowany → zalogowany
+    // (nie przy odświeżeniu tokenu JWT co godzinę — TOKEN_REFRESHED też zmienia obiekt sesji)
+    if (isLoggedIn && !wasLoggedInRef.current) {
+      console.log('🚀 AppContent: initializeApp (pierwsze logowanie)');
       initializeApp();
+    } else if (isLoggedIn && wasLoggedInRef.current) {
+      console.log('🔁 AppContent: session zmieniona (TOKEN_REFRESHED?) — pomijam initializeApp');
+    } else if (!isLoggedIn && wasLoggedInRef.current) {
+      console.log('🔒 AppContent: wylogowanie — zatrzymuję periodic scanning');
+      callLogScanner.stopPeriodicScanning();
     }
+    wasLoggedInRef.current = isLoggedIn;
 
     // Setup AppState listener
     const subscription = AppState.addEventListener('change', handleAppStateChange);
@@ -56,6 +68,23 @@ const AppContent: React.FC = () => {
     return () => {
       subscription.remove();
     };
+  }, [session]);
+
+  // Keep Supabase alive: ping co 4 minuty zapobiega cold-startowi (free tier pausuje po 5 min)
+  useEffect(() => {
+    if (!session) return;
+
+    const ping = async () => {
+      try {
+        await supabase.from('profiles').select('id').limit(1);
+        console.log('🏓 Supabase keep-alive ping OK');
+      } catch {
+        // Błąd ping jest nieistotny - nie przerywamy działania aplikacji
+      }
+    };
+
+    const intervalId = setInterval(ping, 4 * 60 * 1000); // co 4 minuty
+    return () => clearInterval(intervalId);
   }, [session]);
 
   const handleAppStateChange = (nextAppState: AppStateStatus) => {
@@ -68,18 +97,31 @@ const AppContent: React.FC = () => {
 
   const initializeApp = async () => {
     try {
-      const hasPermissions = await callLogScanner.requestPermissions();
-
-      if (hasPermissions) {
-        console.log('✅ Permissions granted');
-        callLogScanner.startPeriodicScanning(1);
-      } else {
-        console.warn('⚠️ Permissions not granted - call monitoring disabled');
-      }
-
+      // setupNotificationHandler and initializeDeviceService run immediately —
+      // they don't trigger system dialogs and don't put app in background.
       setupNotificationHandler();
       await initializeDeviceService();
       checkBatteryOptimization();
+
+      // requestPermissions is deferred by 5s so that CallLogsList has time to load
+      // data before the system permission dialog appears. The dialog puts the app in
+      // background, which causes Android (Doze/OLAF) to suspend network access and
+      // makes the initial REST fetches time out. Data loading takes ~1–2s, so 5s is
+      // a safe margin. If permissions are already granted, requestPermissions() returns
+      // immediately without showing a dialog — the delay is then harmless.
+      setTimeout(async () => {
+        try {
+          const hasPermissions = await callLogScanner.requestPermissions();
+          if (hasPermissions) {
+            console.log('✅ Permissions granted — startPeriodicScanning');
+            callLogScanner.startPeriodicScanning(1);
+          } else {
+            console.warn('⚠️ Permissions not granted - call monitoring disabled');
+          }
+        } catch (error) {
+          console.error('Error requesting permissions:', error);
+        }
+      }, 5000);
     } catch (error) {
       console.error('Error initializing app:', error);
     }

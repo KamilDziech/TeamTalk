@@ -217,36 +217,26 @@ export class CallLogService {
    * @throws Error if the update fails
    */
   async addRecipient(callLogId: string, recipientId: string): Promise<CallLog | null> {
-    // First get current recipients
-    const { data: callLog, error: fetchError } = await this.supabase
-      .from('call_logs')
-      .select('recipients')
-      .eq('id', callLogId)
-      .single();
+    // Use atomic RPC to avoid read-modify-write race condition when multiple devices
+    // simultaneously try to add recipients to the same call log.
+    const { error } = await this.supabase.rpc('append_unique_recipient', {
+      p_call_log_id: callLogId,
+      p_recipient_id: recipientId,
+    });
 
-    if (fetchError || !callLog) {
-      throw new Error('Failed to fetch call log');
+    if (error) {
+      throw new Error(`Failed to add recipient: ${error.message}`);
     }
 
-    const currentRecipients = callLog.recipients || [];
-
-    // Don't add duplicate recipients
-    if (currentRecipients.includes(recipientId)) {
-      return null;
-    }
-
-    // Add new recipient
-    const updatedRecipients = [...currentRecipients, recipientId];
-
-    const { data, error } = await this.supabase
+    // Fetch and return the updated record
+    const { data, error: fetchError } = await this.supabase
       .from('call_logs')
-      .update({ recipients: updatedRecipients })
-      .eq('id', callLogId)
       .select()
+      .eq('id', callLogId)
       .single();
 
-    if (error || !data) {
-      throw new Error('Failed to add recipient');
+    if (fetchError || !data) {
+      return null;
     }
 
     return data;

@@ -323,9 +323,11 @@ describe('AuthContext', () => {
                 expect(result.current.loading).toBe(false);
             });
 
-            // Refresh profile
-            await act(async () => {
-                await result.current.refreshProfile();
+            // Refresh profile — use waitFor instead of act so fake timers are
+            // advanced automatically (waitFor calls jest.advanceTimersByTime(50) per retry)
+            act(() => { result.current.refreshProfile(); });
+            await waitFor(() => {
+                expect(callCount).toBeGreaterThanOrEqual(1);
             });
 
             // Assert - refreshProfile was callable

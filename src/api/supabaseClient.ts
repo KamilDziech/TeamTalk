@@ -42,6 +42,48 @@ if (!supabaseAnonKey) {
   );
 }
 
+// Custom fetch wrapper: logs HTTP-level details and forces new TCP connections.
+// 'Connection: close' prevents OkHttp from reusing stale pooled connections that
+// the server has silently closed after ~1h idle — without this, REST requests can
+// hang for 30s+ until OkHttp finally detects the broken connection.
+const customFetch = async (url: RequestInfo | URL, options?: RequestInit): Promise<Response> => {
+  const urlStr =
+    typeof url === 'string' ? url :
+    url instanceof URL ? url.toString() :
+    (url as Request).url;
+  const path = urlStr.replace(supabaseUrl ?? '', '').split('?')[0].substring(0, 60);
+  const method = options?.method ?? 'GET';
+  const t0 = Date.now();
+  try {
+    // options.headers may be a Headers instance, plain object, or array of tuples.
+    // Using the Headers constructor handles all cases correctly without losing entries.
+    const mergedHeaders = new Headers(options?.headers);
+    mergedHeaders.set('Connection', 'close');
+
+    if (__DEV__) {
+      const isAuthEndpoint = urlStr.includes('/auth/');
+      const hasAuthHeader = mergedHeaders.has('Authorization');
+      // For non-auth REST requests missing an Authorization header, warn loudly —
+      // this is the smoking gun for "fetches hang because token not yet available".
+      if (!isAuthEndpoint && !hasAuthHeader) {
+        console.warn(`🌐 fetch → ${method} ${path} — ⚠️ BRAK TOKENU AUTH (brak nagłówka Authorization)`);
+      } else {
+        console.log(`🌐 fetch → ${method} ${path}${isAuthEndpoint ? ' [auth]' : ''}`);
+      }
+    }
+
+    const response = await fetch(url, {
+      ...options,
+      headers: mergedHeaders,
+    });
+    if (__DEV__) console.log(`🌐 fetch ← ${response.status} ${path} (${Date.now() - t0}ms)`);
+    return response;
+  } catch (error: any) {
+    if (__DEV__) console.error(`🌐 fetch ✗ ${path} (${Date.now() - t0}ms): ${error?.name} — ${error?.message}`);
+    throw error;
+  }
+};
+
 /**
  * Supabase client instance
  * Configured with proper TypeScript types and auth settings
@@ -64,6 +106,10 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     params: {
       eventsPerSecond: 10,
     },
+  },
+  global: {
+    // Use custom fetch to force new TCP connections and log HTTP details
+    fetch: customFetch,
   },
 });
 

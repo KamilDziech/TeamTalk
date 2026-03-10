@@ -19,6 +19,8 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  AppState,
+  AppStateStatus,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -149,9 +151,12 @@ const groupCallLogsByClient = (logs: CallLogWithClient[]): GroupedCallLog[] => {
 
 type NavigationProp = NativeStackNavigationProp<CallLogsStackParamList, 'CallLogsList'>;
 
-export const CallLogsList: React.FC = () => {
+export const CallLogsList: React.FC = React.memo(() => {
   console.log('📋 CallLogsList: Component rendering START');
-  const { user } = useAuth();
+  const { user, session } = useAuth();
+  // Ref keeping the latest session value accessible inside closures without stale captures
+  const sessionRef = useRef(session);
+  useEffect(() => { sessionRef.current = session; }, [session]);
   const { colors } = useTheme();
   const styles = createStyles(colors);
   const navigation = useNavigation<NavigationProp>();
@@ -160,66 +165,137 @@ export const CallLogsList: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
+  // True when all fetch attempts failed (network/server error), false = genuinely empty
+  const [connectionError, setConnectionError] = useState(false);
 
   // Concurrency guard: prevents multiple simultaneous fetchCallLogs() calls
   const isFetchingRef = useRef(false);
+  // Tracks whether call logs were loaded at least once (used for cold-start retry)
+  const callLogsLoadedRef = useRef(false);
   // Debounce timer for realtime subscription events
   const realtimeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Track app state to refresh data when returning from background
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
 
   useEffect(() => {
     console.log('📋 CallLogsList: useEffect running');
     initializeData();
     const cleanup = setupRealtimeSubscription();
+
+    // Refresh call logs when app returns from background (Doze mode kills WebSocket)
+    const appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
+      console.log(`📋 AppState: ${appStateRef.current} → ${nextAppState} (isFetchingRef=${isFetchingRef.current})`);
+      if (
+        appStateRef.current.match(/inactive|background/) &&
+        nextAppState === 'active'
+      ) {
+        console.log('📋 CallLogsList: app returned to foreground, refreshing...');
+        fetchCallLogs(false, 'AppState');
+      }
+      appStateRef.current = nextAppState;
+    });
+
     return () => {
       if (realtimeDebounceRef.current) {
         clearTimeout(realtimeDebounceRef.current);
       }
+      appStateSubscription.remove();
       cleanup();
     };
   }, []);
 
-  // Load device contacts FIRST, then fetch data
+  // Load contacts in parallel with data fetch (don't block on permission dialog)
   const initializeData = async () => {
+    const t0 = Date.now();
+    console.log('📋 initializeData: START');
     try {
       setLoading(true);
 
-      try {
-        const loaded = await contactLookupService.loadDeviceContacts();
-        console.log('📱 Device contacts loaded:', loaded);
-      } catch (contactsError) {
-        console.error('📱 Error loading contacts, non-fatal:', contactsError);
+      // Fire contacts loading in background - permission dialog must not block queue fetch
+      contactLookupService.loadDeviceContacts()
+        .then((loaded) => console.log('📱 Device contacts loaded:', loaded))
+        .catch((contactsError) => console.error('📱 Error loading contacts, non-fatal:', contactsError));
+
+      // First attempt: 20s timeout. Supabase free tier REST (PostgREST) can take 10–20s
+      // to wake from cold state after idle — the original 3s was too aggressive and caused
+      // premature retries that then also timed out. Auth (GoTrue) is always fast (<1s),
+      // but REST lives on a separate server that can pause after ~5 min of inactivity.
+      // Connection: close in customFetch prevents stale OkHttp connections, so we no longer
+      // need a short first-attempt timeout to detect them.
+      console.log('📋 initializeData: fetchProfiles + fetchCallLogs — pierwsza próba (timeout 20s)...');
+      await Promise.allSettled([fetchProfiles(20000), fetchCallLogs(false, 'initializeData', 20000)]);
+      // Snapshot immediately after first attempt — before any 2s delay during which
+      // a realtime event could flip callLogsLoadedRef to true concurrently.
+      const loadedAfterFirstAttempt = callLogsLoadedRef.current;
+      console.log(`📋 initializeData: pierwsza próba zakończona (${Date.now() - t0}ms), dane: ${loadedAfterFirstAttempt ? 'OK' : 'BRAK'}`);
+
+      // Retry: if first 20s attempt failed (e.g. Supabase took >20s to warm up or
+      // AppState listener set isFetchingRef=true mid-flight), try once more with 30s.
+      if (!loadedAfterFirstAttempt) {
+        console.log('📋 initializeData: brak danych — retry za 2s...');
+        await new Promise((r) => setTimeout(r, 2000));
+        // Force-reset the concurrency guard before retry: the AppState listener
+        // (triggered by dismissing the permissions dialog) may have set isFetchingRef=true
+        // during the 2s wait, which would block fetchCallLogs() silently.
+        console.log(`📋 initializeData: przed retry — isFetchingRef=${isFetchingRef.current}, resetuję do false`);
+        isFetchingRef.current = false;
+        console.log('📋 initializeData: retry START (timeout 30s)');
+        await Promise.allSettled([fetchProfiles(20000), fetchCallLogs(false, 'initializeData-retry', 30000)]);
+        console.log(`📋 initializeData: retry zakończony (${Date.now() - t0}ms), dane: ${callLogsLoadedRef.current ? 'OK' : 'NADAL BRAK'}`);
       }
 
-      console.log('📱 Now fetching call logs and profiles...');
-      await fetchProfiles();
-      await fetchCallLogs();
-
     } catch (error) {
-      console.error('Critical error in initializeData:', error);
+      console.error('📋 initializeData: BŁĄD KRYTYCZNY:', error);
     } finally {
+      console.log(`📋 initializeData: END (${Date.now() - t0}ms)`);
+      if (!callLogsLoadedRef.current) {
+        setConnectionError(true);
+      }
       setLoading(false);
     }
   };
 
-  const fetchProfiles = async () => {
+  const fetchProfiles = async (timeoutMs = 20000) => {
+    const t0 = Date.now();
+    // Log auth session state from React context (synchronous — never hangs).
+    {
+      const sess = sessionRef.current;
+      if (sess) {
+        const expiresInMin = sess.expires_at
+          ? Math.round((sess.expires_at * 1000 - Date.now()) / 60000)
+          : null;
+        console.log(`👤 fetchProfiles: AUTH — sesja istnieje | ${expiresInMin !== null ? (expiresInMin > 0 ? `ważny (za ${expiresInMin} min)` : `⚠️ WYGASŁY`) : 'brak expires_at'}`);
+      } else {
+        console.warn(`👤 fetchProfiles: AUTH — ⚠️ BRAK SESJI (context)!`);
+      }
+    }
+    console.log(`👤 fetchProfiles: START (timeout=${timeoutMs}ms)`);
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .abortSignal(controller.signal);
+      const { data, error } = await Promise.race([
+        supabase.from('profiles').select('*').abortSignal(controller.signal).then((r) => r),
+        new Promise<never>((_, reject) => {
+          timeoutId = setTimeout(() => {
+            console.warn(`👤 fetchProfiles: timeout po ${timeoutMs / 1000}s`);
+            controller.abort();
+            reject(new Error('ProfilesTimeout'));
+          }, timeoutMs);
+        }),
+      ]);
       if (error) {
-        console.error('Error fetching profiles:', error);
+        console.error(`👤 fetchProfiles: błąd Supabase (${Date.now() - t0}ms):`, error);
         return;
       }
       const profileMap = new Map<string, Profile>();
       data?.forEach((profile: Profile) => profileMap.set(profile.id, profile));
+      console.log(`👤 fetchProfiles: OK — ${profileMap.size} profili (${Date.now() - t0}ms)`);
       setProfiles(profileMap);
     } catch (error) {
-      console.error('Error fetching profiles:', error);
+      console.error(`👤 fetchProfiles: BŁĄD (${Date.now() - t0}ms):`, error);
     } finally {
       clearTimeout(timeoutId);
+      controller.abort();
     }
   };
 
@@ -230,34 +306,72 @@ export const CallLogsList: React.FC = () => {
   };
 
   // showLoading=true only for initial load; realtime/background calls pass false
-  const fetchCallLogs = async (showLoading = false) => {
+  const fetchCallLogs = async (showLoading = false, caller = 'unknown', timeoutMs = 30000) => {
     // Concurrency guard: skip if a fetch is already in progress
     if (isFetchingRef.current) {
-      console.log('📋 fetchCallLogs: already in progress, skipping');
+      console.log(`📋 fetchCallLogs: POMINIĘTY — caller=${caller}, isFetchingRef=true`);
       return;
     }
     isFetchingRef.current = true;
+    const t0 = Date.now();
 
-    // Timeout protection: abort the query if it takes longer than 10 seconds
+    // Log auth session state from React context (synchronous — never hangs).
+    // Do NOT use supabase.auth.getSession() here: when called while a token refresh
+    // is still in-flight internally, it deadlocks and isFetchingRef never resets.
+    {
+      const sess = sessionRef.current;
+      if (sess) {
+        const expiresInMin = sess.expires_at
+          ? Math.round((sess.expires_at * 1000 - Date.now()) / 60000)
+          : null;
+        const tokenStatus = expiresInMin !== null
+          ? (expiresInMin > 0 ? `ważny (za ${expiresInMin} min)` : `⚠️ WYGASŁY (${Math.abs(expiresInMin)} min temu)`)
+          : 'brak expires_at';
+        console.log(`📋 fetchCallLogs: AUTH — sesja istnieje | ${tokenStatus}`);
+      } else {
+        console.warn(`📋 fetchCallLogs: AUTH — ⚠️ BRAK SESJI (context)! caller=${caller}`);
+      }
+    }
+
+    console.log(`📋 fetchCallLogs: START — caller=${caller}, showLoading=${showLoading}, timeout=${timeoutMs}ms`);
+
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => {
-      console.warn('📋 fetchCallLogs: query timed out after 10s, aborting');
-      controller.abort();
-    }, 10000);
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    // Periodic checkpoints: log progress every 5s so we know the query is still running
+    const checkpointIntervals = [5000, 10000, 15000, 20000, 25000].filter((ms) => ms < timeoutMs);
+    const checkpoints = checkpointIntervals.map((ms) =>
+      setTimeout(() => {
+        console.warn(`📋 fetchCallLogs: wciąż czeka... (${ms / 1000}s, caller=${caller})`);
+      }, ms)
+    );
 
     try {
       if (showLoading) setLoading(true);
 
-      // Fetch only queue items (missed + reserved) directly in the query
-      const { data: allLogs, error } = await supabase
-        .from('call_logs')
-        .select(`*, clients (*)`)
-        .in('status', ['missed', 'reserved'])
-        .order('timestamp', { ascending: false })
-        .limit(200)
-        .abortSignal(controller.signal);
+      // Promise.race guarantees the await resolves/rejects within the timeout
+      // even if AbortController doesn't cause the Supabase promise to throw.
+      const { data: allLogs, error } = await Promise.race([
+        supabase
+          .from('call_logs')
+          .select(`*, clients (*)`)
+          .in('status', ['missed', 'reserved'])
+          .order('timestamp', { ascending: false })
+          .limit(200)
+          .abortSignal(controller.signal)
+          .then((r) => r),
+        new Promise<never>((_, reject) => {
+          timeoutId = setTimeout(() => {
+            console.warn(`📋 fetchCallLogs: TIMEOUT po ${timeoutMs / 1000}s (caller=${caller})`);
+            controller.abort();
+            reject(new Error('QueryTimeout'));
+          }, timeoutMs);
+        }),
+      ]);
 
-      if (error) throw error;
+      if (error) {
+        console.error(`📋 fetchCallLogs: błąd Supabase (${Date.now() - t0}ms, caller=${caller}):`, error.message, error.code);
+        throw error;
+      }
 
       const queueLogs = (allLogs || []).map((log: any) => ({
         ...log,
@@ -266,17 +380,23 @@ export const CallLogsList: React.FC = () => {
       })) as CallLogWithClient[];
 
       const grouped = groupCallLogsByClient(queueLogs);
-      console.log('📋 Grouped logs:', grouped.length, 'groups');
+      console.log(`📋 fetchCallLogs: OK — ${grouped.length} grup, ${queueLogs.length} logów (${Date.now() - t0}ms, caller=${caller})`);
+      callLogsLoadedRef.current = true;
+      setConnectionError(false);
       setGroupedLogs(grouped);
     } catch (error: any) {
-      if (error?.name === 'AbortError' || error?.message?.includes('aborted')) {
-        console.error('📋 fetchCallLogs: aborted (timeout or unmount)');
+      const isAbort = error?.name === 'AbortError' || error?.message?.includes('aborted') || error?.message === 'QueryTimeout';
+      if (isAbort) {
+        console.error(`📋 fetchCallLogs: TIMEOUT/ABORT (${Date.now() - t0}ms, caller=${caller})`);
       } else {
-        console.error('Error fetching call logs:', error);
+        console.error(`📋 fetchCallLogs: BŁĄD (${Date.now() - t0}ms, caller=${caller}):`, error?.message ?? error);
       }
     } finally {
+      checkpoints.forEach(clearTimeout);
       clearTimeout(timeoutId);
+      controller.abort();
       isFetchingRef.current = false;
+      console.log(`📋 fetchCallLogs: END — isFetchingRef reset (${Date.now() - t0}ms, caller=${caller})`);
       if (showLoading) setLoading(false);
       setRefreshing(false);
     }
@@ -292,20 +412,28 @@ export const CallLogsList: React.FC = () => {
           schema: 'public',
           table: 'call_logs',
         },
-        () => {
+        (payload) => {
           // Debounce: if multiple DB events fire in quick succession (e.g. during a scan),
           // wait 500ms after the last event before fetching. Never show loading spinner.
+          console.log(`📋 realtime: zdarzenie DB (${payload.eventType}) → debounce 500ms`);
           if (realtimeDebounceRef.current) {
             clearTimeout(realtimeDebounceRef.current);
           }
           realtimeDebounceRef.current = setTimeout(() => {
-            fetchCallLogs(false);
+            fetchCallLogs(false, 'realtime');
           }, 500);
         }
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        if (err) {
+          console.error('📋 realtime: błąd subskrypcji —', status, err.message);
+        } else {
+          console.log('📋 realtime: status kanału —', status);
+        }
+      });
 
     return () => {
+      console.log('📋 realtime: odpinanie kanału');
       supabase.removeChannel(channel);
     };
   };
@@ -317,7 +445,7 @@ export const CallLogsList: React.FC = () => {
     try {
       console.log('🔄 Manual refresh - scanning call log...');
       await callLogScanner.scanMissedCalls();
-      await fetchCallLogs(false);
+      await fetchCallLogs(false, 'onRefresh');
       setSyncStatus('Zsynchronizowano');
     } catch (error) {
       console.error('Error during refresh:', error);
@@ -334,7 +462,7 @@ export const CallLogsList: React.FC = () => {
 
     try {
       await callLogScanner.fullRescan();
-      await fetchCallLogs(false);
+      await fetchCallLogs(false, 'fullRescan');
       setSyncStatus('Skanowanie zakończone');
     } catch (error) {
       console.error('Error during full rescan:', error);
@@ -367,7 +495,7 @@ export const CallLogsList: React.FC = () => {
               console.log('🗑️ Queue cleared');
               // Reset concurrency guard so the forced fetch after delete can run
               isFetchingRef.current = false;
-              fetchCallLogs(true);
+              fetchCallLogs(true, 'clearQueue');
             } catch (error) {
               console.error('Error clearing queue:', error);
               setLoading(false);
@@ -494,11 +622,23 @@ export const CallLogsList: React.FC = () => {
           }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <MaterialIcons name="phone-missed" size={64} color={colors.textTertiary} />
-              <Text style={styles.emptyText}>Brak połączeń</Text>
-              <Text style={styles.emptySubtext}>
-                Nieodebrane połączenia pojawią się tutaj
-              </Text>
+              {connectionError ? (
+                <>
+                  <MaterialIcons name="wifi-off" size={64} color={colors.textTertiary} />
+                  <Text style={styles.emptyText}>Brak połączenia</Text>
+                  <Text style={styles.emptySubtext}>
+                    Nie udało się połączyć z serwerem. Sprawdź internet i odśwież.
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <MaterialIcons name="phone-missed" size={64} color={colors.textTertiary} />
+                  <Text style={styles.emptyText}>Brak połączeń</Text>
+                  <Text style={styles.emptySubtext}>
+                    Nieodebrane połączenia pojawią się tutaj
+                  </Text>
+                </>
+              )}
               <Text style={styles.pullHint}>↓ Pociągnij w dół aby odświeżyć</Text>
             </View>
           }
@@ -523,7 +663,7 @@ export const CallLogsList: React.FC = () => {
       />
     </View>
   );
-};
+});
 
 // Dynamic styles generator
 const createStyles = (colors: ReturnType<typeof import('@/contexts/ThemeContext').useTheme>['colors']) =>
