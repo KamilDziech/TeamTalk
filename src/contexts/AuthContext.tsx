@@ -34,48 +34,74 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     console.log('🔄 AuthContext: Starting session initialization...');
 
-    // Safety timeout - if session check takes too long, stop loading anyway
+    // Do NOT call supabase.auth.getSession() here.
+    //
+    // Root cause of the infinite-loading bug:
+    // When the JWT is expired on cold start, getSession() triggers a network
+    // refresh internally. The SDK creates an internal _refreshingDeferred promise.
+    // After the refresh completes, TOKEN_REFRESHED fires via onAuthStateChange —
+    // but the _refreshingDeferred is never resolved (Supabase JS SDK v2 bug).
+    // Any subsequent supabase.from(...).select(...) call also calls getSession()
+    // internally and queues behind the orphaned deferred → all REST requests hang
+    // forever → Android kills the process after ~60s (signal 9).
+    //
+    // Fix: Let onAuthStateChange handle everything. The SDK fires:
+    //   INITIAL_SESSION  — token was already valid (fast path, <10ms)
+    //   TOKEN_REFRESHED  — token was expired and has been refreshed (~700ms)
+    //   (no event)       — no session at all → INITIAL_SESSION with null session
+    // In all cases the SDK's internal deferred resolves correctly because no
+    // external getSession() call is competing with the internal refresh.
+
+    let sessionResolved = false;
+    const initT0 = Date.now();
+
+    // Safety net: in case onAuthStateChange never fires (e.g. network completely dead)
     const safetyTimeout = setTimeout(() => {
-      console.warn('⚠️ AuthContext: Session check timed out after 10s');
-      if (loading) {
+      if (!sessionResolved) {
+        console.warn(`⚠️ AuthContext: SAFETY_TIMEOUT after 10s — setLoading(false)`);
+        sessionResolved = true;
         setLoading(false);
       }
     }, 10000);
 
-    // Get initial session
-    supabase.auth.getSession()
-      .then(({ data: { session } }) => {
-        console.log('✅ AuthContext: getSession completed, session:', session ? 'exists' : 'null');
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          fetchProfile(session.user.id);
-        }
-      })
-      .catch((error) => {
-        console.error('❌ AuthContext: Error getting session:', error);
-      })
-      .finally(() => {
-        console.log('✅ AuthContext: Setting loading to false');
-        clearTimeout(safetyTimeout);
-        setLoading(false);
-      });
-
-    // Listen for auth changes
+    // Listen for auth changes — this is the sole source of truth for session state
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event);
+        const tokenExpiry = session?.expires_at
+          ? new Date(session.expires_at * 1000).toISOString()
+          : 'brak';
+        const expiresInMin = session?.expires_at
+          ? Math.round((session.expires_at * 1000 - Date.now()) / 60000)
+          : null;
+        console.log(
+          `🔑 Auth state changed: ${event} | token wygasa: ${tokenExpiry}${expiresInMin !== null ? ` (za ${expiresInMin} min)` : ''}`
+        );
         setSession(session);
         setUser(session?.user ?? null);
 
-        // If getSession() is stuck (race with TOKEN_REFRESHED), unblock loading here
+        // Unblock loading on any event that signals the auth state is settled.
+        // TOKEN_REFRESHED is now safe to use here because we are NOT calling
+        // getSession() ourselves — so the SDK's internal deferred resolves
+        // cleanly before REST requests begin.
         if (event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') {
-          clearTimeout(safetyTimeout);
-          setLoading(false);
+          if (!sessionResolved) {
+            console.log(`✅ AuthContext: setLoading(false) via ${event} (t=${Date.now() - initT0}ms)`);
+            sessionResolved = true;
+            clearTimeout(safetyTimeout);
+            setLoading(false);
+          }
         }
 
         if (session?.user) {
-          await fetchProfile(session.user.id);
+          // Do NOT await fetchProfile here. The onAuthStateChange callback is
+          // awaited by the SDK (_notifyAllSubscribers awaits x.callback). Any
+          // Supabase REST call inside fetchProfile internally calls getSession(),
+          // which waits for refreshingDeferred to resolve. But refreshingDeferred
+          // is only resolved AFTER _notifyAllSubscribers returns — so awaiting
+          // fetchProfile here creates a circular deadlock on TOKEN_REFRESHED.
+          // Fire-and-forget: fetchProfile runs after the callback returns and
+          // refreshingDeferred is resolved.
+          fetchProfile(session.user.id).catch(err => console.error('Error fetching profile:', err));
         } else {
           setProfile(null);
         }
