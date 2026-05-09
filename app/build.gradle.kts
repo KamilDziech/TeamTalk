@@ -61,6 +61,7 @@ android {
 dependencies {
     // Core
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.appcompat)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.activity.compose)
@@ -101,4 +102,8 @@ dependencies {
 
     // DataStore
     implementation(libs.datastore.preferences)
+
+    // WorkManager + Hilt integration
+    implementation(libs.work.runtime.ktx)
+    implementation(libs.hilt.work)
 }

@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.ekotak.teamtalk.presentation.settings.ThemeMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -16,15 +17,25 @@ class SessionPreferences @Inject constructor(
 ) {
     companion object {
         private val KEY_ACCESS_TOKEN   = stringPreferencesKey("access_token")
+        val KEY_LAST_SCAN_MS           = longPreferencesKey("last_scan_ms")
         private val KEY_REFRESH_TOKEN  = stringPreferencesKey("refresh_token")
         private val KEY_EXPIRES_AT     = longPreferencesKey("expires_at")
         private val KEY_USER_ID        = stringPreferencesKey("user_id")
         private val KEY_USER_EMAIL     = stringPreferencesKey("user_email")
         private val KEY_DISPLAY_NAME   = stringPreferencesKey("display_name")
+        private val KEY_THEME          = stringPreferencesKey("theme_mode")
     }
 
     val accessToken: Flow<String?>  = dataStore.data.map { it[KEY_ACCESS_TOKEN] }
     val refreshToken: Flow<String?> = dataStore.data.map { it[KEY_REFRESH_TOKEN] }
+
+    val themeMode: Flow<ThemeMode> = dataStore.data.map { prefs ->
+        ThemeMode.entries.firstOrNull { it.name == prefs[KEY_THEME] } ?: ThemeMode.SYSTEM
+    }
+
+    suspend fun saveThemeMode(mode: ThemeMode) {
+        dataStore.edit { it[KEY_THEME] = mode.name }
+    }
 
     val session: Flow<StoredSession?> = dataStore.data.map { prefs ->
         val accessToken  = prefs[KEY_ACCESS_TOKEN]  ?: return@map null

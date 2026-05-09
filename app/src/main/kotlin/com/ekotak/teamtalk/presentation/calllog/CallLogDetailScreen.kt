@@ -9,10 +9,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -28,6 +32,8 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import com.ekotak.teamtalk.domain.model.isOverSla
+import com.ekotak.teamtalk.domain.model.waitingMinutes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -104,6 +110,7 @@ fun CallLogDetailScreen(
                 onComplete = { viewModel.completeCallLog(callLogId) },
                 onReopen = { viewModel.reopenCallLog(callLogId) },
                 onAddRecipient = { viewModel.addCurrentUserAsRecipient(callLogId) },
+                onCall = { phone -> viewModel.makeCall(phone) },
                 onNavigateToVoiceReport = onNavigateToVoiceReport,
                 modifier = Modifier
                     .fillMaxSize()
@@ -120,6 +127,7 @@ private fun CallLogDetailContent(
     onComplete: () -> Unit,
     onReopen: () -> Unit,
     onAddRecipient: () -> Unit,
+    onCall: (String) -> Unit,
     onNavigateToVoiceReport: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -140,6 +148,35 @@ private fun CallLogDetailContent(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+
+        if (callLog.status == CallStatus.MISSED) {
+            val minutes = callLog.waitingMinutes()
+            val overSla = callLog.isOverSla()
+            if (minutes > 0) {
+                Spacer(modifier = Modifier.height(8.dp))
+                val waitText = if (minutes >= 60) {
+                    val h = minutes / 60; val m = minutes % 60
+                    if (m == 0L) "Czeka ${h}h" else "Czeka ${h}h ${m}min"
+                } else "Czeka ${minutes}min"
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Schedule,
+                        contentDescription = null,
+                        tint = if (overSla) Red600 else Orange600,
+                        modifier = Modifier
+                            .size(16.dp),
+                    )
+                    Text(
+                        text = if (overSla) "$waitText — PRZEKROCZONO SLA" else waitText,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (overSla) Red600 else Orange600,
+                    )
+                }
+            }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -229,6 +266,24 @@ private fun CallLogDetailContent(
                 ) {
                     Text("Otwórz ponownie", color = Orange600)
                 }
+            }
+        }
+
+        val phone = callLog.callerPhone ?: callLog.client?.phone
+        if (phone != null) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Button(
+                onClick = { onCall(phone) },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Phone,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(18.dp),
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Zadzwoń: $phone")
             }
         }
 

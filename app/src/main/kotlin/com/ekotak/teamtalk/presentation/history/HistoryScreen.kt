@@ -1,4 +1,4 @@
-package com.ekotak.teamtalk.presentation.client
+package com.ekotak.teamtalk.presentation.history
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -17,80 +17,55 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Badge
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.ekotak.teamtalk.domain.model.Client
+import com.ekotak.teamtalk.presentation.calllog.StatusChip
+import com.ekotak.teamtalk.presentation.calllog.toShortDateTime
+import com.ekotak.teamtalk.presentation.util.toRelativeTime
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ClientListScreen(
+fun HistoryScreen(
     onNavigateToDetail: (String) -> Unit,
-    onNavigateToCreate: () -> Unit,
-    viewModel: ClientViewModel = hiltViewModel(),
+    viewModel: HistoryViewModel = hiltViewModel(),
 ) {
-    val state by viewModel.listState.collectAsState()
+    val state by viewModel.uiState.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
-    val actionError by viewModel.actionError.collectAsState()
-    val snackbarHostState = remember { SnackbarHostState() }
-
-    LaunchedEffect(actionError) {
-        actionError?.let {
-            snackbarHostState.showSnackbar(it)
-            viewModel.clearActionError()
-        }
-    }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Klienci") },
+                title = { Text("Historia") },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     titleContentColor = MaterialTheme.colorScheme.onPrimary,
                 ),
             )
         },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = onNavigateToCreate,
-                containerColor = MaterialTheme.colorScheme.primary,
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "Dodaj klienta",
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                )
-            }
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         Column(
             modifier = Modifier
@@ -103,7 +78,7 @@ fun ClientListScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
-                placeholder = { Text("Szukaj klientów...") },
+                placeholder = { Text("Szukaj po nazwie, numerze, notatce...") },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
@@ -116,28 +91,33 @@ fun ClientListScreen(
                 singleLine = true,
             )
 
-            if (state.clients.isEmpty()) {
-                Box(
+            when {
+                state.isLoading -> Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) { CircularProgressIndicator() }
+
+                state.entries.isEmpty() -> Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = if (searchQuery.isBlank()) "Brak klientów" else "Brak wyników dla \"$searchQuery\"",
+                        text = if (searchQuery.isBlank()) "Brak zakończonych połączeń"
+                               else "Brak wyników dla \"$searchQuery\"",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-            } else {
-                LazyColumn(
+
+                else -> LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                 ) {
-                    items(state.clients, key = { it.id }) { client ->
-                        ClientCard(
-                            client = client,
-                            callCount = state.callCountMap[client.id] ?: 0,
-                            onClick = { onNavigateToDetail(client.id) },
+                    items(state.entries, key = { it.callLog.id }) { entry ->
+                        HistoryCard(
+                            entry = entry,
+                            onClick = { onNavigateToDetail(entry.callLog.id) },
                         )
                     }
                 }
@@ -147,11 +127,11 @@ fun ClientListScreen(
 }
 
 @Composable
-private fun ClientCard(
-    client: Client,
-    callCount: Int,
+private fun HistoryCard(
+    entry: HistoryEntry,
     onClick: () -> Unit,
 ) {
+    val callLog = entry.callLog
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -159,57 +139,74 @@ private fun ClientCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = Icons.Default.Person,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = client.name ?: client.phone,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                if (client.name != null) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = client.phone,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        text = callLog.client?.name ?: callLog.callerPhone ?: "Nieznany",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
                     )
+                    if (callLog.client?.name != null && callLog.callerPhone != null) {
+                        Text(
+                            text = callLog.callerPhone,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
-                if (client.address != null) {
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = client.address,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-            if (callCount > 0) {
                 Spacer(modifier = Modifier.width(8.dp))
-                androidx.compose.foundation.layout.Column(
-                    horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Phone,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(14.dp),
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = callLog.timestamp.toRelativeTime(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
-                        text = "$callCount",
+                        text = callLog.timestamp.toShortDateTime(),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                StatusChip(status = callLog.status)
+                if (entry.noteCount > 0) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Description,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                        Spacer(modifier = Modifier.width(2.dp))
+                        Text(
+                            text = "${entry.noteCount}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
+            }
+
+            if (!entry.notePreview.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = entry.notePreview,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
         }
     }

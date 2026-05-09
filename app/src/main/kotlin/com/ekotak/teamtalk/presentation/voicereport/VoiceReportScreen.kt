@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -26,6 +27,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -36,9 +38,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -73,6 +78,9 @@ fun VoiceReportScreen(
 ) {
     val reports by viewModel.reports.collectAsState()
     val recordingState by viewModel.recordingState.collectAsState()
+    val noteMode by viewModel.noteMode.collectAsState()
+    val textInput by viewModel.textInput.collectAsState()
+    val isSavingText by viewModel.isSavingText.collectAsState()
     val actionError by viewModel.actionError.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
@@ -125,7 +133,8 @@ fun VoiceReportScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
+                .padding(padding)
+                .imePadding(),
         ) {
             // Reports list
             if (reports.isEmpty() && recordingState is RecordingState.Idle) {
@@ -136,7 +145,7 @@ fun VoiceReportScreen(
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = "Brak nagrań dla tego zgłoszenia",
+                        text = "Brak notatek dla tego zgłoszenia",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -153,14 +162,64 @@ fun VoiceReportScreen(
                 }
             }
 
-            // Recording panel
-            RecordingPanel(
-                state = recordingState,
-                onMicClick = ::handleMicClick,
-                onStop = viewModel::stopRecording,
-                onSend = viewModel::uploadAndTranscribe,
-                onDiscard = viewModel::discardRecording,
-            )
+            // Bottom panel
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    // Mode tabs — only shown when idle (not mid-recording/processing)
+                    if (recordingState is RecordingState.Idle || recordingState is RecordingState.Processing) {
+                        TabRow(selectedTabIndex = noteMode.ordinal) {
+                            Tab(
+                                selected = noteMode == NoteMode.VOICE,
+                                onClick = { viewModel.setNoteMode(NoteMode.VOICE) },
+                                icon = { Icon(Icons.Default.Mic, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                                text = { Text("Głosowa") },
+                            )
+                            Tab(
+                                selected = noteMode == NoteMode.TEXT,
+                                onClick = { viewModel.setNoteMode(NoteMode.TEXT) },
+                                icon = { Icon(Icons.Default.TextFields, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                                text = { Text("Tekstowa") },
+                            )
+                        }
+                    }
+
+                    when {
+                        noteMode == NoteMode.TEXT && recordingState is RecordingState.Idle ->
+                            TextNotePanel(
+                                text = textInput,
+                                isSaving = isSavingText,
+                                onTextChange = viewModel::onTextInputChanged,
+                                onSave = viewModel::saveTextNote,
+                            )
+                        else ->
+                            RecordingPanel(
+                                state = recordingState,
+                                onMicClick = ::handleMicClick,
+                                onStop = viewModel::stopRecording,
+                                onSend = viewModel::uploadAndTranscribe,
+                                onDiscard = viewModel::discardRecording,
+                            )
+                    }
+
+                    // Pomiń button — always visible when idle
+                    if (recordingState is RecordingState.Idle) {
+                        OutlinedButton(
+                            onClick = onNavigateBack,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                                .padding(bottom = 12.dp),
+                        ) {
+                            Text("Pomiń — nie dodawaj notatki")
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -173,17 +232,50 @@ private fun RecordingPanel(
     onSend: () -> Unit,
     onDiscard: () -> Unit,
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    when (state) {
+        is RecordingState.Idle -> IdlePanel(onMicClick = onMicClick)
+        is RecordingState.Recording -> RecordingActivePanel(state = state, onStop = onStop)
+        is RecordingState.Recorded -> RecordedPanel(state = state, onSend = onSend, onDiscard = onDiscard)
+        is RecordingState.Processing -> ProcessingPanel()
+    }
+}
+
+@Composable
+private fun TextNotePanel(
+    text: String,
+    isSaving: Boolean,
+    onTextChange: (String) -> Unit,
+    onSave: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
     ) {
-        when (state) {
-            is RecordingState.Idle -> IdlePanel(onMicClick = onMicClick)
-            is RecordingState.Recording -> RecordingActivePanel(state = state, onStop = onStop)
-            is RecordingState.Recorded -> RecordedPanel(state = state, onSend = onSend, onDiscard = onDiscard)
-            is RecordingState.Processing -> ProcessingPanel()
+        OutlinedTextField(
+            value = text,
+            onValueChange = onTextChange,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(120.dp),
+            placeholder = { Text("Wpisz notatkę tekstową...") },
+            maxLines = 6,
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Button(
+            onClick = onSave,
+            enabled = text.isNotBlank() && !isSaving,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(containerColor = Green600),
+        ) {
+            if (isSaving) {
+                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                Spacer(modifier = Modifier.width(8.dp))
+            } else {
+                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+            }
+            Text("Zapisz notatkę")
         }
     }
 }

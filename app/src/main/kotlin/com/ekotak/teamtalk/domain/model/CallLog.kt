@@ -43,6 +43,21 @@ data class CallLog(
     val client: Client? = null,
 )
 
+private val SLA_THRESHOLD_MINUTES = 60L
+
+fun CallLog.waitingMinutes(): Long {
+    if (status != CallStatus.MISSED) return 0L
+    return try {
+        val fmt = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US).apply {
+            timeZone = java.util.TimeZone.getTimeZone("UTC")
+        }
+        val callTime = fmt.parse(timestamp) ?: return 0L
+        (System.currentTimeMillis() - callTime.time) / 60_000L
+    } catch (_: Exception) { 0L }
+}
+
+fun CallLog.isOverSla(): Boolean = status == CallStatus.MISSED && waitingMinutes() >= SLA_THRESHOLD_MINUTES
+
 data class CallLogFilter(
     val statusEq: String? = null,
     val statusNeq: String? = null,

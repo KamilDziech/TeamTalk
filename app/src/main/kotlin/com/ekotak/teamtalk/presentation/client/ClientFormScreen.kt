@@ -1,7 +1,11 @@
 package com.ekotak.teamtalk.presentation.client
 
+import android.provider.ContactsContract
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,6 +19,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Contacts
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -33,14 +38,19 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,6 +64,45 @@ fun ClientFormScreen(
     val actionError by viewModel.actionError.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val focusManager = LocalFocusManager.current
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    val contactPickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickContact()
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                withContext(Dispatchers.IO) {
+                    var name: String? = null
+                    var phone: String? = null
+                    context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                        if (cursor.moveToFirst()) {
+                            val nameIdx = cursor.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME)
+                            val idIdx = cursor.getColumnIndex(ContactsContract.Contacts._ID)
+                            name = cursor.getString(nameIdx)
+                            val contactId = cursor.getString(idIdx)
+                            context.contentResolver.query(
+                                ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                                null,
+                                "${ContactsContract.CommonDataKinds.Phone.CONTACT_ID} = ?",
+                                arrayOf(contactId),
+                                null,
+                            )?.use { phoneCursor ->
+                                if (phoneCursor.moveToFirst()) {
+                                    val phoneIdx = phoneCursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+                                    phone = phoneCursor.getString(phoneIdx)
+                                }
+                            }
+                        }
+                    }
+                    withContext(Dispatchers.Main) {
+                        phone?.let { viewModel.onPhoneChange(it.replace(Regex("\\s"), "")) }
+                        name?.let { viewModel.onNameChange(it) }
+                    }
+                }
+            }
+        }
+    }
 
     LaunchedEffect(clientId) {
         viewModel.resetForm()
@@ -84,6 +133,17 @@ fun ClientFormScreen(
                             contentDescription = "Wróć",
                             tint = MaterialTheme.colorScheme.onPrimary,
                         )
+                    }
+                },
+                actions = {
+                    if (!isEditMode) {
+                        IconButton(onClick = { contactPickerLauncher.launch(null) }) {
+                            Icon(
+                                imageVector = Icons.Default.Contacts,
+                                contentDescription = "Import z kontaktów",
+                                tint = MaterialTheme.colorScheme.onPrimary,
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(

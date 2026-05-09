@@ -2,7 +2,9 @@ package com.ekotak.teamtalk.presentation.client
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ekotak.teamtalk.domain.model.CallLogFilter
 import com.ekotak.teamtalk.domain.model.Client
+import com.ekotak.teamtalk.domain.usecase.calllog.GetCallLogsUseCase
 import com.ekotak.teamtalk.domain.usecase.client.CreateClientUseCase
 import com.ekotak.teamtalk.domain.usecase.client.DeleteClientUseCase
 import com.ekotak.teamtalk.domain.usecase.client.GetClientByIdUseCase
@@ -30,11 +32,13 @@ class ClientViewModel @Inject constructor(
     private val createClientUseCase: CreateClientUseCase,
     private val updateClientUseCase: UpdateClientUseCase,
     private val deleteClientUseCase: DeleteClientUseCase,
+    private val getCallLogsUseCase: GetCallLogsUseCase,
 ) : ViewModel() {
 
     data class ListUiState(
         val clients: List<Client> = emptyList(),
         val searchQuery: String = "",
+        val callCountMap: Map<String, Int> = emptyMap(),
     )
 
     data class FormUiState(
@@ -54,14 +58,19 @@ class ClientViewModel @Inject constructor(
     val listState: StateFlow<ListUiState> = combine(
         allClientsFlow,
         _searchQuery,
-    ) { clients, query ->
+        getCallLogsUseCase(CallLogFilter()),
+    ) { clients, query, callLogs ->
+        val callCountMap = callLogs
+            .filter { it.clientId != null }
+            .groupBy { it.clientId!! }
+            .mapValues { it.value.size }
         val filtered = if (query.isBlank()) clients
         else clients.filter {
             it.phone.contains(query, ignoreCase = true) ||
             it.name?.contains(query, ignoreCase = true) == true ||
             it.address?.contains(query, ignoreCase = true) == true
         }
-        ListUiState(clients = filtered, searchQuery = query)
+        ListUiState(clients = filtered, searchQuery = query, callCountMap = callCountMap)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ListUiState())
 
     private val _formState = MutableStateFlow(FormUiState())
@@ -106,6 +115,10 @@ class ClientViewModel @Inject constructor(
 
     fun createClient() {
         val form = _formState.value
+        if (!form.phone.isValidPhone()) {
+            _formState.update { it.copy(errorMessage = "Podaj prawidłowy numer telefonu (min. 7 cyfr)") }
+            return
+        }
         viewModelScope.launch {
             _formState.update { it.copy(isLoading = true, errorMessage = null) }
             try {
@@ -142,6 +155,8 @@ class ClientViewModel @Inject constructor(
             }
         }
     }
+
+    private fun String.isValidPhone(): Boolean = filter { it.isDigit() }.length >= 7
 
     fun deleteClient(id: String) {
         viewModelScope.launch {

@@ -8,6 +8,8 @@ import com.ekotak.teamtalk.domain.model.CallStatus
 import com.ekotak.teamtalk.domain.usecase.auth.GetCurrentUserUseCase
 import com.ekotak.teamtalk.domain.usecase.calllog.AppendRecipientUseCase
 import com.ekotak.teamtalk.domain.usecase.calllog.GetCallLogsUseCase
+import com.ekotak.teamtalk.domain.usecase.calllog.MakeCallUseCase
+import com.ekotak.teamtalk.domain.usecase.calllog.ScanMissedCallsUseCase
 import com.ekotak.teamtalk.domain.usecase.calllog.UpdateCallLogUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -16,9 +18,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -28,6 +32,8 @@ class CallLogViewModel @Inject constructor(
     private val updateCallLogUseCase: UpdateCallLogUseCase,
     private val appendRecipientUseCase: AppendRecipientUseCase,
     private val getCurrentUserUseCase: GetCurrentUserUseCase,
+    private val scanMissedCallsUseCase: ScanMissedCallsUseCase,
+    private val makeCallUseCase: MakeCallUseCase,
 ) : ViewModel() {
 
     enum class Tab(val label: String) {
@@ -44,8 +50,13 @@ class CallLogViewModel @Inject constructor(
     private val _selectedTab = MutableStateFlow(Tab.ACTIVE)
     val selectedTab: StateFlow<Tab> = _selectedTab.asStateFlow()
 
+    private val _refreshKey = MutableStateFlow(0)
+
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
     @OptIn(ExperimentalCoroutinesApi::class)
-    val listState: StateFlow<ListUiState> = _selectedTab
+    val listState: StateFlow<ListUiState> = combine(_selectedTab, _refreshKey) { tab, _ -> tab }
         .flatMapLatest { tab ->
             val filter = when (tab) {
                 Tab.ACTIVE    -> CallLogFilter(statusIn = listOf("missed", "reserved"), embedClients = true)
@@ -58,6 +69,9 @@ class CallLogViewModel @Inject constructor(
 
     private val _actionError = MutableStateFlow<String?>(null)
     val actionError: StateFlow<String?> = _actionError.asStateFlow()
+
+    private val _isScanning = MutableStateFlow(false)
+    val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
 
     fun selectTab(tab: Tab) { _selectedTab.value = tab }
 
@@ -103,6 +117,20 @@ class CallLogViewModel @Inject constructor(
         }
     }
 
+    fun scanNow() {
+        if (_isScanning.value) return
+        viewModelScope.launch {
+            _isScanning.update { true }
+            try {
+                scanMissedCallsUseCase()
+            } catch (e: Exception) {
+                _actionError.value = e.message ?: "Błąd skanowania"
+            } finally {
+                _isScanning.update { false }
+            }
+        }
+    }
+
     fun addCurrentUserAsRecipient(callLogId: String) {
         viewModelScope.launch {
             try {
@@ -112,5 +140,20 @@ class CallLogViewModel @Inject constructor(
                 _actionError.value = e.message ?: "Błąd dodawania odbiorcy"
             }
         }
+    }
+
+    fun refresh() {
+        viewModelScope.launch {
+            _isRefreshing.update { true }
+            try {
+                _refreshKey.update { it + 1 }
+            } finally {
+                _isRefreshing.update { false }
+            }
+        }
+    }
+
+    fun makeCall(phoneNumber: String) {
+        makeCallUseCase(phoneNumber)
     }
 }

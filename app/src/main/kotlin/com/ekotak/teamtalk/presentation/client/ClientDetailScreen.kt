@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -49,6 +50,7 @@ fun ClientDetailScreen(
     clientId: String,
     onNavigateBack: () -> Unit,
     onNavigateToEdit: (String) -> Unit,
+    onNavigateToTimeline: (String) -> Unit = {},
     viewModel: ClientViewModel = hiltViewModel(),
 ) {
     val client by viewModel.observeClient(clientId).collectAsState(initial = null)
@@ -104,6 +106,13 @@ fun ClientDetailScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { onNavigateToTimeline(clientId) }) {
+                        Icon(
+                            imageVector = Icons.Default.History,
+                            contentDescription = "Historia",
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                        )
+                    }
                     IconButton(onClick = { onNavigateToEdit(clientId) }) {
                         Icon(
                             imageVector = Icons.Default.Edit,

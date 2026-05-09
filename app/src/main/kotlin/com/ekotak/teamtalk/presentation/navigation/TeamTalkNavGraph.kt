@@ -23,12 +23,15 @@ import com.ekotak.teamtalk.presentation.calllog.CallLogListScreen
 import com.ekotak.teamtalk.presentation.client.ClientDetailScreen
 import com.ekotak.teamtalk.presentation.client.ClientFormScreen
 import com.ekotak.teamtalk.presentation.client.ClientListScreen
-import com.ekotak.teamtalk.presentation.profile.ProfileScreen
+import com.ekotak.teamtalk.presentation.client.ClientTimelineScreen
+import com.ekotak.teamtalk.presentation.history.HistoryScreen
+import com.ekotak.teamtalk.presentation.settings.SettingsScreen
 import com.ekotak.teamtalk.presentation.voicereport.VoiceReportScreen
 
 @Composable
 fun TeamTalkNavGraph(
     viewModel: MainViewModel = hiltViewModel(),
+    deepLinkCallLogId: String? = null,
 ) {
     val navController = rememberNavController()
     val sessionState by viewModel.sessionState.collectAsState()
@@ -52,36 +55,36 @@ fun TeamTalkNavGraph(
         startDestination = "splash",
         modifier = Modifier.fillMaxSize(),
     ) {
-        composable("splash") {
-            SplashScreen()
-        }
+        composable("splash") { SplashScreen() }
 
         navigation(startDestination = "auth/login", route = "auth") {
             composable("auth/login") {
-                LoginScreen(
-                    onNavigateToRegister = { navController.navigate("auth/register") },
-                )
+                LoginScreen(onNavigateToRegister = { navController.navigate("auth/register") })
             }
             composable("auth/register") {
-                RegisterScreen(
-                    onNavigateToLogin = { navController.popBackStack() },
-                )
+                RegisterScreen(onNavigateToLogin = { navController.popBackStack() })
             }
         }
 
         composable("main") {
-            MainScreen()
+            MainScreen(deepLinkCallLogId = deepLinkCallLogId)
         }
     }
 }
 
 @Composable
-private fun MainScreen() {
+private fun MainScreen(deepLinkCallLogId: String? = null) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    val bottomBarRoutes = setOf("calllogs", "clients", "profile")
+    val bottomBarRoutes = setOf("calllogs", "history", "clients", "settings")
+
+    LaunchedEffect(deepLinkCallLogId) {
+        if (deepLinkCallLogId != null) {
+            navController.navigate("calllog/$deepLinkCallLogId") { launchSingleTop = true }
+        }
+    }
 
     Scaffold(
         bottomBar = {
@@ -127,6 +130,13 @@ private fun MainScreen() {
                 )
             }
 
+            // ── History ────────────────────────────────────────────────────────
+            composable("history") {
+                HistoryScreen(
+                    onNavigateToDetail = { id -> navController.navigate("calllog/$id") },
+                )
+            }
+
             // ── Clients ────────────────────────────────────────────────────────
             composable("clients") {
                 ClientListScreen(
@@ -144,10 +154,22 @@ private fun MainScreen() {
                     clientId = clientId,
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateToEdit = { navController.navigate("client_form?clientId=$clientId") },
+                    onNavigateToTimeline = { navController.navigate("client_timeline/$clientId") },
                 )
             }
 
-            // Single form route for both create (no arg) and edit (clientId arg)
+            composable(
+                route = "client_timeline/{clientId}",
+                arguments = listOf(navArgument("clientId") { type = NavType.StringType }),
+            ) { backStackEntry ->
+                val clientId = backStackEntry.arguments!!.getString("clientId")!!
+                ClientTimelineScreen(
+                    clientId = clientId,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToCallDetail = { callLogId -> navController.navigate("calllog/$callLogId") },
+                )
+            }
+
             composable(
                 route = "client_form?clientId={clientId}",
                 arguments = listOf(
@@ -164,9 +186,9 @@ private fun MainScreen() {
                 )
             }
 
-            // ── Profile ────────────────────────────────────────────────────────
-            composable("profile") {
-                ProfileScreen()
+            // ── Settings (includes profile) ────────────────────────────────────
+            composable("settings") {
+                SettingsScreen()
             }
         }
     }

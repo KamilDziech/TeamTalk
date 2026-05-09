@@ -30,6 +30,8 @@ sealed interface RecordingState {
     data object Processing : RecordingState
 }
 
+enum class NoteMode { VOICE, TEXT }
+
 @HiltViewModel
 class VoiceReportViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
@@ -50,12 +52,48 @@ class VoiceReportViewModel @Inject constructor(
     private val _recordingState = MutableStateFlow<RecordingState>(RecordingState.Idle)
     val recordingState: StateFlow<RecordingState> = _recordingState.asStateFlow()
 
+    private val _noteMode = MutableStateFlow(NoteMode.VOICE)
+    val noteMode: StateFlow<NoteMode> = _noteMode.asStateFlow()
+
+    private val _textInput = MutableStateFlow("")
+    val textInput: StateFlow<String> = _textInput.asStateFlow()
+
+    private val _isSavingText = MutableStateFlow(false)
+    val isSavingText: StateFlow<Boolean> = _isSavingText.asStateFlow()
+
     private val _actionError = MutableStateFlow<String?>(null)
     val actionError: StateFlow<String?> = _actionError.asStateFlow()
 
     private var timerJob: Job? = null
 
     fun clearActionError() { _actionError.value = null }
+
+    fun setNoteMode(mode: NoteMode) {
+        _noteMode.value = mode
+    }
+
+    fun onTextInputChanged(text: String) {
+        _textInput.value = text
+    }
+
+    fun saveTextNote() {
+        val text = _textInput.value.trim()
+        if (text.isBlank()) return
+        viewModelScope.launch {
+            _isSavingText.value = true
+            try {
+                createVoiceReportUseCase(
+                    callLogId = callLogId,
+                    transcription = text,
+                )
+                _textInput.value = ""
+            } catch (e: Exception) {
+                _actionError.value = e.message ?: "Błąd zapisywania notatki"
+            } finally {
+                _isSavingText.value = false
+            }
+        }
+    }
 
     fun startRecording() {
         viewModelScope.launch {

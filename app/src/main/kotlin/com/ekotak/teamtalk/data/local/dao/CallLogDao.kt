@@ -53,6 +53,19 @@ interface CallLogDao {
     @Query("DELETE FROM call_logs WHERE id = :id")
     suspend fun deleteById(id: String)
 
+    @Query("""
+        SELECT id FROM call_logs
+        WHERE callerPhone = :callerPhone
+          AND timestamp >= :windowStart
+          AND timestamp <= :windowEnd
+        LIMIT 1
+    """)
+    suspend fun findDuplicateByPhone(
+        callerPhone: String,
+        windowStart: String,
+        windowEnd: String,
+    ): String?
+
     @Query("DELETE FROM call_logs")
     suspend fun deleteAll()
 }
