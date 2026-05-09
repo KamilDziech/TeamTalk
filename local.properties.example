@@ -1,0 +1,8 @@
+# Skopiuj ten plik jako local.properties i uzupełnij wartości.
+# local.properties jest ignorowany przez git — nie commituj go.
+
+# Ścieżka do Android SDK (uzupełniana automatycznie przez Android Studio)
+sdk.dir=/path/to/Android/Sdk
+
+# URL backendu TeamTalk (bez trailing slash)
+API_BASE_URL=http://100.78.184.117:3000

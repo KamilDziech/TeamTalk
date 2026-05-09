@@ -1,0 +1,116 @@
+package com.ekotak.teamtalk.presentation.calllog
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.ekotak.teamtalk.domain.model.CallLog
+import com.ekotak.teamtalk.domain.model.CallLogFilter
+import com.ekotak.teamtalk.domain.model.CallStatus
+import com.ekotak.teamtalk.domain.usecase.auth.GetCurrentUserUseCase
+import com.ekotak.teamtalk.domain.usecase.calllog.AppendRecipientUseCase
+import com.ekotak.teamtalk.domain.usecase.calllog.GetCallLogsUseCase
+import com.ekotak.teamtalk.domain.usecase.calllog.UpdateCallLogUseCase
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+@HiltViewModel
+class CallLogViewModel @Inject constructor(
+    private val getCallLogsUseCase: GetCallLogsUseCase,
+    private val updateCallLogUseCase: UpdateCallLogUseCase,
+    private val appendRecipientUseCase: AppendRecipientUseCase,
+    private val getCurrentUserUseCase: GetCurrentUserUseCase,
+) : ViewModel() {
+
+    enum class Tab(val label: String) {
+        ACTIVE("Aktywne"),
+        COMPLETED("Zakończone"),
+        ALL("Wszystkie"),
+    }
+
+    data class ListUiState(
+        val callLogs: List<CallLog> = emptyList(),
+        val selectedTab: Tab = Tab.ACTIVE,
+    )
+
+    private val _selectedTab = MutableStateFlow(Tab.ACTIVE)
+    val selectedTab: StateFlow<Tab> = _selectedTab.asStateFlow()
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val listState: StateFlow<ListUiState> = _selectedTab
+        .flatMapLatest { tab ->
+            val filter = when (tab) {
+                Tab.ACTIVE    -> CallLogFilter(statusIn = listOf("missed", "reserved"), embedClients = true)
+                Tab.COMPLETED -> CallLogFilter(statusEq = "completed", embedClients = true)
+                Tab.ALL       -> CallLogFilter(embedClients = true)
+            }
+            getCallLogsUseCase(filter).map { logs -> ListUiState(callLogs = logs, selectedTab = tab) }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ListUiState())
+
+    private val _actionError = MutableStateFlow<String?>(null)
+    val actionError: StateFlow<String?> = _actionError.asStateFlow()
+
+    fun selectTab(tab: Tab) { _selectedTab.value = tab }
+
+    fun clearActionError() { _actionError.value = null }
+
+    /** Observe a single call log by ID. Used by the detail screen. */
+    fun observeCallLog(id: String): Flow<CallLog?> =
+        getCallLogsUseCase(CallLogFilter(embedClients = true))
+            .map { list -> list.find { it.id == id } }
+
+    fun reserveCallLog(id: String) {
+        viewModelScope.launch {
+            try {
+                val user = getCurrentUserUseCase()
+                updateCallLogUseCase(
+                    id = id,
+                    status = CallStatus.RESERVED,
+                    reservationBy = user.id,
+                )
+            } catch (e: Exception) {
+                _actionError.value = e.message ?: "Błąd rezerwacji"
+            }
+        }
+    }
+
+    fun completeCallLog(id: String) {
+        viewModelScope.launch {
+            try {
+                updateCallLogUseCase(id = id, status = CallStatus.COMPLETED)
+            } catch (e: Exception) {
+                _actionError.value = e.message ?: "Błąd aktualizacji"
+            }
+        }
+    }
+
+    fun reopenCallLog(id: String) {
+        viewModelScope.launch {
+            try {
+                updateCallLogUseCase(id = id, status = CallStatus.MISSED)
+            } catch (e: Exception) {
+                _actionError.value = e.message ?: "Błąd aktualizacji"
+            }
+        }
+    }
+
+    fun addCurrentUserAsRecipient(callLogId: String) {
+        viewModelScope.launch {
+            try {
+                val user = getCurrentUserUseCase()
+                appendRecipientUseCase(callLogId, user.id)
+            } catch (e: Exception) {
+                _actionError.value = e.message ?: "Błąd dodawania odbiorcy"
+            }
+        }
+    }
+}
