@@ -1,5 +1,6 @@
 package com.ekotak.teamtalk.presentation.settings
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -10,9 +11,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -26,14 +30,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.ekotak.teamtalk.presentation.profile.ProfileScreen
+import com.ekotak.teamtalk.presentation.profile.ProfileViewModel
+import com.ekotak.teamtalk.presentation.theme.Red600
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     settingsVm: SettingsViewModel = hiltViewModel(),
+    profileVm: ProfileViewModel = hiltViewModel(),
 ) {
     val themeMode by settingsVm.themeMode.collectAsState()
+    val profileState by profileVm.uiState.collectAsState()
 
     Scaffold(
         topBar = {
@@ -104,9 +111,39 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(8.dp))
             HorizontalDivider()
 
-            // ── Profile / Account section ────────────────────────────────────
-            // Reuse ProfileScreen content directly — it brings its own ViewModel
-            ProfileScreen()
+            // ── Account section ──────────────────────────────────────────────
+            SectionHeader("Konto")
+            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                if (profileState.displayName.isNotBlank()) {
+                    Text(
+                        text = profileState.displayName,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+                if (profileState.email.isNotBlank()) {
+                    Text(
+                        text = profileState.email,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedButton(
+                    onClick = profileVm::logout,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !profileState.isLoggingOut,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Red600),
+                    border = BorderStroke(1.dp, Red600),
+                ) {
+                    if (profileState.isLoggingOut) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Red600, strokeWidth = 2.dp)
+                    } else {
+                        Text("Wyloguj się", color = Red600)
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }

@@ -12,6 +12,7 @@ class DeviceCallLogReader @Inject constructor(
 ) {
     data class DeviceCall(
         val phoneNumber: String,
+        val cachedName: String?,
         val timestampMs: Long,
         val phoneAccountId: String?,
     )
@@ -20,6 +21,7 @@ class DeviceCallLogReader @Inject constructor(
         val calls = mutableListOf<DeviceCall>()
         val projection = arrayOf(
             CallLog.Calls.NUMBER,
+            CallLog.Calls.CACHED_NAME,
             CallLog.Calls.DATE,
             CallLog.Calls.PHONE_ACCOUNT_ID,
         )
@@ -35,12 +37,14 @@ class DeviceCallLogReader @Inject constructor(
                 "${CallLog.Calls.DATE} ASC",
             )?.use { cursor ->
                 val numberIdx = cursor.getColumnIndexOrThrow(CallLog.Calls.NUMBER)
+                val nameIdx   = cursor.getColumnIndex(CallLog.Calls.CACHED_NAME)
                 val dateIdx   = cursor.getColumnIndexOrThrow(CallLog.Calls.DATE)
                 val simIdx    = cursor.getColumnIndex(CallLog.Calls.PHONE_ACCOUNT_ID)
                 while (cursor.moveToNext()) {
                     val number = cursor.getString(numberIdx) ?: continue
                     calls.add(DeviceCall(
                         phoneNumber    = number,
+                        cachedName     = if (nameIdx >= 0) cursor.getString(nameIdx)?.takeIf { it.isNotBlank() } else null,
                         timestampMs    = cursor.getLong(dateIdx),
                         phoneAccountId = if (simIdx >= 0) cursor.getString(simIdx) else null,
                     ))

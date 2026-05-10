@@ -41,7 +41,7 @@ class ScanMissedCallsUseCase @Inject constructor(
         if (profiles.firstOrNull()?.isAdmin == true) return
 
         val lastScanMs = dataStore.data.first()[SessionPreferences.KEY_LAST_SCAN_MS]
-            ?: (System.currentTimeMillis() - 24 * 60 * 60 * 1000L)
+            ?: (System.currentTimeMillis() - 30 * 24 * 60 * 60 * 1000L)
 
         val missedCalls = deviceCallLogReader.readMissedCallsSince(lastScanMs)
 
@@ -65,10 +65,16 @@ class ScanMissedCallsUseCase @Inject constructor(
             return
         }
 
-        val client = clientRepository.getClientByPhone(normalized)
-            ?: try {
-                clientRepository.createClient(phone = normalized, name = null, address = null, notes = null)
+        var client = clientRepository.getClientByPhone(normalized)
+        if (client == null) {
+            client = try {
+                clientRepository.createClient(phone = normalized, name = call.cachedName, address = null, notes = null)
             } catch (_: Exception) { null }
+        } else if (client.name == null && call.cachedName != null) {
+            client = try {
+                clientRepository.updateClient(id = client.id, name = call.cachedName)
+            } catch (_: Exception) { client }
+        }
 
         val timestamp = isoFmt.format(Date(call.timestampMs))
         val dedupKey  = "${client?.id ?: normalized}_${call.timestampMs / 5_000}"

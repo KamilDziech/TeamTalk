@@ -41,7 +41,17 @@ class CallLogRepositoryImpl @Inject constructor(
             )
         }
 
-        launch { localFlow.map { it.map { e -> e.toDomain() } }.collect(::send) }
+        launch {
+            localFlow.collect { entities ->
+                val clientIds = entities.mapNotNull { it.clientId }.distinct()
+                val clientMap = if (clientIds.isNotEmpty())
+                    clientDao.getByIds(clientIds).associateBy { it.id }
+                else emptyMap()
+                send(entities.map { e ->
+                    e.toDomain().copy(client = e.clientId?.let { clientMap[it]?.toDomain() })
+                })
+            }
+        }
 
         try {
             val fresh = api.getCallLogs(

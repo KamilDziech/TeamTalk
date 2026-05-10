@@ -22,6 +22,9 @@ interface ClientDao {
     @Query("SELECT * FROM clients WHERE id = :id LIMIT 1")
     suspend fun getById(id: String): ClientEntity?
 
+    @Query("SELECT * FROM clients WHERE id IN (:ids)")
+    suspend fun getByIds(ids: List<String>): List<ClientEntity>
+
     @Query("SELECT * FROM clients WHERE phone = :phone LIMIT 1")
     suspend fun getByPhone(phone: String): ClientEntity?
 
