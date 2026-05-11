@@ -1,4 +1,4 @@
-import 'dotenv/config';
+﻿import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -11,6 +11,7 @@ import profilesRoutes from './routes/profiles';
 import devicesRoutes from './routes/devices';
 import storageRoutes from './routes/storage';
 import functionsRoutes from './routes/functions';
+import clientGroupsRoutes from './routes/clientGroups';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000');
@@ -38,6 +39,7 @@ app.use('/api/profiles', profilesRoutes);
 app.use('/api/devices', devicesRoutes);
 app.use('/api/storage', storageRoutes);
 app.use('/api/functions', functionsRoutes);
+app.use('/api/client-groups', clientGroupsRoutes);
 
 // Global error handler
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
@@ -48,13 +50,13 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 async function start() {
   try {
     await pool.query('SELECT 1');
-    console.log('✅ PostgreSQL connected');
+    console.log('? PostgreSQL connected');
 
     app.listen(PORT, '0.0.0.0', () => {
-      console.log(`🚀 TeamTalk API server running on port ${PORT}`);
+      console.log(`?? TeamTalk API server running on port ${PORT}`);
     });
   } catch (err: any) {
-    console.error('❌ Failed to connect to PostgreSQL:', err.message);
+    console.error('? Failed to connect to PostgreSQL:', err.message);
     process.exit(1);
   }
 }

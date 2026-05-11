@@ -1,4 +1,4 @@
-import { Router, Response } from 'express';
+﻿import { Router, Response } from 'express';
 import { query } from '../db';
 import { requireAuth, AuthenticatedRequest } from '../auth';
 
@@ -8,7 +8,7 @@ router.use(requireAuth);
 // GET /api/clients
 router.get('/', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { phone_eq, id_in, order = 'created_at.desc', limit, single } = req.query as Record<string, string>;
+    const { phone_eq, id_in, group_id_eq, order = 'created_at.desc', limit, single } = req.query as Record<string, string>;
 
     let sql = 'SELECT * FROM clients WHERE 1=1';
     const params: any[] = [];
@@ -28,6 +28,11 @@ router.get('/', async (req: AuthenticatedRequest, res: Response): Promise<void> 
         res.json([]);
         return;
       }
+    }
+
+    if (group_id_eq) {
+      sql += ` AND group_id = $${idx++}`;
+      params.push(group_id_eq);
     }
 
     if (order) {
@@ -76,7 +81,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response): Promise<voi
 
 // POST /api/clients
 router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-  const { phone, name, address, notes } = req.body;
+  const { phone, name, address, notes, group_id } = req.body;
 
   if (!phone) {
     res.status(400).json({ message: 'phone is required' });
@@ -85,10 +90,10 @@ router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void>
 
   try {
     const { rows } = await query(
-      `INSERT INTO clients (phone, name, address, notes)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO clients (phone, name, address, notes, group_id)
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-      [phone, name || null, address || null, notes || null]
+      [phone, name || null, address || null, notes || null, group_id || null]
     );
     res.status(201).json(rows[0]);
   } catch (err: any) {
@@ -103,7 +108,7 @@ router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void>
 
 // PUT /api/clients/:id
 router.put('/:id', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-  const { address, notes, name, phone } = req.body;
+  const { address, notes, name, phone, group_id } = req.body;
   const updates: string[] = [];
   const params: any[] = [];
   let idx = 1;
@@ -112,6 +117,7 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response): Promise<voi
   if (notes !== undefined) { updates.push(`notes = $${idx++}`); params.push(notes); }
   if (name !== undefined) { updates.push(`name = $${idx++}`); params.push(name); }
   if (phone !== undefined) { updates.push(`phone = $${idx++}`); params.push(phone); }
+  if (group_id !== undefined) { updates.push(`group_id = $${idx++}`); params.push(group_id || null); }
 
   if (updates.length === 0) {
     res.status(400).json({ message: 'No fields to update' });
