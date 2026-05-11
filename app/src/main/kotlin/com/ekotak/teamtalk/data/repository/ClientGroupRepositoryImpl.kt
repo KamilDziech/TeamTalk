@@ -1,6 +1,7 @@
 package com.ekotak.teamtalk.data.repository
 
 import com.ekotak.teamtalk.data.local.dao.ClientGroupDao
+import com.ekotak.teamtalk.data.local.entity.ClientGroupEntity
 import com.ekotak.teamtalk.data.mapper.toDomain
 import com.ekotak.teamtalk.data.mapper.toEntity
 import com.ekotak.teamtalk.data.remote.api.TeamTalkApi
@@ -11,6 +12,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import java.time.Instant
+import java.util.UUID
 import javax.inject.Inject
 
 class ClientGroupRepositoryImpl @Inject constructor(
@@ -27,25 +30,37 @@ class ClientGroupRepositoryImpl @Inject constructor(
     }
 
     override suspend fun createGroup(name: String, isDefault: Boolean): ClientGroup {
-        val dto = api.createClientGroup(CreateClientGroupRequest(name, isDefault))
-        clientGroupDao.upsert(dto.toEntity())
-        return dto.toDomain()
+        return try {
+            val dto = api.createClientGroup(CreateClientGroupRequest(name, isDefault))
+            clientGroupDao.upsert(dto.toEntity())
+            dto.toDomain()
+        } catch (_: Exception) {
+            // backend unavailable — store locally with generated id
+            val local = ClientGroupEntity(
+                id = UUID.randomUUID().toString(),
+                name = name,
+                isDefault = isDefault,
+                createdAt = Instant.now().toString(),
+            )
+            clientGroupDao.upsert(local)
+            local.toDomain()
+        }
     }
 
     override suspend fun deleteGroup(id: String) {
-        api.deleteClientGroup(id)
+        try { api.deleteClientGroup(id) } catch (_: Exception) {}
         clientGroupDao.deleteById(id)
     }
 
     override suspend fun ensureDefaultGroup(): ClientGroup {
         val existing = clientGroupDao.getDefault()
         if (existing != null) return existing.toDomain()
-        val groups = try { api.getClientGroups() } catch (_: Exception) { emptyList() }
-        val remote = groups.firstOrNull { it.isDefault }
-        if (remote != null) {
-            clientGroupDao.upsert(remote.toEntity())
-            return remote.toDomain()
-        }
+        try {
+            val groups = api.getClientGroups()
+            clientGroupDao.upsertAll(groups.map { it.toEntity() })
+            val remote = groups.firstOrNull { it.isDefault }
+            if (remote != null) return remote.toDomain()
+        } catch (_: Exception) {}
         return createGroup("Pozostałe", isDefault = true)
     }
 }
