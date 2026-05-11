@@ -16,14 +16,16 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import java.net.URLEncoder
 import com.ekotak.teamtalk.presentation.auth.LoginScreen
 import com.ekotak.teamtalk.presentation.auth.RegisterScreen
 import com.ekotak.teamtalk.presentation.calllog.CallLogDetailScreen
 import com.ekotak.teamtalk.presentation.calllog.CallLogListScreen
 import com.ekotak.teamtalk.presentation.client.ClientDetailScreen
 import com.ekotak.teamtalk.presentation.client.ClientFormScreen
-import com.ekotak.teamtalk.presentation.client.ClientListScreen
+import com.ekotak.teamtalk.presentation.client.ClientGroupListScreen
 import com.ekotak.teamtalk.presentation.client.ClientTimelineScreen
+import com.ekotak.teamtalk.presentation.client.ClientsInGroupScreen
 import com.ekotak.teamtalk.presentation.history.HistoryScreen
 import com.ekotak.teamtalk.presentation.settings.SettingsScreen
 import com.ekotak.teamtalk.presentation.voicereport.VoiceReportScreen
@@ -137,11 +139,39 @@ private fun MainScreen(deepLinkCallLogId: String? = null) {
                 )
             }
 
-            // ── Clients ────────────────────────────────────────────────────────
+            // ── Clients / Groups ───────────────────────────────────────────────
             composable("clients") {
-                ClientListScreen(
+                ClientGroupListScreen(
+                    onNavigateToGroup = { groupId, groupName ->
+                        navController.navigate("clients/group/$groupId?groupName=$groupName")
+                    },
+                )
+            }
+
+            composable(
+                route = "clients/group/{groupId}?groupName={groupName}",
+                arguments = listOf(
+                    navArgument("groupId") { type = NavType.StringType },
+                    navArgument("groupName") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                ),
+            ) { backStackEntry ->
+                val groupId = backStackEntry.arguments!!.getString("groupId")!!
+                val groupName = backStackEntry.arguments?.getString("groupName") ?: ""
+                ClientsInGroupScreen(
+                    groupId = groupId,
+                    groupName = groupName,
+                    onNavigateBack = { navController.popBackStack() },
                     onNavigateToDetail = { id -> navController.navigate("client/$id") },
-                    onNavigateToCreate = { navController.navigate("client_form") },
+                    onNavigateToNewForm = { phone, name ->
+                        var route = "client_form?groupId=$groupId"
+                        if (phone != null) route += "&phone=${URLEncoder.encode(phone, "UTF-8")}"
+                        if (name != null) route += "&name=${URLEncoder.encode(name, "UTF-8")}"
+                        navController.navigate(route)
+                    },
                 )
             }
 
@@ -171,12 +201,19 @@ private fun MainScreen(deepLinkCallLogId: String? = null) {
             }
 
             composable(
-                route = "client_form?clientId={clientId}",
+                route = "client_form?clientId={clientId}&groupId={groupId}&phone={phone}&name={name}",
                 arguments = listOf(
                     navArgument("clientId") {
-                        type = NavType.StringType
-                        nullable = true
-                        defaultValue = null
+                        type = NavType.StringType; nullable = true; defaultValue = null
+                    },
+                    navArgument("groupId") {
+                        type = NavType.StringType; nullable = true; defaultValue = null
+                    },
+                    navArgument("phone") {
+                        type = NavType.StringType; nullable = true; defaultValue = null
+                    },
+                    navArgument("name") {
+                        type = NavType.StringType; nullable = true; defaultValue = null
                     },
                 ),
             ) { backStackEntry ->

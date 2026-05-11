@@ -19,17 +19,17 @@ class ClientRepositoryImpl @Inject constructor(
     private val clientDao: ClientDao,
 ) : ClientRepository {
 
-    override fun getClients(phoneEq: String?): Flow<List<Client>> = channelFlow {
-        val localFlow = if (phoneEq != null) {
-            clientDao.observeExactPhone(phoneEq)
-        } else {
-            clientDao.observeAll()
+    override fun getClients(phoneEq: String?, groupId: String?): Flow<List<Client>> = channelFlow {
+        val localFlow = when {
+            phoneEq != null -> clientDao.observeExactPhone(phoneEq)
+            groupId != null -> clientDao.observeByGroupId(groupId)
+            else            -> clientDao.observeAll()
         }
 
         launch { localFlow.map { it.map { e -> e.toDomain() } }.collect(::send) }
 
         try {
-            val fresh = api.getClients(phoneEq = phoneEq)
+            val fresh = api.getClients(phoneEq = phoneEq, groupIdEq = groupId)
             clientDao.upsertAll(fresh.map { it.toEntity() })
         } catch (_: Exception) {}
     }
@@ -59,8 +59,9 @@ class ClientRepositoryImpl @Inject constructor(
         name: String?,
         address: String?,
         notes: String?,
+        groupId: String?,
     ): Client {
-        val dto = api.createClient(CreateClientRequest(phone, name, address, notes))
+        val dto = api.createClient(CreateClientRequest(phone, name, address, notes, groupId))
         clientDao.upsert(dto.toEntity())
         return dto.toDomain()
     }

@@ -33,4 +33,7 @@ abstract class RepositoryModule {
 
     @Binds @Singleton
     abstract fun bindDeviceRepository(impl: DeviceRepositoryImpl): DeviceRepository
+
+    @Binds @Singleton
+    abstract fun bindClientGroupRepository(impl: ClientGroupRepositoryImpl): ClientGroupRepository
 }

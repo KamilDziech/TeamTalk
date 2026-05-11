@@ -10,6 +10,7 @@ data class ClientResponseDto(
     val name: String? = null,
     val address: String? = null,
     val notes: String? = null,
+    @SerialName("group_id") val groupId: String? = null,
     @SerialName("created_at") val createdAt: String,
     @SerialName("updated_at") val updatedAt: String,
 )
@@ -20,6 +21,7 @@ data class CreateClientRequest(
     val name: String? = null,
     val address: String? = null,
     val notes: String? = null,
+    @SerialName("group_id") val groupId: String? = null,
 )
 
 @Serializable
@@ -28,4 +30,5 @@ data class UpdateClientRequest(
     val name: String? = null,
     val address: String? = null,
     val notes: String? = null,
+    @SerialName("group_id") val groupId: String? = null,
 )

@@ -24,14 +24,26 @@ interface TeamTalkApi {
     @GET("api/auth/me")
     suspend fun getMe(): UserResponseDto
 
+    // ── Client Groups ─────────────────────────────────────────────────────────
+
+    @GET("api/client-groups")
+    suspend fun getClientGroups(): List<ClientGroupResponseDto>
+
+    @POST("api/client-groups")
+    suspend fun createClientGroup(@Body request: CreateClientGroupRequest): ClientGroupResponseDto
+
+    @DELETE("api/client-groups/{id}")
+    suspend fun deleteClientGroup(@Path("id") id: String): Response<Unit>
+
     // ── Clients ───────────────────────────────────────────────────────────────
 
     @GET("api/clients")
     suspend fun getClients(
-        @Query("phone_eq") phoneEq: String? = null,
-        @Query("id_in")    idIn: String? = null,
-        @Query("order")    order: String? = null,
-        @Query("limit")    limit: Int? = null,
+        @Query("phone_eq")    phoneEq: String? = null,
+        @Query("id_in")       idIn: String? = null,
+        @Query("group_id_eq") groupIdEq: String? = null,
+        @Query("order")       order: String? = null,
+        @Query("limit")       limit: Int? = null,
     ): List<ClientResponseDto>
 
     @GET("api/clients/{id}")

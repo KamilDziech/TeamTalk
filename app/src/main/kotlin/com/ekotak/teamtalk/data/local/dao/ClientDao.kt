@@ -19,6 +19,9 @@ interface ClientDao {
     @Query("SELECT * FROM clients WHERE phone = :phone LIMIT 1")
     fun observeExactPhone(phone: String): Flow<List<ClientEntity>>
 
+    @Query("SELECT * FROM clients WHERE groupId = :groupId ORDER BY createdAt DESC")
+    fun observeByGroupId(groupId: String): Flow<List<ClientEntity>>
+
     @Query("SELECT * FROM clients WHERE id = :id LIMIT 1")
     suspend fun getById(id: String): ClientEntity?
 

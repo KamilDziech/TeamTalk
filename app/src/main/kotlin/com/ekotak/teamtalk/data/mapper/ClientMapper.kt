@@ -10,6 +10,7 @@ fun ClientResponseDto.toEntity(): ClientEntity = ClientEntity(
     name      = name,
     address   = address,
     notes     = notes,
+    groupId   = groupId,
     createdAt = createdAt,
     updatedAt = updatedAt,
 )
@@ -20,6 +21,7 @@ fun ClientEntity.toDomain(): Client = Client(
     name      = name,
     address   = address,
     notes     = notes,
+    groupId   = groupId,
     createdAt = createdAt,
     updatedAt = updatedAt,
 )
@@ -30,6 +32,7 @@ fun ClientResponseDto.toDomain(): Client = Client(
     name      = name,
     address   = address,
     notes     = notes,
+    groupId   = groupId,
     createdAt = createdAt,
     updatedAt = updatedAt,
 )

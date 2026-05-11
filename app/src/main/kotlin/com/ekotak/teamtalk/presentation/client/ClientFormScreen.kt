@@ -105,10 +105,11 @@ fun ClientFormScreen(
     }
 
     LaunchedEffect(clientId) {
-        viewModel.resetForm()
         if (clientId != null) {
+            viewModel.resetForm()
             viewModel.loadClientForEdit(clientId)
         }
+        // for new clients, formState is already initialized from SavedStateHandle nav args
     }
 
     LaunchedEffect(Unit) {

@@ -14,6 +14,7 @@ data class ClientEntity(
     val name: String?,
     val address: String?,
     val notes: String?,
+    val groupId: String?,
     val createdAt: String,
     val updatedAt: String,
 )

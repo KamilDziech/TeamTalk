@@ -12,8 +12,9 @@ class CreateClientUseCase @Inject constructor(
         name: String? = null,
         address: String? = null,
         notes: String? = null,
+        groupId: String? = null,
     ): Client {
         require(phone.isNotBlank()) { "Numer telefonu nie może być pusty" }
-        return clientRepository.createClient(phone, name, address, notes)
+        return clientRepository.createClient(phone, name, address, notes, groupId)
     }
 }

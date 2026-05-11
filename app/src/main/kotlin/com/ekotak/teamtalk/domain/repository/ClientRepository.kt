@@ -5,7 +5,7 @@ import kotlinx.coroutines.flow.Flow
 
 interface ClientRepository {
     /** Stream of clients from the local cache, refreshed from the network. */
-    fun getClients(phoneEq: String? = null): Flow<List<Client>>
+    fun getClients(phoneEq: String? = null, groupId: String? = null): Flow<List<Client>>
 
     suspend fun getClientById(id: String): Client
 
@@ -16,6 +16,7 @@ interface ClientRepository {
         name: String?,
         address: String?,
         notes: String?,
+        groupId: String? = null,
     ): Client
 
     suspend fun updateClient(

@@ -1,5 +1,6 @@
 package com.ekotak.teamtalk.presentation.client
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ekotak.teamtalk.domain.model.CallLogFilter
@@ -23,10 +24,14 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import javax.inject.Inject
 
 @HiltViewModel
 class ClientViewModel @Inject constructor(
+    savedStateHandle: SavedStateHandle,
     private val getClientsUseCase: GetClientsUseCase,
     private val getClientByIdUseCase: GetClientByIdUseCase,
     private val createClientUseCase: CreateClientUseCase,
@@ -34,6 +39,12 @@ class ClientViewModel @Inject constructor(
     private val deleteClientUseCase: DeleteClientUseCase,
     private val getCallLogsUseCase: GetCallLogsUseCase,
 ) : ViewModel() {
+
+    val groupId: String? = savedStateHandle["groupId"]
+    private val initialPhone: String? = savedStateHandle["phone"]
+    private val initialName: String? = savedStateHandle["name"]
+
+    data class RecentCaller(val phone: String, val name: String?, val formattedDate: String)
 
     data class ListUiState(
         val clients: List<Client> = emptyList(),
@@ -48,12 +59,13 @@ class ClientViewModel @Inject constructor(
         val notes: String = "",
         val isLoading: Boolean = false,
         val errorMessage: String? = null,
+        val initialGroupId: String? = null,
     )
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
-    private val allClientsFlow: Flow<List<Client>> = getClientsUseCase()
+    private val allClientsFlow: Flow<List<Client>> = getClientsUseCase(groupId = groupId)
 
     val listState: StateFlow<ListUiState> = combine(
         allClientsFlow,
@@ -73,7 +85,30 @@ class ClientViewModel @Inject constructor(
         ListUiState(clients = filtered, searchQuery = query, callCountMap = callCountMap)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ListUiState())
 
-    private val _formState = MutableStateFlow(FormUiState())
+    val recentCallersState: StateFlow<List<RecentCaller>> =
+        getCallLogsUseCase(CallLogFilter(limit = 50))
+            .map { logs ->
+                logs
+                    .filter { it.callerPhone != null }
+                    .distinctBy { it.callerPhone }
+                    .take(30)
+                    .map { log ->
+                        RecentCaller(
+                            phone = log.callerPhone!!,
+                            name = log.client?.name,
+                            formattedDate = formatTimestamp(log.timestamp),
+                        )
+                    }
+            }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    private val _formState = MutableStateFlow(
+        FormUiState(
+            phone = initialPhone ?: "",
+            name = initialName ?: "",
+            initialGroupId = groupId,
+        )
+    )
     val formState: StateFlow<FormUiState> = _formState.asStateFlow()
 
     private val _actionError = MutableStateFlow<String?>(null)
@@ -127,6 +162,7 @@ class ClientViewModel @Inject constructor(
                     name = form.name.takeIf { it.isNotBlank() },
                     address = form.address.takeIf { it.isNotBlank() },
                     notes = form.notes.takeIf { it.isNotBlank() },
+                    groupId = form.initialGroupId ?: groupId,
                 )
                 _formState.value = FormUiState()
                 _navigateBack.send(Unit)
@@ -134,6 +170,14 @@ class ClientViewModel @Inject constructor(
                 _formState.update { it.copy(isLoading = false, errorMessage = e.message ?: "Błąd tworzenia klienta") }
             }
         }
+    }
+
+    fun initNewClientForm(phone: String? = null, name: String? = null, initialGroupId: String? = null) {
+        _formState.value = FormUiState(
+            phone = phone ?: "",
+            name = name ?: "",
+            initialGroupId = initialGroupId ?: groupId,
+        )
     }
 
     fun updateClient(id: String) {
@@ -157,6 +201,12 @@ class ClientViewModel @Inject constructor(
     }
 
     private fun String.isValidPhone(): Boolean = filter { it.isDigit() }.length >= 7
+
+    private fun formatTimestamp(ts: String): String = try {
+        val fmt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
+        val out = SimpleDateFormat("dd.MM.yy", Locale.getDefault())
+        out.format(fmt.parse(ts) ?: Date())
+    } catch (_: Exception) { "" }
 
     fun deleteClient(id: String) {
         viewModelScope.launch {

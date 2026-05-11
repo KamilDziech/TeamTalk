@@ -8,6 +8,6 @@ import javax.inject.Inject
 class GetClientsUseCase @Inject constructor(
     private val clientRepository: ClientRepository,
 ) {
-    operator fun invoke(phoneEq: String? = null): Flow<List<Client>> =
-        clientRepository.getClients(phoneEq)
+    operator fun invoke(phoneEq: String? = null, groupId: String? = null): Flow<List<Client>> =
+        clientRepository.getClients(phoneEq = phoneEq, groupId = groupId)
 }
