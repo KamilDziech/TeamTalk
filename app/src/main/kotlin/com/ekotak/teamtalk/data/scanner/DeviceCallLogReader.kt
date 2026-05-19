@@ -17,7 +17,7 @@ class DeviceCallLogReader @Inject constructor(
         val phoneAccountId: String?,
     )
 
-    fun readMissedCallsSince(sinceMs: Long): List<DeviceCall> {
+    fun readMissedCallsSince(sinceMs: Long, phoneAccountId: String? = null): List<DeviceCall> {
         val calls = mutableListOf<DeviceCall>()
         val projection = arrayOf(
             CallLog.Calls.NUMBER,
@@ -25,8 +25,14 @@ class DeviceCallLogReader @Inject constructor(
             CallLog.Calls.DATE,
             CallLog.Calls.PHONE_ACCOUNT_ID,
         )
-        val selection = "${CallLog.Calls.TYPE} = ${CallLog.Calls.MISSED_TYPE} AND ${CallLog.Calls.DATE} > ?"
-        val selectionArgs = arrayOf(sinceMs.toString())
+        val selection = buildString {
+            append("${CallLog.Calls.TYPE} = ${CallLog.Calls.MISSED_TYPE} AND ${CallLog.Calls.DATE} > ?")
+            if (phoneAccountId != null) append(" AND ${CallLog.Calls.PHONE_ACCOUNT_ID} = ?")
+        }
+        val selectionArgs = buildList {
+            add(sinceMs.toString())
+            if (phoneAccountId != null) add(phoneAccountId)
+        }.toTypedArray()
 
         try {
             context.contentResolver.query(
@@ -53,6 +59,45 @@ class DeviceCallLogReader @Inject constructor(
         } catch (_: SecurityException) {}
 
         return calls
+    }
+
+    fun readMostRecentCallSince(sinceMs: Long, phoneAccountId: String? = null): DeviceCall? {
+        val projection = arrayOf(
+            CallLog.Calls.NUMBER,
+            CallLog.Calls.CACHED_NAME,
+            CallLog.Calls.DATE,
+            CallLog.Calls.PHONE_ACCOUNT_ID,
+        )
+        val selection = buildString {
+            append("${CallLog.Calls.DATE} >= ?")
+            if (phoneAccountId != null) append(" AND ${CallLog.Calls.PHONE_ACCOUNT_ID} = ?")
+        }
+        val selectionArgs = buildList {
+            add((sinceMs - 5_000).toString())
+            if (phoneAccountId != null) add(phoneAccountId)
+        }.toTypedArray()
+
+        return try {
+            context.contentResolver.query(
+                CallLog.Calls.CONTENT_URI,
+                projection,
+                selection,
+                selectionArgs,
+                "${CallLog.Calls.DATE} DESC",
+            )?.use { cursor ->
+                if (!cursor.moveToFirst()) return@use null
+                val number = cursor.getString(cursor.getColumnIndexOrThrow(CallLog.Calls.NUMBER))
+                    ?.takeIf { it.isNotBlank() } ?: return@use null
+                val nameIdx  = cursor.getColumnIndex(CallLog.Calls.CACHED_NAME)
+                val simIdx   = cursor.getColumnIndex(CallLog.Calls.PHONE_ACCOUNT_ID)
+                DeviceCall(
+                    phoneNumber    = number,
+                    cachedName     = if (nameIdx >= 0) cursor.getString(nameIdx)?.takeIf { it.isNotBlank() } else null,
+                    timestampMs    = cursor.getLong(cursor.getColumnIndexOrThrow(CallLog.Calls.DATE)),
+                    phoneAccountId = if (simIdx >= 0) cursor.getString(simIdx) else null,
+                )
+            }
+        } catch (_: SecurityException) { null }
     }
 
     fun normalizePhone(raw: String): String {

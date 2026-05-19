@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import com.ekotak.teamtalk.data.local.dao.CallLogDao
 import com.ekotak.teamtalk.data.local.preferences.SessionPreferences
+import com.ekotak.teamtalk.data.local.preferences.SimPreferences
 import com.ekotak.teamtalk.data.notification.NotificationHelper
 import com.ekotak.teamtalk.data.scanner.DeviceCallLogReader
 import com.ekotak.teamtalk.domain.model.CallStatus
@@ -29,6 +30,7 @@ class ScanMissedCallsUseCase @Inject constructor(
     private val getProfilesUseCase: GetProfilesUseCase,
     private val notificationHelper: NotificationHelper,
     private val dataStore: DataStore<Preferences>,
+    private val simPreferences: SimPreferences,
 ) {
     private val isoFmt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).apply {
         timeZone = TimeZone.getTimeZone("UTC")
@@ -43,7 +45,7 @@ class ScanMissedCallsUseCase @Inject constructor(
         val lastScanMs = dataStore.data.first()[SessionPreferences.KEY_LAST_SCAN_MS]
             ?: (System.currentTimeMillis() - 30 * 24 * 60 * 60 * 1000L)
 
-        val missedCalls = deviceCallLogReader.readMissedCallsSince(lastScanMs)
+        val missedCalls = deviceCallLogReader.readMissedCallsSince(lastScanMs, simPreferences.monitoredPhoneAccountId)
 
         for (call in missedCalls) {
             processCall(call, user.id)

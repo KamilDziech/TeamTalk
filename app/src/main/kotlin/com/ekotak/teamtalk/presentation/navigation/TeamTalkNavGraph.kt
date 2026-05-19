@@ -27,6 +27,7 @@ import com.ekotak.teamtalk.presentation.client.ClientGroupListScreen
 import com.ekotak.teamtalk.presentation.client.ClientTimelineScreen
 import com.ekotak.teamtalk.presentation.client.ClientsInGroupScreen
 import com.ekotak.teamtalk.presentation.history.HistoryScreen
+import com.ekotak.teamtalk.presentation.postcallnote.PostCallNoteScreen
 import com.ekotak.teamtalk.presentation.settings.SettingsScreen
 import com.ekotak.teamtalk.presentation.voicereport.VoiceReportScreen
 
@@ -34,6 +35,7 @@ import com.ekotak.teamtalk.presentation.voicereport.VoiceReportScreen
 fun TeamTalkNavGraph(
     viewModel: MainViewModel = hiltViewModel(),
     deepLinkCallLogId: String? = null,
+    deepLinkPostCallPhone: String? = null,
 ) {
     val navController = rememberNavController()
     val sessionState by viewModel.sessionState.collectAsState()
@@ -69,13 +71,16 @@ fun TeamTalkNavGraph(
         }
 
         composable("main") {
-            MainScreen(deepLinkCallLogId = deepLinkCallLogId)
+            MainScreen(
+                deepLinkCallLogId = deepLinkCallLogId,
+                deepLinkPostCallPhone = deepLinkPostCallPhone,
+            )
         }
     }
 }
 
 @Composable
-private fun MainScreen(deepLinkCallLogId: String? = null) {
+private fun MainScreen(deepLinkCallLogId: String? = null, deepLinkPostCallPhone: String? = null) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -85,6 +90,13 @@ private fun MainScreen(deepLinkCallLogId: String? = null) {
     LaunchedEffect(deepLinkCallLogId) {
         if (deepLinkCallLogId != null) {
             navController.navigate("calllog/$deepLinkCallLogId") { launchSingleTop = true }
+        }
+    }
+
+    LaunchedEffect(deepLinkPostCallPhone) {
+        if (deepLinkPostCallPhone != null) {
+            val encoded = URLEncoder.encode(deepLinkPostCallPhone, "UTF-8")
+            navController.navigate("post_call_note?phone=$encoded") { launchSingleTop = true }
         }
     }
 
@@ -226,6 +238,18 @@ private fun MainScreen(deepLinkCallLogId: String? = null) {
             // ── Settings (includes profile) ────────────────────────────────────
             composable("settings") {
                 SettingsScreen()
+            }
+
+            // ── Post-Call Note ─────────────────────────────────────────────────
+            composable(
+                route = "post_call_note?phone={phone}",
+                arguments = listOf(
+                    navArgument("phone") {
+                        type = NavType.StringType; nullable = true; defaultValue = null
+                    },
+                ),
+            ) {
+                PostCallNoteScreen(onNavigateBack = { navController.popBackStack() })
             }
         }
     }

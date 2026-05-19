@@ -21,6 +21,7 @@ class NotificationHelper @Inject constructor(
 ) {
     companion object {
         const val CHANNEL_ID = "missed_calls"
+        const val POST_CALL_CHANNEL_ID = "post_call_note"
         private val idCounter = AtomicInteger(1000)
     }
 
@@ -48,6 +49,38 @@ class NotificationHelper @Inject constructor(
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
+            .build()
+
+        NotificationManagerCompat.from(context).notify(idCounter.getAndIncrement(), notification)
+    }
+
+    fun showPostCallNoteNotification(phone: String?) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED
+        ) return
+
+        val contentIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra(MainActivity.EXTRA_POST_CALL_PHONE, phone ?: "")
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            idCounter.get(),
+            contentIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+        val label = if (!phone.isNullOrBlank()) phone else "Nieznany numer"
+        val notification = NotificationCompat.Builder(context, POST_CALL_CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_menu_edit)
+            .setContentTitle("Dodaj notatkę z rozmowy")
+            .setContentText("Rozmowa z: $label")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .setFullScreenIntent(pendingIntent, true)
             .build()
 
         NotificationManagerCompat.from(context).notify(idCounter.getAndIncrement(), notification)

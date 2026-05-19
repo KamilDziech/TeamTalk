@@ -27,15 +27,25 @@ class TeamTalkApp : Application(), Configuration.Provider {
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                NotificationHelper.CHANNEL_ID,
-                "Nieodebrane połączenia",
-                NotificationManager.IMPORTANCE_DEFAULT,
-            ).apply {
-                description = "Powiadomienia o nowych nieodebranych połączeniach od klientów"
-            }
-            getSystemService(NotificationManager::class.java)
-                .createNotificationChannel(channel)
+            val nm = getSystemService(NotificationManager::class.java)
+            nm.createNotificationChannel(
+                NotificationChannel(
+                    NotificationHelper.CHANNEL_ID,
+                    "Nieodebrane połączenia",
+                    NotificationManager.IMPORTANCE_DEFAULT,
+                ).apply {
+                    description = "Powiadomienia o nowych nieodebranych połączeniach od klientów"
+                }
+            )
+            nm.createNotificationChannel(
+                NotificationChannel(
+                    NotificationHelper.POST_CALL_CHANNEL_ID,
+                    "Notatka po rozmowie",
+                    NotificationManager.IMPORTANCE_HIGH,
+                ).apply {
+                    description = "Prośba o dodanie notatki po zakończonej rozmowie"
+                }
+            )
         }
     }
 }

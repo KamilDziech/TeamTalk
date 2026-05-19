@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.ekotak.teamtalk.data.local.preferences.SimPreferences
 import com.ekotak.teamtalk.presentation.profile.ProfileViewModel
 import com.ekotak.teamtalk.presentation.theme.Red600
 
@@ -41,6 +42,8 @@ fun SettingsScreen(
 ) {
     val themeMode by settingsVm.themeMode.collectAsState()
     val profileState by profileVm.uiState.collectAsState()
+    val simCards by settingsVm.simCards.collectAsState()
+    val monitoredSubId by settingsVm.monitoredSubId.collectAsState()
 
     Scaffold(
         topBar = {
@@ -87,6 +90,49 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
             HorizontalDivider()
+
+            // ── SIM section ──────────────────────────────────────────────────
+            if (simCards.isNotEmpty()) {
+                SectionHeader("Karta SIM do monitorowania")
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    RadioButton(
+                        selected = monitoredSubId == SimPreferences.ALL_SIMS,
+                        onClick = { settingsVm.setMonitoredSubId(SimPreferences.ALL_SIMS) },
+                        modifier = Modifier.size(36.dp),
+                    )
+                    Text(
+                        text = "Wszystkie karty SIM",
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.padding(start = 8.dp),
+                    )
+                }
+                simCards.forEach { sim ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(
+                            selected = monitoredSubId == sim.subId,
+                            onClick = { settingsVm.setMonitoredSubId(sim.subId) },
+                            modifier = Modifier.size(36.dp),
+                        )
+                        Text(
+                            text = sim.label,
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.padding(start = 8.dp),
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                HorizontalDivider()
+            }
 
             // ── App version section ──────────────────────────────────────────
             SectionHeader("Aplikacja")

@@ -52,6 +52,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ekotak.teamtalk.domain.model.CallLog
@@ -270,6 +271,23 @@ private fun CallLogCard(
                             color = if (callLog.isOverSla()) Red600 else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+                }
+                val notePreview = callLog.client?.notes?.let { notes ->
+                    val first = notes.lines().firstOrNull { it.isNotBlank() } ?: return@let null
+                    if (first.startsWith("[")) {
+                        val end = first.indexOf(']')
+                        if (end > 0) first.substring(end + 1).trim() else first
+                    } else first
+                }
+                if (!notePreview.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = notePreview,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
             }
             Spacer(modifier = Modifier.width(8.dp))
