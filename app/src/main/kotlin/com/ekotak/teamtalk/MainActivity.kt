@@ -1,10 +1,13 @@
 package com.ekotak.teamtalk
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -45,6 +48,7 @@ class MainActivity : ComponentActivity() {
         deepLinkCallLogId = intent.getStringExtra(EXTRA_CALL_LOG_ID)
         deepLinkPostCallPhone = intent.getStringExtra(EXTRA_POST_CALL_PHONE)?.ifBlank { null }
         requestRequiredPermissions()
+        requestOverlayPermissionIfNeeded()
         enableEdgeToEdge()
         setContent {
             val themeMode by settingsVm.themeMode.collectAsState()
@@ -67,6 +71,17 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         deepLinkCallLogId = intent.getStringExtra(EXTRA_CALL_LOG_ID)
         deepLinkPostCallPhone = intent.getStringExtra(EXTRA_POST_CALL_PHONE)?.ifBlank { null }
+    }
+
+    private fun requestOverlayPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
+        if (Settings.canDrawOverlays(this)) return
+        val prefs = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+        if (prefs.getBoolean("overlay_asked", false)) return
+        prefs.edit().putBoolean("overlay_asked", true).apply()
+        startActivity(
+            Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
+        )
     }
 
     private fun requestRequiredPermissions() {

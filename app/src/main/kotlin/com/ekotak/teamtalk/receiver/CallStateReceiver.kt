@@ -4,10 +4,12 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.telephony.TelephonyManager
+import androidx.core.content.ContextCompat
 import androidx.work.Data
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.ekotak.teamtalk.data.local.preferences.SimPreferences
+import com.ekotak.teamtalk.service.CallMonitorService
 import com.ekotak.teamtalk.worker.PostCallNoteWorker
 import java.util.concurrent.TimeUnit
 
@@ -30,6 +32,11 @@ class CallStateReceiver : BroadcastReceiver() {
                     .putLong("call_start_ms", System.currentTimeMillis())
                     .putInt("call_sub_id", incomingSubId)
                     .apply()
+
+                ContextCompat.startForegroundService(
+                    context,
+                    Intent(context, CallMonitorService::class.java),
+                )
             }
             TelephonyManager.EXTRA_STATE_IDLE -> {
                 val wasInCall = prefs.getBoolean("was_in_call", false)
@@ -53,6 +60,15 @@ class CallStateReceiver : BroadcastReceiver() {
                         )
                         .build()
                     WorkManager.getInstance(context).enqueue(request)
+
+                    ContextCompat.startForegroundService(
+                        context,
+                        Intent(context, CallMonitorService::class.java).apply {
+                            action = CallMonitorService.ACTION_CALL_ENDED
+                            putExtra(CallMonitorService.EXTRA_CALL_START_MS, callStartMs)
+                            if (phoneAccountId != null) putExtra(CallMonitorService.EXTRA_PHONE_ACCOUNT_ID, phoneAccountId)
+                        },
+                    )
                 }
             }
         }

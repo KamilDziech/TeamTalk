@@ -7,6 +7,7 @@ import android.os.Build
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import com.ekotak.teamtalk.data.notification.NotificationHelper
+import com.ekotak.teamtalk.service.CallMonitorService
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 
@@ -44,6 +45,15 @@ class TeamTalkApp : Application(), Configuration.Provider {
                     NotificationManager.IMPORTANCE_HIGH,
                 ).apply {
                     description = "Prośba o dodanie notatki po zakończonej rozmowie"
+                }
+            )
+            nm.createNotificationChannel(
+                NotificationChannel(
+                    CallMonitorService.CHANNEL_ID,
+                    "Monitorowanie połączenia",
+                    NotificationManager.IMPORTANCE_LOW,
+                ).apply {
+                    description = "Aktywne podczas trwania rozmowy"
                 }
             )
         }

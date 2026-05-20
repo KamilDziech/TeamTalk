@@ -5,7 +5,6 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.ekotak.teamtalk.data.local.dao.CallLogDao
-import com.ekotak.teamtalk.data.notification.NotificationHelper
 import com.ekotak.teamtalk.data.scanner.DeviceCallLogReader
 import com.ekotak.teamtalk.domain.model.CallLogFilter
 import com.ekotak.teamtalk.domain.model.CallStatus
@@ -30,7 +29,6 @@ class PostCallNoteWorker @AssistedInject constructor(
     private val callLogRepository: CallLogRepository,
     private val callLogDao: CallLogDao,
     private val getCurrentUserUseCase: GetCurrentUserUseCase,
-    private val notificationHelper: NotificationHelper,
 ) : CoroutineWorker(context, params) {
 
     companion object {
@@ -51,7 +49,6 @@ class PostCallNoteWorker @AssistedInject constructor(
             ?.takeIf { it.isNotBlank() }
 
         recordCallInHistory(call, phone)
-        notificationHelper.showPostCallNoteNotification(phone)
         return Result.success()
     }
 
