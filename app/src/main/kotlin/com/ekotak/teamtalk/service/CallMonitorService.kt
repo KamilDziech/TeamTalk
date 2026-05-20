@@ -9,15 +9,27 @@ import android.os.IBinder
 import android.provider.Settings
 import androidx.core.app.NotificationCompat
 import com.ekotak.teamtalk.MainActivity
+import com.ekotak.teamtalk.data.local.dao.CallLogDao
 import com.ekotak.teamtalk.data.notification.NotificationHelper
 import com.ekotak.teamtalk.data.scanner.DeviceCallLogReader
+import com.ekotak.teamtalk.domain.model.CallLogFilter
+import com.ekotak.teamtalk.domain.model.CallStatus
+import com.ekotak.teamtalk.domain.model.CallType
+import com.ekotak.teamtalk.domain.repository.CallLogRepository
+import com.ekotak.teamtalk.domain.repository.ClientRepository
+import com.ekotak.teamtalk.domain.usecase.auth.GetCurrentUserUseCase
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -33,8 +45,16 @@ class CallMonitorService : Service() {
 
     @Inject lateinit var deviceCallLogReader: DeviceCallLogReader
     @Inject lateinit var notificationHelper: NotificationHelper
+    @Inject lateinit var clientRepository: ClientRepository
+    @Inject lateinit var callLogRepository: CallLogRepository
+    @Inject lateinit var callLogDao: CallLogDao
+    @Inject lateinit var getCurrentUserUseCase: GetCurrentUserUseCase
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
+    private val isoFmt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).apply {
+        timeZone = TimeZone.getTimeZone("UTC")
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -56,6 +76,7 @@ class CallMonitorService : Service() {
                 val phone = call?.phoneNumber
                     ?.let { deviceCallLogReader.normalizePhone(it) }
                     ?.takeIf { it.isNotBlank() }
+                recordCallInHistory(call, phone)
                 openNoteScreen(phone)
                 stopSelf()
             }
@@ -78,6 +99,57 @@ class CallMonitorService : Service() {
             startActivity(activityIntent)
         } else {
             notificationHelper.showPostCallNoteNotification(phone)
+        }
+    }
+
+    private suspend fun recordCallInHistory(call: DeviceCallLogReader.DeviceCall?, phone: String?) {
+        if (phone == null) return
+        runCatching {
+            val userId = getCurrentUserUseCase().id
+            val timestampMs = call?.timestampMs ?: System.currentTimeMillis()
+            val windowStart = isoFmt.format(Date(timestampMs - 5_000))
+            val windowEnd   = isoFmt.format(Date(timestampMs + 5_000))
+
+            if (callLogDao.findDuplicateByPhone(phone, windowStart, windowEnd) != null) return@runCatching
+
+            val callName = call?.cachedName
+            var client = clientRepository.getClientByPhone(phone)
+            when {
+                client == null -> {
+                    client = runCatching {
+                        clientRepository.createClient(phone = phone, name = callName, address = null, notes = null)
+                    }.getOrNull()
+                }
+                client.name == null && callName != null -> {
+                    val clientId = client.id
+                    client = runCatching {
+                        clientRepository.updateClient(id = clientId, name = callName)
+                    }.getOrElse { client }
+                }
+            }
+
+            callLogRepository.createCallLog(
+                clientId       = client?.id,
+                employeeId     = userId,
+                type           = CallType.COMPLETED,
+                status         = CallStatus.COMPLETED,
+                timestamp      = isoFmt.format(Date(timestampMs)),
+                callerPhone    = phone,
+                dedupKey       = "${client?.id ?: phone}_${timestampMs / 5_000}",
+                phoneAccountId = call?.phoneAccountId,
+            )
+            resolveMissedCalls(phone)
+        }
+    }
+
+    private suspend fun resolveMissedCalls(phone: String) {
+        runCatching {
+            val missed = callLogRepository.getCallLogs(
+                CallLogFilter(callerPhoneEq = phone, statusEq = "missed")
+            ).first()
+            for (entry in missed) {
+                runCatching { callLogRepository.updateCallLog(id = entry.id, status = CallStatus.COMPLETED) }
+            }
         }
     }
 

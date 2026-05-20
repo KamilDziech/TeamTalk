@@ -5,13 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.telephony.TelephonyManager
 import androidx.core.content.ContextCompat
-import androidx.work.Data
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkManager
 import com.ekotak.teamtalk.data.local.preferences.SimPreferences
 import com.ekotak.teamtalk.service.CallMonitorService
-import com.ekotak.teamtalk.worker.PostCallNoteWorker
-import java.util.concurrent.TimeUnit
 
 class CallStateReceiver : BroadcastReceiver() {
 
@@ -50,16 +45,6 @@ class CallStateReceiver : BroadcastReceiver() {
                         .apply()
 
                     val phoneAccountId = if (callSubId != -1) callSubId.toString() else null
-                    val request = OneTimeWorkRequestBuilder<PostCallNoteWorker>()
-                        .setInitialDelay(2, TimeUnit.SECONDS)
-                        .setInputData(
-                            Data.Builder()
-                                .putLong(PostCallNoteWorker.KEY_CALL_START_MS, callStartMs)
-                                .apply { if (phoneAccountId != null) putString(PostCallNoteWorker.KEY_PHONE_ACCOUNT_ID, phoneAccountId) }
-                                .build()
-                        )
-                        .build()
-                    WorkManager.getInstance(context).enqueue(request)
 
                     ContextCompat.startForegroundService(
                         context,
