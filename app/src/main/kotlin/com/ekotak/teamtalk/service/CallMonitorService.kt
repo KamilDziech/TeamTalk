@@ -2,10 +2,12 @@ package com.ekotak.teamtalk.service
 
 import android.app.Notification
 import android.app.Service
+import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
 import android.provider.Settings
 import androidx.core.app.NotificationCompat
 import com.ekotak.teamtalk.MainActivity
@@ -71,8 +73,14 @@ class CallMonitorService : Service() {
             val callStartMs = intent.getLongExtra(EXTRA_CALL_START_MS, System.currentTimeMillis())
             val phoneAccountId = intent.getStringExtra(EXTRA_PHONE_ACCOUNT_ID)
             scope.launch {
-                delay(2_000)
-                val call = deviceCallLogReader.readMostRecentCallSince(callStartMs, phoneAccountId)
+                var call = deviceCallLogReader.readMostRecentCallSince(callStartMs, phoneAccountId)
+                    ?: deviceCallLogReader.readMostRecentCallSince(callStartMs, null)
+                val deadline = System.currentTimeMillis() + 5_000
+                while (call == null && System.currentTimeMillis() < deadline) {
+                    delay(500)
+                    call = deviceCallLogReader.readMostRecentCallSince(callStartMs, phoneAccountId)
+                        ?: deviceCallLogReader.readMostRecentCallSince(callStartMs, null)
+                }
                 val phone = call?.phoneNumber
                     ?.let { deviceCallLogReader.normalizePhone(it) }
                     ?.takeIf { it.isNotBlank() }
@@ -88,17 +96,34 @@ class CallMonitorService : Service() {
         val canOverlay = Build.VERSION.SDK_INT < Build.VERSION_CODES.M ||
             Settings.canDrawOverlays(applicationContext)
         if (canOverlay) {
+            wakeScreen()
             val activityIntent = Intent(applicationContext, MainActivity::class.java).apply {
                 addFlags(
                     Intent.FLAG_ACTIVITY_NEW_TASK or
                     Intent.FLAG_ACTIVITY_SINGLE_TOP or
                     Intent.FLAG_ACTIVITY_CLEAR_TOP
                 )
+                putExtra(MainActivity.EXTRA_OPEN_POST_CALL_NOTE, true)
                 putExtra(MainActivity.EXTRA_POST_CALL_PHONE, phone ?: "")
             }
             startActivity(activityIntent)
         } else {
             notificationHelper.showPostCallNoteNotification(phone)
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun wakeScreen() {
+        val pm = applicationContext.getSystemService(Context.POWER_SERVICE) as PowerManager
+        if (!pm.isInteractive) {
+            val wl = pm.newWakeLock(
+                PowerManager.FULL_WAKE_LOCK or
+                PowerManager.ACQUIRE_CAUSES_WAKEUP or
+                PowerManager.ON_AFTER_RELEASE,
+                "com.ekotak.teamtalk:post_call_wake"
+            )
+            wl.acquire(5_000)
+            wl.release()
         }
     }
 

@@ -130,6 +130,10 @@ private fun MainScreen(deepLinkCallLogId: String? = null, deepLinkPostCallPhone:
                     callLogId = callLogId,
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateToVoiceReport = { navController.navigate("voicereport/$callLogId") },
+                    onNavigateToPostCallNote = { phone ->
+                        val encoded = URLEncoder.encode(phone, "UTF-8")
+                        navController.navigate("post_call_note?phone=$encoded")
+                    },
                 )
             }
 
@@ -147,7 +151,14 @@ private fun MainScreen(deepLinkCallLogId: String? = null, deepLinkPostCallPhone:
             // ── History ────────────────────────────────────────────────────────
             composable("history") {
                 HistoryScreen(
-                    onNavigateToDetail = { id -> navController.navigate("calllog/$id") },
+                    onNavigateToTimeline = { clientId, phone ->
+                        val route = when {
+                            clientId != null -> "client_timeline?clientId=$clientId"
+                            phone != null -> "client_timeline?phone=${URLEncoder.encode(phone, "UTF-8")}"
+                            else -> return@HistoryScreen
+                        }
+                        navController.navigate(route)
+                    },
                 )
             }
 
@@ -196,17 +207,22 @@ private fun MainScreen(deepLinkCallLogId: String? = null, deepLinkPostCallPhone:
                     clientId = clientId,
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateToEdit = { navController.navigate("client_form?clientId=$clientId") },
-                    onNavigateToTimeline = { navController.navigate("client_timeline/$clientId") },
+                    onNavigateToTimeline = { navController.navigate("client_timeline?clientId=$clientId") },
                 )
             }
 
             composable(
-                route = "client_timeline/{clientId}",
-                arguments = listOf(navArgument("clientId") { type = NavType.StringType }),
-            ) { backStackEntry ->
-                val clientId = backStackEntry.arguments!!.getString("clientId")!!
+                route = "client_timeline?clientId={clientId}&phone={phone}",
+                arguments = listOf(
+                    navArgument("clientId") {
+                        type = NavType.StringType; nullable = true; defaultValue = null
+                    },
+                    navArgument("phone") {
+                        type = NavType.StringType; nullable = true; defaultValue = null
+                    },
+                ),
+            ) {
                 ClientTimelineScreen(
-                    clientId = clientId,
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateToCallDetail = { callLogId -> navController.navigate("calllog/$callLogId") },
                 )

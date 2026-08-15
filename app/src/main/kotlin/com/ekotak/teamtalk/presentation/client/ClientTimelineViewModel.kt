@@ -43,11 +43,24 @@ class ClientTimelineViewModel @Inject constructor(
     )
 
     val clientId: String = savedStateHandle["clientId"] ?: ""
+    val phone: String = savedStateHandle["phone"] ?: ""
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val uiState: StateFlow<UiState> = combine(
-        getClientsUseCase().map { list -> list.find { it.id == clientId } },
-        getCallLogsUseCase(CallLogFilter(clientIdEq = clientId)),
+        getClientsUseCase().map { list ->
+            when {
+                clientId.isNotBlank() -> list.find { it.id == clientId }
+                phone.isNotBlank() -> list.find { c ->
+                    c.phone == phone || c.phone.endsWith(phone) || phone.endsWith(c.phone)
+                }
+                else -> null
+            }
+        },
+        when {
+            clientId.isNotBlank() -> getCallLogsUseCase(CallLogFilter(clientIdEq = clientId))
+            phone.isNotBlank() -> getCallLogsUseCase(CallLogFilter(callerPhoneEq = phone))
+            else -> flow { emit(emptyList<CallLog>()) }
+        },
     ) { client, callLogs -> client to callLogs }
         .flatMapLatest { (client, callLogs) ->
             val ids = callLogs.map { it.id }

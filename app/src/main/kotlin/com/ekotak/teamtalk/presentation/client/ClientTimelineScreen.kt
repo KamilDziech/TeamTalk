@@ -32,8 +32,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
+import com.ekotak.teamtalk.presentation.components.AppTopBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -43,6 +42,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -60,7 +60,6 @@ import com.ekotak.teamtalk.presentation.theme.Red600
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ClientTimelineScreen(
-    clientId: String,
     onNavigateBack: () -> Unit,
     onNavigateToCallDetail: (String) -> Unit,
     viewModel: ClientTimelineViewModel = hiltViewModel(),
@@ -69,36 +68,7 @@ fun ClientTimelineScreen(
     val client = uiState.client
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(client?.name ?: client?.phone ?: "Historia klienta") },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Wróć",
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                        )
-                    }
-                },
-                actions = {
-                    val phone = client?.phone
-                    if (phone != null) {
-                        IconButton(onClick = { viewModel.makeCall(phone) }) {
-                            Icon(
-                                imageVector = Icons.Default.Phone,
-                                contentDescription = "Zadzwoń",
-                                tint = MaterialTheme.colorScheme.onPrimary,
-                            )
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                ),
-            )
-        },
+        topBar = { AppTopBar(title = client?.name ?: client?.phone ?: "Historia klienta", onNavigateBack = onNavigateBack) },
     ) { padding ->
         when {
             uiState.isLoading -> Box(
@@ -260,13 +230,21 @@ private fun TimelineEntryCard(
                 }
             }
 
-            // Notes summary (collapsed)
+            // Notes summary (collapsed) or "skipped" annotation
             if (entry.reports.isNotEmpty() && !expanded) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "${entry.reports.size} ${if (entry.reports.size == 1) "notatka" else "notatki"}",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
+                )
+            } else if (entry.reports.isEmpty()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Pominięto notatkę",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontStyle = FontStyle.Italic,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 

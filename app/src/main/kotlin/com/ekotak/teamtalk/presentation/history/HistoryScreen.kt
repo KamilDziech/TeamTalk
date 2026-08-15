@@ -11,16 +11,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Badge
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -31,8 +28,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import com.ekotak.teamtalk.presentation.components.AppTopBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -43,29 +40,20 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.ekotak.teamtalk.presentation.calllog.StatusChip
 import com.ekotak.teamtalk.presentation.calllog.toShortDateTime
 import com.ekotak.teamtalk.presentation.util.toRelativeTime
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryScreen(
-    onNavigateToDetail: (String) -> Unit,
+    onNavigateToTimeline: (clientId: String?, phone: String?) -> Unit,
     viewModel: HistoryViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Historia") },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                ),
-            )
-        },
+        topBar = { AppTopBar(title = "Historia") },
     ) { padding ->
         Column(
             modifier = Modifier
@@ -114,10 +102,13 @@ fun HistoryScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                 ) {
-                    items(state.entries, key = { it.callLog.id }) { entry ->
-                        HistoryCard(
+                    items(
+                        state.entries,
+                        key = { it.clientId ?: it.phone ?: it.displayName },
+                    ) { entry ->
+                        ClientHistoryCard(
                             entry = entry,
-                            onClick = { onNavigateToDetail(entry.callLog.id) },
+                            onClick = { onNavigateToTimeline(entry.clientId, entry.phone) },
                         )
                     }
                 }
@@ -127,11 +118,10 @@ fun HistoryScreen(
 }
 
 @Composable
-private fun HistoryCard(
-    entry: HistoryEntry,
+private fun ClientHistoryCard(
+    entry: ClientHistoryEntry,
     onClick: () -> Unit,
 ) {
-    val callLog = entry.callLog
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -146,13 +136,13 @@ private fun HistoryCard(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = callLog.client?.name ?: callLog.callerPhone ?: "Nieznany",
+                        text = entry.displayName,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                     )
-                    if (callLog.client?.name != null && callLog.callerPhone != null) {
+                    if (entry.phone != null && entry.displayName != entry.phone) {
                         Text(
-                            text = callLog.callerPhone,
+                            text = entry.phone,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -161,42 +151,30 @@ private fun HistoryCard(
                 Spacer(modifier = Modifier.width(8.dp))
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = callLog.timestamp.toRelativeTime(),
+                        text = entry.lastCallTimestamp.toRelativeTime(),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
-                        text = callLog.timestamp.toShortDateTime(),
+                        text = entry.lastCallTimestamp.toShortDateTime(),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                StatusChip(status = callLog.status)
-                if (entry.noteCount > 0) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Description,
-                            contentDescription = null,
-                            modifier = Modifier.size(14.dp),
-                            tint = MaterialTheme.colorScheme.primary,
-                        )
-                        Spacer(modifier = Modifier.width(2.dp))
-                        Text(
-                            text = "${entry.noteCount}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                }
+            val callWord = when (entry.callCount) {
+                1 -> "połączenie"
+                in 2..4 -> "połączenia"
+                else -> "połączeń"
             }
+            Text(
+                text = "${entry.callCount} $callWord",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
 
             if (!entry.notePreview.isNullOrBlank()) {
                 Spacer(modifier = Modifier.height(6.dp))

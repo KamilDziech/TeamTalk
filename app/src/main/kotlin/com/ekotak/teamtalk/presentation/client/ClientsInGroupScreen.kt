@@ -40,8 +40,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
+import com.ekotak.teamtalk.presentation.components.AppTopBar
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -128,24 +127,7 @@ fun ClientsInGroupScreen(
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(groupName) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Wróć",
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                ),
-            )
-        },
+        topBar = { AppTopBar(title = groupName, onNavigateBack = onNavigateBack) },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { sheetMode = BottomSheetMode.SELECT_METHOD },

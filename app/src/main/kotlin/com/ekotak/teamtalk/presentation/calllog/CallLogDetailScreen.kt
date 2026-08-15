@@ -30,8 +30,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
+import com.ekotak.teamtalk.presentation.components.AppTopBar
 import com.ekotak.teamtalk.domain.model.isOverSla
 import com.ekotak.teamtalk.domain.model.waitingMinutes
 import androidx.compose.runtime.Composable
@@ -60,9 +59,12 @@ fun CallLogDetailScreen(
     callLogId: String,
     onNavigateBack: () -> Unit,
     onNavigateToVoiceReport: () -> Unit = {},
+    onNavigateToPostCallNote: (phone: String) -> Unit = {},
     viewModel: CallLogViewModel = hiltViewModel(),
 ) {
-    val callLog by viewModel.observeCallLog(callLogId).collectAsState(initial = null)
+    val callLog by remember(callLogId, viewModel) {
+        viewModel.observeCallLog(callLogId)
+    }.collectAsState(initial = null)
     val actionError by viewModel.actionError.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -74,24 +76,7 @@ fun CallLogDetailScreen(
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Szczegóły zgłoszenia") },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Wróć",
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                ),
-            )
-        },
+        topBar = { AppTopBar(title = "Szczegóły zgłoszenia", onNavigateBack = onNavigateBack) },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         if (callLog == null) {
@@ -107,7 +92,10 @@ fun CallLogDetailScreen(
             CallLogDetailContent(
                 callLog = callLog!!,
                 onReserve = { viewModel.reserveCallLog(callLogId) },
-                onComplete = { viewModel.completeCallLog(callLogId) },
+                onComplete = { phone ->
+                    viewModel.completeCallLog(callLogId)
+                    phone?.let { onNavigateToPostCallNote(it) }
+                },
                 onReopen = { viewModel.reopenCallLog(callLogId) },
                 onAddRecipient = { viewModel.addCurrentUserAsRecipient(callLogId) },
                 onCall = { phone -> viewModel.makeCall(phone) },
@@ -124,7 +112,7 @@ fun CallLogDetailScreen(
 private fun CallLogDetailContent(
     callLog: CallLog,
     onReserve: () -> Unit,
-    onComplete: () -> Unit,
+    onComplete: (phone: String?) -> Unit,
     onReopen: () -> Unit,
     onAddRecipient: () -> Unit,
     onCall: (String) -> Unit,
@@ -225,6 +213,7 @@ private fun CallLogDetailContent(
         )
         Spacer(modifier = Modifier.height(12.dp))
 
+        val callerPhone = callLog.callerPhone ?: callLog.client?.phone
         when (callLog.status) {
             CallStatus.MISSED -> {
                 Button(
@@ -236,7 +225,7 @@ private fun CallLogDetailContent(
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Button(
-                    onClick = onComplete,
+                    onClick = { onComplete(callerPhone) },
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = Green600),
                 ) {
@@ -245,7 +234,7 @@ private fun CallLogDetailContent(
             }
             CallStatus.RESERVED -> {
                 Button(
-                    onClick = onComplete,
+                    onClick = { onComplete(callerPhone) },
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = Green600),
                 ) {
@@ -269,11 +258,10 @@ private fun CallLogDetailContent(
             }
         }
 
-        val phone = callLog.callerPhone ?: callLog.client?.phone
-        if (phone != null) {
+        if (callerPhone != null) {
             Spacer(modifier = Modifier.height(8.dp))
             Button(
-                onClick = { onCall(phone) },
+                onClick = { onCall(callerPhone) },
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Icon(
@@ -283,7 +271,7 @@ private fun CallLogDetailContent(
                         .size(18.dp),
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Zadzwoń: $phone")
+                Text("Zadzwoń: $callerPhone")
             }
         }
 

@@ -11,6 +11,7 @@ import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.SystemBarStyle
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -31,6 +32,7 @@ class MainActivity : ComponentActivity() {
     companion object {
         const val EXTRA_CALL_LOG_ID = "extra_call_log_id"
         const val EXTRA_POST_CALL_PHONE = "extra_post_call_phone"
+        const val EXTRA_OPEN_POST_CALL_NOTE = "extra_open_post_call_note"
     }
 
     private val settingsVm: SettingsViewModel by viewModels()
@@ -46,10 +48,14 @@ class MainActivity : ComponentActivity() {
         setShowWhenLocked(true)
         setTurnScreenOn(true)
         deepLinkCallLogId = intent.getStringExtra(EXTRA_CALL_LOG_ID)
-        deepLinkPostCallPhone = intent.getStringExtra(EXTRA_POST_CALL_PHONE)?.ifBlank { null }
+        if (intent.getBooleanExtra(EXTRA_OPEN_POST_CALL_NOTE, false)) {
+            deepLinkPostCallPhone = intent.getStringExtra(EXTRA_POST_CALL_PHONE) ?: ""
+        }
         requestRequiredPermissions()
         requestOverlayPermissionIfNeeded()
-        enableEdgeToEdge()
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+        )
         setContent {
             val themeMode by settingsVm.themeMode.collectAsState()
             val systemDark = isSystemInDarkTheme()
@@ -70,7 +76,9 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         deepLinkCallLogId = intent.getStringExtra(EXTRA_CALL_LOG_ID)
-        deepLinkPostCallPhone = intent.getStringExtra(EXTRA_POST_CALL_PHONE)?.ifBlank { null }
+        if (intent.getBooleanExtra(EXTRA_OPEN_POST_CALL_NOTE, false)) {
+            deepLinkPostCallPhone = intent.getStringExtra(EXTRA_POST_CALL_PHONE) ?: ""
+        }
     }
 
     private fun requestOverlayPermissionIfNeeded() {

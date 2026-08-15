@@ -28,8 +28,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
+import com.ekotak.teamtalk.presentation.components.AppTopBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -94,45 +93,20 @@ fun ClientDetailScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(client?.name ?: client?.phone ?: "Klient") },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Wróć",
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                        )
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { onNavigateToTimeline(clientId) }) {
-                        Icon(
-                            imageVector = Icons.Default.History,
-                            contentDescription = "Historia",
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                        )
-                    }
-                    IconButton(onClick = { onNavigateToEdit(clientId) }) {
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = "Edytuj",
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                        )
-                    }
-                    IconButton(onClick = { showDeleteDialog = true }) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = "Usuń",
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                ),
-            )
+            AppTopBar(
+                title = client?.name ?: client?.phone ?: "Klient",
+                onNavigateBack = onNavigateBack,
+            ) {
+                IconButton(onClick = { onNavigateToTimeline(clientId) }) {
+                    Icon(imageVector = Icons.Default.History, contentDescription = "Historia")
+                }
+                IconButton(onClick = { onNavigateToEdit(clientId) }) {
+                    Icon(imageVector = Icons.Default.Edit, contentDescription = "Edytuj")
+                }
+                IconButton(onClick = { showDeleteDialog = true }) {
+                    Icon(imageVector = Icons.Default.Delete, contentDescription = "Usuń")
+                }
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->

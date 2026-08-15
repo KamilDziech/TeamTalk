@@ -31,8 +31,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
+import com.ekotak.teamtalk.presentation.components.AppTopBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -125,33 +124,16 @@ fun ClientFormScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(if (isEditMode) "Edytuj klienta" else "Nowy klient") },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Wróć",
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                        )
+            AppTopBar(
+                title = if (isEditMode) "Edytuj klienta" else "Nowy klient",
+                onNavigateBack = onNavigateBack,
+            ) {
+                if (!isEditMode) {
+                    IconButton(onClick = { contactPickerLauncher.launch(null) }) {
+                        Icon(imageVector = Icons.Default.Contacts, contentDescription = "Import z kontaktów")
                     }
-                },
-                actions = {
-                    if (!isEditMode) {
-                        IconButton(onClick = { contactPickerLauncher.launch(null) }) {
-                            Icon(
-                                imageVector = Icons.Default.Contacts,
-                                contentDescription = "Import z kontaktów",
-                                tint = MaterialTheme.colorScheme.onPrimary,
-                            )
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                ),
-            )
+                }
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->

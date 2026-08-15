@@ -35,8 +35,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
+import com.ekotak.teamtalk.presentation.components.AppTopBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -102,33 +101,25 @@ fun CallLogListScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Zgłoszenia") },
-                actions = {
-                    IconButton(
-                        onClick = { permissionLauncher.launch(Manifest.permission.READ_CALL_LOG) },
-                        enabled = !isScanning,
-                    ) {
-                        if (isScanning) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                color = MaterialTheme.colorScheme.onPrimary,
-                                strokeWidth = 2.dp,
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Default.Sync,
-                                contentDescription = "Skanuj połączenia",
-                                tint = MaterialTheme.colorScheme.onPrimary,
-                            )
-                        }
+            AppTopBar(title = "Zgłoszenia") {
+                IconButton(
+                    onClick = { permissionLauncher.launch(Manifest.permission.READ_CALL_LOG) },
+                    enabled = !isScanning,
+                ) {
+                    if (isScanning) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            strokeWidth = 2.dp,
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Sync,
+                            contentDescription = "Skanuj połączenia",
+                        )
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                ),
-            )
+                }
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->

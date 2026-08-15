@@ -36,8 +36,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
+import com.ekotak.teamtalk.presentation.components.AppTopBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -75,24 +74,13 @@ fun ProfileScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Profil") },
-                actions = {
-                    if (!state.isEditing) {
-                        IconButton(onClick = viewModel::startEditing) {
-                            Icon(
-                                imageVector = Icons.Default.Edit,
-                                contentDescription = "Edytuj",
-                                tint = MaterialTheme.colorScheme.onPrimary,
-                            )
-                        }
+            AppTopBar(title = "Profil") {
+                if (!state.isEditing) {
+                    IconButton(onClick = viewModel::startEditing) {
+                        Icon(imageVector = Icons.Default.Edit, contentDescription = "Edytuj")
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                ),
-            )
+                }
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
