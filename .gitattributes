@@ -1,0 +1,47 @@
+# Normalizuj wszystkie pliki tekstowe do LF w repozytorium.
+# Git sam wykrywa co jest tekstem; w katalogu roboczym Windows dostanie LF.
+* text=auto eol=lf
+
+# Skrypty wymagające konkretnych zakończeń linii
+*.bat        text eol=crlf
+*.cmd        text eol=crlf
+gradlew      text eol=lf
+*.sh         text eol=lf
+
+# Pliki źródłowe / konfiguracyjne (jawnie jako tekst)
+*.kt         text
+*.kts        text
+*.java       text
+*.xml        text
+*.json       text
+*.md         text
+*.toml       text
+*.properties text
+*.pro        text
+*.txt        text
+*.yml        text
+*.yaml       text
+*.gradle     text
+
+# Pliki binarne — bez normalizacji zakończeń linii
+*.png        binary
+*.jpg        binary
+*.jpeg       binary
+*.gif        binary
+*.webp       binary
+*.ico        binary
+*.svg        text
+*.pdf        binary
+*.jar        binary
+*.war        binary
+*.zip        binary
+*.gz         binary
+*.tar        binary
+*.keystore   binary
+*.jks        binary
+*.ttf        binary
+*.otf        binary
+*.woff       binary
+*.woff2      binary
+*.so         binary
+*.aar        binary
