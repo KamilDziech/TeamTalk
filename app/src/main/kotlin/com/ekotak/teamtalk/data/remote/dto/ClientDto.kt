@@ -1,34 +1,26 @@
 package com.ekotak.teamtalk.data.remote.dto
 
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
+/** Klient — kształt board360 (read-only). */
 @Serializable
 data class ClientResponseDto(
     val id: String,
-    val phone: String,
-    val name: String? = null,
-    val address: String? = null,
-    val notes: String? = null,
-    @SerialName("group_id") val groupId: String? = null,
-    @SerialName("created_at") val createdAt: String,
-    @SerialName("updated_at") val updatedAt: String,
-)
-
-@Serializable
-data class CreateClientRequest(
-    val phone: String,
-    val name: String? = null,
-    val address: String? = null,
-    val notes: String? = null,
-    @SerialName("group_id") val groupId: String? = null,
-)
-
-@Serializable
-data class UpdateClientRequest(
+    val organizationId: String? = null,
+    val firstName: String = "",
+    val lastName: String = "",
+    val email: String? = null,
+    val email2: String? = null,
     val phone: String? = null,
-    val name: String? = null,
+    val phone2: String? = null,
     val address: String? = null,
-    val notes: String? = null,
-    @SerialName("group_id") val groupId: String? = null,
+    val postalCode: String? = null,
+    val city: String? = null,
+    val street: String? = null,
+    val geoLat: Double? = null,
+    val geoLng: Double? = null,
+    val type: String? = null,
+    val category: String? = null,
+    val createdAt: String? = null,
+    val updatedAt: String? = null,
 )

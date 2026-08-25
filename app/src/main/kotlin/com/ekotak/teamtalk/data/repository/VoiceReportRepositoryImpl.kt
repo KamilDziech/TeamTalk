@@ -25,52 +25,46 @@ class VoiceReportRepositoryImpl @Inject constructor(
 ) : VoiceReportRepository {
 
     override fun getVoiceReports(
-        callLogIdIn: List<String>?,
-        callLogIdEq: String?,
+        callLogId: String?,
+        clientId: String?,
     ): Flow<List<VoiceReport>> = channelFlow {
         val localFlow = when {
-            callLogIdEq != null -> voiceReportDao.observeByCallLogId(callLogIdEq)
-            callLogIdIn != null -> voiceReportDao.observeByCallLogIds(callLogIdIn)
-            else                -> voiceReportDao.observeByCallLogIds(emptyList())
+            callLogId != null -> voiceReportDao.observeByCallLogId(callLogId)
+            clientId != null  -> voiceReportDao.observeByClientId(clientId)
+            else              -> voiceReportDao.observeAll()
         }
 
         launch { localFlow.map { it.map { e -> e.toDomain() } }.collect(::send) }
 
         try {
-            val fresh = api.getVoiceReports(
-                callLogIdIn = callLogIdIn?.joinToString(","),
-                callLogIdEq = callLogIdEq,
-            )
+            val fresh = api.getVoiceReports()
             voiceReportDao.upsertAll(fresh.map { it.toEntity() })
         } catch (_: Exception) {}
     }
 
     override suspend fun createVoiceReport(
-        callLogId: String,
-        audioUrl: String?,
-        transcription: String?,
-        aiSummary: String?,
-        callCount: Int,
+        callLogId: String?,
+        clientId: String?,
+        text: String?,
+        durationSec: Int?,
     ): VoiceReport {
         val dto = api.createVoiceReport(
-            CreateVoiceReportRequest(callLogId, audioUrl, transcription, aiSummary, callCount)
+            CreateVoiceReportRequest(callLogId, clientId, text, durationSec)
         )
         voiceReportDao.upsert(dto.toEntity())
         return dto.toDomain()
     }
 
-    override suspend fun uploadAudio(file: File): String = withContext(Dispatchers.IO) {
-        val part = file.toMultipartPart()
-        api.uploadAudio(part).publicUrl
-    }
-
-    override suspend fun transcribeAudio(file: File): String? = withContext(Dispatchers.IO) {
-        val part = file.toMultipartPart()
-        api.transcribeAudio(part).transcription
-    }
+    override suspend fun uploadRecording(reportId: String, file: File): VoiceReport =
+        withContext(Dispatchers.IO) {
+            val part = file.toMultipartPart()
+            val dto = api.uploadRecording(reportId, part)
+            voiceReportDao.upsert(dto.toEntity())
+            dto.toDomain()
+        }
 
     private fun File.toMultipartPart(): MultipartBody.Part {
-        val requestBody = asRequestBody("audio/m4a".toMediaType())
+        val requestBody = asRequestBody("audio/mp4".toMediaType())
         return MultipartBody.Part.createFormData("file", name, requestBody)
     }
 }

@@ -17,7 +17,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
@@ -25,7 +24,6 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -52,7 +50,6 @@ import com.ekotak.teamtalk.domain.model.Client
 @Composable
 fun ClientListScreen(
     onNavigateToDetail: (String) -> Unit,
-    onNavigateToCreate: () -> Unit,
     viewModel: ClientViewModel = hiltViewModel(),
 ) {
     val state by viewModel.listState.collectAsState()
@@ -69,31 +66,13 @@ fun ClientListScreen(
 
     Scaffold(
         topBar = { AppTopBar(title = "Klienci") },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = onNavigateToCreate,
-                containerColor = MaterialTheme.colorScheme.primary,
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "Dodaj klienta",
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                )
-            }
-        },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-        ) {
+        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = viewModel::onSearchQueryChange,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 placeholder = { Text("Szukaj klientów...") },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 trailingIcon = {
@@ -108,10 +87,7 @@ fun ClientListScreen(
             )
 
             if (state.clients.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
                         text = if (searchQuery.isBlank()) "Brak klientów" else "Brak wyników dla \"$searchQuery\"",
                         style = MaterialTheme.typography.bodyLarge,
@@ -138,44 +114,32 @@ fun ClientListScreen(
 }
 
 @Composable
-private fun ClientCard(
-    client: Client,
-    callCount: Int,
-    onClick: () -> Unit,
-) {
+private fun ClientCard(client: Client, callCount: Int, onClick: () -> Unit) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
-                imageVector = Icons.Default.Person,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-            )
+            Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = client.name ?: client.phone,
+                    text = client.displayName,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                 )
-                if (client.name != null) {
+                client.primaryPhone?.let {
                     Text(
-                        text = client.phone,
+                        text = it,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                if (client.address != null) {
+                if (!client.address.isNullOrBlank()) {
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = client.address,
@@ -186,11 +150,9 @@ private fun ClientCard(
             }
             if (callCount > 0) {
                 Spacer(modifier = Modifier.width(8.dp))
-                androidx.compose.foundation.layout.Column(
-                    horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
-                ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(
-                        imageVector = Icons.Default.Phone,
+                        Icons.Default.Phone,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(14.dp),

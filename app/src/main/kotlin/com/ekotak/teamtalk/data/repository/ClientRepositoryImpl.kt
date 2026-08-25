@@ -4,8 +4,6 @@ import com.ekotak.teamtalk.data.local.dao.ClientDao
 import com.ekotak.teamtalk.data.mapper.toDomain
 import com.ekotak.teamtalk.data.mapper.toEntity
 import com.ekotak.teamtalk.data.remote.api.TeamTalkApi
-import com.ekotak.teamtalk.data.remote.dto.CreateClientRequest
-import com.ekotak.teamtalk.data.remote.dto.UpdateClientRequest
 import com.ekotak.teamtalk.domain.model.Client
 import com.ekotak.teamtalk.domain.repository.ClientRepository
 import kotlinx.coroutines.flow.Flow
@@ -19,17 +17,17 @@ class ClientRepositoryImpl @Inject constructor(
     private val clientDao: ClientDao,
 ) : ClientRepository {
 
-    override fun getClients(phoneEq: String?, groupId: String?): Flow<List<Client>> = channelFlow {
-        val localFlow = when {
-            phoneEq != null -> clientDao.observeExactPhone(phoneEq)
-            groupId != null -> clientDao.observeByGroupId(groupId)
-            else            -> clientDao.observeAll()
+    override fun getClients(query: String?): Flow<List<Client>> = channelFlow {
+        val localFlow = if (query.isNullOrBlank()) {
+            clientDao.observeAll()
+        } else {
+            clientDao.observeByQuery(query)
         }
 
         launch { localFlow.map { it.map { e -> e.toDomain() } }.collect(::send) }
 
         try {
-            val fresh = api.getClients(phoneEq = phoneEq, groupIdEq = groupId)
+            val fresh = api.getClients(q = query)
             clientDao.upsertAll(fresh.map { it.toEntity() })
         } catch (_: Exception) {}
     }
@@ -45,41 +43,26 @@ class ClientRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getClientByPhone(phone: String): Client? {
+        val normalized = normalize(phone)
         return try {
-            val results = api.getClients(phoneEq = phone)
+            val results = api.getClients(q = phone)
             clientDao.upsertAll(results.map { it.toEntity() })
-            results.firstOrNull()?.toDomain()
+            results.map { it.toDomain() }.firstOrNull { matches(it, normalized) }
+                ?: clientDao.getByPhone(phone)?.toDomain()
         } catch (_: Exception) {
             clientDao.getByPhone(phone)?.toDomain()
         }
     }
 
-    override suspend fun createClient(
-        phone: String,
-        name: String?,
-        address: String?,
-        notes: String?,
-        groupId: String?,
-    ): Client {
-        val dto = api.createClient(CreateClientRequest(phone, name, address, notes, groupId))
-        clientDao.upsert(dto.toEntity())
-        return dto.toDomain()
+    private fun matches(client: Client, normalizedPhone: String): Boolean {
+        if (normalizedPhone.isBlank()) return false
+        return normalize(client.phone).endsWith(normalizedPhone) ||
+            normalize(client.phone2).endsWith(normalizedPhone) ||
+            normalizedPhone.endsWith(normalize(client.phone))
     }
 
-    override suspend fun updateClient(
-        id: String,
-        phone: String?,
-        name: String?,
-        address: String?,
-        notes: String?,
-    ): Client {
-        val dto = api.updateClient(id, UpdateClientRequest(phone, name, address, notes))
-        clientDao.upsert(dto.toEntity())
-        return dto.toDomain()
-    }
-
-    override suspend fun deleteClient(id: String) {
-        api.deleteClient(id)
-        clientDao.deleteById(id)
+    private fun normalize(raw: String?): String {
+        val digits = (raw ?: "").replace(Regex("[^\\d]"), "")
+        return if (digits.length >= 9) digits.takeLast(9) else digits
     }
 }

@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -26,6 +27,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AddTask
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Stop
@@ -67,12 +69,16 @@ import com.ekotak.teamtalk.presentation.voicereport.RecordingState
 @Composable
 fun PostCallNoteScreen(
     onNavigateBack: () -> Unit,
+    onCreateTask: (phone: String, name: String?) -> Unit = { _, _ -> },
     viewModel: PostCallNoteViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
     val noteMode by viewModel.noteMode.collectAsState()
     val recordingState by viewModel.recordingState.collectAsState()
     val context = LocalContext.current
+
+    fun goToCreateTask() =
+        onCreateTask(viewModel.phone, state.displayName ?: state.client?.displayName)
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -101,7 +107,7 @@ fun PostCallNoteScreen(
             // ── Caller info ────────────────────────────────────────────────
             if (viewModel.phone.isNotBlank()) {
                 CallerHeader(
-                    name = state.displayName ?: state.client?.name,
+                    name = state.displayName ?: state.client?.displayName,
                     phone = viewModel.phone,
                 )
             }
@@ -142,13 +148,16 @@ fun PostCallNoteScreen(
                             onSave = viewModel::saveNote,
                             onSkip = onNavigateBack,
                             onRecordAgain = viewModel::resetToVoice,
+                            onCreateTask = ::goToCreateTask,
                         )
                     else ->
                         VoiceNoteContent(
                             recordingState = recordingState,
+                            liveText = state.noteText,
                             onMicClick = ::handleMicClick,
                             onStop = viewModel::stopRecording,
                             onSkip = onNavigateBack,
+                            onCreateTask = ::goToCreateTask,
                         )
                 }
             }
@@ -215,6 +224,7 @@ private fun TextNoteContent(
     onSave: () -> Unit,
     onSkip: () -> Unit,
     onRecordAgain: (() -> Unit)? = null,
+    onCreateTask: () -> Unit = {},
 ) {
     Column(
         modifier = Modifier
@@ -291,6 +301,21 @@ private fun TextNoteContent(
             }
 
             OutlinedButton(
+                onClick = onCreateTask,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                enabled = !isLoading,
+                shape = RoundedCornerShape(12.dp),
+            ) {
+                Icon(Icons.Default.AddTask, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Utwórz zadanie")
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            OutlinedButton(
                 onClick = onSkip,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -307,9 +332,11 @@ private fun TextNoteContent(
 @Composable
 private fun VoiceNoteContent(
     recordingState: RecordingState,
+    liveText: String,
     onMicClick: () -> Unit,
     onStop: () -> Unit,
     onSkip: () -> Unit,
+    onCreateTask: () -> Unit = {},
 ) {
     Column(
         modifier = Modifier
@@ -321,13 +348,29 @@ private fun VoiceNoteContent(
 
         when (recordingState) {
             is RecordingState.Idle -> IdleVoicePanel(onMicClick = onMicClick)
-            is RecordingState.Recording -> RecordingActivePanel(state = recordingState, onStop = onStop)
+            is RecordingState.Recording -> RecordingActivePanel(
+                state = recordingState,
+                liveText = liveText,
+                onStop = onStop,
+            )
             else -> {}
         }
 
         Spacer(modifier = Modifier.weight(1f))
 
         if (recordingState is RecordingState.Idle) {
+            OutlinedButton(
+                onClick = onCreateTask,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                shape = RoundedCornerShape(12.dp),
+            ) {
+                Icon(Icons.Default.AddTask, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Utwórz zadanie")
+            }
+            Spacer(modifier = Modifier.height(8.dp))
             OutlinedButton(
                 onClick = onSkip,
                 modifier = Modifier
@@ -371,7 +414,11 @@ private fun IdleVoicePanel(onMicClick: () -> Unit) {
 }
 
 @Composable
-private fun RecordingActivePanel(state: RecordingState.Recording, onStop: () -> Unit) {
+private fun RecordingActivePanel(
+    state: RecordingState.Recording,
+    liveText: String,
+    onStop: () -> Unit,
+) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -385,11 +432,28 @@ private fun RecordingActivePanel(state: RecordingState.Recording, onStop: () -> 
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "Nagrywanie  ${state.durationSeconds.toTimeString()}",
+                text = "Słucham  ${state.durationSeconds.toTimeString()}",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = Red600,
             )
+        }
+        if (liveText.isNotBlank()) {
+            Spacer(modifier = Modifier.height(16.dp))
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+            ) {
+                Text(
+                    text = liveText,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 220.dp)
+                        .verticalScroll(rememberScrollState())
+                        .padding(16.dp),
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+            }
         }
         Spacer(modifier = Modifier.height(24.dp))
         Box(

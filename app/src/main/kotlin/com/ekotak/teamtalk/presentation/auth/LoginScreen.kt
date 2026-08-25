@@ -40,6 +40,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.ekotak.teamtalk.presentation.theme.ButtonShape
 
 @Composable
 fun LoginScreen(
@@ -139,6 +140,7 @@ fun LoginScreen(
                 focusManager.clearFocus()
                 viewModel.login()
             },
+            shape = ButtonShape,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp),

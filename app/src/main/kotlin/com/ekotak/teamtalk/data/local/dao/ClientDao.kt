@@ -10,17 +10,18 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface ClientDao {
 
-    @Query("SELECT * FROM clients ORDER BY createdAt DESC")
+    @Query("SELECT * FROM clients ORDER BY lastName, firstName")
     fun observeAll(): Flow<List<ClientEntity>>
 
-    @Query("SELECT * FROM clients WHERE phone LIKE '%' || :query || '%' ORDER BY createdAt DESC")
-    fun observeByPhoneQuery(query: String): Flow<List<ClientEntity>>
-
-    @Query("SELECT * FROM clients WHERE phone = :phone LIMIT 1")
-    fun observeExactPhone(phone: String): Flow<List<ClientEntity>>
-
-    @Query("SELECT * FROM clients WHERE groupId = :groupId ORDER BY createdAt DESC")
-    fun observeByGroupId(groupId: String): Flow<List<ClientEntity>>
+    @Query("""
+        SELECT * FROM clients
+        WHERE firstName LIKE '%' || :query || '%'
+           OR lastName  LIKE '%' || :query || '%'
+           OR phone     LIKE '%' || :query || '%'
+           OR phone2    LIKE '%' || :query || '%'
+        ORDER BY lastName, firstName
+    """)
+    fun observeByQuery(query: String): Flow<List<ClientEntity>>
 
     @Query("SELECT * FROM clients WHERE id = :id LIMIT 1")
     suspend fun getById(id: String): ClientEntity?
@@ -28,7 +29,7 @@ interface ClientDao {
     @Query("SELECT * FROM clients WHERE id IN (:ids)")
     suspend fun getByIds(ids: List<String>): List<ClientEntity>
 
-    @Query("SELECT * FROM clients WHERE phone = :phone LIMIT 1")
+    @Query("SELECT * FROM clients WHERE phone = :phone OR phone2 = :phone LIMIT 1")
     suspend fun getByPhone(phone: String): ClientEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

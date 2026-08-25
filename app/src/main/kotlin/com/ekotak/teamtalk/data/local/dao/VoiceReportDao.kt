@@ -10,11 +10,14 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface VoiceReportDao {
 
+    @Query("SELECT * FROM voice_reports ORDER BY createdAt DESC")
+    fun observeAll(): Flow<List<VoiceReportEntity>>
+
     @Query("SELECT * FROM voice_reports WHERE callLogId = :callLogId ORDER BY createdAt DESC")
     fun observeByCallLogId(callLogId: String): Flow<List<VoiceReportEntity>>
 
-    @Query("SELECT * FROM voice_reports WHERE callLogId IN (:callLogIds) ORDER BY createdAt DESC")
-    fun observeByCallLogIds(callLogIds: List<String>): Flow<List<VoiceReportEntity>>
+    @Query("SELECT * FROM voice_reports WHERE clientId = :clientId ORDER BY createdAt DESC")
+    fun observeByClientId(clientId: String): Flow<List<VoiceReportEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(reports: List<VoiceReportEntity>)

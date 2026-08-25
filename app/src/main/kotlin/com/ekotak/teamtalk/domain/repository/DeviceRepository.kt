@@ -1,19 +1,15 @@
 package com.ekotak.teamtalk.domain.repository
 
 import com.ekotak.teamtalk.domain.model.Device
-import kotlinx.coroutines.flow.Flow
 
 interface DeviceRepository {
-    /** Stream of registered devices, backed by local cache. */
-    fun getDevices(pushTokenNeq: String? = null): Flow<List<Device>>
-
-    /** Registers or updates a device entry by push token (server upsert). */
+    /** Rejestruje/aktualizuje urządzenie serwisanta (upsert board360). */
     suspend fun upsertDevice(
-        pushToken: String,
-        userName: String,
-        deviceInfo: String? = null,
+        deviceId: String,
+        model: String? = null,
+        osVersion: String? = null,
+        sim1Label: String? = null,
+        sim2Label: String? = null,
+        pushToken: String? = null,
     ): Device
-
-    /** Pings the server to update last_active_at for keep-alive tracking. */
-    suspend fun updateDeviceLastActive(pushToken: String)
 }

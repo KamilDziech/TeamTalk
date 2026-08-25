@@ -16,19 +16,17 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import android.net.Uri
 import java.net.URLEncoder
 import com.ekotak.teamtalk.presentation.auth.LoginScreen
 import com.ekotak.teamtalk.presentation.auth.RegisterScreen
 import com.ekotak.teamtalk.presentation.calllog.CallLogDetailScreen
 import com.ekotak.teamtalk.presentation.calllog.CallLogListScreen
-import com.ekotak.teamtalk.presentation.client.ClientDetailScreen
-import com.ekotak.teamtalk.presentation.client.ClientFormScreen
-import com.ekotak.teamtalk.presentation.client.ClientGroupListScreen
 import com.ekotak.teamtalk.presentation.client.ClientTimelineScreen
-import com.ekotak.teamtalk.presentation.client.ClientsInGroupScreen
 import com.ekotak.teamtalk.presentation.history.HistoryScreen
 import com.ekotak.teamtalk.presentation.postcallnote.PostCallNoteScreen
 import com.ekotak.teamtalk.presentation.settings.SettingsScreen
+import com.ekotak.teamtalk.presentation.task.CreateTaskScreen
 import com.ekotak.teamtalk.presentation.voicereport.VoiceReportScreen
 
 @Composable
@@ -85,7 +83,7 @@ private fun MainScreen(deepLinkCallLogId: String? = null, deepLinkPostCallPhone:
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    val bottomBarRoutes = setOf("calllogs", "history", "clients", "settings")
+    val bottomBarRoutes = setOf("calllogs", "history", "settings")
 
     LaunchedEffect(deepLinkCallLogId) {
         if (deepLinkCallLogId != null) {
@@ -162,55 +160,6 @@ private fun MainScreen(deepLinkCallLogId: String? = null, deepLinkPostCallPhone:
                 )
             }
 
-            // ── Clients / Groups ───────────────────────────────────────────────
-            composable("clients") {
-                ClientGroupListScreen(
-                    onNavigateToGroup = { groupId, groupName ->
-                        navController.navigate("clients/group/$groupId?groupName=$groupName")
-                    },
-                )
-            }
-
-            composable(
-                route = "clients/group/{groupId}?groupName={groupName}",
-                arguments = listOf(
-                    navArgument("groupId") { type = NavType.StringType },
-                    navArgument("groupName") {
-                        type = NavType.StringType
-                        nullable = true
-                        defaultValue = null
-                    },
-                ),
-            ) { backStackEntry ->
-                val groupId = backStackEntry.arguments!!.getString("groupId")!!
-                val groupName = backStackEntry.arguments?.getString("groupName") ?: ""
-                ClientsInGroupScreen(
-                    groupId = groupId,
-                    groupName = groupName,
-                    onNavigateBack = { navController.popBackStack() },
-                    onNavigateToDetail = { id -> navController.navigate("client/$id") },
-                    onNavigateToNewForm = { phone, name ->
-                        var route = "client_form?groupId=$groupId"
-                        if (phone != null) route += "&phone=${URLEncoder.encode(phone, "UTF-8")}"
-                        if (name != null) route += "&name=${URLEncoder.encode(name, "UTF-8")}"
-                        navController.navigate(route)
-                    },
-                )
-            }
-
-            composable(
-                route = "client/{clientId}",
-                arguments = listOf(navArgument("clientId") { type = NavType.StringType }),
-            ) { backStackEntry ->
-                val clientId = backStackEntry.arguments!!.getString("clientId")!!
-                ClientDetailScreen(
-                    clientId = clientId,
-                    onNavigateBack = { navController.popBackStack() },
-                    onNavigateToEdit = { navController.navigate("client_form?clientId=$clientId") },
-                    onNavigateToTimeline = { navController.navigate("client_timeline?clientId=$clientId") },
-                )
-            }
-
             composable(
                 route = "client_timeline?clientId={clientId}&phone={phone}",
                 arguments = listOf(
@@ -225,29 +174,11 @@ private fun MainScreen(deepLinkCallLogId: String? = null, deepLinkPostCallPhone:
                 ClientTimelineScreen(
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateToCallDetail = { callLogId -> navController.navigate("calllog/$callLogId") },
-                )
-            }
-
-            composable(
-                route = "client_form?clientId={clientId}&groupId={groupId}&phone={phone}&name={name}",
-                arguments = listOf(
-                    navArgument("clientId") {
-                        type = NavType.StringType; nullable = true; defaultValue = null
+                    onCreateTask = { phone, name ->
+                        val ph = Uri.encode(phone)
+                        val nm = Uri.encode(name ?: "")
+                        navController.navigate("create_task?phone=$ph&name=$nm")
                     },
-                    navArgument("groupId") {
-                        type = NavType.StringType; nullable = true; defaultValue = null
-                    },
-                    navArgument("phone") {
-                        type = NavType.StringType; nullable = true; defaultValue = null
-                    },
-                    navArgument("name") {
-                        type = NavType.StringType; nullable = true; defaultValue = null
-                    },
-                ),
-            ) { backStackEntry ->
-                ClientFormScreen(
-                    clientId = backStackEntry.arguments?.getString("clientId"),
-                    onNavigateBack = { navController.popBackStack() },
                 )
             }
 
@@ -265,7 +196,29 @@ private fun MainScreen(deepLinkCallLogId: String? = null, deepLinkPostCallPhone:
                     },
                 ),
             ) {
-                PostCallNoteScreen(onNavigateBack = { navController.popBackStack() })
+                PostCallNoteScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onCreateTask = { phone, name ->
+                        val ph = Uri.encode(phone)
+                        val nm = Uri.encode(name ?: "")
+                        navController.navigate("create_task?phone=$ph&name=$nm")
+                    },
+                )
+            }
+
+            // ── Nowe zadanie (po połączeniu) ────────────────────────────────────
+            composable(
+                route = "create_task?phone={phone}&name={name}",
+                arguments = listOf(
+                    navArgument("phone") {
+                        type = NavType.StringType; nullable = true; defaultValue = null
+                    },
+                    navArgument("name") {
+                        type = NavType.StringType; nullable = true; defaultValue = null
+                    },
+                ),
+            ) {
+                CreateTaskScreen(onNavigateBack = { navController.popBackStack() })
             }
         }
     }

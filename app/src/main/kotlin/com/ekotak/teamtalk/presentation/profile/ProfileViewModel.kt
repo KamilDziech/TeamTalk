@@ -4,8 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ekotak.teamtalk.domain.usecase.auth.GetCurrentUserUseCase
 import com.ekotak.teamtalk.domain.usecase.auth.LogoutUseCase
-import com.ekotak.teamtalk.domain.usecase.profile.GetProfilesUseCase
-import com.ekotak.teamtalk.domain.usecase.profile.UpdateProfileUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -14,11 +12,13 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/**
+ * Profil = bieżący użytkownik z sesji board360 (read-only). board360 nie udostępnia
+ * edycji profilu serwisanta z aplikacji — zmiany danych robi panel web.
+ */
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
     private val getCurrentUserUseCase: GetCurrentUserUseCase,
-    private val getProfilesUseCase: GetProfilesUseCase,
-    private val updateProfileUseCase: UpdateProfileUseCase,
     private val logoutUseCase: LogoutUseCase,
 ) : ViewModel() {
 
@@ -26,10 +26,8 @@ class ProfileViewModel @Inject constructor(
         val userId: String = "",
         val email: String = "",
         val displayName: String = "",
+        val role: String = "",
         val isAdmin: Boolean = false,
-        val isEditing: Boolean = false,
-        val editDisplayName: String = "",
-        val isSaving: Boolean = false,
         val isLoggingOut: Boolean = false,
         val errorMessage: String? = null,
     )
@@ -41,52 +39,17 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val user = getCurrentUserUseCase()
-                _uiState.update { it.copy(email = user.email, userId = user.id) }
-                getProfilesUseCase(idEq = user.id).collect { profiles ->
-                    profiles.firstOrNull()?.let { profile ->
-                        _uiState.update { state ->
-                            state.copy(
-                                displayName = profile.displayName,
-                                isAdmin = profile.isAdmin,
-                                editDisplayName = if (!state.isEditing) profile.displayName
-                                                  else state.editDisplayName,
-                            )
-                        }
-                    }
+                _uiState.update {
+                    it.copy(
+                        userId = user.id,
+                        email = user.email,
+                        displayName = user.displayName,
+                        role = user.role,
+                        isAdmin = user.isAdmin,
+                    )
                 }
             } catch (e: Exception) {
                 _uiState.update { it.copy(errorMessage = e.message ?: "Błąd ładowania profilu") }
-            }
-        }
-    }
-
-    fun startEditing() {
-        _uiState.update { it.copy(isEditing = true, editDisplayName = it.displayName, errorMessage = null) }
-    }
-
-    fun cancelEditing() {
-        _uiState.update { it.copy(isEditing = false, errorMessage = null) }
-    }
-
-    fun onEditDisplayNameChange(value: String) {
-        _uiState.update { it.copy(editDisplayName = value, errorMessage = null) }
-    }
-
-    fun saveProfile() {
-        val state = _uiState.value
-        if (state.userId.isBlank()) return
-        val newName = state.editDisplayName.trim()
-        if (newName.isBlank()) {
-            _uiState.update { it.copy(errorMessage = "Imię nie może być puste") }
-            return
-        }
-        viewModelScope.launch {
-            _uiState.update { it.copy(isSaving = true, errorMessage = null) }
-            try {
-                updateProfileUseCase(id = state.userId, displayName = newName)
-                _uiState.update { it.copy(isSaving = false, isEditing = false) }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(isSaving = false, errorMessage = e.message ?: "Błąd zapisu") }
             }
         }
     }
@@ -96,7 +59,6 @@ class ProfileViewModel @Inject constructor(
             _uiState.update { it.copy(isLoggingOut = true, errorMessage = null) }
             try {
                 logoutUseCase()
-                // SessionPreferences.clear() → ObserveSessionUseCase emits null → NavGraph navigates to auth
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoggingOut = false, errorMessage = e.message ?: "Błąd wylogowania") }
             }

@@ -1,40 +1,28 @@
 package com.ekotak.teamtalk.data.remote.dto
 
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
+/** Notatka po połączeniu — kształt board360. */
 @Serializable
 data class VoiceReportResponseDto(
     val id: String,
-    @SerialName("call_log_id")  val callLogId: String,
-    @SerialName("audio_url")    val audioUrl: String? = null,
-    val transcription: String? = null,
-    @SerialName("ai_summary")   val aiSummary: String? = null,
-    @SerialName("created_by")   val createdBy: String? = null,
-    @SerialName("call_count")   val callCount: Int = 1,
-    @SerialName("created_at")   val createdAt: String,
-    @SerialName("updated_at")   val updatedAt: String,
+    val organizationId: String? = null,
+    val userId: String? = null,
+    val callLogId: String? = null,
+    val clientId: String? = null,
+    val text: String? = null,
+    val transcript: String? = null,
+    val recordingKey: String? = null,
+    val durationSec: Int? = null,
+    val createdAt: String,
+    val updatedAt: String,
 )
 
+/** Body POST /api/voice-reports. */
 @Serializable
 data class CreateVoiceReportRequest(
-    @SerialName("call_log_id")  val callLogId: String,
-    @SerialName("audio_url")    val audioUrl: String? = null,
-    val transcription: String? = null,
-    @SerialName("ai_summary")   val aiSummary: String? = null,
-    @SerialName("call_count")   val callCount: Int = 1,
-)
-
-/** Response from POST /api/storage/voice-reports — note the camelCase key from the server. */
-@Serializable
-data class StorageUploadResponseDto(
-    val path: String,
-    val publicUrl: String,
-)
-
-/** Response from POST /api/functions/transcribe-audio. */
-@Serializable
-data class TranscriptionResponseDto(
-    val transcription: String? = null,
-    val isEmptyOrHallucination: Boolean,
+    val callLogId: String? = null,
+    val clientId: String? = null,
+    val text: String? = null,
+    val durationSec: Int? = null,
 )

@@ -1,20 +1,25 @@
 package com.ekotak.teamtalk.data.local.entity
 
 import androidx.room.Entity
-import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(
-    tableName = "clients",
-    indices = [Index(value = ["phone"], unique = true)],
-)
+@Entity(tableName = "clients")
 data class ClientEntity(
     @PrimaryKey val id: String,
-    val phone: String,
-    val name: String?,
+    val firstName: String,
+    val lastName: String,
+    val email: String?,
+    val email2: String?,
+    val phone: String?,
+    val phone2: String?,
     val address: String?,
-    val notes: String?,
-    val groupId: String?,
-    val createdAt: String,
-    val updatedAt: String,
+    val postalCode: String?,
+    val city: String?,
+    val street: String?,
+    val geoLat: Double?,
+    val geoLng: Double?,
+    val type: String?,
+    val category: String?,
+    val createdAt: String?,
+    val updatedAt: String?,
 )

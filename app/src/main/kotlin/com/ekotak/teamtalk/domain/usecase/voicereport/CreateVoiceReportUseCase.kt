@@ -8,16 +8,14 @@ class CreateVoiceReportUseCase @Inject constructor(
     private val voiceReportRepository: VoiceReportRepository,
 ) {
     suspend operator fun invoke(
-        callLogId: String,
-        audioUrl: String? = null,
-        transcription: String? = null,
-        aiSummary: String? = null,
-        callCount: Int = 1,
+        callLogId: String? = null,
+        clientId: String? = null,
+        text: String? = null,
+        durationSec: Int? = null,
     ): VoiceReport = voiceReportRepository.createVoiceReport(
         callLogId = callLogId,
-        audioUrl = audioUrl,
-        transcription = transcription,
-        aiSummary = aiSummary,
-        callCount = callCount,
+        clientId = clientId,
+        text = text,
+        durationSec = durationSec,
     )
 }

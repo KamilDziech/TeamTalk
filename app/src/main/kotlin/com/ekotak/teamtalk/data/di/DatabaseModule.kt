@@ -7,7 +7,6 @@ import androidx.datastore.preferences.preferencesDataStoreFile
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.room.Room
 import com.ekotak.teamtalk.data.local.dao.*
-import com.ekotak.teamtalk.data.local.database.MIGRATION_1_2
 import com.ekotak.teamtalk.data.local.database.TeamTalkDatabase
 import dagger.Module
 import dagger.Provides
@@ -24,7 +23,7 @@ object DatabaseModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): TeamTalkDatabase =
         Room.databaseBuilder(context, TeamTalkDatabase::class.java, "teamtalk.db")
-            .addMigrations(MIGRATION_1_2)
+            .fallbackToDestructiveMigration()
             .build()
 
     @Provides
@@ -37,9 +36,7 @@ object DatabaseModule {
     // DAOs — scoped to Singleton because the database is Singleton
     @Provides fun provideUserDao(db: TeamTalkDatabase): UserDao                   = db.userDao()
     @Provides fun provideClientDao(db: TeamTalkDatabase): ClientDao               = db.clientDao()
-    @Provides fun provideClientGroupDao(db: TeamTalkDatabase): ClientGroupDao     = db.clientGroupDao()
     @Provides fun provideCallLogDao(db: TeamTalkDatabase): CallLogDao             = db.callLogDao()
     @Provides fun provideVoiceReportDao(db: TeamTalkDatabase): VoiceReportDao     = db.voiceReportDao()
-    @Provides fun provideProfileDao(db: TeamTalkDatabase): ProfileDao             = db.profileDao()
     @Provides fun provideDeviceDao(db: TeamTalkDatabase): DeviceDao               = db.deviceDao()
 }

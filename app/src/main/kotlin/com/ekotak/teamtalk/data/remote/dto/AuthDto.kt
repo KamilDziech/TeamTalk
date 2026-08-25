@@ -1,62 +1,41 @@
 package com.ekotak.teamtalk.data.remote.dto
 
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
+/**
+ * Kontrakt logowania board360 (VPS). Sesja to bezstanowy, podpisany token HMAC
+ * (cookie `b360_session`). Endpoint `POST /api/auth/mobile-login` (dobudowany po
+ * stronie board360 — patrz prompt A1) weryfikuje hasło i zwraca gotowy token.
+ * Brak refresh tokenów: token ma długi TTL (ustawiany serwerowo, ~30 dni),
+ * a po jego wygaśnięciu użytkownik loguje się ponownie.
+ */
 @Serializable
-data class LoginRequest(
+data class MobileLoginRequest(
     val email: String,
     val password: String,
 )
 
+/**
+ * Tożsamość użytkownika zwracana przez `mobile-login` oraz `GET /api/me`
+ * (board360 `AuthContext`). Uwaga: board360 nie zwraca tu imienia/nazwiska —
+ * `displayName` po stronie aplikacji wywodzimy z e-maila (TODO: wzbogacić o
+ * imię/nazwisko z `/api/users`, gdy będzie potrzebne).
+ */
 @Serializable
-data class RegisterRequest(
+data class MobileUserDto(
+    val userId: String,
+    val organizationId: String,
     val email: String,
-    val password: String,
-    @SerialName("display_name") val displayName: String,
+    val role: String,
+    val permissions: List<String> = emptyList(),
+    val clientVisibility: String? = null,
 )
 
+/** Odpowiedź `POST /api/auth/mobile-login`. */
 @Serializable
-data class RefreshRequest(
-    @SerialName("refresh_token") val refreshToken: String,
-)
-
-@Serializable
-data class LogoutRequest(
-    @SerialName("refresh_token") val refreshToken: String,
-)
-
-@Serializable
-data class UserMetadataDto(
-    @SerialName("display_name") val displayName: String,
-)
-
-@Serializable
-data class UserResponseDto(
-    val id: String,
-    val email: String,
-    @SerialName("user_metadata") val userMetadata: UserMetadataDto,
-)
-
-@Serializable
-data class SessionResponseDto(
-    @SerialName("access_token")  val accessToken: String,
-    @SerialName("refresh_token") val refreshToken: String,
-    @SerialName("token_type")    val tokenType: String,
-    @SerialName("expires_at")    val expiresAt: Long,
-    @SerialName("expires_in")    val expiresIn: Long,
-    val user: UserResponseDto,
-)
-
-/** Response from POST /api/auth/login and POST /api/auth/register. */
-@Serializable
-data class AuthResponseDto(
-    val session: SessionResponseDto,
-    val user: UserResponseDto? = null,
-)
-
-/** Response from POST /api/auth/refresh. */
-@Serializable
-data class RefreshResponseDto(
-    val session: SessionResponseDto,
+data class MobileLoginResponseDto(
+    val token: String,
+    /** Unix timestamp (sekundy) wygaśnięcia tokenu sesji. */
+    val expiresAt: Long,
+    val user: MobileUserDto,
 )

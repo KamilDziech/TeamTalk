@@ -1,9 +1,7 @@
 package com.ekotak.teamtalk
 
-import android.Manifest
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -11,16 +9,19 @@ import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.SystemBarStyle
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.core.content.ContextCompat
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 import com.ekotak.teamtalk.presentation.navigation.TeamTalkNavGraph
+import com.ekotak.teamtalk.presentation.permissions.PermissionScreen
+import com.ekotak.teamtalk.presentation.permissions.allPermissionsGranted
 import com.ekotak.teamtalk.presentation.settings.SettingsViewModel
 import com.ekotak.teamtalk.presentation.settings.ThemeMode
 import com.ekotak.teamtalk.presentation.theme.TeamTalkTheme
@@ -39,10 +40,6 @@ class MainActivity : ComponentActivity() {
     private var deepLinkCallLogId by mutableStateOf<String?>(null)
     private var deepLinkPostCallPhone by mutableStateOf<String?>(null)
 
-    private val permissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { /* permissions granted/denied — receiver works as long as READ_PHONE_STATE is granted */ }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setShowWhenLocked(true)
@@ -51,11 +48,8 @@ class MainActivity : ComponentActivity() {
         if (intent.getBooleanExtra(EXTRA_OPEN_POST_CALL_NOTE, false)) {
             deepLinkPostCallPhone = intent.getStringExtra(EXTRA_POST_CALL_PHONE) ?: ""
         }
-        requestRequiredPermissions()
         requestOverlayPermissionIfNeeded()
-        enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
-        )
+        enableEdgeToEdge()
         setContent {
             val themeMode by settingsVm.themeMode.collectAsState()
             val systemDark = isSystemInDarkTheme()
@@ -64,11 +58,27 @@ class MainActivity : ComponentActivity() {
                 ThemeMode.LIGHT  -> false
                 ThemeMode.SYSTEM -> systemDark
             }
+            // Ikony paska statusu i nawigacji zależne od faktycznego motywu apki
+            // (nie systemu): ciemne na jasnym, jasne na ciemnym — pasek statusu
+            // wtapia się w tło zamiast być przykryty ciemnym blokiem.
+            val view = LocalView.current
+            SideEffect {
+                val controller = WindowCompat.getInsetsController(window, view)
+                controller.isAppearanceLightStatusBars = !darkTheme
+                controller.isAppearanceLightNavigationBars = !darkTheme
+            }
             TeamTalkTheme(darkTheme = darkTheme) {
-                TeamTalkNavGraph(
-                    deepLinkCallLogId = deepLinkCallLogId,
-                    deepLinkPostCallPhone = deepLinkPostCallPhone,
-                )
+                var permissionsDone by remember {
+                    mutableStateOf(allPermissionsGranted(this@MainActivity))
+                }
+                if (!permissionsDone) {
+                    PermissionScreen(onContinue = { permissionsDone = true })
+                } else {
+                    TeamTalkNavGraph(
+                        deepLinkCallLogId = deepLinkCallLogId,
+                        deepLinkPostCallPhone = deepLinkPostCallPhone,
+                    )
+                }
             }
         }
     }
@@ -90,20 +100,5 @@ class MainActivity : ComponentActivity() {
         startActivity(
             Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
         )
-    }
-
-    private fun requestRequiredPermissions() {
-        val required = buildList {
-            add(Manifest.permission.READ_PHONE_STATE)
-            add(Manifest.permission.READ_CALL_LOG)
-            add(Manifest.permission.READ_CONTACTS)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                add(Manifest.permission.POST_NOTIFICATIONS)
-            }
-        }
-        val missing = required.filter {
-            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
-        }
-        if (missing.isNotEmpty()) permissionLauncher.launch(missing.toTypedArray())
     }
 }

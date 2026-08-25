@@ -30,7 +30,9 @@ android {
         versionCode = 1
         versionName = "1.0.0"
 
-        buildConfigField("String", "API_BASE_URL", "\"${localProp("API_BASE_URL", "http://localhost:3000")}\"")
+        // board360 (VPS). Domyślnie środowisko testowe (dev); produkcja: https://ekotak.app
+        // Nadpisz w local.properties kluczem API_BASE_URL.
+        buildConfigField("String", "API_BASE_URL", "\"${localProp("API_BASE_URL", "https://dev.185.193.112.175.sslip.io")}\"")
     }
 
     buildTypes {

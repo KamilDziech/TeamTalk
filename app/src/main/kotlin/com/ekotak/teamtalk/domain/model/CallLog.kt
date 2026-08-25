@@ -1,73 +1,42 @@
 package com.ekotak.teamtalk.domain.model
 
-enum class CallType(val value: String) {
-    MISSED("missed"),
-    COMPLETED("completed"),
-    MERGED("merged"),
-    SKIPPED("skipped");
+/** Kierunek połączenia (zgodny z board360). */
+enum class CallDirection(val value: String) {
+    INBOUND("inbound"),
+    OUTBOUND("outbound"),
+    MISSED("missed");
 
     companion object {
-        fun fromValue(value: String): CallType =
-            entries.firstOrNull { it.value == value } ?: MISSED
+        fun fromValue(value: String?): CallDirection =
+            entries.firstOrNull { it.value == value } ?: OUTBOUND
     }
 }
 
-enum class CallStatus(val value: String) {
-    MISSED("missed"),
-    RESERVED("reserved"),
-    COMPLETED("completed");
-
-    companion object {
-        fun fromValue(value: String): CallStatus =
-            entries.firstOrNull { it.value == value } ?: MISSED
-    }
-}
-
+/**
+ * Rejestr połączenia serwisanta (kontrakt board360). Aplikacja monitoruje
+ * połączenia na własnym telefonie i zapisuje je tutaj; dopasowanie klienta po
+ * numerze robi backend.
+ */
 data class CallLog(
     val id: String,
     val clientId: String?,
-    val employeeId: String?,
-    val type: CallType,
-    val status: CallStatus,
-    val timestamp: String,
-    val reservationBy: String?,
-    val reservationAt: String?,
-    val recipients: List<String>,
-    val callerPhone: String?,
-    val dedupKey: String?,
-    val mergedIntoId: String?,
-    val phoneAccountId: String?,
+    val userId: String?,
+    val phoneNumber: String,
+    val direction: CallDirection,
+    val simSlot: Int?,
+    /** ISO-8601 UTC. */
+    val startedAt: String,
+    val endedAt: String?,
+    val durationSec: Int?,
     val createdAt: String,
-    val updatedAt: String,
-    /** Populated when API is queried with embed=clients. */
+    /** Wypełniane lokalnie, gdy dane klienta są dostępne z cache. */
     val client: Client? = null,
 )
 
-private val SLA_THRESHOLD_MINUTES = 60L
-
-fun CallLog.waitingMinutes(): Long {
-    if (status != CallStatus.MISSED) return 0L
-    return try {
-        val fmt = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US).apply {
-            timeZone = java.util.TimeZone.getTimeZone("UTC")
-        }
-        val callTime = fmt.parse(timestamp) ?: return 0L
-        (System.currentTimeMillis() - callTime.time) / 60_000L
-    } catch (_: Exception) { 0L }
-}
-
-fun CallLog.isOverSla(): Boolean = status == CallStatus.MISSED && waitingMinutes() >= SLA_THRESHOLD_MINUTES
-
+/** Filtr listy połączeń (proste, po stronie backendu/cache). */
 data class CallLogFilter(
-    val statusEq: String? = null,
-    val statusNeq: String? = null,
-    val typeNeq: String? = null,
-    val typeNeq2: String? = null,
-    val clientIdEq: String? = null,
-    val callerPhoneEq: String? = null,
-    val statusIn: List<String>? = null,
-    val timestampGte: String? = null,
-    val timestampLte: String? = null,
-    val embedClients: Boolean = false,
+    val since: String? = null,
     val limit: Int? = null,
+    val clientId: String? = null,
+    val direction: String? = null,
 )

@@ -13,6 +13,13 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
+    <!-- Widoczność usługi rozpoznawania mowy (Android 11+) dla SpeechRecognizer -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
+
     <application
         android:name=".TeamTalkApp"
         android:allowBackup="true"

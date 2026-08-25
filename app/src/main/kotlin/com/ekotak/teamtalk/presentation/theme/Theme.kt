@@ -7,42 +7,59 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-private val LightColorScheme = lightColorScheme(
-    primary             = Blue700,
-    onPrimary           = Color.White,
-    primaryContainer    = Blue100,
-    onPrimaryContainer  = Blue900,
-    secondary           = Teal600,
-    onSecondary         = Color.White,
-    secondaryContainer  = Color(0xFFB2DFDB),
-    onSecondaryContainer = Color(0xFF00251A),
-    error               = Red600,
-    onError             = Color.White,
-    background          = Grey100,
-    onBackground        = Color(0xFF1C1B1F),
-    surface             = Color.White,
-    onSurface           = Color(0xFF1C1B1F),
-    surfaceVariant      = Color(0xFFE8EAF6),
-    onSurfaceVariant    = Color(0xFF49454F),
-    outline             = Color(0xFF79747E),
+/**
+ * Motyw TeamTalka odwzorowujący szatę aplikacji wzorcowej board360 (ekotak.app):
+ * akcent = neonowa zieleń marki na czarnym tekście, ciemne tło granat→czerń
+ * jako tożsamość, jasny wariant neutralizujący tło. Bez dynamicColor (Material
+ * You), aby paleta marki była identyczna na każdym urządzeniu.
+ */
+
+// Motyw ciemny — domyślna tożsamość marki (board360 color-scheme: dark).
+private val DarkColorScheme = darkColorScheme(
+    primary              = EkotakGreen,      // --accent
+    onPrimary            = EkotakBlack,      // --accent-contrast (czarny tekst na zieleni)
+    primaryContainer     = Color(0xFF14361A),
+    onPrimaryContainer   = OkGreen,
+    secondary            = OkGreen,
+    onSecondary          = EkotakBlack,
+    secondaryContainer   = Color(0xFF14361A),
+    onSecondaryContainer = OkGreen,
+    tertiary             = Orange600,        // warning/pending
+    onTertiary           = EkotakBlack,
+    error                = Red600,
+    onError              = Color.White,
+    background           = NavyBg,           // --bg-2
+    onBackground         = FgDark,           // --fg
+    surface              = NavySurface,      // --surface-2
+    onSurface            = FgDark,
+    surfaceVariant       = NavyPanel,        // --panel
+    onSurfaceVariant     = MutedDark,        // --muted
+    outline              = BorderDark,       // --border
+    outlineVariant       = Color(0xFF202934),
 )
 
-private val DarkColorScheme = darkColorScheme(
-    primary             = Blue600,
-    onPrimary           = Color.White,
-    primaryContainer    = Blue900,
-    onPrimaryContainer  = Blue100,
-    secondary           = Teal400,
-    onSecondary         = Color.Black,
-    error               = Red600,
-    onError             = Color.White,
-    background          = Color(0xFF121212),
-    onBackground        = Color(0xFFE6E1E5),
-    surface             = Color(0xFF1E1E1E),
-    onSurface           = Color(0xFFE6E1E5),
-    surfaceVariant      = Color(0xFF2A2A3A),
-    onSurfaceVariant    = Color(0xFFCAC4D0),
-    outline             = Color(0xFF938F99),
+// Motyw jasny — neutralne tło, akcent zieleni marki zachowany.
+private val LightColorScheme = lightColorScheme(
+    primary              = EkotakGreen,
+    onPrimary            = EkotakBlack,
+    primaryContainer     = Color(0xFFCDEFC2),
+    onPrimaryContainer   = Color(0xFF0C2A08),
+    secondary            = EkotakGreenDark,
+    onSecondary          = Color.White,
+    secondaryContainer   = Color(0xFFCDEFC2),
+    onSecondaryContainer = Color(0xFF0C2A08),
+    tertiary             = Orange600,
+    onTertiary           = EkotakBlack,
+    error                = Red600,
+    onError              = Color.White,
+    background           = LightBg,          // --bg-2
+    onBackground         = FgLight,          // --fg
+    surface              = LightSurface,     // --surface-2
+    onSurface            = FgLight,
+    surfaceVariant       = LightPanel,       // --bg-1
+    onSurfaceVariant     = MutedLight,       // --muted
+    outline              = BorderLight,      // --border
+    outlineVariant       = Color(0xFFD8DEE6),
 )
 
 @Composable
@@ -53,6 +70,7 @@ fun TeamTalkTheme(
     MaterialTheme(
         colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme,
         typography  = TeamTalkTypography,
+        shapes      = TeamTalkShapes,
         content     = content,
     )
 }

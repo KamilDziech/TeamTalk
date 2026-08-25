@@ -24,15 +24,38 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.ekotak.teamtalk.presentation.theme.FgLight
+import com.ekotak.teamtalk.presentation.theme.MutedDark
+import com.ekotak.teamtalk.presentation.theme.MutedLight
+import com.ekotak.teamtalk.presentation.theme.NavyBg
+import com.ekotak.teamtalk.presentation.theme.NavyPanel
 
-private val BarGradient = Brush.linearGradient(
-    colors = listOf(Color(0xFF0D47A1), Color(0xFF1976D2), Color(0xFF29B6F6)),
+// Nagłówek marki wg board360: solidny panel z wordmarkiem „ekotak" i delikatnym
+// cieniem u dołu. Zależny od motywu — w ciemnym granatowy z białym tekstem, w
+// jasnym jasny (biały→szary) z ciemnym tekstem, tak jak header board360
+// (rgba white .7, tekst --fg). Dzięki temu pasek statusu wtapia się w nagłówek
+// i nic go nie „przykrywa". Bez zalewania akcentem — zieleń zostaje na
+// aktywnych elementach ekranów.
+private val BarGradientDark = Brush.linearGradient(
+    colors = listOf(NavyPanel, NavyBg),
     start = Offset(0f, 0f),
-    end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
+    end = Offset(0f, Float.POSITIVE_INFINITY),
+)
+
+private val BarGradientLight = Brush.linearGradient(
+    colors = listOf(Color(0xFFFFFFFF), Color(0xFFEEF3F9)), // jasny, wg board360
+    start = Offset(0f, 0f),
+    end = Offset(0f, Float.POSITIVE_INFINITY),
 )
 
 @Composable
@@ -41,11 +64,19 @@ fun AppTopBar(
     onNavigateBack: (() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
-    CompositionLocalProvider(LocalContentColor provides Color.White) {
+    // Czytaj faktycznie zastosowany motyw (z colorScheme), nie ustawienie
+    // systemu — apka ma własny przełącznik ThemeMode, który system może nie
+    // odzwierciedlać. Jasna powierzchnia → szary pasek, ciemna → granatowy.
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val barGradient = if (isDark) BarGradientDark else BarGradientLight
+    val contentColor = if (isDark) Color.White else FgLight
+    val separatorColor = if (isDark) MutedDark else MutedLight
+    CompositionLocalProvider(LocalContentColor provides contentColor) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(BarGradient),
+                .shadow(elevation = if (isDark) 6.dp else 3.dp, shape = RectangleShape)
+                .background(barGradient),
         ) {
             Row(
                 modifier = Modifier
@@ -66,10 +97,25 @@ fun AppTopBar(
                     Spacer(Modifier.width(16.dp))
                 }
 
+                // Wordmark marki + separator + tytuł ekranu.
+                Text(
+                    text = "ekotak",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = contentColor,
+                    letterSpacing = 0.5.sp,
+                )
+                Text(
+                    text = "  ·  ",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = separatorColor,
+                )
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleMedium,
-                    color = Color.White,
+                    color = contentColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
 

@@ -4,5 +4,7 @@
 # Ścieżka do Android SDK (uzupełniana automatycznie przez Android Studio)
 sdk.dir=/path/to/Android/Sdk
 
-# URL backendu TeamTalk (bez trailing slash)
-API_BASE_URL=http://100.78.184.117:3000
+# URL backendu board360 (bez trailing slash)
+# Testowy (dev):   https://dev.185.193.112.175.sslip.io
+# Produkcja:       https://ekotak.app
+API_BASE_URL=https://dev.185.193.112.175.sslip.io

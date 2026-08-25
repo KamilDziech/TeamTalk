@@ -29,11 +29,8 @@ abstract class RepositoryModule {
     abstract fun bindVoiceReportRepository(impl: VoiceReportRepositoryImpl): VoiceReportRepository
 
     @Binds @Singleton
-    abstract fun bindProfileRepository(impl: ProfileRepositoryImpl): ProfileRepository
-
-    @Binds @Singleton
     abstract fun bindDeviceRepository(impl: DeviceRepositoryImpl): DeviceRepository
 
     @Binds @Singleton
-    abstract fun bindClientGroupRepository(impl: ClientGroupRepositoryImpl): ClientGroupRepository
+    abstract fun bindTaskRepository(impl: TaskRepositoryImpl): TaskRepository
 }

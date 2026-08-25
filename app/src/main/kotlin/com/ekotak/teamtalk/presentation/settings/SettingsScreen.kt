@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ekotak.teamtalk.data.local.preferences.SimPreferences
 import com.ekotak.teamtalk.presentation.profile.ProfileViewModel
+import com.ekotak.teamtalk.presentation.theme.ButtonShape
 import com.ekotak.teamtalk.presentation.theme.Red600
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -169,6 +170,7 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.height(12.dp))
                 OutlinedButton(
                     onClick = profileVm::logout,
+                    shape = ButtonShape,
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !profileState.isLoggingOut,
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = Red600),

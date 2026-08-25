@@ -2,8 +2,7 @@ package com.ekotak.teamtalk.presentation.navigation
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.PhoneMissed
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -20,9 +19,8 @@ private data class BottomNavItem(
 )
 
 private val bottomNavItems = listOf(
-    BottomNavItem("calllogs", "Zgłoszenia", Icons.Default.Phone),
+    BottomNavItem("calllogs", "Nieodebrane", Icons.Default.PhoneMissed),
     BottomNavItem("history",  "Historia",   Icons.Default.History),
-    BottomNavItem("clients",  "Klienci",    Icons.Default.Person),
     BottomNavItem("settings", "Ustawienia", Icons.Default.Settings),
 )
 

@@ -6,18 +6,11 @@ import android.provider.ContactsContract
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.ekotak.teamtalk.data.audio.AudioRecorder
-import com.ekotak.teamtalk.domain.model.CallLogFilter
-import com.ekotak.teamtalk.domain.model.CallStatus
-import com.ekotak.teamtalk.domain.model.CallType
+import com.ekotak.teamtalk.data.audio.SpeechToText
 import com.ekotak.teamtalk.domain.model.Client
-import com.ekotak.teamtalk.domain.repository.CallLogRepository
 import com.ekotak.teamtalk.domain.repository.ClientRepository
-import com.ekotak.teamtalk.domain.usecase.auth.GetCurrentUserUseCase
-import com.ekotak.teamtalk.domain.usecase.client.UpdateClientUseCase
-import com.ekotak.teamtalk.domain.usecase.voicereport.TranscribeAudioUseCase
-import com.ekotak.teamtalk.domain.usecase.voicereport.UploadAudioUseCase
-import java.io.File
+import com.ekotak.teamtalk.domain.repository.VoiceReportRepository
+import com.ekotak.teamtalk.domain.usecase.calllog.GetCallLogsUseCase
 import com.ekotak.teamtalk.presentation.voicereport.NoteMode
 import com.ekotak.teamtalk.presentation.voicereport.RecordingState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -26,16 +19,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import java.util.TimeZone
 import javax.inject.Inject
 
 @HiltViewModel
@@ -43,12 +31,9 @@ class PostCallNoteViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     @ApplicationContext private val context: Context,
     private val clientRepository: ClientRepository,
-    private val callLogRepository: CallLogRepository,
-    private val updateClientUseCase: UpdateClientUseCase,
-    private val getCurrentUserUseCase: GetCurrentUserUseCase,
-    private val audioRecorder: AudioRecorder,
-    private val uploadAudioUseCase: UploadAudioUseCase,
-    private val transcribeAudioUseCase: TranscribeAudioUseCase,
+    private val voiceReportRepository: VoiceReportRepository,
+    private val getCallLogsUseCase: GetCallLogsUseCase,
+    private val speechToText: SpeechToText,
 ) : ViewModel() {
 
     val phone: String = normalizePhone(savedStateHandle["phone"] ?: "")
@@ -72,9 +57,35 @@ class PostCallNoteViewModel @Inject constructor(
     val recordingState: StateFlow<RecordingState> = _recordingState.asStateFlow()
 
     private var timerJob: Job? = null
+    private var recordedDurationSec: Int? = null
+
+    // Powiązanie notatki z połączeniem/klientem, dobrane po numerze telefonu.
+    // Bez callLogId notatka nie pojawia się na żadnym ekranie (filtry po callLogId/clientId).
+    private var resolvedCallLogId: String? = null
+    private var resolvedClientId: String? = null
 
     init {
-        if (phone.isNotBlank()) loadClient()
+        if (phone.isNotBlank()) {
+            loadClient()
+            loadCallLink()
+        }
+    }
+
+    /** Znajduje ostatnie połączenie dla tego numeru, by powiązać z nim notatkę. */
+    private fun loadCallLink() {
+        viewModelScope.launch {
+            try {
+                getCallLogsUseCase().collect { logs ->
+                    val match = logs
+                        .filter { it.phoneNumber.endsWith(phone) || phone.endsWith(it.phoneNumber) }
+                        .maxByOrNull { it.startedAt }
+                    if (match != null) {
+                        resolvedCallLogId = match.id
+                        if (resolvedClientId == null) resolvedClientId = match.clientId
+                    }
+                }
+            } catch (_: Exception) {}
+        }
     }
 
     private fun loadClient() {
@@ -82,7 +93,7 @@ class PostCallNoteViewModel @Inject constructor(
             try {
                 val client = clientRepository.getClientByPhone(phone)
                 val displayName = when {
-                    !client?.name.isNullOrBlank() -> client!!.name
+                    !client?.displayName.isNullOrBlank() -> client!!.displayName
                     else -> withContext(Dispatchers.IO) { lookupContactName() }
                 }
                 _uiState.update { it.copy(client = client, displayName = displayName) }
@@ -93,7 +104,7 @@ class PostCallNoteViewModel @Inject constructor(
     private fun lookupContactName(): String? {
         val uri = Uri.withAppendedPath(
             ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
-            Uri.encode(phone)
+            Uri.encode(phone),
         )
         return try {
             context.contentResolver.query(
@@ -104,105 +115,83 @@ class PostCallNoteViewModel @Inject constructor(
         } catch (_: Exception) { null }
     }
 
-    fun setNoteMode(mode: NoteMode) {
-        _noteMode.value = mode
-    }
+    fun setNoteMode(mode: NoteMode) { _noteMode.value = mode }
 
     fun onNoteTextChange(text: String) = _uiState.update { it.copy(noteText = text, error = null) }
 
     fun saveNote() {
         val text = _uiState.value.noteText.trim()
         if (text.isBlank()) {
-            _uiState.update { it.copy(error = "Wpisz notatkę") }
+            _uiState.update { it.copy(error = "Wpisz notatkę lub nagraj wiadomość") }
             return
         }
         persistNote(text)
     }
 
-    // ── Voice recording ────────────────────────────────────────────────────
+    // ── Dyktowanie (mowa → tekst) ─────────────────────────────────────────────
 
     fun startRecording() {
-        viewModelScope.launch {
-            try {
-                withContext(Dispatchers.IO) { audioRecorder.start() }
-                _recordingState.value = RecordingState.Recording(0)
-                timerJob = launch {
-                    var seconds = 0
-                    while (true) {
-                        delay(1_000)
-                        seconds++
-                        _recordingState.value = RecordingState.Recording(seconds)
-                    }
-                }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(error = e.message ?: "Nie można uruchomić nagrywania") }
+        if (!speechToText.isAvailable()) {
+            _noteMode.value = NoteMode.TEXT
+            _recordingState.value = RecordingState.Idle
+            _uiState.update {
+                it.copy(error = "Rozpoznawanie mowy niedostępne — wpisz notatkę ręcznie")
+            }
+            return
+        }
+        speechToText.onText = { text ->
+            _uiState.update { it.copy(noteText = text, error = null) }
+        }
+        speechToText.onError = { message ->
+            timerJob?.cancel()
+            timerJob = null
+            _recordingState.value = RecordingState.Idle
+            _uiState.update { it.copy(error = message) }
+        }
+        speechToText.start()
+        _recordingState.value = RecordingState.Recording(0)
+        timerJob = viewModelScope.launch {
+            var seconds = 0
+            while (true) {
+                delay(1_000)
+                seconds++
+                _recordingState.value = RecordingState.Recording(seconds)
             }
         }
     }
 
     fun stopRecording() {
+        val current = _recordingState.value as? RecordingState.Recording
         timerJob?.cancel()
         timerJob = null
-        val current = _recordingState.value as? RecordingState.Recording ?: return
-        val file = audioRecorder.stop()
-        if (file != null) {
-            autoTranscribe(file)
-        } else {
-            _recordingState.value = RecordingState.Idle
-        }
-    }
-
-    private fun autoTranscribe(file: File) {
-        viewModelScope.launch {
-            _recordingState.value = RecordingState.Processing
-            try {
-                val transcription = withContext(Dispatchers.IO) {
-                    runCatching { uploadAudioUseCase(file) }.getOrNull()
-                    transcribeAudioUseCase(file)
-                }
-                _uiState.update { it.copy(noteText = transcription ?: "") }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(error = "Błąd transkrypcji: ${e.javaClass.simpleName}: ${e.message}") }
-            } finally {
-                withContext(Dispatchers.IO) { runCatching { file.delete() } }
-                _recordingState.value = RecordingState.Idle
-                _noteMode.value = NoteMode.TEXT
-            }
-        }
+        recordedDurationSec = current?.durationSeconds
+        val text = speechToText.stop()
+        // Zebrany tekst pokazujemy w trybie tekstowym do korekty i zapisu.
+        _uiState.update { it.copy(noteText = text.ifBlank { it.noteText }) }
+        _noteMode.value = NoteMode.TEXT
+        _recordingState.value = RecordingState.Idle
     }
 
     fun resetToVoice() {
+        speechToText.cancel()
+        recordedDurationSec = null
         _uiState.update { it.copy(noteText = "", error = null) }
         _noteMode.value = NoteMode.VOICE
         _recordingState.value = RecordingState.Idle
     }
 
-    // ── Persistence ────────────────────────────────────────────────────────
+    // ── Zapis ───────────────────────────────────────────────────────────────────
 
     private fun persistNote(text: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
-                val timestamp = SimpleDateFormat("HH:mm dd.MM.yyyy", Locale.getDefault()).format(Date())
-                val entry = "[$timestamp] $text"
-                var clientId: String? = null
-                val client = _uiState.value.client
-                if (client != null) {
-                    val updatedNotes = if (client.notes.isNullOrBlank()) entry
-                                       else "$entry\n\n${client.notes}"
-                    updateClientUseCase(id = client.id, notes = updatedNotes)
-                    clientId = client.id
-                } else if (phone.isNotBlank()) {
-                    val created = clientRepository.createClient(
-                        phone = phone,
-                        name = _uiState.value.displayName,
-                        address = null,
-                        notes = entry,
-                    )
-                    clientId = created.id
-                }
-                createCallLogEntry(clientId)
-                resolveMissedCalls()
+                voiceReportRepository.createVoiceReport(
+                    callLogId = resolvedCallLogId,
+                    clientId = _uiState.value.client?.id ?: resolvedClientId,
+                    text = text.ifBlank { null },
+                    durationSec = recordedDurationSec,
+                )
                 _uiState.update { it.copy(isLoading = false, isSaved = true) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.message ?: "Błąd zapisu") }
@@ -210,38 +199,9 @@ class PostCallNoteViewModel @Inject constructor(
         }
     }
 
-    private suspend fun resolveMissedCalls() {
-        if (phone.isBlank()) return
-        runCatching {
-            val missed = callLogRepository.getCallLogs(
-                CallLogFilter(callerPhoneEq = phone, statusEq = "missed")
-            ).first()
-            for (entry in missed) {
-                runCatching { callLogRepository.updateCallLog(id = entry.id, status = CallStatus.COMPLETED) }
-            }
-        }
-    }
-
-    private suspend fun createCallLogEntry(clientId: String?) {
-        runCatching {
-            val userId = getCurrentUserUseCase().id
-            val isoFmt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).apply {
-                timeZone = TimeZone.getTimeZone("UTC")
-            }
-            callLogRepository.createCallLog(
-                clientId = clientId,
-                employeeId = userId,
-                type = CallType.COMPLETED,
-                status = CallStatus.COMPLETED,
-                timestamp = isoFmt.format(Date()),
-                callerPhone = phone.ifBlank { null },
-            )
-        }
-    }
-
     override fun onCleared() {
         timerJob?.cancel()
-        audioRecorder.cancel()
+        speechToText.cancel()
         super.onCleared()
     }
 

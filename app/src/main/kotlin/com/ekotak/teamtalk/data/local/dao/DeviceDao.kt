@@ -10,11 +10,8 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface DeviceDao {
 
-    @Query("SELECT * FROM devices ORDER BY lastActiveAt DESC")
+    @Query("SELECT * FROM devices ORDER BY lastSeenAt DESC")
     fun observeAll(): Flow<List<DeviceEntity>>
-
-    @Query("SELECT * FROM devices WHERE pushToken != :excludeToken ORDER BY lastActiveAt DESC")
-    fun observeExcluding(excludeToken: String): Flow<List<DeviceEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(devices: List<DeviceEntity>)

@@ -40,6 +40,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.ekotak.teamtalk.presentation.theme.ButtonShape
 
 @Composable
 fun RegisterScreen(
@@ -156,6 +157,7 @@ fun RegisterScreen(
                 focusManager.clearFocus()
                 viewModel.register()
             },
+            shape = ButtonShape,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp),

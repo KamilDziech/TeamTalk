@@ -9,8 +9,8 @@ class GetVoiceReportsUseCase @Inject constructor(
     private val voiceReportRepository: VoiceReportRepository,
 ) {
     operator fun invoke(
-        callLogIdIn: List<String>? = null,
-        callLogIdEq: String? = null,
+        callLogId: String? = null,
+        clientId: String? = null,
     ): Flow<List<VoiceReport>> =
-        voiceReportRepository.getVoiceReports(callLogIdIn, callLogIdEq)
+        voiceReportRepository.getVoiceReports(callLogId = callLogId, clientId = clientId)
 }

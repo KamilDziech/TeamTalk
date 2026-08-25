@@ -14,17 +14,19 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.TextFields
@@ -61,6 +63,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ekotak.teamtalk.domain.model.VoiceReport
+import com.ekotak.teamtalk.presentation.theme.ButtonShape
 import com.ekotak.teamtalk.presentation.theme.Green600
 import com.ekotak.teamtalk.presentation.theme.Red600
 import java.text.SimpleDateFormat
@@ -152,8 +155,8 @@ fun VoiceReportScreen(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    // Mode tabs — only shown when idle (not mid-recording/processing)
-                    if (recordingState is RecordingState.Idle || recordingState is RecordingState.Processing) {
+                    // Mode tabs — only shown when idle (not mid-recording)
+                    if (recordingState is RecordingState.Idle) {
                         TabRow(selectedTabIndex = noteMode.ordinal) {
                             Tab(
                                 selected = noteMode == NoteMode.VOICE,
@@ -181,10 +184,9 @@ fun VoiceReportScreen(
                         else ->
                             RecordingPanel(
                                 state = recordingState,
+                                liveText = textInput,
                                 onMicClick = ::handleMicClick,
                                 onStop = viewModel::stopRecording,
-                                onSend = viewModel::uploadAndTranscribe,
-                                onDiscard = viewModel::discardRecording,
                             )
                     }
 
@@ -192,6 +194,7 @@ fun VoiceReportScreen(
                     if (recordingState is RecordingState.Idle) {
                         OutlinedButton(
                             onClick = onNavigateBack,
+                            shape = ButtonShape,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 16.dp)
@@ -209,16 +212,17 @@ fun VoiceReportScreen(
 @Composable
 private fun RecordingPanel(
     state: RecordingState,
+    liveText: String,
     onMicClick: () -> Unit,
     onStop: () -> Unit,
-    onSend: () -> Unit,
-    onDiscard: () -> Unit,
 ) {
     when (state) {
-        is RecordingState.Idle -> IdlePanel(onMicClick = onMicClick)
-        is RecordingState.Recording -> RecordingActivePanel(state = state, onStop = onStop)
-        is RecordingState.Recorded -> RecordedPanel(state = state, onSend = onSend, onDiscard = onDiscard)
-        is RecordingState.Processing -> ProcessingPanel()
+        is RecordingState.Recording -> RecordingActivePanel(
+            state = state,
+            liveText = liveText,
+            onStop = onStop,
+        )
+        else -> IdlePanel(onMicClick = onMicClick)
     }
 }
 
@@ -246,6 +250,7 @@ private fun TextNotePanel(
         Spacer(modifier = Modifier.height(12.dp))
         Button(
             onClick = onSave,
+            shape = ButtonShape,
             enabled = text.isNotBlank() && !isSaving,
             modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(containerColor = Green600),
@@ -296,106 +301,63 @@ private fun IdlePanel(onMicClick: () -> Unit) {
 }
 
 @Composable
-private fun RecordingActivePanel(state: RecordingState.Recording, onStop: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(12.dp)
-                    .clip(CircleShape)
-                    .background(Red600),
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "Nagrywanie  ${state.durationSeconds.toTimeString()}",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-            )
-        }
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .clip(CircleShape)
-                .background(Red600),
-            contentAlignment = Alignment.Center,
-        ) {
-            IconButton(onClick = onStop) {
-                Icon(
-                    imageVector = Icons.Default.Stop,
-                    contentDescription = "Zatrzymaj",
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun RecordedPanel(
-    state: RecordingState.Recorded,
-    onSend: () -> Unit,
-    onDiscard: () -> Unit,
+private fun RecordingActivePanel(
+    state: RecordingState.Recording,
+    liveText: String,
+    onStop: () -> Unit,
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(16.dp),
     ) {
-        Text(
-            text = "Nagrano: ${state.durationSeconds.toTimeString()}",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(modifier = Modifier.height(12.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            OutlinedButton(
-                onClick = onDiscard,
-                modifier = Modifier.weight(1f),
-            ) {
-                Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Odrzuć", color = Red600)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(12.dp)
+                        .clip(CircleShape)
+                        .background(Red600),
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Słucham  ${state.durationSeconds.toTimeString()}",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Red600,
+                )
             }
-            Button(
-                onClick = onSend,
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = Green600),
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(Red600),
+                contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Wyślij i transkrybuj")
+                IconButton(onClick = onStop) {
+                    Icon(
+                        imageVector = Icons.Default.Stop,
+                        contentDescription = "Zatrzymaj",
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                    )
+                }
             }
         }
-    }
-}
-
-@Composable
-private fun ProcessingPanel() {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(20.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center,
-    ) {
-        CircularProgressIndicator(
-            modifier = Modifier.size(24.dp),
-            strokeWidth = 2.dp,
-        )
-        Spacer(modifier = Modifier.width(12.dp))
-        Text(
-            text = "Przesyłanie i transkrypcja...",
-            style = MaterialTheme.typography.titleMedium,
-        )
+        if (liveText.isNotBlank()) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = liveText,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 160.dp)
+                    .verticalScroll(rememberScrollState()),
+                style = MaterialTheme.typography.bodyLarge,
+            )
+        }
     }
 }
 
@@ -417,53 +379,28 @@ private fun VoiceReportCard(report: VoiceReport) {
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                if (report.audioUrl != null) {
+                if (report.recordingKey != null) {
                     Text(
-                        text = "Audio",
+                        text = "Nagranie",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
                     )
                 }
             }
 
-            if (!report.transcription.isNullOrBlank()) {
+            val body = report.text?.takeIf { it.isNotBlank() } ?: report.transcript?.takeIf { it.isNotBlank() }
+            if (!body.isNullOrBlank()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Transkrypcja:",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = report.transcription,
+                    text = body,
                     style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 4,
+                    maxLines = 5,
                     overflow = TextOverflow.Ellipsis,
                 )
-            }
-
-            if (!report.aiSummary.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Podsumowanie AI:",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = report.aiSummary,
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-
-            if (report.transcription.isNullOrBlank() && report.aiSummary.isNullOrBlank()) {
+            } else if (report.recordingKey == null) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Brak transkrypcji",
+                    text = "Brak treści",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

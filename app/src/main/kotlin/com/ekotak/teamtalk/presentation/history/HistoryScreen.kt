@@ -170,11 +170,31 @@ private fun ClientHistoryCard(
                 in 2..4 -> "połączenia"
                 else -> "połączeń"
             }
-            Text(
-                text = "${entry.callCount} $callWord",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "${entry.callCount} $callWord",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                if (entry.noteCount > 0) {
+                    Text(
+                        text = "  •  ",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    val noteWord = when (entry.noteCount) {
+                        1 -> "notatka"
+                        in 2..4 -> "notatki"
+                        else -> "notatek"
+                    }
+                    Text(
+                        text = "${entry.noteCount} $noteWord",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
 
             if (!entry.notePreview.isNullOrBlank()) {
                 Spacer(modifier = Modifier.height(6.dp))

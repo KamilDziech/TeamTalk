@@ -27,3 +27,9 @@ teamtalk-localdb/server/uploads/
 
 # TypeScript backend lives in its own repository
 teamtalk-localdb/
+
+# Kotlin build artifacts
+.kotlin/
+
+# Server credentials - never commit
+ekotak_app/root@185.193.112.175.txt

@@ -45,44 +45,47 @@ class ClientTimelineViewModel @Inject constructor(
     val clientId: String = savedStateHandle["clientId"] ?: ""
     val phone: String = savedStateHandle["phone"] ?: ""
 
+    private fun matchesPhone(c: Client): Boolean {
+        if (phone.isBlank()) return false
+        val candidates = listOfNotNull(c.phone, c.phone2)
+        return candidates.any { it == phone || it.endsWith(phone) || phone.endsWith(it) }
+    }
+
     @OptIn(ExperimentalCoroutinesApi::class)
     val uiState: StateFlow<UiState> = combine(
         getClientsUseCase().map { list ->
             when {
                 clientId.isNotBlank() -> list.find { it.id == clientId }
-                phone.isNotBlank() -> list.find { c ->
-                    c.phone == phone || c.phone.endsWith(phone) || phone.endsWith(c.phone)
-                }
+                phone.isNotBlank() -> list.find { matchesPhone(it) }
                 else -> null
             }
         },
         when {
-            clientId.isNotBlank() -> getCallLogsUseCase(CallLogFilter(clientIdEq = clientId))
-            phone.isNotBlank() -> getCallLogsUseCase(CallLogFilter(callerPhoneEq = phone))
-            else -> flow { emit(emptyList<CallLog>()) }
+            clientId.isNotBlank() -> getCallLogsUseCase(CallLogFilter(clientId = clientId))
+            else -> getCallLogsUseCase(CallLogFilter())
         },
-    ) { client, callLogs -> client to callLogs }
-        .flatMapLatest { (client, callLogs) ->
-            val ids = callLogs.map { it.id }
-            if (ids.isEmpty()) {
-                flow { emit(UiState(client = client, entries = emptyList(), isLoading = false)) }
-            } else {
-                getVoiceReportsUseCase(callLogIdIn = ids).map { reports ->
-                    val entries = callLogs
-                        .sortedByDescending { it.timestamp }
-                        .map { callLog ->
-                            TimelineEntry(
-                                callLog = callLog,
-                                reports = reports
-                                    .filter { it.callLogId == callLog.id }
-                                    .sortedBy { it.createdAt },
-                            )
-                        }
-                    UiState(client = client, entries = entries, isLoading = false)
-                }
-            }
+    ) { client, callLogs ->
+        val relevant = when {
+            clientId.isNotBlank() -> callLogs.filter { it.clientId == clientId }
+            phone.isNotBlank() -> callLogs.filter { it.phoneNumber.endsWith(phone) || phone.endsWith(it.phoneNumber) }
+            else -> callLogs
         }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), UiState())
+        client to relevant
+    }.flatMapLatest { (client, callLogs) ->
+        getVoiceReportsUseCase(clientId = client?.id).map { reports ->
+            val entries = callLogs
+                .sortedByDescending { it.startedAt }
+                .map { callLog ->
+                    TimelineEntry(
+                        callLog = callLog,
+                        reports = reports
+                            .filter { it.callLogId == callLog.id }
+                            .sortedBy { it.createdAt },
+                    )
+                }
+            UiState(client = client, entries = entries, isLoading = false)
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), UiState())
 
     fun makeCall(phone: String) { makeCallUseCase(phone) }
 }

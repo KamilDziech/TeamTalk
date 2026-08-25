@@ -6,14 +6,16 @@ import androidx.room.PrimaryKey
 
 @Entity(
     tableName = "devices",
-    indices = [Index(value = ["pushToken"], unique = true)],
+    indices = [Index(value = ["deviceId"], unique = true)],
 )
 data class DeviceEntity(
     @PrimaryKey val id: String,
-    val userName: String,
-    val pushToken: String,
-    val deviceInfo: String?,
-    val lastActiveAt: String,
-    val createdAt: String,
-    val updatedAt: String,
+    val deviceId: String,
+    val model: String?,
+    val osVersion: String?,
+    val sim1Label: String?,
+    val sim2Label: String?,
+    val pushToken: String?,
+    val lastSeenAt: String?,
+    val createdAt: String?,
 )
