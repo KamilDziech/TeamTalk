@@ -9,6 +9,8 @@ import com.ekotak.teamtalk.domain.model.TaskComment
 import com.ekotak.teamtalk.domain.model.TaskMember
 import com.ekotak.teamtalk.domain.model.TaskPatch
 import com.ekotak.teamtalk.domain.model.TaskPriority
+import com.ekotak.teamtalk.domain.model.TaskSection
+import com.ekotak.teamtalk.domain.model.slaLabel
 import com.ekotak.teamtalk.domain.model.TaskStatus
 import com.ekotak.teamtalk.domain.usecase.task.AddTaskCommentUseCase
 import com.ekotak.teamtalk.domain.usecase.task.GetTaskCommentsUseCase
@@ -125,6 +127,30 @@ class TaskDetailViewModel @Inject constructor(
     fun setStatus(status: TaskStatus) = patch(
         TaskPatch(status = Edit(status)),
         "Zmieniono status: ${status.label}.",
+    )
+
+    /**
+     * Termin z wybieraka dat przychodzi jako północ UTC wybranego dnia — tak
+     * samo jak w kreatorze zadania, więc obie ścieżki wysyłają board360 to samo.
+     */
+    fun setDueAt(millis: Long?) = patch(
+        TaskPatch(dueAt = Edit(millis?.let(::isoFromMillis))),
+        if (millis == null) "Zdjęto termin." else "Zmieniono termin.",
+    )
+
+    fun setSection(section: TaskSection?) = patch(
+        TaskPatch(section = Edit(section)),
+        if (section == null) "Zdjęto sekcję." else "Sekcja: ${section.label}.",
+    )
+
+    fun setSla(hours: Int?) = patch(
+        TaskPatch(slaHours = Edit(hours)),
+        if (hours == null) "Zdjęto SLA." else "SLA: ${slaLabel(hours)}.",
+    )
+
+    fun setEstimate(minutes: Int?) = patch(
+        TaskPatch(estimatedMinutes = Edit(minutes)),
+        if (minutes == null) "Zdjęto szacowany czas." else "Potrzebny czas: ${minutes} min.",
     )
 
     private fun patch(patch: TaskPatch, okMessage: String) {

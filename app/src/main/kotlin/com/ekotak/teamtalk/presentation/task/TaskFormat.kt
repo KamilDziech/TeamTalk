@@ -2,9 +2,13 @@ package com.ekotak.teamtalk.presentation.task
 
 import com.ekotak.teamtalk.domain.model.TaskMember
 import com.ekotak.teamtalk.presentation.crm.parseIsoMillis
+import java.text.SimpleDateFormat
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 
 /**
  * Etykiety terminu i SLA na wierszu listy zadań. Daty z board360 przychodzą
@@ -50,6 +54,26 @@ fun dueLabel(dueAt: String?, now: Long = System.currentTimeMillis()): String? {
         days < 7 -> "za $days dni"
         else -> "za ${Math.round(days / 7.0)} tyg."
     }
+}
+
+/**
+ * Millisekundy z wybieraka dat → ISO 8601 w UTC, w formacie, który board360
+ * przyjmuje jako `dueAt` (`z.coerce.date`). Ten sam zapis co w kreatorze
+ * zadania, żeby obie ścieżki wysyłały serwerowi identyczną datę.
+ */
+fun isoFromMillis(millis: Long): String {
+    val fmt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
+    fmt.timeZone = TimeZone.getTimeZone("UTC")
+    return fmt.format(Date(millis))
+}
+
+/** „45 min" / „1 h 30 min" — szacowany nakład na karcie zadania. */
+fun estimateLabel(minutes: Int?): String? {
+    if (minutes == null || minutes <= 0) return null
+    if (minutes < 60) return "$minutes min"
+    val hours = minutes / 60
+    val rest = minutes % 60
+    return if (rest == 0) "$hours h" else "$hours h $rest min"
 }
 
 enum class SlaLevel { OK, WARN, OVER }

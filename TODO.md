@@ -237,9 +237,11 @@ E3 kolejka offline → E4 przypomnienia → E5 komentarze i załączniki.
   na ostatnich 25 % okna i alarmem po terminie
 - ✅ Odhaczenie zadania i wysoki priorytet wprost z wiersza (`PATCH /api/tasks/:id`)
 - ✅ Wyszukiwarka (tytuł, opis, osoba, źródło), pull-to-refresh, FAB w kreator
-- 🚧 Karta zadania (E2) — `GET /api/tasks/:id` dopisane w board360 i w atrapie;
-  karta ma nagłówek ze źródłem, odhaczenie, priorytet i wątek komentarzy.
-  Brakuje edycji terminu, wykonawcy, sekcji i SLA wprost z karty
+- ✅ Karta zadania (E2) — `GET /api/tasks/:id` dopisane w board360 i w atrapie;
+  nagłówek ze źródłem, odhaczenie, priorytet, wątek komentarzy oraz edycja pól:
+  status, wykonawca, termin, sekcja, potrzebny czas i SLA. Każde pole zapisuje
+  się osobno (`PATCH` z jednym kluczem), bez trybu edycji i przycisku „Zapisz" —
+  dzięki temu porcja trafia też osobno do kolejki offline
 - ✅ Kolejka zmian offline (E3) — zmiana bez zasięgu ląduje w `task_mutations`
   (baza w wersji 6) i od razu w cache, wiersz dostaje znacznik „czeka na wysyłkę",
   a `TaskSyncWorker` wysyła ją, gdy system zobaczy sieć. Jeden wiersz kolejki =

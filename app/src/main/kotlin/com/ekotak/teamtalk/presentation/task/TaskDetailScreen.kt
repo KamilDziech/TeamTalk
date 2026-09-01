@@ -19,7 +19,6 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
@@ -117,6 +116,14 @@ fun TaskDetailScreen(
                         if (task != null) {
                             item { TaskHeader(task, state.saving, viewModel) }
                             item {
+                                TaskFieldRows(
+                                    task = task,
+                                    members = state.members,
+                                    saving = state.saving,
+                                    viewModel = viewModel,
+                                )
+                            }
+                            item {
                                 Divider()
                                 Text(
                                     text = if (state.comments.isEmpty()) {
@@ -201,19 +208,11 @@ private fun TaskHeader(task: Task, saving: Boolean, viewModel: TaskDetailViewMod
             Text(it, style = MaterialTheme.typography.bodyMedium)
         }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AssistChip(onClick = {}, label = { Text(task.status.label) })
-            dueLabel(task.dueAt)?.let { due ->
-                AssistChip(
-                    onClick = {},
-                    label = {
-                        Text(
-                            due,
-                            color = if (isOverdue(task.dueAt) && !done) Red600 else MaterialTheme.colorScheme.onSurface,
-                        )
-                    },
-                )
-            }
+        // Status i termin miały tu wcześniej martwe chipy — teraz są wierszami
+        // pod spodem, z których da się je zmienić. Zostaje sam licznik SLA:
+        // to nie ustawienie, tylko stan, który sam biegnie.
+        dueLabel(task.dueAt)?.takeIf { isOverdue(task.dueAt) && !done }?.let { due ->
+            Text(due, style = MaterialTheme.typography.labelMedium, color = Red600)
         }
 
         slaState(task.createdAt, task.slaHours, done)?.let { sla ->

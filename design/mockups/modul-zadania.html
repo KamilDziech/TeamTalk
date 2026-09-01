@@ -840,11 +840,13 @@ footer.end{
       <div class="step">
         <div class="no">E2</div>
         <div>
-          <h3>Karta zadania <span class="tag jest">pierwsza wersja</span></h3>
+          <h3>Karta zadania <span class="tag jest">zrobione</span></h3>
           <p>
-            Wszystkie pola edytowalne w miejscu, źródło z przejściem do karty deala, menu z usuwaniem.
+            Status, wykonawca, termin, sekcja, potrzebny czas i SLA — każde pole otwiera wybór
+            i zapisuje się od razu, jednym kluczem w <code>PATCH</code>. Nie ma trybu edycji ani
+            przycisku „Zapisz": porcja na jedno pole to ta sama porcja, którą kolejkuje E3.
             Wchodzi tu <code>GET /api/tasks/{id}</code> — nowa trasa po stronie board360, use case plus
-            kontroler, i to samo w atrapie.
+            kontroler, i to samo w atrapie. Usuwania zadania z menu karty jeszcze nie ma.
           </p>
           <div class="files">
             <i>TaskDetailScreen.kt</i><i>TaskDetailViewModel.kt</i><i>TaskDto.kt (pełny model)</i>
