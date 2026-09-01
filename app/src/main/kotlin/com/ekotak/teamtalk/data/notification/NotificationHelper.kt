@@ -24,6 +24,10 @@ class NotificationHelper @Inject constructor(
         const val CHANNEL_ID = "missed_calls"
         const val POST_CALL_CHANNEL_ID = "post_call_note"
         const val MENTIONS_CHANNEL_ID = "mentions"
+        const val REMINDERS_CHANNEL_ID = "task_reminders"
+
+        /** Jedno powiadomienie na przypomnienia — kolejne podmienia poprzednie. */
+        private const val REMINDER_NOTIFICATION_ID = 4200
         private val idCounter = AtomicInteger(1000)
     }
 
@@ -64,6 +68,45 @@ class NotificationHelper @Inject constructor(
             .build()
 
         NotificationManagerCompat.from(context).notify(taskId.hashCode(), notification)
+    }
+
+    /**
+     * Przypomnienie o zadaniach na dziś i zaległych. [taskId] podane, gdy
+     * zadanie jest jedno — wtedy dotknięcie prowadzi wprost w jego kartę;
+     * przy kilku otwieramy listę, bo nie ma jednego oczywistego celu.
+     *
+     * Stałe id powiadomienia: kolejne przypomnienie ma podmienić poprzednie,
+     * a nie piętrzyć się w szufladzie.
+     */
+    fun showTaskReminder(title: String, text: String, taskId: String?) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED
+        ) return
+
+        val contentIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            if (taskId != null) putExtra(MainActivity.EXTRA_TASK_ID, taskId)
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            REMINDER_NOTIFICATION_ID,
+            contentIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+        val notification = NotificationCompat.Builder(context, REMINDERS_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_ekotak)
+            .setColor(ContextCompat.getColor(context, R.color.ekotak_green))
+            .setContentTitle(title)
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .build()
+
+        NotificationManagerCompat.from(context).notify(REMINDER_NOTIFICATION_ID, notification)
     }
 
     fun showMissedCallNotification(callerLabel: String, callLogId: String? = null) {

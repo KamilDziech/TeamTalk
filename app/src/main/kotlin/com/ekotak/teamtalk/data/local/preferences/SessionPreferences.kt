@@ -27,6 +27,7 @@ class SessionPreferences @Inject constructor(
         private val KEY_THEME          = stringPreferencesKey("theme_mode")
         private val KEY_MENTIONS_SEEN_AT = longPreferencesKey("mentions_seen_at")
         private val KEY_SYNC_PROBLEM   = stringPreferencesKey("task_sync_problem")
+        private val KEY_REMINDERS_DAY  = longPreferencesKey("task_reminders_day")
     }
 
     /** Token sesji board360 (wysyłany jako cookie `b360_session`). */
@@ -96,6 +97,17 @@ class SessionPreferences @Inject constructor(
 
     suspend fun clearSyncProblem() {
         dataStore.edit { it.remove(KEY_SYNC_PROBLEM) }
+    }
+
+    /**
+     * Dzień (epoch day), w którym pokazaliśmy już przypomnienie o zadaniach na
+     * dziś i zaległych. Robotnik chodzi co kilka godzin, ale trąbi raz dziennie
+     * — powiadomienie wracające co sześć godzin uczy ludzi je zamiatać.
+     */
+    val remindersShownOn: Flow<Long> = dataStore.data.map { it[KEY_REMINDERS_DAY] ?: -1L }
+
+    suspend fun saveRemindersShownOn(epochDay: Long) {
+        dataStore.edit { it[KEY_REMINDERS_DAY] = epochDay }
     }
 
     suspend fun clear() {

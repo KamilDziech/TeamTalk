@@ -248,9 +248,10 @@ E3 kolejka offline → E4 przypomnienia → E5 komentarze i załączniki.
   jedno pole, więc dwie zmiany tego samego zadania nie cofają się nawzajem;
   odmowa serwera (403/404/422) porzuca zmianę i mówi o tym na liście
   ⚠️ nieprzetestowane na telefonie — patrz „Do sprawdzenia na urządzeniu"
-- 🚧 Przypomnienia i licznik nieprzeczytanych (E4) — jest robotnik wywołań
-  (`MentionsWorker`, co 15 min → lokalne powiadomienie); brak plakietki na
-  kafelku pulpitu i przypomnień o terminach zadań
+- 🚧 Przypomnienia i licznik nieprzeczytanych (E4) — `MentionsWorker` pilnuje
+  wywołań (@) co 15 min, `TaskReminderWorker` co 6 h przypomina o zadaniach na
+  dziś i zaległych (raz dziennie, liczone z cache, więc działa bez zasięgu);
+  brak plakietki z licznikiem na kafelku pulpitu
 - 🚧 Komentarze (E5) — wątek w karcie zadania z wywołaniami przez `@`;
   załączniki nadal bez wsparcia (brak też w atrapie board360-mock)
 - ✅ Wywołanie osoby przez `@` w komentarzu → dyskusja w Komunikatorze

@@ -15,6 +15,7 @@ import com.ekotak.teamtalk.data.notification.NotificationHelper
 import com.ekotak.teamtalk.data.sync.TaskSyncScheduler
 import com.ekotak.teamtalk.service.CallMonitorService
 import com.ekotak.teamtalk.worker.MentionsWorker
+import com.ekotak.teamtalk.worker.TaskReminderWorker
 import dagger.hilt.android.HiltAndroidApp
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -35,6 +36,7 @@ class TeamTalkApp : Application(), Configuration.Provider {
         super.onCreate()
         createNotificationChannel()
         scheduleMentionsPolling()
+        scheduleTaskReminders()
         // Proces mógł zginąć z pełną kolejką zmian — przy starcie prosimy
         // o jej opróżnienie. Pusta kolejka kończy robotnika od razu.
         taskSyncScheduler.scheduleSync()
@@ -56,6 +58,21 @@ class TeamTalkApp : Application(), Configuration.Provider {
             .build()
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             MentionsWorker.UNIQUE_NAME,
+            ExistingPeriodicWorkPolicy.KEEP,
+            request,
+        )
+    }
+
+    /**
+     * Przypomnienia o zadaniach na dziś i zaległych. Co sześć godzin, nie co
+     * kwadrans: terminy nie zmieniają się tak szybko, a sam robotnik i tak
+     * pilnuje, żeby zatrąbić raz dziennie. Bez warunku sieci — liczy z cache,
+     * więc przypomni także wtedy, gdy telefon jest poza zasięgiem.
+     */
+    private fun scheduleTaskReminders() {
+        val request = PeriodicWorkRequestBuilder<TaskReminderWorker>(6, TimeUnit.HOURS).build()
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            TaskReminderWorker.UNIQUE_NAME,
             ExistingPeriodicWorkPolicy.KEEP,
             request,
         )
@@ -89,6 +106,15 @@ class TeamTalkApp : Application(), Configuration.Provider {
                     NotificationManager.IMPORTANCE_HIGH,
                 ).apply {
                     description = "Ktoś wywołał Cię przez @ w komentarzu zadania"
+                }
+            )
+            nm.createNotificationChannel(
+                NotificationChannel(
+                    NotificationHelper.REMINDERS_CHANNEL_ID,
+                    "Przypomnienia o zadaniach",
+                    NotificationManager.IMPORTANCE_DEFAULT,
+                ).apply {
+                    description = "Zadania z terminem na dziś albo po terminie"
                 }
             )
             nm.createNotificationChannel(
