@@ -16,6 +16,13 @@ class ObserveTasksUseCase @Inject constructor(
     operator fun invoke(): Flow<List<Task>> = taskRepository.observeTasks()
 }
 
+/** Zadania z niewysłaną zmianą — znacznik „czeka na wysyłkę" na wierszu. */
+class ObservePendingTaskIdsUseCase @Inject constructor(
+    private val taskRepository: TaskRepository,
+) {
+    operator fun invoke(): Flow<Set<String>> = taskRepository.observePendingTaskIds()
+}
+
 /** Zespół do filtra osoby i do podpisów „kto wykonuje" na wierszach listy. */
 class GetTaskMembersUseCase @Inject constructor(
     private val taskRepository: TaskRepository,

@@ -9,6 +9,9 @@ import com.ekotak.teamtalk.domain.model.TaskPriority
 import com.ekotak.teamtalk.domain.model.TaskProject
 import kotlinx.coroutines.flow.Flow
 
+/** Czy kolejka zmian opróżniła się do końca, czy trzeba wrócić po sieci. */
+enum class TaskSyncResult { DONE, RETRY }
+
 interface TaskRepository {
     /**
      * Zadania zespołu z cache Room — strumień rusza od danych lokalnych, więc
@@ -36,10 +39,18 @@ interface TaskRepository {
     suspend fun addComment(taskId: String, body: String, mentions: List<String>): TaskComment
 
     /**
-     * Zmiana pól zadania (`PATCH /api/tasks/:id`). Wymaga sieci — kolejka zmian
-     * zrobionych offline wchodzi dopiero w E3.
+     * Zmiana pól zadania (`PATCH /api/tasks/:id`). Bez zasięgu zmiana ląduje
+     * w kolejce i w cache, więc zwrócone zadanie jest wersją lokalną —
+     * serwer zobaczy ją, gdy telefon wróci w zasięg. Odmowa serwera (4xx)
+     * leci dalej jako wyjątek: kolejkowanie jej nie naprawi.
      */
     suspend fun updateTask(id: String, patch: TaskPatch): Task
+
+    /** Zadania z niewysłaną zmianą — znacznik „czeka na wysyłkę" na liście. */
+    fun observePendingTaskIds(): Flow<Set<String>>
+
+    /** Wysyła kolejkę zmian; woła ją robotnik synchronizacji po powrocie sieci. */
+    suspend fun syncPendingMutations(): TaskSyncResult
 
     /** Lista członków zespołu (do wyboru osoby przypisanej). */
     suspend fun getMembers(): List<TaskMember>

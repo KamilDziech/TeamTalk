@@ -36,3 +36,4 @@ val Green600  = EkotakGreenDark      // akcja sukcesu (czytelny z białym tekste
 val Red600    = Color(0xFFE5484D)    // danger/error (board360 #e5484d)
 val Orange600 = Color(0xFFF59E0B)    // warning/pending (board360 #f59e0b)
 val OkGreen   = Color(0xFF7EE787)    // --ok (status/tekst)
+val SyncBlue  = Color(0xFF5B8DEF)    // info — zmiana czekająca na wysyłkę (kolejka offline)

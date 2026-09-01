@@ -240,7 +240,12 @@ E3 kolejka offline → E4 przypomnienia → E5 komentarze i załączniki.
 - 🚧 Karta zadania (E2) — `GET /api/tasks/:id` dopisane w board360 i w atrapie;
   karta ma nagłówek ze źródłem, odhaczenie, priorytet i wątek komentarzy.
   Brakuje edycji terminu, wykonawcy, sekcji i SLA wprost z karty
-- ❌ Kolejka zmian offline (E3) — dziś zapis wymaga sieci, awaria idzie w snackbar
+- ✅ Kolejka zmian offline (E3) — zmiana bez zasięgu ląduje w `task_mutations`
+  (baza w wersji 6) i od razu w cache, wiersz dostaje znacznik „czeka na wysyłkę",
+  a `TaskSyncWorker` wysyła ją, gdy system zobaczy sieć. Jeden wiersz kolejki =
+  jedno pole, więc dwie zmiany tego samego zadania nie cofają się nawzajem;
+  odmowa serwera (403/404/422) porzuca zmianę i mówi o tym na liście
+  ⚠️ nieprzetestowane na telefonie — patrz „Do sprawdzenia na urządzeniu"
 - 🚧 Przypomnienia i licznik nieprzeczytanych (E4) — jest robotnik wywołań
   (`MentionsWorker`, co 15 min → lokalne powiadomienie); brak plakietki na
   kafelku pulpitu i przypomnień o terminach zadań
@@ -250,6 +255,20 @@ E3 kolejka offline → E4 przypomnienia → E5 komentarze i załączniki.
   (kafelek „Komunikacja" → skrzynka, wiersz podpisany `Nazwisko · kod deala`,
   wejście prowadzi w kartę zadania). Ustalenia:
   `../ekotak-app/docs/tasks/wywolanie-w-komentarzu.md`
+
+### Do sprawdzenia na urządzeniu (kolejka offline)
+
+Projekt nie ma testów jednostkowych, a kolejki nie da się sprawdzić kompilacją.
+Scenariusz na telefon po `gradlew installDebug`:
+
+1. Tryb samolotowy → odhacz zadanie → wiersz zostaje odhaczony i pokazuje
+   „czeka na wysyłkę"; zabij aplikację i wejdź ponownie — znacznik ma zostać.
+2. Wyłącz tryb samolotowy → w ciągu chwili znacznik znika, a panel pokazuje
+   zmieniony status (WorkManager budzi robotnika na warunek sieci).
+3. Bez zasięgu zmień to samo zadanie dwa razy (status, potem priorytet) —
+   po powrocie sieci mają wejść obie zmiany, jednym żądaniem.
+4. Bez zasięgu odhacz zadanie, usuń je w panelu, wróć w zasięg — zadanie znika
+   z listy, a na dole pojawia się komunikat „Zmiana … przepadła".
 
 ---
 

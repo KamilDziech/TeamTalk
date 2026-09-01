@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Person
@@ -76,6 +77,7 @@ import com.ekotak.teamtalk.presentation.components.AppTopBar
 import com.ekotak.teamtalk.presentation.theme.EkotakGreen
 import com.ekotak.teamtalk.presentation.theme.Orange600
 import com.ekotak.teamtalk.presentation.theme.Red600
+import com.ekotak.teamtalk.presentation.theme.SyncBlue
 
 /**
  * Moduł „Zadania" — lista zespołowa z board360 na telefonie. Panel jest tablicą
@@ -209,6 +211,7 @@ fun TaskListScreen(
                                     task = task,
                                     assignee = task.assigneeId?.let { state.membersById[it] },
                                     pending = task.id in state.pendingIds,
+                                    queued = task.id in state.queuedIds,
                                     onToggleDone = { viewModel.onToggleDone(task) },
                                     onTogglePriority = { viewModel.onTogglePriority(task) },
                                     onOpen = { onOpenTask(task.id) },
@@ -340,6 +343,7 @@ private fun TaskRow(
     task: Task,
     assignee: TaskMember?,
     pending: Boolean,
+    queued: Boolean,
     onToggleDone: () -> Unit,
     onTogglePriority: () -> Unit,
     onOpen: () -> Unit = {},
@@ -379,7 +383,7 @@ private fun TaskRow(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Spacer(Modifier.height(4.dp))
-                TaskMeta(task = task, done = done)
+                TaskMeta(task = task, done = done, queued = queued)
             }
 
             if (assignee != null) {
@@ -437,7 +441,7 @@ private fun DoneToggle(done: Boolean, pending: Boolean, onClick: () -> Unit) {
 
 /** Druga linia wiersza: źródło, termin, SLA i znacznik komentarzy. */
 @Composable
-private fun TaskMeta(task: Task, done: Boolean) {
+private fun TaskMeta(task: Task, done: Boolean, queued: Boolean = false) {
     val due = dueLabel(task.dueAt)
     val overdue = !done && isOverdue(task.dueAt)
     val sla = slaState(task.createdAt, task.slaHours, done)
@@ -505,6 +509,24 @@ private fun TaskMeta(task: Task, done: Boolean) {
                 text = "${task.commentCount}",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = (-4).dp),
+            )
+        }
+
+        // Zmiana zrobiona bez zasięgu. Wiersz pokazuje ją tak, jakby weszła —
+        // bo z punktu widzenia człowieka weszła — ale znacznik mówi wprost, że
+        // serwer jeszcze o niej nie wie.
+        if (queued) {
+            Icon(
+                Icons.Default.CloudUpload,
+                contentDescription = null,
+                tint = SyncBlue,
+                modifier = Modifier.size(12.dp),
+            )
+            Text(
+                text = "czeka na wysyłkę",
+                style = MaterialTheme.typography.labelSmall,
+                color = SyncBlue,
                 modifier = Modifier.padding(start = (-4).dp),
             )
         }

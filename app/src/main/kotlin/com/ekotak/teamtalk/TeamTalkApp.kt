@@ -12,6 +12,7 @@ import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.ekotak.teamtalk.data.notification.NotificationHelper
+import com.ekotak.teamtalk.data.sync.TaskSyncScheduler
 import com.ekotak.teamtalk.service.CallMonitorService
 import com.ekotak.teamtalk.worker.MentionsWorker
 import dagger.hilt.android.HiltAndroidApp
@@ -23,6 +24,8 @@ class TeamTalkApp : Application(), Configuration.Provider {
 
     @Inject lateinit var workerFactory: HiltWorkerFactory
 
+    @Inject lateinit var taskSyncScheduler: TaskSyncScheduler
+
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)
@@ -32,6 +35,9 @@ class TeamTalkApp : Application(), Configuration.Provider {
         super.onCreate()
         createNotificationChannel()
         scheduleMentionsPolling()
+        // Proces mógł zginąć z pełną kolejką zmian — przy starcie prosimy
+        // o jej opróżnienie. Pusta kolejka kończy robotnika od razu.
+        taskSyncScheduler.scheduleSync()
     }
 
     /**

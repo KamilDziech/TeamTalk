@@ -26,6 +26,7 @@ class SessionPreferences @Inject constructor(
         private val KEY_DISPLAY_NAME   = stringPreferencesKey("display_name")
         private val KEY_THEME          = stringPreferencesKey("theme_mode")
         private val KEY_MENTIONS_SEEN_AT = longPreferencesKey("mentions_seen_at")
+        private val KEY_SYNC_PROBLEM   = stringPreferencesKey("task_sync_problem")
     }
 
     /** Token sesji board360 (wysyłany jako cookie `b360_session`). */
@@ -79,6 +80,22 @@ class SessionPreferences @Inject constructor(
 
     suspend fun saveMentionsSeenAt(millis: Long) {
         dataStore.edit { it[KEY_MENTIONS_SEEN_AT] = millis }
+    }
+
+    /**
+     * Zmiana z kolejki offline, którą serwer odrzucił — czeka tu na moment,
+     * gdy będzie komu ją pokazać. Kolejkę opróżnia robotnik w tle, często przy
+     * zamkniętej aplikacji, więc bez tej skrzynki decyzja człowieka przepadałaby
+     * bez słowa. Lista zadań pokazuje komunikat i od razu go kasuje.
+     */
+    val syncProblem: Flow<String?> = dataStore.data.map { it[KEY_SYNC_PROBLEM] }
+
+    suspend fun saveSyncProblem(message: String) {
+        dataStore.edit { it[KEY_SYNC_PROBLEM] = message }
+    }
+
+    suspend fun clearSyncProblem() {
+        dataStore.edit { it.remove(KEY_SYNC_PROBLEM) }
     }
 
     suspend fun clear() {

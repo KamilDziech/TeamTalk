@@ -14,8 +14,9 @@ import com.ekotak.teamtalk.data.local.entity.*
         VoiceReportEntity::class,
         DeviceEntity::class,
         TaskEntity::class,
+        TaskMutationEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -27,4 +28,5 @@ abstract class TeamTalkDatabase : RoomDatabase() {
     abstract fun voiceReportDao(): VoiceReportDao
     abstract fun deviceDao(): DeviceDao
     abstract fun taskDao(): TaskDao
+    abstract fun taskMutationDao(): TaskMutationDao
 }

@@ -11,6 +11,7 @@ import com.ekotak.teamtalk.domain.model.TaskSection
 import com.ekotak.teamtalk.domain.model.TaskSource
 import com.ekotak.teamtalk.domain.model.TaskStatus
 import com.ekotak.teamtalk.domain.usecase.task.GetTaskMembersUseCase
+import com.ekotak.teamtalk.domain.usecase.task.ObservePendingTaskIdsUseCase
 import com.ekotak.teamtalk.domain.usecase.task.ObserveTasksUseCase
 import com.ekotak.teamtalk.domain.usecase.task.RefreshTasksUseCase
 import com.ekotak.teamtalk.domain.usecase.task.SetTaskDoneUseCase
@@ -71,6 +72,7 @@ enum class TaskSort(val label: String) {
 @HiltViewModel
 class TaskListViewModel @Inject constructor(
     private val observeTasks: ObserveTasksUseCase,
+    private val observePendingTaskIds: ObservePendingTaskIdsUseCase,
     private val refreshTasks: RefreshTasksUseCase,
     private val getTaskMembers: GetTaskMembersUseCase,
     private val setTaskDone: SetTaskDoneUseCase,
@@ -101,6 +103,8 @@ class TaskListViewModel @Inject constructor(
         val membersById: Map<String, TaskMember> = emptyMap(),
         /** Zadania z trwającym zapisem — wiersz pokazuje kręciołek zamiast kółka. */
         val pendingIds: Set<String> = emptySet(),
+        /** Zadania ze zmianą zrobioną bez zasięgu, czekającą w kolejce (E3). */
+        val queuedIds: Set<String> = emptySet(),
         /** Ile zadań widać po filtrach i ile jest wszystkich. */
         val visibleCount: Int = 0,
         val totalCount: Int = 0,
@@ -125,8 +129,31 @@ class TaskListViewModel @Inject constructor(
 
     init {
         observe()
+        observeQueue()
         load(initial = true)
         loadMembers()
+    }
+
+    /**
+     * Kolejka zmian offline: znacznik „czeka na wysyłkę" na wierszu plus
+     * komunikat o zmianie, którą serwer odrzucił. Kolejkę opróżnia robotnik
+     * w tle — często przy zamkniętej aplikacji — więc lista jest pierwszym
+     * miejscem, gdzie da się o tym powiedzieć człowiekowi.
+     */
+    private fun observeQueue() {
+        viewModelScope.launch {
+            observePendingTaskIds().collect { ids ->
+                _uiState.update { it.copy(queuedIds = ids) }
+            }
+        }
+        viewModelScope.launch {
+            sessionPreferences.syncProblem.collect { problem ->
+                if (problem != null) {
+                    _uiState.update { it.copy(message = problem) }
+                    sessionPreferences.clearSyncProblem()
+                }
+            }
+        }
     }
 
     /**

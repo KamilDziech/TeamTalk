@@ -815,8 +815,9 @@ footer.end{
       <p>
         Pierwsza wersja to E1 + E2. Kolejka offline i powiadomienia są ustalone, ale wchodzą zaraz
         po niej — inaczej pierwszy build odsuwa się o kolejny tydzień.
-        <b>E1 jest zrobione</b>: kafelek „Zadania" otwiera listę, atrapa ma komplet tras,
-        <code>gradlew assembleDebug</code> przechodzi.
+        <b>Zrobione: E1, E3 i większość E2 oraz E5</b> — lista, karta zadania z wątkiem
+        komentarzy i wywołaniami, Komunikator, kolejka offline. Zostaje edycja pól z karty,
+        przypomnienia o terminach i załączniki.
       </p>
     </div>
     <div class="steps">
@@ -854,16 +855,19 @@ footer.end{
       <div class="step">
         <div class="no">E3</div>
         <div>
-          <h3>Kolejka offline</h3>
+          <h3>Kolejka offline <span class="tag jest">zrobione</span></h3>
           <p>
-            Zmiany zapisują się lokalnie i lecą na serwer, gdy wróci zasięg — osobna tabela zmian
-            oczekujących i worker synchronizujący, wzorowany na <code>PostCallNoteWorker</code>.
-            Reguła konfliktu do zatwierdzenia: <code>PATCH</code> idzie pojedynczymi polami, więc
-            wygrywa ostatni zapis; zadanie usunięte w panelu (404) porzuca zmianę z komunikatem,
-            a wiersz z niewysłaną zmianą ma na liście znacznik „czeka na wysyłkę".
+            Zmiany zapisują się lokalnie i lecą na serwer, gdy system zobaczy sieć — bez
+            odpytywania, bo warunek sieci na robotniku załatwia to za nas. Jeden wiersz kolejki
+            to jedno pole jednego zadania, więc zmiana terminu zrobiona w tunelu nie cofa
+            statusu odhaczonego pięć minut wcześniej, a ponowna zmiana tego samego pola
+            nadpisuje poprzednią. Brak łączności trafia do kolejki; odmowa serwera
+            (403 / 404 / 422) porzuca zmianę i mówi o tym na liście — ponowienie i tak by
+            nie pomogło. Wiersz z niewysłaną zmianą ma znacznik „czeka na wysyłkę".
           </p>
           <div class="files">
-            <i>TaskMutationEntity.kt</i><i>TaskSyncWorker.kt</i><i>migracja Room 5→6</i>
+            <i>TaskMutationEntity.kt · TaskMutationDao.kt</i><i>TaskSyncWorker.kt</i>
+            <i>TaskSyncScheduler.kt</i><i>Room 5→6</i><i>TaskPatchApply.kt</i>
             <i>TaskRepositoryImpl (zapis lokalny + kolejka)</i>
           </div>
         </div>
