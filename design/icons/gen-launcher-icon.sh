@@ -75,7 +75,7 @@ layer() { # <gearFn> <arcColor>
     android:height="108dp"
     android:viewportWidth="800"
     android:viewportHeight="800">
-    <group android:scaleX="0.86" android:scaleY="0.86" android:pivotX="400" android:pivotY="400">
+    <group android:scaleX="0.602" android:scaleY="0.602" android:pivotX="400" android:pivotY="400">
 $(arcs "$ac")
 $($fn $MED_C $MED_N $MED_P "$MED_T" "$MED_B" "$MED_H")
 $($fn $BIG_C $BIG_N $BIG_P "$BIG_T" "$BIG_B" "$BIG_H")

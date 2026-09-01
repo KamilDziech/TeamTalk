@@ -11,7 +11,8 @@ i komponent `EkotakIcon`), zeby launcher i aplikacja mialy jedna ikone.
 Warstwy adaptive icon powstaja z `gen-launcher-icon.sh` — skrypt zapisuje
 `res/drawable/ic_launcher_{background,foreground,monochrome}.xml`. Plikow XML nie
 edytujemy recznie; zmiana geometrii = zmiana skryptu i ponowne uruchomienie.
-Znak jest skalowany do 0,86, zeby zmiescic sie w strefie bezpiecznej 72/108 dp.
+Znak jest skalowany do 0,602 — miesci sie w strefie bezpiecznej 72/108 dp
+(zajmuje ok. 50 z 72 dp) z widocznym zielonym marginesem dookola.
 
 `minSdk = 26`, wiec fallbackowe PNG w `mipmap-{m..xxxhdpi}` nie sa potrzebne —
 kazde urzadzenie dostaje adaptive icon.

@@ -10,7 +10,7 @@
     android:height="108dp"
     android:viewportWidth="800"
     android:viewportHeight="800">
-    <group android:scaleX="0.86" android:scaleY="0.86" android:pivotX="400" android:pivotY="400">
+    <group android:scaleX="0.602" android:scaleY="0.602" android:pivotX="400" android:pivotY="400">
         <path android:pathData="M118.0,324.4 A292,292 0 0 1 617.0,204.6" android:fillColor="#00000000" android:strokeColor="#FFFFFF" android:strokeWidth="26" android:strokeLineCap="round" android:strokeLineJoin="round" />
         <path android:pathData="M556.6,190.7 L617.0,204.6 L609.4,143.0" android:fillColor="#00000000" android:strokeColor="#FFFFFF" android:strokeWidth="26" android:strokeLineCap="round" android:strokeLineJoin="round" />
         <path android:pathData="M674.4,499.9 A292,292 0 0 1 125.6,499.9" android:fillColor="#00000000" android:strokeColor="#FFFFFF" android:strokeWidth="26" android:strokeLineCap="round" android:strokeLineJoin="round" />
