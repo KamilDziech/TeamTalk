@@ -44,13 +44,13 @@ import com.ekotak.teamtalk.presentation.theme.ButtonShape
 @Composable
 fun ClientFormScreen(
     onNavigateBack: () -> Unit,
-    onSaved: (String) -> Unit,
+    onSaved: (message: String, clientId: String?) -> Unit,
     viewModel: ClientFormViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
 
     LaunchedEffect(state.savedMessage) {
-        state.savedMessage?.let(onSaved)
+        state.savedMessage?.let { onSaved(it, state.savedClientId) }
     }
 
     Scaffold(

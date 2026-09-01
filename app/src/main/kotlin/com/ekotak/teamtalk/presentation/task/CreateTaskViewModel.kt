@@ -36,12 +36,16 @@ import javax.inject.Inject
 enum class WizardStep {
     TITLE, DESCRIPTION, SUBJECT, TEAM, PERSON, PRIORITY, DUE, DONE;
 
-    /** Numer kroku pokazywany użytkownikowi (1–7); [DONE] jest poza licznikiem. */
-    val number: Int get() = ordinal + 1
-
     companion object {
-        /** Kroki wchodzące do licznika i paska postępu. */
+        /** Pełny kreator — wejście z kartoteki, karty deala albo osi czasu. */
         val WIZARD: List<WizardStep> = WizardStep.entries.filter { it != WizardStep.DONE }
+
+        /**
+         * Skrót używany po zakończonej rozmowie: tytuł, opis i „kogo dotyczy"
+         * mamy już z kreatora notatki, więc pytamy tylko o cztery brakujące
+         * rzeczy — zespół, osobę, priorytet i termin.
+         */
+        val SHORT: List<WizardStep> = listOf(TEAM, PERSON, PRIORITY, DUE)
     }
 }
 
@@ -62,6 +66,17 @@ class CreateTaskViewModel @Inject constructor(
     private val callerName: String? =
         (savedStateHandle["name"] as String?)?.takeIf { it.isNotBlank() }
 
+    /** Klient ustalony wcześniej (kreator po rozmowie) — pomija krok „kogo dotyczy". */
+    private val presetClientId: String? =
+        (savedStateHandle["clientId"] as String?)?.takeIf { it.isNotBlank() }
+
+    /** Streszczenie rozmowy przekazane z kreatora notatki — ląduje w opisie. */
+    private val presetNote: String? =
+        (savedStateHandle["note"] as String?)?.takeIf { it.isNotBlank() }
+
+    /** `short` = wejście po rozmowie: cztery plansze zamiast siedmiu. */
+    private val isShort: Boolean = savedStateHandle.get<String>("mode") == MODE_SHORT
+
     /** Ręcznie wpisany kontakt z kroku „kogo dotyczy". Zakłada klienta w kartotece. */
     data class NewContact(
         val firstName: String = "",
@@ -78,6 +93,8 @@ class CreateTaskViewModel @Inject constructor(
 
     data class UiState(
         val step: WizardStep = WizardStep.TITLE,
+        /** Plansze tego przebiegu — pełne siedem albo skrót po rozmowie. */
+        val steps: List<WizardStep> = WizardStep.WIZARD,
         // ── Krok 1–2 ──────────────────────────────────────────────────────────
         val title: String = "",
         val description: String = "",
@@ -115,9 +132,22 @@ class CreateTaskViewModel @Inject constructor(
         /** Osoby pasujące do wybranego kafelka. */
         val teamMembers: List<TaskMember>
             get() = team?.membersFrom(members, selfId) ?: emptyList()
+
+        /** Numer planszy pokazywany użytkownikowi; [WizardStep.DONE] jest poza licznikiem. */
+        val stepNumber: Int get() = steps.indexOf(step) + 1
+
+        val isFirstStep: Boolean get() = step == steps.firstOrNull()
+        val isLastStep: Boolean get() = step == steps.lastOrNull()
     }
 
-    private val _uiState = MutableStateFlow(UiState(title = defaultTitle()))
+    private val _uiState = MutableStateFlow(
+        UiState(
+            step = if (isShort) WizardStep.TEAM else WizardStep.TITLE,
+            steps = if (isShort) WizardStep.SHORT else WizardStep.WIZARD,
+            title = defaultTitle(),
+            description = presetNote.orEmpty(),
+        ),
+    )
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
     private var searchJob: Job? = null
@@ -126,6 +156,22 @@ class CreateTaskViewModel @Inject constructor(
     init {
         loadMembers()
         observeClients("")
+        if (presetClientId != null) loadPresetClient(presetClientId)
+    }
+
+    /**
+     * Podpina klienta ustalonego w kreatorze po rozmowie. Idzie przez
+     * [onClientSelect], bo ono dociąga deale i samo wybiera ten jedyny — inaczej
+     * zadanie powstałoby bez powiązania mimo znanego klienta.
+     */
+    private fun loadPresetClient(clientId: String) {
+        viewModelScope.launch {
+            try {
+                onClientSelect(clientRepository.getClientById(clientId))
+            } catch (_: Exception) {
+                // Bez klienta kreator nadal działa — numer trafi do opisu zadania.
+            }
+        }
     }
 
     private fun defaultTitle(): String {
@@ -158,7 +204,7 @@ class CreateTaskViewModel @Inject constructor(
     fun next() {
         stopRecording()
         val state = _uiState.value
-        val steps = WizardStep.WIZARD
+        val steps = state.steps
         val idx = steps.indexOf(state.step)
         if (idx < 0 || idx == steps.lastIndex) return
         val nextStep = steps[idx + 1]
@@ -186,7 +232,7 @@ class CreateTaskViewModel @Inject constructor(
 
     fun back() {
         stopRecording()
-        val steps = WizardStep.WIZARD
+        val steps = _uiState.value.steps
         val idx = steps.indexOf(_uiState.value.step)
         if (idx <= 0) return
         _uiState.update { it.copy(step = steps[idx - 1], error = null) }
@@ -381,7 +427,10 @@ class CreateTaskViewModel @Inject constructor(
         val state = _uiState.value
         val title = state.title.trim()
         if (title.isBlank()) {
-            _uiState.update { it.copy(error = "Tytuł jest wymagany", step = WizardStep.TITLE) }
+            // W skrócie po rozmowie kroku z tytułem nie ma — zostajemy na miejscu
+            // z komunikatem, zamiast skakać na planszę spoza przebiegu.
+            val titleStep = state.steps.firstOrNull { it == WizardStep.TITLE } ?: state.step
+            _uiState.update { it.copy(error = "Tytuł jest wymagany", step = titleStep) }
             return
         }
         viewModelScope.launch {
@@ -494,8 +543,11 @@ class CreateTaskViewModel @Inject constructor(
         super.onCleared()
     }
 
-    private companion object {
+    companion object {
+        /** Wartość argumentu `mode` włączająca skrócony kreator (po rozmowie). */
+        const val MODE_SHORT = "short"
+
         /** Lista klientów w kroku 3 — tyle mieści się bez przewijania w nieskończoność. */
-        const val MAX_CLIENT_RESULTS = 25
+        private const val MAX_CLIENT_RESULTS = 25
     }
 }

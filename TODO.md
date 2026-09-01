@@ -41,6 +41,9 @@ Legenda: ✅ Zaimplementowane | 🚧 Częściowo | ❌ Brak
 
 ## 4. Notatki po rozmowie
 
+- ✅ Kreator po rozmowie: rozmówca → streszczenie → zadanie (3 plansze)
+- ✅ Plansza 1: potwierdzenie klienta z kartoteki / założenie kontaktu / pominięcie z potwierdzeniem
+- ✅ Plansza 3: „Tak" prowadzi w skrócony kreator zadania (zespół → osoba → priorytet → termin)
 - 🚧 Workflow nieodebrane → zarezerwowane → wykonane → notatka (ekrany są, brak wymuszenia kolejności)
 - ✅ Notatka głosowa — nagrywanie audio z timerem, możliwość ponowienia
 - ✅ Automatyczna transkrypcja przez OpenAI Whisper (klucz po stronie serwera)

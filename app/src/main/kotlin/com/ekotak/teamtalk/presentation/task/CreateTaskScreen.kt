@@ -101,13 +101,13 @@ fun CreateTaskScreen(
                 AppTopBar(
                     title = if (isDone) "Zadanie" else "Nowe zadanie",
                     onNavigateBack = {
-                        if (isDone || state.step == WizardStep.TITLE) onNavigateBack()
+                        if (isDone || state.isFirstStep) onNavigateBack()
                         else viewModel.back()
                     },
                     actions = {
                         if (!isDone) {
                             Text(
-                                text = "${state.step.number} / ${WizardStep.WIZARD.size}",
+                                text = "${state.stepNumber} / ${state.steps.size}",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(end = 12.dp),
@@ -124,7 +124,7 @@ fun CreateTaskScreen(
                     canSkip = viewModel.canSkip(state),
                     onSkip = viewModel::skip,
                     onNext = {
-                        if (state.step == WizardStep.DUE) viewModel.createTask() else viewModel.next()
+                        if (state.isLastStep) viewModel.createTask() else viewModel.next()
                     },
                     onFinish = onNavigateBack,
                 )
@@ -136,7 +136,7 @@ fun CreateTaskScreen(
                     .padding(padding)
                     .imePadding(),
             ) {
-                if (!isDone) StepProgress(state.step)
+                if (!isDone) StepProgress(state.steps, state.step)
 
                 Column(
                     modifier = Modifier
@@ -190,14 +190,14 @@ fun CreateTaskScreen(
 
 /** Pasek postępu: kreska na każdy krok, zielone to, co za nami. */
 @Composable
-private fun StepProgress(step: WizardStep) {
+private fun StepProgress(steps: List<WizardStep>, step: WizardStep) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        WizardStep.WIZARD.forEach { s ->
+        steps.forEach { s ->
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -267,7 +267,7 @@ private fun WizardFooter(
                 )
             } else {
                 Text(
-                    text = if (state.step == WizardStep.DUE) "Zakończ" else "Dalej",
+                    text = if (state.isLastStep) "Zakończ" else "Dalej",
                     style = MaterialTheme.typography.labelLarge,
                 )
             }

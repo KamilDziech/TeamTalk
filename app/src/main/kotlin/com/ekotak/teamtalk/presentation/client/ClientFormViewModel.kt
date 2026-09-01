@@ -56,6 +56,11 @@ class ClientFormViewModel @Inject constructor(
         val error: String? = null,
         /** Ustawiany po udanym zapisie — ekran ma się zamknąć z tym komunikatem. */
         val savedMessage: String? = null,
+        /**
+         * Id wpisu po zapisie. Potrzebne kreatorowi po rozmowie: wraca on na
+         * planszę streszczenia z już podpiętym świeżo założonym klientem.
+         */
+        val savedClientId: String? = null,
     ) {
         val title: String
             get() = if (isEdit) "Edycja danych" else "Nowy ${category.oneLabel}"
@@ -66,12 +71,33 @@ class ClientFormViewModel @Inject constructor(
             isEdit = clientId != null,
             isLoading = clientId != null,
             category = ClientCategory.fromWire(savedStateHandle.get<String>("category")),
+            // Numer z zakończonej rozmowy — formularz otwiera się z nim wpisanym.
+            phone = savedStateHandle.get<String>("phone").orEmpty(),
+            firstName = prefillName(savedStateHandle.get<String>("name")).first,
+            lastName = prefillName(savedStateHandle.get<String>("name")).second,
         ),
     )
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
     /** Oryginał do zbudowania patcha (wysyłamy tylko faktyczne zmiany). */
     private var original: Client? = null
+
+    private companion object {
+        /**
+         * Nazwa z książki telefonu jest jednym ciągiem, a kartoteka chce imienia
+         * i nazwiska osobno. Pierwszy człon to imię, reszta nazwisko — przy
+         * jednoczłonowej nazwie zostawiamy nazwisko puste, bo i tak jest wymagane
+         * i użytkownik musi je uzupełnić świadomie.
+         */
+        fun prefillName(raw: String?): Pair<String, String> {
+            val parts = raw?.trim().orEmpty().split(" ").filter { it.isNotBlank() }
+            return when {
+                parts.isEmpty() -> "" to ""
+                parts.size == 1 -> parts[0] to ""
+                else -> parts.first() to parts.drop(1).joinToString(" ")
+            }
+        }
+    }
 
     init {
         if (clientId != null) loadClient(clientId)
@@ -148,7 +174,7 @@ class ClientFormViewModel @Inject constructor(
                         it.copy(isSaving = false, savedMessage = "Zapisano dane: $firstName $lastName")
                     }
                 } else {
-                    createClientUseCase(
+                    val created = createClientUseCase(
                         NewClient(
                             firstName = firstName,
                             lastName = lastName,
@@ -165,6 +191,7 @@ class ClientFormViewModel @Inject constructor(
                         it.copy(
                             isSaving = false,
                             savedMessage = "Dodano: ${state.category.oneLabel} $firstName $lastName",
+                            savedClientId = created.id,
                         )
                     }
                 }

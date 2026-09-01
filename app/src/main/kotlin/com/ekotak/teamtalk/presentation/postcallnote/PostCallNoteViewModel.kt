@@ -26,6 +26,26 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
+/** Plansze kreatora po zakończonej rozmowie. */
+enum class PostCallStep {
+    /** 1 — „Czy rozmawiałeś z…?" albo, przy nieznanym numerze, „Dodać kontakt?". */
+    CONTACT,
+
+    /** 2 — „Streść rozmowę" (dyktowanie albo wpisanie ręczne). */
+    SUMMARY,
+
+    /** 3 — „Czy chcesz utworzyć zadanie?". */
+    TASK,
+}
+
+/**
+ * Kreator uruchamiany po zakończonej rozmowie: ustalenie rozmówcy → streszczenie
+ * → decyzja o zadaniu. Streszczenie zapisuje się jako notatka głosowa powiązana
+ * z klientem i połączeniem — to ona zasila kanał telefoniczny w Komunikacji.
+ *
+ * Ekran wchodzący z karty połączenia (`skipContact`) startuje od razu od planszy
+ * drugiej, bo tam rozmówca jest już znany.
+ */
 @HiltViewModel
 class PostCallNoteViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
@@ -38,16 +58,41 @@ class PostCallNoteViewModel @Inject constructor(
 
     val phone: String = normalizePhone(savedStateHandle["phone"] ?: "")
 
+    /** Wejście z karty połączenia — plansza z pytaniem o rozmówcę jest zbędna. */
+    private val skipContactStep: Boolean = savedStateHandle.get<String>("skipContact") == "1"
+
     data class UiState(
+        val step: PostCallStep = PostCallStep.CONTACT,
         val client: Client? = null,
+        /** Nazwa z kartoteki, a gdy jej brak — z książki telefonu. */
         val displayName: String? = null,
+        /** `true` dopóki nie wiadomo, czy numer jest w module Klienci. */
+        val isResolvingClient: Boolean = true,
         val noteText: String = "",
         val isLoading: Boolean = false,
-        val isSaved: Boolean = false,
         val error: String? = null,
-    )
+        /** Pytanie „Na pewno chcesz pominąć dodanie notatki?". */
+        val showSkipConfirm: Boolean = false,
+        /** Kreator ma się zamknąć — pominięto notatkę albo odmówiono zadania. */
+        val isFinished: Boolean = false,
+        /** Zapisane streszczenie — idzie w opis zadania na planszy trzeciej. */
+        val savedNote: String = "",
+        /** `false` przy wejściu z karty połączenia — planszy z rozmówcą tam nie ma. */
+        val canBackToContact: Boolean = true,
+    ) {
+        /** Czy numer jest już w kartotece — decyduje o treści planszy pierwszej. */
+        val isKnownClient: Boolean get() = client != null
 
-    private val _uiState = MutableStateFlow(UiState())
+        /** Nazwa podpowiadana przy zakładaniu kontaktu (z książki telefonu). */
+        val suggestedName: String? get() = if (client == null) displayName else null
+    }
+
+    private val _uiState = MutableStateFlow(
+        UiState(
+            step = if (skipContactStep) PostCallStep.SUMMARY else PostCallStep.CONTACT,
+            canBackToContact = !skipContactStep,
+        ),
+    )
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
     private val _noteMode = MutableStateFlow(NoteMode.VOICE)
@@ -68,6 +113,8 @@ class PostCallNoteViewModel @Inject constructor(
         if (phone.isNotBlank()) {
             loadClient()
             loadCallLink()
+        } else {
+            _uiState.update { it.copy(isResolvingClient = false) }
         }
     }
 
@@ -96,8 +143,12 @@ class PostCallNoteViewModel @Inject constructor(
                     !client?.displayName.isNullOrBlank() -> client!!.displayName
                     else -> withContext(Dispatchers.IO) { lookupContactName() }
                 }
-                _uiState.update { it.copy(client = client, displayName = displayName) }
-            } catch (_: Exception) {}
+                _uiState.update {
+                    it.copy(client = client, displayName = displayName, isResolvingClient = false)
+                }
+            } catch (_: Exception) {
+                _uiState.update { it.copy(isResolvingClient = false) }
+            }
         }
     }
 
@@ -115,6 +166,40 @@ class PostCallNoteViewModel @Inject constructor(
         } catch (_: Exception) { null }
     }
 
+    // ── Plansza 1: rozmówca ──────────────────────────────────────────────────
+
+    /** „Tak, rozmawiałem z tą osobą" — idziemy do streszczenia. */
+    fun confirmContact() = _uiState.update { it.copy(step = PostCallStep.SUMMARY, error = null) }
+
+    /**
+     * Powrót z formularza kartoteki. Świeży klient zastępuje ten dobrany po
+     * numerze i od razu przechodzimy do streszczenia — o kontakt już pytaliśmy.
+     */
+    fun onContactCreated(clientId: String) {
+        resolvedClientId = clientId
+        _uiState.update { it.copy(step = PostCallStep.SUMMARY, error = null) }
+        viewModelScope.launch {
+            try {
+                val client = clientRepository.getClientById(clientId)
+                _uiState.update { it.copy(client = client, displayName = client.displayName) }
+            } catch (_: Exception) {
+                // Notatka i tak zapisze się po id — nazwa dociągnie się przy odświeżeniu.
+            }
+        }
+    }
+
+    fun askSkip() = _uiState.update { it.copy(showSkipConfirm = true) }
+
+    fun dismissSkip() = _uiState.update { it.copy(showSkipConfirm = false) }
+
+    /** Potwierdzone pominięcie — zamykamy cały kreator, nic nie zapisując. */
+    fun confirmSkip() {
+        speechToText.cancel()
+        _uiState.update { it.copy(showSkipConfirm = false, isFinished = true) }
+    }
+
+    // ── Plansza 2: streszczenie ──────────────────────────────────────────────
+
     fun setNoteMode(mode: NoteMode) { _noteMode.value = mode }
 
     fun onNoteTextChange(text: String) = _uiState.update { it.copy(noteText = text, error = null) }
@@ -128,7 +213,17 @@ class PostCallNoteViewModel @Inject constructor(
         persistNote(text)
     }
 
-    // ── Dyktowanie (mowa → tekst) ─────────────────────────────────────────────
+    /** Cofnięcie ze streszczenia na planszę z pytaniem o rozmówcę. */
+    fun backToContact() {
+        if (skipContactStep) return
+        speechToText.cancel()
+        timerJob?.cancel()
+        timerJob = null
+        _recordingState.value = RecordingState.Idle
+        _uiState.update { it.copy(step = PostCallStep.CONTACT, error = null) }
+    }
+
+    // ── Dyktowanie (mowa → tekst) ────────────────────────────────────────────
 
     fun startRecording() {
         if (!speechToText.isAvailable()) {
@@ -180,7 +275,7 @@ class PostCallNoteViewModel @Inject constructor(
         _recordingState.value = RecordingState.Idle
     }
 
-    // ── Zapis ───────────────────────────────────────────────────────────────────
+    // ── Zapis notatki ────────────────────────────────────────────────────────
 
     private fun persistNote(text: String) {
         viewModelScope.launch {
@@ -192,12 +287,41 @@ class PostCallNoteViewModel @Inject constructor(
                     text = text.ifBlank { null },
                     durationSec = recordedDurationSec,
                 )
-                _uiState.update { it.copy(isLoading = false, isSaved = true) }
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        savedNote = text,
+                        step = PostCallStep.TASK,
+                    )
+                }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.message ?: "Błąd zapisu") }
             }
         }
     }
+
+    // ── Plansza 3: zadanie ───────────────────────────────────────────────────
+
+    /** „Nie" na planszy z zadaniem — notatka jest zapisana, kreator się kończy. */
+    fun declineTask() = _uiState.update { it.copy(isFinished = true) }
+
+    /** Dane dla skróconego kreatora zadania (zespół → osoba → priorytet → termin). */
+    fun taskHandoff(): TaskHandoff {
+        val state = _uiState.value
+        return TaskHandoff(
+            phone = phone,
+            name = state.displayName ?: state.client?.displayName,
+            clientId = state.client?.id ?: resolvedClientId,
+            note = state.savedNote,
+        )
+    }
+
+    data class TaskHandoff(
+        val phone: String,
+        val name: String?,
+        val clientId: String?,
+        val note: String,
+    )
 
     override fun onCleared() {
         timerJob?.cancel()

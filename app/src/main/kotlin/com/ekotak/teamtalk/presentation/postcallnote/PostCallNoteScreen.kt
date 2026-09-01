@@ -26,12 +26,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.AddTask
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.TextFields
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -47,7 +48,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
-import com.ekotak.teamtalk.presentation.components.AppTopBar
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -57,28 +58,36 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.ekotak.teamtalk.presentation.components.AppTopBar
 import com.ekotak.teamtalk.presentation.theme.Green600
 import com.ekotak.teamtalk.presentation.theme.Red600
 import com.ekotak.teamtalk.presentation.voicereport.NoteMode
 import com.ekotak.teamtalk.presentation.voicereport.RecordingState
 
+/**
+ * Kreator po zakończonej rozmowie — trzy plansze: z kim rozmawiałeś, streszczenie
+ * rozmowy, decyzja o zadaniu. Jedno pytanie na ekran, bo wywołuje go powiadomienie
+ * tuż po odłożeniu słuchawki, a nie świadome wejście w formularz.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PostCallNoteScreen(
     onNavigateBack: () -> Unit,
-    onCreateTask: (phone: String, name: String?) -> Unit = { _, _ -> },
+    onAddContact: (phone: String, suggestedName: String?) -> Unit = { _, _ -> },
+    onCreateTask: (PostCallNoteViewModel.TaskHandoff) -> Unit = {},
+    /** Id klienta założonego na formularzu, wracające z ekranu potomnego. */
+    newClientId: String? = null,
+    onNewClientConsumed: () -> Unit = {},
     viewModel: PostCallNoteViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
     val noteMode by viewModel.noteMode.collectAsState()
     val recordingState by viewModel.recordingState.collectAsState()
     val context = LocalContext.current
-
-    fun goToCreateTask() =
-        onCreateTask(viewModel.phone, state.displayName ?: state.client?.displayName)
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -92,19 +101,53 @@ fun PostCallNoteScreen(
         else permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
     }
 
-    LaunchedEffect(state.isSaved) {
-        if (state.isSaved) onNavigateBack()
+    LaunchedEffect(newClientId) {
+        if (newClientId != null) {
+            viewModel.onContactCreated(newClientId)
+            onNewClientConsumed()
+        }
+    }
+
+    LaunchedEffect(state.isFinished) {
+        if (state.isFinished) onNavigateBack()
     }
 
     Scaffold(
-        topBar = { AppTopBar(title = "Notatka z rozmowy", onNavigateBack = onNavigateBack) },
+        topBar = {
+            AppTopBar(
+                title = when (state.step) {
+                    PostCallStep.CONTACT -> "Rozmówca"
+                    PostCallStep.SUMMARY -> "Streść rozmowę"
+                    PostCallStep.TASK -> "Zadanie"
+                },
+                onNavigateBack = {
+                    when (state.step) {
+                        PostCallStep.CONTACT -> viewModel.askSkip()
+                        PostCallStep.SUMMARY ->
+                            if (state.canBackToContact) viewModel.backToContact()
+                            else onNavigateBack()
+                        // Notatka jest już zapisana — cofać nie ma po co.
+                        PostCallStep.TASK -> onNavigateBack()
+                    }
+                },
+                actions = {
+                    Text(
+                        text = "${state.step.ordinal + 1} / ${PostCallStep.entries.size}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(end = 12.dp),
+                    )
+                },
+            )
+        },
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            // ── Caller info ────────────────────────────────────────────────
+            StepProgress(state.step)
+
             if (viewModel.phone.isNotBlank()) {
                 CallerHeader(
                     name = state.displayName ?: state.client?.displayName,
@@ -112,55 +155,101 @@ fun PostCallNoteScreen(
                 )
             }
 
-            // ── Mode tab selector ──────────────────────────────────────────
-            val showTabs = recordingState is RecordingState.Idle || recordingState is RecordingState.Processing
-            AnimatedVisibility(visible = showTabs, enter = fadeIn(), exit = fadeOut()) {
-                TabRow(selectedTabIndex = if (noteMode == NoteMode.VOICE) 0 else 1) {
-                    Tab(
-                        selected = noteMode == NoteMode.VOICE,
-                        onClick = { viewModel.setNoteMode(NoteMode.VOICE) },
-                        icon = { Icon(Icons.Default.Mic, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                        text = { Text("Głosowa") },
-                    )
-                    Tab(
-                        selected = noteMode == NoteMode.TEXT,
-                        onClick = { viewModel.setNoteMode(NoteMode.TEXT) },
-                        icon = { Icon(Icons.Default.TextFields, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                        text = { Text("Tekstowa") },
-                    )
-                }
-            }
+            when (state.step) {
+                PostCallStep.CONTACT -> ContactStep(
+                    state = state,
+                    phone = viewModel.phone,
+                    onYes = viewModel::confirmContact,
+                    onAddContact = { onAddContact(viewModel.phone, state.suggestedName) },
+                    onSkip = viewModel::askSkip,
+                )
 
-            // ── Content area ───────────────────────────────────────────────
+                PostCallStep.SUMMARY -> SummaryStep(
+                    state = state,
+                    noteMode = noteMode,
+                    recordingState = recordingState,
+                    onModeChange = viewModel::setNoteMode,
+                    onTextChange = viewModel::onNoteTextChange,
+                    onSave = viewModel::saveNote,
+                    onMicClick = ::handleMicClick,
+                    onStop = viewModel::stopRecording,
+                    onRecordAgain = viewModel::resetToVoice,
+                )
+
+                PostCallStep.TASK -> TaskStep(
+                    onYes = { onCreateTask(viewModel.taskHandoff()) },
+                    onNo = viewModel::declineTask,
+                )
+            }
+        }
+    }
+
+    if (state.showSkipConfirm) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissSkip,
+            title = { Text("Na pewno chcesz pominąć dodanie notatki?") },
+            text = {
+                Text(
+                    "Rozmowa zostanie w historii połączeń, ale bez streszczenia " +
+                        "w komunikacji klienta.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = viewModel::confirmSkip) { Text("Tak, pomiń") }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::dismissSkip) { Text("Wróć") }
+            },
+        )
+    }
+}
+
+// ── Ramy kreatora ────────────────────────────────────────────────────────────
+
+/** Pasek postępu: kreska na każdą planszę, zielone to, co za nami. */
+@Composable
+private fun StepProgress(step: PostCallStep) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        PostCallStep.entries.forEach { s ->
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxWidth(),
-            ) {
-                when {
-                    noteMode == NoteMode.TEXT || recordingState is RecordingState.Processing ->
-                        TextNoteContent(
-                            text = state.noteText,
-                            error = state.error,
-                            isLoading = state.isLoading,
-                            isProcessingVoice = recordingState is RecordingState.Processing,
-                            onTextChange = viewModel::onNoteTextChange,
-                            onSave = viewModel::saveNote,
-                            onSkip = onNavigateBack,
-                            onRecordAgain = viewModel::resetToVoice,
-                            onCreateTask = ::goToCreateTask,
-                        )
-                    else ->
-                        VoiceNoteContent(
-                            recordingState = recordingState,
-                            liveText = state.noteText,
-                            onMicClick = ::handleMicClick,
-                            onStop = viewModel::stopRecording,
-                            onSkip = onNavigateBack,
-                            onCreateTask = ::goToCreateTask,
-                        )
-                }
-            }
+                    .height(3.dp)
+                    .background(
+                        color = if (s.ordinal <= step.ordinal) Green600
+                        else MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(2.dp),
+                    ),
+            )
+        }
+    }
+}
+
+@Composable
+private fun Question(text: String, hint: String? = null) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
+        )
+        if (hint != null) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = hint,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
         }
     }
 }
@@ -214,6 +303,157 @@ private fun CallerHeader(name: String?, phone: String) {
     }
 }
 
+// ── Plansza 1: rozmówca ──────────────────────────────────────────────────────
+
+/**
+ * Pytanie różni się w zależności od tego, czy numer jest w kartotece: przy znanym
+ * kliencie potwierdzamy rozmówcę, przy nieznanym nie ma czego potwierdzać —
+ * pytamy wprost o założenie kontaktu.
+ */
+@Composable
+private fun ContactStep(
+    state: PostCallNoteViewModel.UiState,
+    phone: String,
+    onYes: () -> Unit,
+    onAddContact: () -> Unit,
+    onSkip: () -> Unit,
+) {
+    if (state.isResolvingClient) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Spacer(Modifier.height(16.dp))
+
+        if (state.isKnownClient) {
+            Question(
+                text = "Czy rozmawiałeś z ${state.client?.displayName.orEmpty()}?",
+                hint = "Ten numer jest przypisany do tej osoby w module Klienci.",
+            )
+        } else {
+            Question(
+                text = "Numer $phone nie jest w module Klienci",
+                hint = state.suggestedName
+                    ?.let { "W kontaktach telefonu: $it. Dodaj go do kartoteki, żeby streszczenie rozmowy trafiło pod klienta." }
+                    ?: "Dodaj kontakt, żeby streszczenie rozmowy trafiło pod klienta.",
+            )
+        }
+
+        Spacer(Modifier.height(32.dp))
+
+        if (state.isKnownClient) {
+            Button(
+                onClick = onYes,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Green600),
+                shape = RoundedCornerShape(12.dp),
+            ) {
+                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Tak", style = MaterialTheme.typography.labelLarge)
+            }
+            Spacer(Modifier.height(8.dp))
+        }
+
+        OutlinedButton(
+            onClick = onAddContact,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
+            shape = RoundedCornerShape(12.dp),
+        ) {
+            Icon(Icons.Default.PersonAdd, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(if (state.isKnownClient) "Nie — dodaj kontakt" else "Dodaj kontakt")
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        OutlinedButton(
+            onClick = onSkip,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
+            shape = RoundedCornerShape(12.dp),
+        ) {
+            Text("Pomiń")
+        }
+    }
+}
+
+// ── Plansza 2: streszczenie ──────────────────────────────────────────────────
+
+@Composable
+private fun SummaryStep(
+    state: PostCallNoteViewModel.UiState,
+    noteMode: NoteMode,
+    recordingState: RecordingState,
+    onModeChange: (NoteMode) -> Unit,
+    onTextChange: (String) -> Unit,
+    onSave: () -> Unit,
+    onMicClick: () -> Unit,
+    onStop: () -> Unit,
+    onRecordAgain: () -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        val showTabs =
+            recordingState is RecordingState.Idle || recordingState is RecordingState.Processing
+        AnimatedVisibility(visible = showTabs, enter = fadeIn(), exit = fadeOut()) {
+            TabRow(selectedTabIndex = if (noteMode == NoteMode.VOICE) 0 else 1) {
+                Tab(
+                    selected = noteMode == NoteMode.VOICE,
+                    onClick = { onModeChange(NoteMode.VOICE) },
+                    icon = { Icon(Icons.Default.Mic, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                    text = { Text("Głosowa") },
+                )
+                Tab(
+                    selected = noteMode == NoteMode.TEXT,
+                    onClick = { onModeChange(NoteMode.TEXT) },
+                    icon = { Icon(Icons.Default.TextFields, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                    text = { Text("Tekstowa") },
+                )
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+        ) {
+            when {
+                noteMode == NoteMode.TEXT || recordingState is RecordingState.Processing ->
+                    TextNoteContent(
+                        text = state.noteText,
+                        error = state.error,
+                        isLoading = state.isLoading,
+                        isProcessingVoice = recordingState is RecordingState.Processing,
+                        onTextChange = onTextChange,
+                        onSave = onSave,
+                        onRecordAgain = onRecordAgain,
+                    )
+                else ->
+                    VoiceNoteContent(
+                        recordingState = recordingState,
+                        liveText = state.noteText,
+                        onMicClick = onMicClick,
+                        onStop = onStop,
+                    )
+            }
+        }
+    }
+}
+
 @Composable
 private fun TextNoteContent(
     text: String,
@@ -222,9 +462,7 @@ private fun TextNoteContent(
     isProcessingVoice: Boolean,
     onTextChange: (String) -> Unit,
     onSave: () -> Unit,
-    onSkip: () -> Unit,
-    onRecordAgain: (() -> Unit)? = null,
-    onCreateTask: () -> Unit = {},
+    onRecordAgain: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -249,7 +487,7 @@ private fun TextNoteContent(
             OutlinedTextField(
                 value = text,
                 onValueChange = onTextChange,
-                label = { Text("Notatka") },
+                label = { Text("Streszczenie rozmowy") },
                 placeholder = { Text("Co ustalono podczas rozmowy?") },
                 modifier = Modifier.fillMaxWidth(),
                 minLines = 5,
@@ -278,52 +516,23 @@ private fun TextNoteContent(
                 } else {
                     Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Zapisz notatkę", style = MaterialTheme.typography.labelLarge)
+                    Text("Zapisz i dalej", style = MaterialTheme.typography.labelLarge)
                 }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            if (onRecordAgain != null) {
-                OutlinedButton(
-                    onClick = onRecordAgain,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
-                    enabled = !isLoading,
-                    shape = RoundedCornerShape(12.dp),
-                ) {
-                    Icon(Icons.Default.Mic, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Nagraj ponownie")
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-
             OutlinedButton(
-                onClick = onCreateTask,
+                onClick = onRecordAgain,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
                 enabled = !isLoading,
                 shape = RoundedCornerShape(12.dp),
             ) {
-                Icon(Icons.Default.AddTask, contentDescription = null, modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.Mic, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Utwórz zadanie")
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            OutlinedButton(
-                onClick = onSkip,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                enabled = !isLoading,
-                shape = RoundedCornerShape(12.dp),
-            ) {
-                Text("Pomiń")
+                Text("Nagraj ponownie")
             }
         }
     }
@@ -335,8 +544,6 @@ private fun VoiceNoteContent(
     liveText: String,
     onMicClick: () -> Unit,
     onStop: () -> Unit,
-    onSkip: () -> Unit,
-    onCreateTask: () -> Unit = {},
 ) {
     Column(
         modifier = Modifier
@@ -357,31 +564,6 @@ private fun VoiceNoteContent(
         }
 
         Spacer(modifier = Modifier.weight(1f))
-
-        if (recordingState is RecordingState.Idle) {
-            OutlinedButton(
-                onClick = onCreateTask,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                shape = RoundedCornerShape(12.dp),
-            ) {
-                Icon(Icons.Default.AddTask, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Utwórz zadanie")
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedButton(
-                onClick = onSkip,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                shape = RoundedCornerShape(12.dp),
-            ) {
-                Text("Pomiń")
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-        }
     }
 }
 
@@ -481,6 +663,55 @@ private fun RecordingActivePanel(
     }
 }
 
+// ── Plansza 3: zadanie ───────────────────────────────────────────────────────
+
+@Composable
+private fun TaskStep(onYes: () -> Unit, onNo: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Spacer(Modifier.height(16.dp))
+
+        Question(
+            text = "Czy chcesz utworzyć zadanie?",
+            hint = "Streszczenie jest już zapisane w komunikacji klienta. " +
+                "Zadanie zapytamy o zespół, osobę, priorytet i termin.",
+        )
+
+        Spacer(Modifier.height(32.dp))
+
+        Button(
+            onClick = onYes,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Green600),
+            shape = RoundedCornerShape(12.dp),
+        ) {
+            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Tak", style = MaterialTheme.typography.labelLarge)
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        OutlinedButton(
+            onClick = onNo,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
+            shape = RoundedCornerShape(12.dp),
+        ) {
+            Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Nie")
+        }
+    }
+}
 
 private fun Int.toTimeString(): String {
     val m = this / 60

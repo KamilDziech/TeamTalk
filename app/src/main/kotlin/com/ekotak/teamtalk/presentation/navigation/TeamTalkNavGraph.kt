@@ -38,10 +38,18 @@ import com.ekotak.teamtalk.presentation.home.homeModule
 import com.ekotak.teamtalk.presentation.postcallnote.PostCallNoteScreen
 import com.ekotak.teamtalk.presentation.settings.SettingsScreen
 import com.ekotak.teamtalk.presentation.task.CreateTaskScreen
+import com.ekotak.teamtalk.presentation.task.CreateTaskViewModel
 import com.ekotak.teamtalk.presentation.voicereport.VoiceReportScreen
 
 /** Klucz komunikatu wracającego do kartoteki z ekranów potomnych. */
 private const val CLIENT_MESSAGE_KEY = "clientMessage"
+
+/**
+ * Id klienta założonego na formularzu, wracające do ekranu wywołującego. Kreator
+ * po rozmowie potrzebuje go, żeby wrócić na planszę streszczenia z podpiętym
+ * świeżym kontaktem — sam komunikat tekstowy by na to nie wystarczył.
+ */
+private const val NEW_CLIENT_ID_KEY = "newClientId"
 
 @Composable
 fun TeamTalkNavGraph(
@@ -253,7 +261,7 @@ private fun MainScreen(deepLinkCallLogId: String? = null, deepLinkPostCallPhone:
             }
 
             composable(
-                route = "client_form?clientId={clientId}&category={category}",
+                route = "client_form?clientId={clientId}&category={category}&phone={phone}&name={name}",
                 arguments = listOf(
                     navArgument("clientId") {
                         type = NavType.StringType; nullable = true; defaultValue = null
@@ -261,13 +269,21 @@ private fun MainScreen(deepLinkCallLogId: String? = null, deepLinkPostCallPhone:
                     navArgument("category") {
                         type = NavType.StringType; nullable = true; defaultValue = null
                     },
+                    navArgument("phone") {
+                        type = NavType.StringType; nullable = true; defaultValue = null
+                    },
+                    navArgument("name") {
+                        type = NavType.StringType; nullable = true; defaultValue = null
+                    },
                 ),
             ) {
                 ClientFormScreen(
                     onNavigateBack = { navController.popBackStack() },
-                    onSaved = { message ->
-                        navController.previousBackStackEntry
-                            ?.savedStateHandle?.set(CLIENT_MESSAGE_KEY, message)
+                    onSaved = { message, clientId ->
+                        navController.previousBackStackEntry?.savedStateHandle?.apply {
+                            set(CLIENT_MESSAGE_KEY, message)
+                            if (clientId != null) set(NEW_CLIENT_ID_KEY, clientId)
+                        }
                         navController.popBackStack()
                     },
                 )
@@ -294,8 +310,10 @@ private fun MainScreen(deepLinkCallLogId: String? = null, deepLinkPostCallPhone:
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateToVoiceReport = { navController.navigate("voicereport/$callLogId") },
                     onNavigateToPostCallNote = { phone ->
+                        // Z karty połączenia rozmówca jest już znany — kreator
+                        // startuje od razu od streszczenia.
                         val encoded = URLEncoder.encode(phone, "UTF-8")
-                        navController.navigate("post_call_note?phone=$encoded")
+                        navController.navigate("post_call_note?phone=$encoded&skipContact=1")
                     },
                 )
             }
@@ -352,33 +370,69 @@ private fun MainScreen(deepLinkCallLogId: String? = null, deepLinkPostCallPhone:
                 SettingsScreen()
             }
 
-            // ── Post-Call Note ─────────────────────────────────────────────────
+            // ── Kreator po rozmowie (rozmówca → streszczenie → zadanie) ────────
             composable(
-                route = "post_call_note?phone={phone}",
+                route = "post_call_note?phone={phone}&skipContact={skipContact}",
                 arguments = listOf(
                     navArgument("phone") {
                         type = NavType.StringType; nullable = true; defaultValue = null
                     },
+                    navArgument("skipContact") {
+                        type = NavType.StringType; nullable = true; defaultValue = null
+                    },
                 ),
-            ) {
+            ) { entry ->
+                // Klient założony na formularzu wraca tu przez savedStateHandle —
+                // kreator ma wtedy wznowić od planszy ze streszczeniem.
+                val newClientId by entry.savedStateHandle
+                    .getStateFlow<String?>(NEW_CLIENT_ID_KEY, null)
+                    .collectAsState()
                 PostCallNoteScreen(
                     onNavigateBack = { navController.popBackStack() },
-                    onCreateTask = { phone, name ->
+                    newClientId = newClientId,
+                    onNewClientConsumed = {
+                        entry.savedStateHandle.set<String?>(NEW_CLIENT_ID_KEY, null)
+                    },
+                    onAddContact = { phone, suggestedName ->
                         val ph = Uri.encode(phone)
-                        val nm = Uri.encode(name ?: "")
-                        navController.navigate("create_task?phone=$ph&name=$nm")
+                        val nm = Uri.encode(suggestedName ?: "")
+                        navController.navigate("client_form?phone=$ph&name=$nm")
+                    },
+                    onCreateTask = { handoff ->
+                        val ph = Uri.encode(handoff.phone)
+                        val nm = Uri.encode(handoff.name ?: "")
+                        val cid = Uri.encode(handoff.clientId ?: "")
+                        val note = Uri.encode(handoff.note)
+                        // Kreator notatki znika ze stosu: po zapisaniu zadania
+                        // nie ma sensu wracać na planszę „czy utworzyć zadanie?".
+                        navController.navigate(
+                            "create_task?phone=$ph&name=$nm&clientId=$cid&note=$note" +
+                                "&mode=${CreateTaskViewModel.MODE_SHORT}",
+                        ) {
+                            popUpTo(entry.destination.id) { inclusive = true }
+                        }
                     },
                 )
             }
 
-            // ── Nowe zadanie (po połączeniu) ────────────────────────────────────
+            // ── Nowe zadanie (pełny kreator albo skrót po rozmowie) ─────────────
             composable(
-                route = "create_task?phone={phone}&name={name}",
+                route = "create_task?phone={phone}&name={name}&clientId={clientId}" +
+                    "&note={note}&mode={mode}",
                 arguments = listOf(
                     navArgument("phone") {
                         type = NavType.StringType; nullable = true; defaultValue = null
                     },
                     navArgument("name") {
+                        type = NavType.StringType; nullable = true; defaultValue = null
+                    },
+                    navArgument("clientId") {
+                        type = NavType.StringType; nullable = true; defaultValue = null
+                    },
+                    navArgument("note") {
+                        type = NavType.StringType; nullable = true; defaultValue = null
+                    },
+                    navArgument("mode") {
                         type = NavType.StringType; nullable = true; defaultValue = null
                     },
                 ),
