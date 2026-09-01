@@ -14,15 +14,22 @@ const ALL_PERMS = [
   'reports.view',
   'tasks.view',
   'tasks.manage',
+  'projects.view',
+  'projects.manage',
 ];
 
 const ROLE_PERMS = {
   admin: ALL_PERMS,
   zarzad: ALL_PERMS,
-  koordynator: ['crm.view', 'deal.manage', 'telephony.use', 'reports.view', 'tasks.view', 'tasks.manage'],
-  serwisant: ['crm.view', 'telephony.use', 'tasks.view', 'tasks.manage'],
-  biuro: ['crm.view', 'deal.manage', 'tasks.view', 'tasks.manage'],
-  montaz: ['crm.view', 'tasks.view', 'tasks.manage'],
+  koordynator: [
+    'crm.view', 'deal.manage', 'telephony.use', 'reports.view',
+    'tasks.view', 'tasks.manage', 'projects.view', 'projects.manage',
+  ],
+  // Serwisant widzi projekty, ale nie zaklada w nich zadan — na tym koncie da sie
+  // na telefonie sprawdzic, ze krok "projekt" w kreatorze konczy sie kodem 403.
+  serwisant: ['crm.view', 'telephony.use', 'tasks.view', 'tasks.manage', 'projects.view'],
+  biuro: ['crm.view', 'deal.manage', 'tasks.view', 'tasks.manage', 'projects.view'],
+  montaz: ['crm.view', 'tasks.view', 'tasks.manage', 'projects.view'],
   stazysta: [],
 };
 

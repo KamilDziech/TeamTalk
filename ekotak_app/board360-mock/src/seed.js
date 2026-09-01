@@ -40,7 +40,10 @@ function seedCategories(db) {
 
 function seedUsers(db) {
   const orgId = db.organization.id;
-  const make = (email, password, role, firstName, lastName, clientVisibility = 'all') => {
+  // `functions` (ADR-0013 board360) sa osobne od ROLI: po nich kreator zadania
+  // filtruje osoby pod kafelkami zespolow. `additionalRoles` licza sie na rowni
+  // z rola glowna — stad monter, ktory na co dzien siedzi w biurze.
+  const make = (email, password, role, firstName, lastName, opts = {}) => {
     const user = {
       id: uuid(),
       organizationId: orgId,
@@ -49,15 +52,24 @@ function seedUsers(db) {
       role,
       firstName,
       lastName,
-      clientVisibility,
+      clientVisibility: opts.clientVisibility || 'all',
+      functions: opts.functions || [],
+      additionalRoles: opts.additionalRoles || [],
     };
     db.users.push(user);
     return user;
   };
   return {
-    serwisant: make('serwisant@ekotak.pl', 'test1234', 'serwisant', 'Jan', 'Serwisant'),
-    admin: make('admin@ekotak.pl', 'admin1234', 'admin', 'Anna', 'Admin'),
-    koordynator: make('koordynator@ekotak.pl', 'test1234', 'koordynator', 'Piotr', 'Koordynator'),
+    serwisant: make('serwisant@ekotak.pl', 'test1234', 'serwisant', 'Jan', 'Serwisant', {
+      functions: ['serwis', 'inzynier'],
+      additionalRoles: ['montaz'], // wpada tez pod kafelek "Monter"
+    }),
+    admin: make('admin@ekotak.pl', 'admin1234', 'admin', 'Anna', 'Admin', {
+      functions: ['ksiegowosc', 'dotacje'],
+    }),
+    koordynator: make('koordynator@ekotak.pl', 'test1234', 'koordynator', 'Piotr', 'Koordynator', {
+      functions: ['koordynator', 'zaopatrzenie'],
+    }),
   };
 }
 
@@ -538,23 +550,128 @@ function seed(db) {
     updatedAt: daysAgo(1.2),
   });
 
+  // ── Projekty (krok "kogo dotyczy" w kreatorze, zrodlo zadan bez klienta) ───
+  const project = (name, color, opts = {}) => {
+    const row = {
+      id: uuid(),
+      organizationId: db.organization.id,
+      name,
+      status: opts.status || 'active',
+      color,
+      isTemplate: Boolean(opts.isTemplate),
+      createdAt: daysAgo(30),
+    };
+    db.projects.push(row);
+    return row;
+  };
+  const pMontaze = project('Montaze wrzesien', '#44D62C');
+  project('Audyty energetyczne 2026', '#38BDF8');
+  project('Szablon: uruchomienie instalacji', '#C084FC', { isTemplate: true }); // ma NIE wracac z GET /projects
+  project('Targi Enex 2026', '#F778BA', { status: 'archived' });
+
   // ── Zadania zespolu ────────────────────────────────────────────────────────
-  db.tasks.push({
-    id: uuid(),
-    organizationId: db.organization.id,
+  // Zestaw dobrany pod moduly listy: kazda sekcja, oba progi SLA, jedno zaległe,
+  // jedno zamkniete, jedno bez wykonawcy i jedno spiete z projektem zamiast klienta.
+  const task = (o) => {
+    const row = {
+      id: uuid(),
+      organizationId: db.organization.id,
+      dealId: o.dealId || null,
+      projectId: o.projectId || null,
+      title: o.title,
+      description: o.description || null,
+      assigneeId: o.assignee ? o.assignee.id : null,
+      assigneeEmail: o.assignee ? o.assignee.email : null,
+      dueAt: o.dueAt || null,
+      status: o.status || 'open',
+      priority: o.priority || 'normal',
+      section: o.section || null,
+      estimatedMinutes: o.estimatedMinutes || null,
+      slaHours: o.slaHours || null,
+      commentCount: o.commentCount || 0,
+      createdBy: (o.createdBy || users.koordynator).id,
+      createdAt: o.createdAt || daysAgo(1),
+      updatedAt: o.createdAt || daysAgo(1),
+    };
+    db.tasks.push(row);
+    return row;
+  };
+
+  task({
     dealId: dAudit.id,
     title: 'Umowic audyt u p. Wisniewskiego',
     description: 'Termin przesuniety na wniosek klienta.',
-    assigneeId: users.serwisant.id,
-    assigneeEmail: users.serwisant.email,
+    assignee: users.serwisant,
     dueAt: daysAhead(2),
-    status: 'open',
     priority: 'high',
-    section: null,
-    estimatedMinutes: null,
-    createdBy: users.koordynator.id,
-    createdAt: daysAgo(1),
-    updatedAt: daysAgo(1),
+    section: 'audyt',
+    slaHours: 168,
+    estimatedMinutes: 30,
+  });
+  task({
+    dealId: dOffer.id,
+    title: 'Wyslac oferte po kalkulacji 10 kW',
+    description: 'Klient chce wariant z magazynem i bez.',
+    assignee: users.serwisant,
+    dueAt: daysAhead(0.2),
+    priority: 'high',
+    section: 'oferta',
+    slaHours: 24,
+    estimatedMinutes: 45,
+    commentCount: 2,
+    createdAt: daysAgo(0.9), // SLA 24 h juz na ostatniej prostej
+  });
+  task({
+    dealId: dOffer.id,
+    title: 'Doslac rzut dachu do kalkulacji',
+    assignee: users.serwisant,
+    dueAt: daysAhead(1),
+    section: 'oferta',
+    slaHours: 168,
+  });
+  task({
+    projectId: pMontaze.id,
+    title: 'Zamowic inwerter Fronius 10 kW',
+    description: 'Dostawa na magazyn przed 12 wrzesnia.',
+    assignee: users.koordynator,
+    dueAt: daysAgo(2), // zalegle — filtr "Zalegle" ma co pokazac
+    priority: 'high',
+    section: 'przed_montazem',
+    slaHours: 24,
+    createdAt: daysAgo(3),
+  });
+  task({
+    dealId: dSold.id,
+    title: 'Potwierdzic termin ekipy z klientem',
+    assignee: users.koordynator,
+    dueAt: daysAhead(4),
+    section: 'przed_montazem',
+  });
+  task({
+    dealId: dSold.id,
+    title: 'Przygotowac liste materialu na montaz',
+    // Bez wykonawcy — filtr "Nieprzypisane" ma co pokazac.
+    dueAt: daysAhead(5),
+    section: 'sprzedane',
+    estimatedMinutes: 90,
+  });
+  task({
+    dealId: dDone.id,
+    title: 'Zgloszenie do Moj Prad',
+    assignee: users.admin,
+    status: 'done',
+    section: 'dotacja',
+    slaHours: 720,
+    createdAt: daysAgo(6),
+  });
+  task({
+    dealId: dDone.id,
+    title: 'Wystawic fakture koncowa',
+    assignee: users.admin,
+    status: 'in_progress',
+    dueAt: daysAhead(3),
+    section: 'po_montazu',
+    createdBy: users.serwisant,
   });
 
   return { users, clients, missedNowak };

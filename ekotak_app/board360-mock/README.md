@@ -124,7 +124,19 @@ Trzy konta zamiast jednego, bo tylko tak da się na telefonie sprawdzić, że pr
 - `POST /api/devices` `{deviceId, model?, ...}` — upsert
 
 ### Zadania
-- `GET /api/tasks/members`, `GET /api/tasks?status=&assignee=me`, `POST /api/tasks`
+- `GET /api/tasks/members` — z `functions[]` i `additionalRoles[]` (po nich kreator filtruje osoby pod kafelkami zespołów)
+- `GET /api/tasks?status=&assignee=me`, `POST /api/tasks`
+- `PATCH /api/tasks/:id` — pojedyncze pola (`status`, `dueAt`, `assigneeId`, `priority`, `section`, `estimatedMinutes`, `slaHours`), `DELETE /api/tasks/:id` → 204
+- `GET /api/deals/:id/tasks`, `POST /api/deals/:id/tasks` — tak zadanie wiąże się z klientem (`Task` nie ma `clientId`)
+- `GET /api/projects?status=active&templates=0`, `POST /api/projects/:id/tasks` (wymaga `projects.manage`)
+
+Rekord zadania ma pełny kształt z board360 — `section`, `slaHours`, `estimatedMinutes`, `commentCount`,
+`createdBy` oraz doklejane przy odczycie `dealName` / `projectName`. Sekcja zadania zakładanego pod dealem
+wyprowadza się z etapu deala, o ile nie podano jej wprost.
+
+**Czego jeszcze nie ma:** komentarzy, załączników i modułu `discussions` (nieprzeczytane) — wchodzą razem
+z etapem E5 aplikacji mobilnej, patrz `design/mockups/modul-zadania.html`. Nie ma też
+`GET /api/tasks/:id`, bo nie ma go jeszcze w samym board360.
 
 ### Zdrowie
 - `GET /api/health` → `{ok, service, time, counts}` (używane też przez `HEALTHCHECK` w obrazie)

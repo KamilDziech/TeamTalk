@@ -13,6 +13,7 @@ const db = {
   voiceReports: [],
   devices: [],
   tasks: [],
+  projects: [],            // projekty — krok "kogo dotyczy" w kreatorze zadania
   // ── CRM ────────────────────────────────────────────────────────────────────
   categories: [],          // katalog technologii (GET /api/categories)
   deals: [],
