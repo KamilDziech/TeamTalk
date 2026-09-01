@@ -59,11 +59,32 @@ class AuthViewModel @Inject constructor(
                 // Session saved → ObserveSessionUseCase triggers NavGraph navigation automatically
             } catch (e: Exception) {
                 _loginState.update {
-                    it.copy(isLoading = false, errorMessage = e.message ?: "Błąd logowania")
+                    it.copy(isLoading = false, errorMessage = friendlyLoginError(e))
                 }
             }
         }
     }
+
+    /** Przyjazny, polski opis błędu logowania — board360 zwraca komunikaty po polsku. */
+    private fun friendlyLoginError(e: Throwable): String = when (e) {
+        is retrofit2.HttpException -> when (e.code()) {
+            400 -> serverMessage(e) ?: "Podaj e-mail i hasło"
+            401 -> serverMessage(e) ?: "Nieprawidłowy e-mail lub hasło"
+            403 -> "To konto nie ma dostępu do aplikacji mobilnej"
+            429 -> "Zbyt wiele prób logowania — odczekaj minutę i spróbuj ponownie"
+            in 500..599 -> "Błąd serwera (${e.code()}) — spróbuj ponownie"
+            else -> "Nie udało się zalogować (kod ${e.code()})"
+        }
+        is java.io.IOException -> "Brak połączenia z serwerem"
+        else -> e.message ?: "Nie udało się zalogować"
+    }
+
+    /** Wyciąga `message` z ciała błędu board360: `{"message":"...","statusCode":401}`. */
+    private fun serverMessage(e: retrofit2.HttpException): String? =
+        runCatching { e.response()?.errorBody()?.string() }
+            .getOrNull()
+            ?.let { MESSAGE_FIELD.find(it)?.groupValues?.get(1) }
+            ?.takeIf { it.isNotBlank() }
 
     fun onRegisterEmailChange(value: String) =
         _registerState.update { it.copy(email = value, errorMessage = null) }
@@ -89,5 +110,9 @@ class AuthViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    private companion object {
+        val MESSAGE_FIELD = Regex("\"message\"\\s*:\\s*\"([^\"]*)\"")
     }
 }

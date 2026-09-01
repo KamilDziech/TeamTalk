@@ -183,7 +183,7 @@ private fun ClientHeaderCard(
 }
 
 @Composable
-private fun TimelineEntryCard(
+internal fun TimelineEntryCard(
     entry: TimelineEntry,
     onOpenDetail: () -> Unit,
 ) {

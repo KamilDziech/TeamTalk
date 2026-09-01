@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- TeamTalk / ekotak - koncept A "Warsztat": daszek + zebatka-dymek.
+       Kafel 512x512, Pantone 802 C #44D62C na czerni #080808. -->
+  <defs>
+    <mask id="hub-a">
+      <rect width="512" height="512" fill="#fff"/>
+      <circle cx="256" cy="306" r="48" fill="#000"/>
+    </mask>
+  </defs>
+  <rect width="512" height="512" fill="#080808"/>
+  <g fill="#44d62c">
+    <path d="M140 197 256 117 372 197" fill="none" stroke="#44d62c" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M201 377 110 412 171 337Z" stroke="#44d62c" stroke-width="14" stroke-linejoin="round"/>
+    <g mask="url(#hub-a)">
+      <circle cx="256" cy="306" r="100"/>
+      <rect x="237" y="186" width="38" height="38" rx="11"/>
+      <rect x="237" y="186" width="38" height="38" rx="11" transform="rotate(36 256 306)"/>
+      <rect x="237" y="186" width="38" height="38" rx="11" transform="rotate(72 256 306)"/>
+      <rect x="237" y="186" width="38" height="38" rx="11" transform="rotate(108 256 306)"/>
+      <rect x="237" y="186" width="38" height="38" rx="11" transform="rotate(144 256 306)"/>
+      <rect x="237" y="186" width="38" height="38" rx="11" transform="rotate(180 256 306)"/>
+      <rect x="237" y="186" width="38" height="38" rx="11" transform="rotate(216 256 306)"/>
+      <rect x="237" y="186" width="38" height="38" rx="11" transform="rotate(252 256 306)"/>
+      <rect x="237" y="186" width="38" height="38" rx="11" transform="rotate(288 256 306)"/>
+      <rect x="237" y="186" width="38" height="38" rx="11" transform="rotate(324 256 306)"/>
+    </g>
+    <circle cx="228" cy="306" r="11"/>
+    <circle cx="256" cy="306" r="11"/>
+    <circle cx="284" cy="306" r="11"/>
+  </g>
+</svg>

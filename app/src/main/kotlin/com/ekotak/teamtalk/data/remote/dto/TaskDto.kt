@@ -26,6 +26,19 @@ data class TaskResponseDto(
     val createdAt: String? = null,
 )
 
+/**
+ * Projekt z GET /api/projects — w aplikacji mobilnej używany wyłącznie jako
+ * pozycja listy w kroku „kogo dotyczy" kreatora zadania, stąd okrojony kształt.
+ */
+@Serializable
+data class ProjectDto(
+    val id: String,
+    val name: String,
+    val status: String? = null,
+    val color: String? = null,
+    val taskCount: Int? = null,
+)
+
 /** Członek zespołu z GET /api/tasks/members. */
 @Serializable
 data class TaskMemberDto(
@@ -34,4 +47,9 @@ data class TaskMemberDto(
     val firstName: String? = null,
     val lastName: String? = null,
     val role: String? = null,
+    /** Role dodatkowe — liczą się na równi z główną (np. ktoś z Biura jeżdżący na montaże). */
+    val additionalRoles: List<String> = emptyList(),
+    /** Funkcje pełnione w firmie (board360 ADR-0013) — po nich filtrujemy osoby
+     *  w kreatorze zadania. Domyślnie pusta lista: starszy backend pola nie zwraca. */
+    val functions: List<String> = emptyList(),
 )

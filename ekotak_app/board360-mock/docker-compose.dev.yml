@@ -1,0 +1,17 @@
+# Nakladka dev: kod z hosta zamiast tego z obrazu + restart procesu po zapisie
+# pliku (`node --watch`). Uzycie:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# `node_modules` zostaje z obrazu (anonimowy wolumen przykrywa katalog z hosta),
+# wiec nie trzeba miec zainstalowanego Node ani npm na maszynie deweloperskiej.
+
+services:
+  mock:
+    command: ["node", "--watch", "server.js"]
+    environment:
+      LOG_REQUESTS: "1"
+    volumes:
+      - ./server.js:/app/server.js:ro
+      - ./src:/app/src:ro
+      - /app/node_modules

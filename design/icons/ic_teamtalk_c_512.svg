@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- TeamTalk / ekotak - koncept C "Glos maszyny": mikrofon w koronie zebatki, daszek nad znakiem. -->
+  <defs>
+    <mask id="hub-c">
+      <rect width="512" height="512" fill="#fff"/>
+      <circle cx="256" cy="312" r="72" fill="#000"/>
+    </mask>
+  </defs>
+  <rect width="512" height="512" fill="#080808"/>
+  <g fill="#e9f0ea" mask="url(#hub-c)">
+    <circle cx="256" cy="312" r="104"/>
+    <rect x="239" y="190" width="34" height="36" rx="9"/>
+    <rect x="239" y="190" width="34" height="36" rx="9" transform="rotate(30 256 312)"/>
+    <rect x="239" y="190" width="34" height="36" rx="9" transform="rotate(60 256 312)"/>
+    <rect x="239" y="190" width="34" height="36" rx="9" transform="rotate(90 256 312)"/>
+    <rect x="239" y="190" width="34" height="36" rx="9" transform="rotate(120 256 312)"/>
+    <rect x="239" y="190" width="34" height="36" rx="9" transform="rotate(150 256 312)"/>
+    <rect x="239" y="190" width="34" height="36" rx="9" transform="rotate(180 256 312)"/>
+    <rect x="239" y="190" width="34" height="36" rx="9" transform="rotate(210 256 312)"/>
+    <rect x="239" y="190" width="34" height="36" rx="9" transform="rotate(240 256 312)"/>
+    <rect x="239" y="190" width="34" height="36" rx="9" transform="rotate(270 256 312)"/>
+    <rect x="239" y="190" width="34" height="36" rx="9" transform="rotate(300 256 312)"/>
+    <rect x="239" y="190" width="34" height="36" rx="9" transform="rotate(330 256 312)"/>
+  </g>
+  <g fill="#44d62c">
+    <path d="M172 152 256 106 340 152" fill="none" stroke="#44d62c" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="233" y="250" width="46" height="76" rx="23"/>
+    <path d="M216 312A40 40 0 0 0 296 312" fill="none" stroke="#44d62c" stroke-width="12" stroke-linecap="round"/>
+    <path d="M256 356V372" fill="none" stroke="#44d62c" stroke-width="12" stroke-linecap="round"/>
+  </g>
+</svg>

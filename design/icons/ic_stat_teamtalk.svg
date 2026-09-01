@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="75 98 340 340" width="24" height="24">
+  <!-- Ikona powiadomienia (24 dp). Biala sylwetka bez tla, bez kropek w piascie
+       - przy 24 dp kropki zlewaja sie w plame. Kadr scisniety do znaku. -->
+  <defs>
+    <mask id="hub-stat">
+      <rect x="75" y="98" width="340" height="340" fill="#fff"/>
+      <circle cx="256" cy="306" r="48" fill="#000"/>
+    </mask>
+  </defs>
+  <g fill="#ffffff">
+    <path d="M140 197 256 117 372 197" fill="none" stroke="#ffffff" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M201 377 110 412 171 337Z" stroke="#ffffff" stroke-width="14" stroke-linejoin="round"/>
+    <g mask="url(#hub-stat)">
+      <circle cx="256" cy="306" r="100"/>
+      <rect x="237" y="186" width="38" height="38" rx="11"/>
+      <rect x="237" y="186" width="38" height="38" rx="11" transform="rotate(36 256 306)"/>
+      <rect x="237" y="186" width="38" height="38" rx="11" transform="rotate(72 256 306)"/>
+      <rect x="237" y="186" width="38" height="38" rx="11" transform="rotate(108 256 306)"/>
+      <rect x="237" y="186" width="38" height="38" rx="11" transform="rotate(144 256 306)"/>
+      <rect x="237" y="186" width="38" height="38" rx="11" transform="rotate(180 256 306)"/>
+      <rect x="237" y="186" width="38" height="38" rx="11" transform="rotate(216 256 306)"/>
+      <rect x="237" y="186" width="38" height="38" rx="11" transform="rotate(252 256 306)"/>
+      <rect x="237" y="186" width="38" height="38" rx="11" transform="rotate(288 256 306)"/>
+      <rect x="237" y="186" width="38" height="38" rx="11" transform="rotate(324 256 306)"/>
+    </g>
+  </g>
+</svg>

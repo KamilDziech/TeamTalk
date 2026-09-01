@@ -1,6 +1,7 @@
 package com.ekotak.teamtalk.presentation.navigation
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.PhoneMissed
 import androidx.compose.material.icons.filled.Settings
@@ -19,6 +20,7 @@ private data class BottomNavItem(
 )
 
 private val bottomNavItems = listOf(
+    BottomNavItem("home",     "Pulpit",      Icons.Default.GridView),
     BottomNavItem("calllogs", "Nieodebrane", Icons.Default.PhoneMissed),
     BottomNavItem("history",  "Historia",   Icons.Default.History),
     BottomNavItem("settings", "Ustawienia", Icons.Default.Settings),
@@ -35,7 +37,9 @@ fun BottomNavBar(
                 selected = currentRoute == item.route,
                 onClick = {
                     navController.navigate(item.route) {
-                        popUpTo("calllogs") { saveState = true }
+                        // Pulpit jest korzeniem grafu — zakładki wracają do niego,
+                        // zamiast piętrzyć stos.
+                        popUpTo("home") { saveState = true }
                         launchSingleTop = true
                         restoreState = true
                     }

@@ -10,6 +10,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.ekotak.teamtalk.MainActivity
+import com.ekotak.teamtalk.R
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
@@ -43,7 +44,8 @@ class NotificationHelper @Inject constructor(
         )
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_menu_call)
+            .setSmallIcon(R.drawable.ic_stat_ekotak)
+            .setColor(ContextCompat.getColor(context, R.color.ekotak_green))
             .setContentTitle("Nieodebrane połączenie")
             .setContentText("Od: $callerLabel")
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
@@ -73,7 +75,8 @@ class NotificationHelper @Inject constructor(
 
         val label = if (!phone.isNullOrBlank()) phone else "Nieznany numer"
         val notification = NotificationCompat.Builder(context, POST_CALL_CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_menu_edit)
+            .setSmallIcon(R.drawable.ic_stat_ekotak)
+            .setColor(ContextCompat.getColor(context, R.color.ekotak_green))
             .setContentTitle("Dodaj notatkę z rozmowy")
             .setContentText("Rozmowa z: $label")
             .setPriority(NotificationCompat.PRIORITY_HIGH)

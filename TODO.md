@@ -59,16 +59,112 @@ Legenda: ✅ Zaimplementowane | 🚧 Częściowo | ❌ Brak
 
 ---
 
-## 6. Baza klientów (CRM)
+## 6. Kartoteka klientów (karta „Klienci" z board360)
 
-- ✅ Lista klientów z wyszukiwarką
-- ✅ Dodawanie klienta ręcznie
-- ✅ Import klienta z kontaktów urządzenia
-- ✅ Normalizacja i walidacja numeru telefonu (min. 7 cyfr)
-- ✅ Edycja klienta (adres, notatki)
-- ✅ Usunięcie klienta z potwierdzeniem
-- ✅ Timeline klienta — historia wszystkich połączeń i notatek (ClientTimelineScreen)
-- ✅ Liczba połączeń dla każdego klienta (badge na liście)
+Pełny odpowiednik karty „Klienci" z panelu. Klienci mają cache Room (lista
+działa offline), dane lejka — główny etap, instalacje, deale wspólne — lecą
+z `GET /api/deals`, `/api/deals/installations/current`, `/api/offers/deal-values`,
+`/api/deals/contacts` i `/api/categories` przy wejściu i przy odświeżeniu.
+
+- ✅ Lista z wyszukiwarką (imię, telefon, e-mail, adres, miejscowość)
+- ✅ Zakładki kategorii: Klienci / Kontrahenci / Afilianci z licznikami
+- ✅ Filtr głównego etapu (najświeższa szansa) — arkusz z kolorami etapów
+- ✅ Filtr instalacji + „Wyczyść" (widoczne tylko przy aktywnym filtrze)
+- ✅ Karta na liście: nazwisko, telefon i miejscowość, chip etapu, badge
+  instalacji (PV/O/K…), liczba deali, tag „deal wspólny: X", licznik połączeń
+- ✅ Dzwonienie wprost z listy, pull-to-refresh, osobne komunikaty dla pustej
+  kartoteki, pustych filtrów i błędu
+- ✅ Karta klienta w czterech zakładkach: Dane / Deale / Historia / Asystent
+- ✅ Dane: telefony, e-maile, adres, status walidacji adresu (geo), dojazd
+  z baz Kobiernice i Gliwice, kategoria i typ, instalacje, deale wspólne
+- ✅ Szybkie akcje karty: Zadzwoń, SMS, Nawiguj (geo lub adres), Zadanie
+- ✅ Deale: etap + wartość brutto → przejście do karty deala
+- ✅ Historia: dotychczasowy timeline połączeń i notatek, wchłonięty do karty
+- ✅ Asystent klienta (`POST /clients/:id/assistant`) — Q&A po notatkach i
+  komunikacji ze wszystkich deali, z podpowiedziami i informacją o podstawie
+- ✅ Dodanie wpisu (`deal.manage`) — etykieta FAB wg aktywnej zakładki
+- ✅ Edycja danych (`PATCH /clients/:id`) — wysyłane tylko zmienione pola;
+  zmiana adresu uruchamia serwerowo re-geokodowanie i przeliczenie dojazdu
+- ✅ Scalanie duplikatów (te same nazwisko / telefon / e-mail) z wyborem
+  rekordu docelowego i potwierdzeniem
+- ✅ Anonimizacja RODO (`settings.company`) w menu karty, z potwierdzeniem
+- ❌ Import klienta z kontaktów urządzenia (był w wersji sprzed board360)
+- ❌ Podgląd i edycja części adresu (kod / miejscowość / ulica) — panel je
+  rozbija sam przy geokodowaniu
+
+---
+
+## 6a. CRM — lejek sprzedaży (deale)
+
+Moduł „CRM" z pulpitu. Dane wprost z board360 (`GET /api/deals`, `GET /api/deals/:id`),
+bez cache Room — etap deala zmienia się często i po stronie panelu.
+
+- ✅ Lejek jako lista pogrupowana etapami (mobilny odpowiednik tablicy Kanban)
+- ✅ Etykiety etapów 1:1 ze `STAGE_LABEL` panelu (Lead … Po montażu)
+- ✅ Filtry faz lejka: BOW / Sprzedaż / Etap montażowy / Po montażu
+- ✅ Filtry „Zaległe" (minął `nextContactAt`) i „Moje" (deale zalogowanego)
+- ✅ Wyszukiwarka po kliencie, mieście, źródle i opisie
+- ✅ Karta na liście: klient + miasto, chip etapu, „X dni w etapie", badge zaległości
+- ✅ Dzwonienie wprost z listy (klient doklejany z kartoteki po `clientId`)
+- ✅ Pull-to-refresh, osobne komunikaty dla pustego lejka, pustych filtrów i błędu
+- ✅ Karta deala: dane, LEAD (zgłoszenie + instalacje), dane budynku, OZC,
+  spotkanie/audyt, historia zmian
+- ✅ Zmiana etapu wg maszyny stanów board360 (tylko przejścia w przód + `lost`)
+- ✅ Wymagany powód przy „Stracone" (zestaw kategorii zależny od etapu)
+- ✅ Blokady walidacyjne z API (422 + `missing[]`) pokazywane po polsku
+- ✅ Termin następnego kontaktu — skróty jutro / 3 dni / tydzień / 2 tygodnie
+- ✅ Akcje zapisu widoczne tylko z uprawnieniem `deal.manage` (świeże z `GET /api/me`)
+- ❌ Cofanie etapu po głównej ścieżce (API dopuszcza — korekta zostaje w panelu)
+- ❌ Tworzenie deala, oferta, materiały, rozliczenie, pliki
+
+### Zakładka „LEAD" karty deala
+
+Odpowiednik zakładki `lead` z `DealDrawer` panelu. Dane z trzech źródeł, każde
+z osobną obsługą błędu: `GET /api/intake/deal/:id/lead` (zgłoszenie z leadowni
+cennikinstalacji.pl), `GET /api/deals/:id/installations` (migawka instalacji
+etapu `lead`, już z dziedziczeniem) i `GET /api/categories` (nazwy węzłów).
+Dociągane dopiero przy wejściu w zakładkę — reszta karty ich nie potrzebuje.
+
+- ✅ Baner auto-kwalifikacji (`qualReview`) — powód i data zgłoszenia do decyzji,
+  z ostrzeżeniem o automatycznym odrzuceniu po upływie okna
+- ✅ Spotkanie wstępne: miejsce, termin, czas trwania, prowadzący, link +
+  skrót „Umów"/„Zmień" do formularza pozostałych pól (`deal.manage`)
+- ✅ Instalacje wybrane na etapie LEAD jako ścieżki katalogu
+  („Ogrzewanie › Pompa ciepła"); nieznane id pokazywane surowo
+- ✅ Zgłoszenie z leadowni: kanał (targi / strona www / telefon), źródło, dane
+  podane przez klienta, zainteresowanie, budżet, zgoda, kto przyjął, data
+- ✅ Notatka z rozmowy (kanał `tel`) / uwagi klienta — edycja z telefonu
+  (`PATCH /api/intake/deal/:id/lead/note`, wymaga `deal.manage`)
+- ✅ Dane budynku z kreatora /targi (kształt, konstrukcja, powierzchnia, osoby,
+  kondygnacje, etap budowy, okna, piwnica, garaż)
+- ✅ Deal spoza leadowni: zamiast pustej zakładki komunikat, gdzie szukać danych
+- ❌ Edycja drzewa instalacji (drill-down do marek) — zostaje w panelu
+- ❌ Artykuł wiedzy dla wybranej instalacji (`KnowledgeArticlePanel`) — wymaga
+  ekranów katalogu, których mobile jeszcze nie ma
+- ❌ Ikonografika budynku i ręczna korekta danych budynku ze zgłoszenia
+  (`PATCH …/lead/building`) — te same wartości stoją niżej wypisane
+
+### Edycja karty (ekran `deal/{id}/edit`)
+
+Pełen zakres pól przyjmowanych przez `PATCH /api/deals/:id`. Zapis idzie jednym
+żądaniem i wyłącznie z polami, które się zmieniły — równoległe zmiany w panelu
+nie są nadpisywane. Puste pole = jawny `null` = wyczyszczenie wartości.
+
+- ✅ Dane podstawowe: źródło, nazwa projektu, opis, kod rabatowy
+- ✅ Segment, rodzaj budynku, trudność, buyer persona (z opcją „brak")
+- ✅ Zgoda RODO, wyjątek „osoba starsza"
+- ✅ Dane budynku: osoby, m², kondygnacje, rodzaj, konstrukcja, etap, okna, piwnica, garaż
+- ✅ OZC: moc budynku, moc CWU, link do cieplo.app, potwierdzenie audytora
+- ✅ Spotkanie: miejsce, termin (data + godzina), czas trwania, link, osoba wykonująca
+- ✅ Audyt: miejsce, adres, termin, opiekun
+- ✅ Opiekun deala i opiekun etapu (lista z `GET /api/tasks/members`)
+- ✅ Dane do faktury: przełącznik „jak instalacji" + odbiorca / firma / NIP / adres
+- ✅ Folder Drive
+- ✅ Termin następnego kontaktu — pełny wybór daty i godziny + wyczyszczenie
+- ✅ „Zapisz" aktywne tylko przy realnych zmianach; wyjście z niezapisanymi pyta o potwierdzenie
+- ❌ `buildingPhoto` — zdjęcie budynku ustawia `POST /:id/building-photo` albo
+  referencja `doc:<id>` z audytu; ręcznie wpisany URL rozjechałby się z panelem
+- ❌ Selektory opiekunów bez uprawnienia `tasks.view` (brak listy zespołu — sekcja ukryta)
 
 ---
 
@@ -101,6 +197,20 @@ Legenda: ✅ Zaimplementowane | 🚧 Częściowo | ❌ Brak
 | Historia | ✅ | ✅ |
 | Klienci | ✅ | ✅ |
 | Ustawienia | ✅ | ✅ |
+
+---
+
+## 10. Pulpit (ekran startowy)
+
+Kafelki modułów przeniesione z pulpitu board360 — etykiety, opisy, kolory i
+ikony 1:1. Pominięte na mobile: Raporty, Zasoby, Marketing, Faktury KSeF.
+
+- ✅ Pulpit jako ekran startowy po zalogowaniu + zakładka „Pulpit" w dolnym pasku
+- ✅ Kafelki: Asystent, CRM, Klienci, Mapa, Komunikacja, Montaże, Serwis, Magazyn, Zadania, Kalendarz
+- ✅ Kafelek „Klienci" → istniejąca kartoteka (ClientListScreen)
+- ✅ Kafelek „CRM" → lejek sprzedaży (DealListScreen, §6a)
+- 🚧 Pozostałe kafelki → ekran-zaślepka „wersja mobilna w przygotowaniu"
+- ❌ Zmiana kolejności kafelków przeciąganiem (jest w board360, brak na mobile)
 
 ---
 

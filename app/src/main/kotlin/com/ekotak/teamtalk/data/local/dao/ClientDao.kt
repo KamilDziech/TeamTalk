@@ -19,9 +19,13 @@ interface ClientDao {
            OR lastName  LIKE '%' || :query || '%'
            OR phone     LIKE '%' || :query || '%'
            OR phone2    LIKE '%' || :query || '%'
+           OR email     LIKE '%' || :query || '%'
         ORDER BY lastName, firstName
     """)
     fun observeByQuery(query: String): Flow<List<ClientEntity>>
+
+    @Query("SELECT * FROM clients WHERE id = :id LIMIT 1")
+    fun observeById(id: String): Flow<ClientEntity?>
 
     @Query("SELECT * FROM clients WHERE id = :id LIMIT 1")
     suspend fun getById(id: String): ClientEntity?
@@ -37,6 +41,9 @@ interface ClientDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(client: ClientEntity)
+
+    @Query("DELETE FROM clients WHERE id IN (:ids)")
+    suspend fun deleteByIds(ids: List<String>)
 
     @Query("DELETE FROM clients WHERE id = :id")
     suspend fun deleteById(id: String)

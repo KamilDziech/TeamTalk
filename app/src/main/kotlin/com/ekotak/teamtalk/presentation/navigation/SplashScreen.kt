@@ -25,7 +25,7 @@ fun SplashScreen() {
         verticalArrangement = Arrangement.Center,
     ) {
         Text(
-            text = "TeamTalk",
+            text = "Ekotak",
             style = MaterialTheme.typography.displaySmall,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onPrimary,

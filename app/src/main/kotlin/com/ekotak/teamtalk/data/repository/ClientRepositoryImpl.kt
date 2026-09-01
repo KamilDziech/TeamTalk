@@ -4,7 +4,16 @@ import com.ekotak.teamtalk.data.local.dao.ClientDao
 import com.ekotak.teamtalk.data.mapper.toDomain
 import com.ekotak.teamtalk.data.mapper.toEntity
 import com.ekotak.teamtalk.data.remote.api.TeamTalkApi
+import com.ekotak.teamtalk.data.remote.dto.AssistantMessageDto
+import com.ekotak.teamtalk.data.remote.dto.ClientAssistantRequest
+import com.ekotak.teamtalk.data.remote.dto.CreateClientRequest
+import com.ekotak.teamtalk.data.remote.dto.MergeClientsRequest
+import com.ekotak.teamtalk.data.remote.dto.buildClientPatch
+import com.ekotak.teamtalk.domain.model.AssistantMessage
+import com.ekotak.teamtalk.domain.model.AssistantReply
 import com.ekotak.teamtalk.domain.model.Client
+import com.ekotak.teamtalk.domain.model.ClientDraft
+import com.ekotak.teamtalk.domain.model.NewClient
 import com.ekotak.teamtalk.domain.repository.ClientRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
@@ -32,6 +41,9 @@ class ClientRepositoryImpl @Inject constructor(
         } catch (_: Exception) {}
     }
 
+    override fun observeClient(id: String): Flow<Client?> =
+        clientDao.observeById(id).map { it?.toDomain() }
+
     override suspend fun getClientById(id: String): Client {
         return try {
             val dto = api.getClientById(id)
@@ -54,6 +66,70 @@ class ClientRepositoryImpl @Inject constructor(
         }
     }
 
+    /** Błąd świadomie leci dalej — pull-to-refresh musi umieć pokazać awarię. */
+    override suspend fun refresh() {
+        val fresh = api.getClients()
+        clientDao.upsertAll(fresh.map { it.toEntity() })
+    }
+
+    override suspend fun createClient(input: NewClient): Client {
+        val dto = api.createClient(
+            CreateClientRequest(
+                firstName = input.firstName,
+                lastName = input.lastName,
+                email = input.email,
+                phone = input.phone,
+                address = input.address,
+                type = input.type?.wire,
+                category = input.category.wire,
+            ),
+        )
+        clientDao.upsert(dto.toEntity())
+        return dto.toDomain()
+    }
+
+    override suspend fun updateClient(original: Client, draft: ClientDraft): Client {
+        val patch = buildClientPatch(original, draft)
+        // Pusty patch API odrzuciłoby, a i tak nie ma czego zapisywać.
+        if (patch.isEmpty()) return original
+        val dto = api.updateClient(original.id, patch)
+        clientDao.upsert(dto.toEntity())
+        return dto.toDomain()
+    }
+
+    override suspend fun mergeClients(targetId: String, sourceIds: List<String>): Client {
+        val dto = api.mergeClients(targetId, MergeClientsRequest(sourceIds))
+        // Rekordy źródłowe zniknęły po stronie serwera — usuwamy je też z cache,
+        // inaczej scalone duplikaty wracałyby na listę do następnego odświeżenia.
+        clientDao.deleteByIds(sourceIds)
+        clientDao.upsert(dto.toEntity())
+        return dto.toDomain()
+    }
+
+    override suspend fun eraseClient(id: String): Client {
+        val dto = api.eraseClient(id)
+        clientDao.upsert(dto.toEntity())
+        return dto.toDomain()
+    }
+
+    override suspend fun askAssistant(
+        clientId: String,
+        messages: List<AssistantMessage>,
+    ): AssistantReply {
+        val reply = api.askClientAssistant(
+            id = clientId,
+            request = ClientAssistantRequest(
+                messages = messages.map { AssistantMessageDto(role = it.role, content = it.content) },
+            ),
+        )
+        return AssistantReply(
+            text = reply.text,
+            configured = reply.configured,
+            commsCount = reply.commsCount,
+            dealCount = reply.dealCount,
+        )
+    }
+
     private fun matches(client: Client, normalizedPhone: String): Boolean {
         if (normalizedPhone.isBlank()) return false
         return normalize(client.phone).endsWith(normalizedPhone) ||
@@ -62,7 +138,7 @@ class ClientRepositoryImpl @Inject constructor(
     }
 
     private fun normalize(raw: String?): String {
-        val digits = (raw ?: "").replace(Regex("[^\\d]"), "")
+        val digits = (raw ?: "").filter { it.isDigit() }
         return if (digits.length >= 9) digits.takeLast(9) else digits
     }
 }

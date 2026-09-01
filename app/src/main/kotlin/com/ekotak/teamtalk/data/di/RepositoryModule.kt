@@ -33,4 +33,23 @@ abstract class RepositoryModule {
 
     @Binds @Singleton
     abstract fun bindTaskRepository(impl: TaskRepositoryImpl): TaskRepository
+
+    @Binds @Singleton
+    abstract fun bindDealRepository(impl: DealRepositoryImpl): DealRepository
+
+    @Binds @Singleton
+    abstract fun bindCrmDirectoryRepository(
+        impl: CrmDirectoryRepositoryImpl,
+    ): CrmDirectoryRepository
+
+    @Binds @Singleton
+    abstract fun bindLeadIntakeRepository(impl: LeadIntakeRepositoryImpl): LeadIntakeRepository
+
+    @Binds @Singleton
+    abstract fun bindKnowledgeArticleRepository(
+        impl: KnowledgeArticleRepositoryImpl,
+    ): KnowledgeArticleRepository
+
+    @Binds @Singleton
+    abstract fun bindDealMessageRepository(impl: DealMessageRepositoryImpl): DealMessageRepository
 }

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- TeamTalk / ekotak - koncept D "Sygnal": dymek z fala glosu pod daszkiem, tlo granatowe #0B1220. -->
+  <rect width="512" height="512" fill="#0b1220"/>
+  <g fill="#e9f0ea">
+    <path d="M150 392 118 458 214 396Z" stroke="#e9f0ea" stroke-width="12" stroke-linejoin="round"/>
+    <rect x="104" y="200" width="304" height="210" rx="56"/>
+  </g>
+  <g fill="#44d62c">
+    <path d="M156 158 256 102 356 158" fill="none" stroke="#44d62c" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="157" y="277" width="22" height="56" rx="11"/>
+    <rect x="201" y="253" width="22" height="104" rx="11"/>
+    <rect x="245" y="235" width="22" height="140" rx="11"/>
+    <rect x="289" y="261" width="22" height="88" rx="11"/>
+    <rect x="333" y="281" width="22" height="48" rx="11"/>
+  </g>
+</svg>

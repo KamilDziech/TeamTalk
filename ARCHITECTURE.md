@@ -130,10 +130,14 @@ com.ekotak.teamtalk/
     │   ├── CallLogListScreen.kt       filtry: status/typ/data, pull-to-refresh
     │   ├── CallLogDetailScreen.kt     zmiana statusu, rezerwacja, voice report
     │   └── CallLogViewModel.kt
-    ├── clients/
-    │   ├── ClientListScreen.kt        szukaj po numerze telefonu
-    │   ├── ClientDetailScreen.kt      edycja + historia połączeń
-    │   └── ClientViewModel.kt
+    ├── client/
+    │   ├── ClientListScreen.kt        kartoteka: kategorie, filtry, duplikaty
+    │   ├── ClientDetailScreen.kt      karta: Dane / Deale / Historia / Asystent
+    │   ├── ClientFormScreen.kt        nowy wpis i edycja danych
+    │   ├── ClientMergeScreen.kt       scalanie duplikatów
+    │   ├── ClientTimelineScreen.kt    historia połączeń (także jako zakładka)
+    │   └── ClientListViewModel.kt + ClientDetailViewModel.kt
+    │       + ClientFormViewModel.kt + ClientMergeViewModel.kt
     ├── voicereports/
     │   ├── VoiceReportScreen.kt       nagrywanie m4a + transkrypcja Whisper
     │   └── VoiceReportViewModel.kt

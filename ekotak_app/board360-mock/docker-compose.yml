@@ -1,0 +1,31 @@
+name: board360-mock
+
+# Testowy backend TeamTalk. Stoi samodzielnie — nie ma bazy ani proxy, bo dane
+# zyja w pamieci procesu (restart = powrot do seeda). Port wystawiony na hosta,
+# zeby telefon w tej samej sieci (albo `adb reverse`) mogl sie polaczyc.
+
+services:
+  mock:
+    build:
+      context: .
+    image: board360-mock:dev
+    container_name: board360-mock
+    restart: unless-stopped
+    ports:
+      - "${MOCK_PORT:-3001}:3001"
+    environment:
+      # Sekret podpisu tokenu sesji. Zmiana = uniewaznienie tokenow w telefonach.
+      SESSION_SECRET: ${SESSION_SECRET:-dev-insecure-secret-change-me}
+      MOBILE_SESSION_TTL: ${MOBILE_SESSION_TTL:-2592000}
+      # Blokady walidacyjne przejsc etapu (422 + missing[]). 0 = przepuszczaj wszystko.
+      STAGE_GATES: ${STAGE_GATES:-1}
+      # Udawana transkrypcja nagrania (board360 robi to Whisperem).
+      MOCK_TRANSCRIPT: ${MOCK_TRANSCRIPT:-1}
+      LOG_REQUESTS: ${LOG_REQUESTS:-1}
+      TZ: ${TZ:-Europe/Warsaw}
+    volumes:
+      # Nagrania przezywaja restart kontenera; reszta danych nie (i tak ma nie).
+      - uploads:/app/uploads
+
+volumes:
+  uploads:

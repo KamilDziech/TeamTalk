@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- TeamTalk / ekotak - koncept B "Obieg": petla procesu wokol zebatki z daszkiem. -->
+  <defs>
+    <mask id="hub-b">
+      <rect width="512" height="512" fill="#fff"/>
+      <circle cx="256" cy="300" r="34" fill="#000"/>
+    </mask>
+  </defs>
+  <rect width="512" height="512" fill="#080808"/>
+  <g fill="#e9f0ea">
+    <path d="M98 199A168 168 0 0 1 414 199" fill="none" stroke="#e9f0ea" stroke-width="26" stroke-linecap="round"/>
+    <path d="M414 313A168 168 0 0 1 98 313" fill="none" stroke="#e9f0ea" stroke-width="26" stroke-linecap="round"/>
+    <path d="M425 230 387 202 436 184Z" stroke="#e9f0ea" stroke-width="12" stroke-linejoin="round"/>
+    <path d="M87 282 125 310 76 328Z" stroke="#e9f0ea" stroke-width="12" stroke-linejoin="round"/>
+  </g>
+  <g fill="#44d62c">
+    <path d="M186 214 256 168 326 214" fill="none" stroke="#44d62c" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+    <g mask="url(#hub-b)">
+      <circle cx="256" cy="300" r="76"/>
+      <rect x="241" y="208" width="30" height="30" rx="8"/>
+      <rect x="241" y="208" width="30" height="30" rx="8" transform="rotate(36 256 300)"/>
+      <rect x="241" y="208" width="30" height="30" rx="8" transform="rotate(72 256 300)"/>
+      <rect x="241" y="208" width="30" height="30" rx="8" transform="rotate(108 256 300)"/>
+      <rect x="241" y="208" width="30" height="30" rx="8" transform="rotate(144 256 300)"/>
+      <rect x="241" y="208" width="30" height="30" rx="8" transform="rotate(180 256 300)"/>
+      <rect x="241" y="208" width="30" height="30" rx="8" transform="rotate(216 256 300)"/>
+      <rect x="241" y="208" width="30" height="30" rx="8" transform="rotate(252 256 300)"/>
+      <rect x="241" y="208" width="30" height="30" rx="8" transform="rotate(288 256 300)"/>
+      <rect x="241" y="208" width="30" height="30" rx="8" transform="rotate(324 256 300)"/>
+    </g>
+  </g>
+</svg>

@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" width="512" height="512" role="img" aria-labelledby="ekotak-icon-title">
+  <title id="ekotak-icon-title">ekotak — koła zębate w pętli</title>
+  <rect x="0" y="0" width="512" height="512" rx="180" fill="#44D62C"/>
+
+  <!-- Pętla dwóch strzałek: łuki R=292 wokół (400,400), z przerwami i kreskami. -->
+  <g fill="none" stroke="#080808" stroke-width="26" stroke-linecap="round">
+    <path d="M118.0,324.4 A292,292 0 0 1 617.0,204.6"/>
+    <path d="M556.6,190.7 L617.0,204.6 L609.4,143.0"/>
+    <path d="M674.4,499.9 A292,292 0 0 1 125.6,499.9"/>
+    <path d="M176.4,535.5 L125.6,499.9 L109.5,559.8"/>
+    <path d="M114.4,460.7 A292,292 0 0 1 109.6,369.5"/>
+    <path d="M664.6,276.6 A292,292 0 0 1 689.8,364.4"/>
+  </g>
+
+  <!-- Koło średnie: aureola w kolorze tła + korpus z zębami i otworem. -->
+  <g fill="#44D62C" stroke="#44D62C" stroke-width="18" stroke-linejoin="round">
+    <circle cx="520" cy="385" r="76"/>
+    <rect x="504" y="287" width="32" height="34" rx="4" transform="rotate(20,520,385)"/>
+    <rect x="504" y="287" width="32" height="34" rx="4" transform="rotate(60,520,385)"/>
+    <rect x="504" y="287" width="32" height="34" rx="4" transform="rotate(100,520,385)"/>
+    <rect x="504" y="287" width="32" height="34" rx="4" transform="rotate(140,520,385)"/>
+    <rect x="504" y="287" width="32" height="34" rx="4" transform="rotate(180,520,385)"/>
+    <rect x="504" y="287" width="32" height="34" rx="4" transform="rotate(220,520,385)"/>
+    <rect x="504" y="287" width="32" height="34" rx="4" transform="rotate(260,520,385)"/>
+    <rect x="504" y="287" width="32" height="34" rx="4" transform="rotate(300,520,385)"/>
+    <rect x="504" y="287" width="32" height="34" rx="4" transform="rotate(340,520,385)"/>
+  </g>
+  <g fill="#080808">
+    <circle cx="520" cy="385" r="76"/>
+    <rect x="504" y="287" width="32" height="34" rx="4" transform="rotate(20,520,385)"/>
+    <rect x="504" y="287" width="32" height="34" rx="4" transform="rotate(60,520,385)"/>
+    <rect x="504" y="287" width="32" height="34" rx="4" transform="rotate(100,520,385)"/>
+    <rect x="504" y="287" width="32" height="34" rx="4" transform="rotate(140,520,385)"/>
+    <rect x="504" y="287" width="32" height="34" rx="4" transform="rotate(180,520,385)"/>
+    <rect x="504" y="287" width="32" height="34" rx="4" transform="rotate(220,520,385)"/>
+    <rect x="504" y="287" width="32" height="34" rx="4" transform="rotate(260,520,385)"/>
+    <rect x="504" y="287" width="32" height="34" rx="4" transform="rotate(300,520,385)"/>
+    <rect x="504" y="287" width="32" height="34" rx="4" transform="rotate(340,520,385)"/>
+    <circle cx="520" cy="385" r="36" fill="#44D62C"/>
+  </g>
+
+  <!-- Koło duże. -->
+  <g fill="#44D62C" stroke="#44D62C" stroke-width="18" stroke-linejoin="round">
+    <circle cx="325" cy="370" r="118"/>
+    <rect x="302" y="224" width="46" height="42" rx="5" transform="rotate(0,325,370)"/>
+    <rect x="302" y="224" width="46" height="42" rx="5" transform="rotate(36,325,370)"/>
+    <rect x="302" y="224" width="46" height="42" rx="5" transform="rotate(72,325,370)"/>
+    <rect x="302" y="224" width="46" height="42" rx="5" transform="rotate(108,325,370)"/>
+    <rect x="302" y="224" width="46" height="42" rx="5" transform="rotate(144,325,370)"/>
+    <rect x="302" y="224" width="46" height="42" rx="5" transform="rotate(180,325,370)"/>
+    <rect x="302" y="224" width="46" height="42" rx="5" transform="rotate(216,325,370)"/>
+    <rect x="302" y="224" width="46" height="42" rx="5" transform="rotate(252,325,370)"/>
+    <rect x="302" y="224" width="46" height="42" rx="5" transform="rotate(288,325,370)"/>
+    <rect x="302" y="224" width="46" height="42" rx="5" transform="rotate(324,325,370)"/>
+  </g>
+  <g fill="#080808">
+    <circle cx="325" cy="370" r="118"/>
+    <rect x="302" y="224" width="46" height="42" rx="5" transform="rotate(0,325,370)"/>
+    <rect x="302" y="224" width="46" height="42" rx="5" transform="rotate(36,325,370)"/>
+    <rect x="302" y="224" width="46" height="42" rx="5" transform="rotate(72,325,370)"/>
+    <rect x="302" y="224" width="46" height="42" rx="5" transform="rotate(108,325,370)"/>
+    <rect x="302" y="224" width="46" height="42" rx="5" transform="rotate(144,325,370)"/>
+    <rect x="302" y="224" width="46" height="42" rx="5" transform="rotate(180,325,370)"/>
+    <rect x="302" y="224" width="46" height="42" rx="5" transform="rotate(216,325,370)"/>
+    <rect x="302" y="224" width="46" height="42" rx="5" transform="rotate(252,325,370)"/>
+    <rect x="302" y="224" width="46" height="42" rx="5" transform="rotate(288,325,370)"/>
+    <rect x="302" y="224" width="46" height="42" rx="5" transform="rotate(324,325,370)"/>
+    <circle cx="325" cy="370" r="62" fill="#44D62C"/>
+  </g>
+
+  <!-- Koło małe. -->
+  <g fill="#44D62C" stroke="#44D62C" stroke-width="18" stroke-linejoin="round">
+    <circle cx="430" cy="548" r="58"/>
+    <rect x="417" y="471" width="26" height="29" rx="4" transform="rotate(0,430,548)"/>
+    <rect x="417" y="471" width="26" height="29" rx="4" transform="rotate(45,430,548)"/>
+    <rect x="417" y="471" width="26" height="29" rx="4" transform="rotate(90,430,548)"/>
+    <rect x="417" y="471" width="26" height="29" rx="4" transform="rotate(135,430,548)"/>
+    <rect x="417" y="471" width="26" height="29" rx="4" transform="rotate(180,430,548)"/>
+    <rect x="417" y="471" width="26" height="29" rx="4" transform="rotate(225,430,548)"/>
+    <rect x="417" y="471" width="26" height="29" rx="4" transform="rotate(270,430,548)"/>
+    <rect x="417" y="471" width="26" height="29" rx="4" transform="rotate(315,430,548)"/>
+  </g>
+  <g fill="#080808">
+    <circle cx="430" cy="548" r="58"/>
+    <rect x="417" y="471" width="26" height="29" rx="4" transform="rotate(0,430,548)"/>
+    <rect x="417" y="471" width="26" height="29" rx="4" transform="rotate(45,430,548)"/>
+    <rect x="417" y="471" width="26" height="29" rx="4" transform="rotate(90,430,548)"/>
+    <rect x="417" y="471" width="26" height="29" rx="4" transform="rotate(135,430,548)"/>
+    <rect x="417" y="471" width="26" height="29" rx="4" transform="rotate(180,430,548)"/>
+    <rect x="417" y="471" width="26" height="29" rx="4" transform="rotate(225,430,548)"/>
+    <rect x="417" y="471" width="26" height="29" rx="4" transform="rotate(270,430,548)"/>
+    <rect x="417" y="471" width="26" height="29" rx="4" transform="rotate(315,430,548)"/>
+    <circle cx="430" cy="548" r="27" fill="#44D62C"/>
+  </g>
+</svg>

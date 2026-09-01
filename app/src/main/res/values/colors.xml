@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#1976D2</color>
-    <color name="ic_launcher_foreground">#FFFFFF</color>
+    <!-- Księga znaku EKOTAK v1.2023: zieleń Pantone 802 C + czerń. -->
+    <color name="ekotak_green">#44D62C</color>
+    <color name="ekotak_ink">#080808</color>
 </resources>

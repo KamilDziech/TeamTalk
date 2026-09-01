@@ -63,7 +63,7 @@ fun RegisterScreen(
         Spacer(modifier = Modifier.height(64.dp))
 
         Text(
-            text = "TeamTalk",
+            text = "Ekotak",
             style = MaterialTheme.typography.displaySmall,
             color = MaterialTheme.colorScheme.primary,
         )

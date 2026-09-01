@@ -14,7 +14,7 @@ import com.ekotak.teamtalk.data.local.entity.*
         VoiceReportEntity::class,
         DeviceEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)

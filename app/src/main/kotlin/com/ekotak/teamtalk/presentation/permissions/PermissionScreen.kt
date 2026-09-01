@@ -139,7 +139,7 @@ fun PermissionScreen(
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                "TeamTalk potrzebuje poniższych dostępów, aby wykrywać połączenia i pokazywać dane dzwoniących.",
+                "Ekotak potrzebuje poniższych dostępów, aby wykrywać połączenia i pokazywać dane dzwoniących.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

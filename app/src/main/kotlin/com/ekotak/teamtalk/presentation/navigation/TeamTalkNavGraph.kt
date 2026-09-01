@@ -22,12 +22,26 @@ import com.ekotak.teamtalk.presentation.auth.LoginScreen
 import com.ekotak.teamtalk.presentation.auth.RegisterScreen
 import com.ekotak.teamtalk.presentation.calllog.CallLogDetailScreen
 import com.ekotak.teamtalk.presentation.calllog.CallLogListScreen
+import com.ekotak.teamtalk.presentation.client.ClientDetailScreen
+import com.ekotak.teamtalk.presentation.client.ClientFormScreen
+import com.ekotak.teamtalk.presentation.client.ClientListScreen
+import com.ekotak.teamtalk.presentation.client.ClientMergeScreen
 import com.ekotak.teamtalk.presentation.client.ClientTimelineScreen
+import com.ekotak.teamtalk.presentation.crm.DealDetailScreen
+import com.ekotak.teamtalk.presentation.crm.DealEditScreen
+import com.ekotak.teamtalk.presentation.crm.DealListScreen
+import com.ekotak.teamtalk.presentation.crm.KnowledgeArticleScreen
 import com.ekotak.teamtalk.presentation.history.HistoryScreen
+import com.ekotak.teamtalk.presentation.home.HomeScreen
+import com.ekotak.teamtalk.presentation.home.ModulePlaceholderScreen
+import com.ekotak.teamtalk.presentation.home.homeModule
 import com.ekotak.teamtalk.presentation.postcallnote.PostCallNoteScreen
 import com.ekotak.teamtalk.presentation.settings.SettingsScreen
 import com.ekotak.teamtalk.presentation.task.CreateTaskScreen
 import com.ekotak.teamtalk.presentation.voicereport.VoiceReportScreen
+
+/** Klucz komunikatu wracającego do kartoteki z ekranów potomnych. */
+private const val CLIENT_MESSAGE_KEY = "clientMessage"
 
 @Composable
 fun TeamTalkNavGraph(
@@ -83,7 +97,7 @@ private fun MainScreen(deepLinkCallLogId: String? = null, deepLinkPostCallPhone:
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    val bottomBarRoutes = setOf("calllogs", "history", "settings")
+    val bottomBarRoutes = setOf("home", "calllogs", "history", "settings")
 
     LaunchedEffect(deepLinkCallLogId) {
         if (deepLinkCallLogId != null) {
@@ -107,11 +121,162 @@ private fun MainScreen(deepLinkCallLogId: String? = null, deepLinkPostCallPhone:
     ) { padding ->
         NavHost(
             navController = navController,
-            startDestination = "calllogs",
+            startDestination = "home",
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
         ) {
+            // ── Pulpit (ekran startowy) ────────────────────────────────────────
+            composable("home") {
+                HomeScreen(
+                    onOpenModule = { module ->
+                        // Moduły mające już ekran mobilny prowadzą wprost do niego;
+                        // reszta na zaślepkę z opisem modułu.
+                        val route = when (module.key) {
+                            "clients" -> "clients"
+                            "crm" -> "crm"
+                            else -> "module/${module.key}"
+                        }
+                        navController.navigate(route)
+                    },
+                )
+            }
+
+            composable(
+                route = "module/{moduleKey}",
+                arguments = listOf(navArgument("moduleKey") { type = NavType.StringType }),
+            ) { backStackEntry ->
+                val module = homeModule(backStackEntry.arguments?.getString("moduleKey"))
+                if (module == null) {
+                    LaunchedEffect(Unit) { navController.popBackStack() }
+                } else {
+                    ModulePlaceholderScreen(
+                        module = module,
+                        onNavigateBack = { navController.popBackStack() },
+                    )
+                }
+            }
+
+            // ── CRM / lejek sprzedaży (kafelek pulpitu) ────────────────────────
+            composable("crm") {
+                DealListScreen(
+                    onNavigateToDeal = { dealId -> navController.navigate("deal/$dealId") },
+                    onNavigateBack = { navController.popBackStack() },
+                )
+            }
+
+            composable(
+                route = "deal/{dealId}",
+                arguments = listOf(navArgument("dealId") { type = NavType.StringType }),
+            ) { backStackEntry ->
+                val dealId = backStackEntry.arguments!!.getString("dealId")!!
+                DealDetailScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onCreateTask = { phone, name ->
+                        val ph = Uri.encode(phone)
+                        val nm = Uri.encode(name ?: "")
+                        navController.navigate("create_task?phone=$ph&name=$nm")
+                    },
+                    onEdit = { navController.navigate("deal/$dealId/edit") },
+                    onOpenArticle = { categoryId, pathLabel ->
+                        val cat = Uri.encode(categoryId)
+                        val label = Uri.encode(pathLabel)
+                        navController.navigate("deal/$dealId/article/$cat?path=$label")
+                    },
+                )
+            }
+
+            composable(
+                route = "deal/{dealId}/edit",
+                arguments = listOf(navArgument("dealId") { type = NavType.StringType }),
+            ) {
+                DealEditScreen(onNavigateBack = { navController.popBackStack() })
+            }
+
+            // Ścieżka instalacji („Ogrzewanie › Pompa ciepła") idzie parametrem,
+            // a nie drugim odczytem katalogu: karta ma ją już policzoną, a ekran
+            // artykułu potrzebuje jej wyłącznie jako nagłówka.
+            composable(
+                route = "deal/{dealId}/article/{categoryId}?path={path}",
+                arguments = listOf(
+                    navArgument("dealId") { type = NavType.StringType },
+                    navArgument("categoryId") { type = NavType.StringType },
+                    navArgument("path") { type = NavType.StringType; defaultValue = "" },
+                ),
+            ) { backStackEntry ->
+                KnowledgeArticleScreen(
+                    pathLabel = backStackEntry.arguments?.getString("path").orEmpty()
+                        .ifBlank { "Instalacja" },
+                    onNavigateBack = { navController.popBackStack() },
+                )
+            }
+
+            // ── Klienci (kartoteka z pulpitu) ──────────────────────────────────
+            composable("clients") { entry ->
+                // Komunikat z ekranu potomnego (dodano / scalono) wraca przez
+                // savedStateHandle — inaczej po powrocie nie byłoby widać, że
+                // zapis się udał.
+                val message by entry.savedStateHandle
+                    .getStateFlow<String?>(CLIENT_MESSAGE_KEY, null)
+                    .collectAsState()
+                ClientListScreen(
+                    onNavigateToDetail = { clientId -> navController.navigate("client/$clientId") },
+                    onNavigateToNew = { category ->
+                        navController.navigate("client_form?category=${category.wire}")
+                    },
+                    onNavigateToMerge = { navController.navigate("client_merge") },
+                    onNavigateBack = { navController.popBackStack() },
+                    message = message,
+                    onMessageShown = { entry.savedStateHandle.set<String?>(CLIENT_MESSAGE_KEY, null) },
+                )
+            }
+
+            composable(
+                route = "client/{clientId}",
+                arguments = listOf(navArgument("clientId") { type = NavType.StringType }),
+            ) {
+                ClientDetailScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToDeal = { dealId -> navController.navigate("deal/$dealId") },
+                    onNavigateToEdit = { clientId ->
+                        navController.navigate("client_form?clientId=$clientId")
+                    },
+                    onNavigateToCallDetail = { callLogId ->
+                        navController.navigate("calllog/$callLogId")
+                    },
+                    onCreateTask = { phone, name ->
+                        val ph = Uri.encode(phone)
+                        val nm = Uri.encode(name ?: "")
+                        navController.navigate("create_task?phone=$ph&name=$nm")
+                    },
+                )
+            }
+
+            composable(
+                route = "client_form?clientId={clientId}&category={category}",
+                arguments = listOf(
+                    navArgument("clientId") {
+                        type = NavType.StringType; nullable = true; defaultValue = null
+                    },
+                    navArgument("category") {
+                        type = NavType.StringType; nullable = true; defaultValue = null
+                    },
+                ),
+            ) {
+                ClientFormScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onSaved = { message ->
+                        navController.previousBackStackEntry
+                            ?.savedStateHandle?.set(CLIENT_MESSAGE_KEY, message)
+                        navController.popBackStack()
+                    },
+                )
+            }
+
+            composable("client_merge") {
+                ClientMergeScreen(onNavigateBack = { navController.popBackStack() })
+            }
+
             // ── Call Logs ──────────────────────────────────────────────────────
             composable("calllogs") {
                 CallLogListScreen(

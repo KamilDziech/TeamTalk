@@ -1,0 +1,1103 @@
+<title>Kreator zadania board360</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Roboto:wght@400;500;700&display=swap">
+
+<style>
+/* ── Tokeny strony (jasny = bazowy) ─────────────────────────────── */
+:root{
+  --bg:#EEF3F9;
+  --bg-2:#DBE6F2;
+  --surface:#FFFFFF;
+  --fg:#0F1720;
+  --muted:#5A6B7C;
+  --border:#C3CBD4;
+  --brand:#2FA84F;
+  --brand-loud:#44D62C;
+  --ink:#080808;
+  --warn:#B4680A;
+  --danger:#C5343A;
+  --shadow:0 1px 2px rgba(15,23,32,.06), 0 10px 30px rgba(15,23,32,.08);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0B1220;
+    --bg-2:#12161F;
+    --surface:#12161F;
+    --fg:#E6EDF3;
+    --muted:#9FB0C3;
+    --border:#2A3441;
+    --brand:#44D62C;
+    --brand-loud:#44D62C;
+    --ink:#080808;
+    --warn:#F59E0B;
+    --danger:#E5484D;
+    --shadow:0 1px 2px rgba(0,0,0,.5), 0 14px 40px rgba(0,0,0,.45);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0B1220;
+  --bg-2:#12161F;
+  --surface:#12161F;
+  --fg:#E6EDF3;
+  --muted:#9FB0C3;
+  --border:#2A3441;
+  --brand:#44D62C;
+  --brand-loud:#44D62C;
+  --ink:#080808;
+  --warn:#F59E0B;
+  --danger:#E5484D;
+  --shadow:0 1px 2px rgba(0,0,0,.5), 0 14px 40px rgba(0,0,0,.45);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--fg);
+  font-family:"Archivo","Segoe UI",system-ui,sans-serif;
+  font-size:16px;
+  line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px 96px}
+h1,h2,h3{text-wrap:balance;margin:0}
+
+/* ── Nagłówek ───────────────────────────────────────────────────── */
+.masthead{
+  padding:56px 0 36px;
+  border-bottom:1px solid var(--border);
+  display:grid;
+  gap:20px;
+}
+.eyebrow{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:11.5px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--muted);
+  display:flex;flex-wrap:wrap;align-items:center;gap:10px;
+}
+.eyebrow b{color:var(--brand);font-weight:600}
+.dotsep{width:3px;height:3px;border-radius:50%;background:var(--border)}
+h1{
+  font-size:clamp(34px,5.4vw,58px);
+  font-weight:800;
+  letter-spacing:-.025em;
+  line-height:1.02;
+}
+h1 em{font-style:normal;color:var(--brand)}
+.lede{max-width:62ch;color:var(--muted);font-size:17px}
+.facts{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.fact{
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;
+  border:1px solid var(--border);border-radius:999px;
+  padding:5px 12px;color:var(--muted);background:var(--surface);
+}
+
+/* ── Sekcje ─────────────────────────────────────────────────────── */
+section{padding-top:56px}
+.sechead{display:flex;align-items:baseline;gap:14px;margin-bottom:22px;flex-wrap:wrap}
+.secnum{
+  font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:600;
+  color:var(--brand);letter-spacing:.1em;
+}
+h2{font-size:clamp(21px,2.6vw,27px);font-weight:700;letter-spacing:-.015em}
+.sechead p{margin:0;color:var(--muted);font-size:14.5px;flex:1 1 260px}
+
+/* ── Układ prototypu ────────────────────────────────────────────── */
+.proto{display:grid;grid-template-columns:minmax(0,360px) minmax(0,1fr);gap:40px;align-items:start}
+@media(max-width:880px){.proto{grid-template-columns:1fr;gap:28px;justify-items:center}}
+
+.stage{display:grid;gap:14px;justify-items:center;position:sticky;top:24px}
+@media(max-width:880px){.stage{position:static}}
+
+.appthemer{display:flex;gap:6px;align-items:center;font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted)}
+.appthemer button{
+  font:inherit;cursor:pointer;padding:4px 10px;border-radius:999px;
+  border:1px solid var(--border);background:var(--surface);color:var(--muted);
+}
+.appthemer button[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+
+/* ── Telefon ────────────────────────────────────────────────────── */
+.phone{
+  width:340px;padding:11px;border-radius:38px;
+  background:linear-gradient(160deg,#3a4152,#161a22);
+  box-shadow:var(--shadow);
+  flex:none;
+}
+.device{
+  --d-bg:#0B1220;--d-surface:#12161F;--d-panel:#1A212E;
+  --d-fg:#E6EDF3;--d-muted:#9FB0C3;--d-border:#2A3441;
+  --d-brand:#44D62C;--d-ink:#080808;
+  --d-danger:#E5484D;--d-warn:#F59E0B;--d-info:#5B8DEF;
+  width:318px;height:664px;border-radius:28px;overflow:hidden;
+  background:var(--d-bg);color:var(--d-fg);
+  font-family:"Roboto",system-ui,sans-serif;font-size:14px;line-height:1.4;
+  display:flex;flex-direction:column;position:relative;
+}
+.device[data-app-theme="light"]{
+  --d-bg:#EEF3F9;--d-surface:#FFFFFF;--d-panel:#DBE6F2;
+  --d-fg:#0F1720;--d-muted:#5A6B7C;--d-border:#C3CBD4;
+  --d-brand:#2FA84F;
+}
+.statusbar{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:8px 16px 2px;font-size:11px;color:var(--d-muted);
+  font-variant-numeric:tabular-nums;flex:none;
+}
+.statusbar span{letter-spacing:.02em}
+.topbar{
+  display:flex;align-items:center;gap:12px;padding:8px 14px 10px;flex:none;
+}
+.iconbtn{
+  width:32px;height:32px;border-radius:50%;border:none;background:transparent;
+  color:var(--d-fg);display:grid;place-items:center;cursor:pointer;flex:none;
+}
+.iconbtn:hover{background:var(--d-panel)}
+.iconbtn[disabled]{opacity:.28;cursor:default}
+.toptitle{font-size:16px;font-weight:500;flex:1;min-width:0}
+.stepcount{font-size:11.5px;color:var(--d-muted);font-variant-numeric:tabular-nums}
+.prog{display:flex;gap:4px;padding:0 16px 14px;flex:none}
+.prog i{height:3px;flex:1;border-radius:2px;background:var(--d-border);transition:background .25s}
+.prog i.on{background:var(--d-brand)}
+.prog i.now{background:var(--d-brand);box-shadow:0 0 0 1px var(--d-brand)}
+
+.screen{flex:1;overflow-y:auto;padding:2px 16px 8px;display:flex;flex-direction:column;gap:14px}
+.screen::-webkit-scrollbar{width:0}
+.q{font-size:20px;font-weight:700;line-height:1.22;letter-spacing:-.01em}
+.qsub{font-size:12.5px;color:var(--d-muted);margin-top:-8px}
+
+.field{
+  width:100%;background:var(--d-surface);border:1px solid var(--d-border);
+  border-radius:12px;padding:12px 13px;color:var(--d-fg);
+  font-family:inherit;font-size:14px;resize:none;
+}
+.field::placeholder{color:var(--d-muted)}
+.field:focus-visible{outline:2px solid var(--d-brand);outline-offset:1px;border-color:transparent}
+.lbl{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--d-muted);font-weight:500}
+
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.tiles.two{grid-template-columns:repeat(2,1fr)}
+.tile{
+  background:var(--d-surface);border:1px solid var(--d-border);border-radius:14px;
+  padding:11px 9px;display:grid;gap:6px;justify-items:center;text-align:center;
+  cursor:pointer;color:var(--d-fg);font-family:inherit;min-height:82px;
+  align-content:center;transition:border-color .15s,background .15s;
+}
+.tile:hover{border-color:var(--d-muted)}
+.tile .tl{font-size:11.5px;font-weight:500;line-height:1.2}
+.tile .th{font-size:9.5px;color:var(--d-muted);line-height:1.15}
+.tile[aria-pressed="true"]{
+  border-color:var(--d-brand);background:color-mix(in srgb,var(--d-brand) 13%,var(--d-surface));
+}
+.tile[aria-pressed="true"] .tl{color:var(--d-brand)}
+.tile svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.tile[aria-pressed="true"] svg{stroke:var(--d-brand)}
+
+.rows{display:grid;gap:8px}
+.row{
+  display:flex;align-items:center;gap:11px;width:100%;text-align:left;
+  background:var(--d-surface);border:1px solid var(--d-border);border-radius:12px;
+  padding:11px 12px;cursor:pointer;color:var(--d-fg);font-family:inherit;
+}
+.row:hover{border-color:var(--d-muted)}
+.row[aria-pressed="true"]{border-color:var(--d-brand);background:color-mix(in srgb,var(--d-brand) 13%,var(--d-surface))}
+.avatar{
+  width:34px;height:34px;border-radius:50%;flex:none;display:grid;place-items:center;
+  background:var(--d-panel);color:var(--d-fg);font-size:12px;font-weight:700;letter-spacing:.02em;
+}
+.row[aria-pressed="true"] .avatar{background:var(--d-brand);color:var(--d-ink)}
+.rowmain{flex:1;min-width:0;display:block}
+.rowtitle,.rowsub{display:block}
+.rowtitle{font-size:13.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rowsub{font-size:11px;color:var(--d-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pill{
+  font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;
+  padding:3px 7px;border-radius:999px;background:var(--d-panel);color:var(--d-muted);flex:none;
+}
+.pill.brand{background:var(--d-brand);color:var(--d-ink)}
+
+.seg{display:flex;background:var(--d-panel);border-radius:11px;padding:3px;gap:3px}
+.seg button{
+  flex:1;font:inherit;font-size:12px;padding:7px 4px;border:none;border-radius:9px;
+  background:transparent;color:var(--d-muted);cursor:pointer;
+}
+.seg button[aria-pressed="true"]{background:var(--d-surface);color:var(--d-fg);font-weight:500}
+
+.footer{padding:10px 16px 16px;display:flex;gap:9px;flex:none;background:var(--d-bg)}
+.btn{
+  flex:1;font-family:inherit;font-size:14.5px;font-weight:500;height:48px;
+  border-radius:13px;cursor:pointer;border:1px solid var(--d-border);
+  background:transparent;color:var(--d-fg);display:grid;place-items:center;
+}
+.btn.ghost{flex:0 0 96px;color:var(--d-muted)}
+.btn.primary{background:var(--d-brand);color:var(--d-ink);border-color:var(--d-brand);font-weight:700}
+.btn[disabled]{opacity:.35;cursor:default}
+
+/* dyktowanie */
+.mic{
+  display:grid;justify-items:center;gap:9px;padding:6px 0 2px;
+}
+.micbtn{
+  width:70px;height:70px;border-radius:50%;border:none;cursor:pointer;
+  background:var(--d-panel);color:var(--d-fg);display:grid;place-items:center;position:relative;
+}
+.micbtn svg{width:28px;height:28px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.micbtn.live{background:var(--d-danger);color:#fff}
+.micbtn.live::after{
+  content:"";position:absolute;inset:-9px;border-radius:50%;
+  border:2px solid var(--d-danger);animation:pulse 1.5s ease-out infinite;
+}
+@keyframes pulse{0%{transform:scale(.9);opacity:.85}100%{transform:scale(1.22);opacity:0}}
+@media(prefers-reduced-motion:reduce){.micbtn.live::after{animation:none;opacity:.4}}
+.mictext{font-size:12px;color:var(--d-muted);text-align:center}
+.mictext b{color:var(--d-danger);font-variant-numeric:tabular-nums}
+.wave{display:flex;align-items:center;gap:3px;height:22px}
+.wave i{width:3px;border-radius:2px;background:var(--d-danger);animation:bounce 1s ease-in-out infinite}
+@media(prefers-reduced-motion:reduce){.wave i{animation:none;height:8px!important}}
+@keyframes bounce{0%,100%{height:5px}50%{height:20px}}
+
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.chip{
+  font:inherit;font-size:12px;padding:7px 12px;border-radius:999px;cursor:pointer;
+  border:1px solid var(--d-border);background:var(--d-surface);color:var(--d-fg);
+}
+.chip[aria-pressed="true"]{border-color:var(--d-brand);background:color-mix(in srgb,var(--d-brand) 15%,var(--d-surface));color:var(--d-brand);font-weight:500}
+
+.cal{background:var(--d-surface);border:1px solid var(--d-border);border-radius:14px;padding:11px}
+.calhead{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;font-weight:500;margin-bottom:8px}
+.calhead span{color:var(--d-muted);font-size:11px}
+.calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center}
+.calgrid u{font-size:9.5px;color:var(--d-muted);text-decoration:none;padding:3px 0}
+.calgrid button{
+  font:inherit;font-size:11.5px;aspect-ratio:1;border:none;border-radius:8px;
+  background:transparent;color:var(--d-fg);cursor:pointer;font-variant-numeric:tabular-nums;
+}
+.calgrid button:hover{background:var(--d-panel)}
+.calgrid button[aria-pressed="true"]{background:var(--d-brand);color:var(--d-ink);font-weight:700}
+.calgrid button[disabled]{color:var(--d-muted);opacity:.35;cursor:default}
+
+.summary{background:var(--d-surface);border:1px solid var(--d-border);border-radius:14px;overflow:hidden}
+.sline{display:flex;gap:10px;padding:9px 12px;border-bottom:1px solid var(--d-border);font-size:12.5px}
+.sline:last-child{border-bottom:none}
+.sline u{text-decoration:none;color:var(--d-muted);font-size:11px;flex:0 0 82px;padding-top:1px}
+.sline b{font-weight:500;flex:1;min-width:0;word-break:break-word}
+.okbanner{
+  background:var(--d-brand);color:var(--d-ink);border-radius:14px;padding:14px;
+  display:flex;gap:11px;align-items:center;font-weight:700;font-size:14.5px;
+}
+.okbanner svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;flex:none}
+
+.note{
+  font-size:11px;color:var(--d-muted);background:var(--d-panel);
+  border-radius:10px;padding:8px 10px;line-height:1.35;
+}
+
+/* ── Panel stanu / notatek ──────────────────────────────────────── */
+.side{display:grid;gap:20px;min-width:0}
+.card{
+  background:var(--surface);border:1px solid var(--border);border-radius:16px;
+  padding:20px;box-shadow:var(--shadow);
+}
+.card h3{font-size:13px;text-transform:uppercase;letter-spacing:.1em;font-family:"IBM Plex Mono",monospace;font-weight:600;color:var(--muted);margin-bottom:14px}
+.state{display:grid;gap:0;font-family:"IBM Plex Mono",monospace;font-size:12.5px}
+.state div{display:flex;gap:12px;padding:7px 0;border-bottom:1px dashed var(--border)}
+.state div:last-child{border-bottom:none}
+.state k{flex:0 0 106px;color:var(--muted);font-weight:500}
+.state v{flex:1;min-width:0;word-break:break-word}
+.state v.empty{color:var(--muted);opacity:.6}
+.state v em{font-style:normal;color:var(--brand)}
+.stepnote{font-size:14.5px;color:var(--fg)}
+.stepnote p{margin:0 0 10px}
+.stepnote p:last-child{margin:0}
+.stepnote code{
+  font-family:"IBM Plex Mono",monospace;font-size:12.5px;
+  background:var(--bg-2);padding:1px 6px;border-radius:5px;
+}
+
+/* ── Taśma ekranów ──────────────────────────────────────────────── */
+.strip{
+  display:flex;gap:20px;overflow-x:auto;padding:6px 4px 22px;
+  scroll-snap-type:x proximity;
+}
+.strip::-webkit-scrollbar{height:8px}
+.strip::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px}
+.frame{flex:none;width:200px;scroll-snap-align:start;display:grid;gap:10px}
+.holder{
+  width:200px;height:418px;overflow:hidden;border-radius:22px;
+  border:1px solid var(--border);background:#161a22;padding:5px;
+}
+.holder .device{transform:scale(.5975);transform-origin:top left;pointer-events:none}
+.cap{display:grid;gap:2px}
+.cap b{font-size:13.5px;font-weight:600}
+.cap span{font-size:12px;color:var(--muted);line-height:1.35}
+.cap i{
+  font-family:"IBM Plex Mono",monospace;font-style:normal;font-size:10.5px;
+  letter-spacing:.1em;color:var(--brand);text-transform:uppercase;
+}
+
+/* ── Tabela / notatki wdrożeniowe ───────────────────────────────── */
+.tablewrap{overflow-x:auto;border:1px solid var(--border);border-radius:14px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:560px;font-size:14px}
+th,td{text-align:left;padding:11px 16px;border-bottom:1px solid var(--border);vertical-align:top}
+th{
+  font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--muted);font-weight:600;
+}
+tr:last-child td{border-bottom:none}
+td code{font-family:"IBM Plex Mono",monospace;font-size:12.5px;color:var(--brand)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}
+.card ul{margin:0;padding-left:18px;display:grid;gap:9px;font-size:14.5px}
+.card ul li::marker{color:var(--brand)}
+.flag{
+  border-left:3px solid var(--warn);padding-left:14px;
+}
+.flag h3{color:var(--warn)}
+footer.end{
+  margin-top:64px;padding-top:22px;border-top:1px solid var(--border);
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--muted);
+  display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;
+}
+</style>
+
+<div class="wrap">
+
+<header class="masthead">
+  <div class="eyebrow">
+    <span>board360 — moduł Zadania</span><i class="dotsep"></i>
+    <span>TeamTalk — mobile</span><i class="dotsep"></i>
+    <b>propozycja UI</b><i class="dotsep"></i>
+    <span>wersja 2 · po ustaleniach</span>
+  </div>
+  <h1>Kreator <em>nowego zadania</em><br>w siedmiu krokach</h1>
+  <p class="lede">
+    Kafelki zespołów to <b>słownik funkcji z ADR-0013</b>, obsady — realne działy ze struktury
+    organizacyjnej. Krok „kogo dotyczy” wybiera jeden z trzech istniejących endpointów zapisu.
+    Telefon po lewej jest klikalny; ten sam przepływ wchodzi na web jako druga ścieżka obok
+    paska szybkiego dodawania.
+  </p>
+  <div class="facts">
+    <span class="fact">7 kroków + potwierdzenie</span>
+    <span class="fact">dyktowanie pl-PL</span>
+    <span class="fact">12 kafelków</span>
+    <span class="fact">mobile + web</span>
+    <span class="fact">motyw ciemny i jasny</span>
+  </div>
+</header>
+
+<section>
+  <div class="sechead">
+    <span class="secnum">01</span>
+    <h2>Klikalny prototyp</h2>
+    <p>Stan formularza po prawej odświeża się na żywo — to dokładnie te pola, które trafią do <code style="font-family:'IBM Plex Mono',monospace;font-size:13px">CreateTaskViewModel.UiState</code>.</p>
+  </div>
+
+  <div class="proto">
+    <div class="stage">
+      <div class="phone"><div class="device" id="live" data-app-theme="dark"></div></div>
+      <div class="appthemer">
+        <span>Motyw aplikacji:</span>
+        <button type="button" data-appt="dark" aria-pressed="true">ciemny</button>
+        <button type="button" data-appt="light" aria-pressed="false">jasny</button>
+      </div>
+    </div>
+
+    <div class="side">
+      <div class="card">
+        <h3>Stan formularza</h3>
+        <div class="state" id="statepanel"></div>
+      </div>
+      <div class="card">
+        <h3>Ten krok</h3>
+        <div class="stepnote" id="stepnote"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sechead">
+    <span class="secnum">02</span>
+    <h2>Cała ścieżka na jednym ekranie</h2>
+    <p>Przewiń w bok. Każda plansza kończy się przyciskiem <b>Dalej</b>, ostatnia — <b>Zakończ</b>.</p>
+  </div>
+  <div class="strip" id="strip"></div>
+</section>
+
+<section>
+  <div class="sechead">
+    <span class="secnum">03</span>
+    <h2>Kafelek → funkcja → osoby</h2>
+    <p>Kafelki są jeden do jednego ze słownikiem funkcji. Obsady wzięte ze struktury organizacyjnej.</p>
+  </div>
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr><th>Kafelek</th><th>W kodzie</th><th>Osoby ze struktury</th><th>Dział</th></tr>
+      </thead>
+      <tbody id="mapping"></tbody>
+    </table>
+  </div>
+  <p style="color:var(--muted);font-size:13.5px;margin:12px 2px 0;max-width:80ch">
+    Osoby pochodzą z <code style="font-family:'IBM Plex Mono',monospace;font-size:13px">DEFAULT_STRUCTURE</code>
+    (<code style="font-family:'IBM Plex Mono',monospace;font-size:13px">web/src/lib/org-structure.ts</code>) — to obraz
+    tego, kto czym się zajmuje. W kreatorze lista przyjdzie jednak z
+    <code style="font-family:'IBM Plex Mono',monospace;font-size:13px">GET /api/tasks/members</code>, filtrowana po
+    <code style="font-family:'IBM Plex Mono',monospace;font-size:13px">functions</code> — a tego pola endpoint
+    <b>jeszcze nie zwraca</b>. To pierwsza rzecz do zrobienia.
+  </p>
+</section>
+
+<section>
+  <div class="sechead">
+    <span class="secnum">04</span>
+    <h2>Co to znaczy w kodzie</h2>
+    <p>Trzy fronty: API, mobile, web. Kolejność ma znaczenie — bez pierwszego punktu reszta nie ma czym filtrować.</p>
+  </div>
+  <div class="grid2">
+    <div class="card flag">
+      <h3>API — najpierw to</h3>
+      <ul>
+        <li><b><code>GET /tasks/members</code> nie zwraca <code>functions</code>.</b> Dochodzi pole w <code>MemberLookup</code>, w selekcie Prismy i w typie <code>Member</code> na webie oraz <code>TaskMemberDto</code> na mobile. Bez tego krok 5 nie ma po czym filtrować.</li>
+        <li>Reszta bez zmian w bazie — trzy ścieżki zapisu już istnieją: <code>POST /tasks</code>, <code>POST /deals/:id/tasks</code>, <code>POST /projects/:id/tasks</code>.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Mobile — TeamTalk</h3>
+      <ul>
+        <li><b>Dyktowanie jest gotowe:</b> <code>SpeechToText</code> (ciągłe, pl-PL) z notatek głosowych — krok 2 tylko je podpina.</li>
+        <li><code>CreateTaskScreen</code> rozbić na kroki; w <code>UiState</code> dochodzi <code>step</code> i walidacja per krok.</li>
+        <li>Nowe wywołania: lista klientów, lista deali/projektów, <code>POST /clients</code> dla ręcznego kontaktu.</li>
+        <li><code>CreateTaskRequest</code> nie ma dziś <code>section</code> ani <code>slaHours</code> — do rozważenia osobno.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Web — moduł Zadania</h3>
+      <ul>
+        <li>Pasek szybkiego dodawania (FAB → „Wpisz nazwę zadania”) <b>zostaje</b>: Enter zapisuje jak dziś.</li>
+        <li>Obok dochodzi przycisk otwierający kreator — te same kroki, ten sam słownik funkcji.</li>
+        <li><b>Dyktowanie też na webie</b> — Web Speech API (<code>webkitSpeechRecognition</code>, <code>lang="pl-PL"</code>). Chrome i Edge tak, Firefox nie: tam mikrofon się po prostu nie pokazuje.</li>
+        <li><code>EmployeeSelect</code> grupuje dziś po Biuro/Montaż; kreator grupuje po funkcji.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Ustalone</h3>
+      <ul>
+        <li><b>Ręczny kontakt zakłada klienta</b> w kartotece; zadanie idzie wtedy bez powiązania.</li>
+        <li><b>12 kafelków</b> — pełny słownik funkcji plus „Moje” i „Monter”.</li>
+        <li><b>Bez osoby domyślnej</b> — krok 5 pokazuje samą listę.</li>
+        <li><b>Kreator obok paska</b>, nie zamiast niego.</li>
+        <li><b>Klient przez deal</b> — jeden bierzemy sami, przy kilku pytamy.</li>
+        <li><b>Głos też na webie</b> (Chrome, Edge).</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<footer class="end">
+  <span>Makieta do akceptacji — kod jeszcze nie ruszony</span>
+  <span>TeamTalk presentation/task · web app/app/tasks · api modules/tasks</span>
+</footer>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ── Dane przykładowe ─────────────────────────────────────────── */
+  /* Kafelki = słownik USER_FUNCTIONS (ADR-0013) + „Moje" (ja) + „Monter" (rola
+     `montaz`, bo montaż to szczebel, nie funkcja). Etykiety z FUNCTION_LABEL. */
+  var TEAMS = [
+    {k:"moje",        l:"Moje",             h:"dla mnie",        ic:"user",     code:"self"},
+    {k:"serwis",      l:"Serwis",           h:"zgłoszenia",      ic:"wrench",   code:"fn: serwis"},
+    {k:"inzynier",    l:"Inżynier Opiekun", h:"sprzedaż + opieka", ic:"shield", code:"fn: inzynier"},
+    {k:"koordynator", l:"Koordynator",      h:"harmonogram",     ic:"route",    code:"fn: koordynator"},
+    {k:"zaopatrzenie",l:"Zaopatrzenie",     h:"magazyn, towar",  ic:"box",      code:"fn: zaopatrzenie"},
+    {k:"ksiegowosc",  l:"Księgowość",       h:"faktury",         ic:"receipt",  code:"fn: ksiegowosc"},
+    {k:"bow",         l:"BOW",              h:"obsługa wstępna", ic:"headset",  code:"fn: bow"},
+    {k:"montaz",      l:"Monter",           h:"ekipy montażowe", ic:"hammer",   code:"rola: montaz"},
+    {k:"technolog",   l:"Technolog",        h:"dobór technologii", ic:"flask",  code:"fn: technolog"},
+    {k:"marketing",   l:"Marketing",        h:"pozyskanie",      ic:"megaphone",code:"fn: marketing"},
+    {k:"dotacje",     l:"Dotacje",          h:"programy",        ic:"coins",    code:"fn: dotacje"},
+    {k:"projekt",     l:"Projekt",          h:"projektowanie",   ic:"ruler",    code:"fn: projekt"}
+  ];
+
+  /* Obsady z DEFAULT_STRUCTURE (web/src/lib/org-structure.ts). Realna lista
+     przyjdzie z GET /api/tasks/members po dołożeniu tam pola `functions`. */
+  var PEOPLE = {
+    moje:        [{id:"me", n:"Ja", s:"zalogowany użytkownik"}],
+    serwis:      [{id:"s1", n:"Paweł Sapalski", s:"serwis"},
+                  {id:"s2", n:"Grzegorz Guźniczak", s:"serwis"}],
+    inzynier:    [{id:"i1", n:"Daniel Dziech", s:"inżynier opiekun"},
+                  {id:"i2", n:"Szymon Razowski", s:"inżynier opiekun"},
+                  {id:"i3", n:"Natalia Kowalska", s:"inżynier opiekun"},
+                  {id:"i4", n:"Szymon Piwowarczyk", s:"inżynier opiekun"}],
+    koordynator: [{id:"k1", n:"Michał Karpiński", s:"koordynator i zaopatrzeniowiec"}],
+    zaopatrzenie:[{id:"k1", n:"Michał Karpiński", s:"koordynator i zaopatrzeniowiec"},
+                  {id:"z2", n:"Sławomir Tetłak", s:"zaopatrzenie i magazyn"},
+                  {id:"z3", n:"Michał", s:"obsługa magazynu"}],
+    ksiegowosc:  [{id:"b1", n:"Maria Piwowarczyk", s:"księgowość"}],
+    bow:         [{id:"w1", n:"Anna Sobas", s:"BOW"}],
+    montaz:      [{id:"t1", n:"Ekipy wewnętrzne", s:"busy firmowe"},
+                  {id:"t2", n:"Ekipy zewnętrzne", s:"własne busy"}],
+    technolog:   [{id:"i4", n:"Szymon Piwowarczyk", s:"technolog"},
+                  {id:"i2", n:"Szymon Razowski", s:"technolog"},
+                  {id:"i1", n:"Daniel Dziech", s:"technolog"}],
+    marketing:   [{id:"w1", n:"Anna Sobas", s:"marketing"},
+                  {id:"i2", n:"Szymon Razowski", s:"wsparcie działu"}],
+    dotacje:     [{id:"w1", n:"Anna Sobas", s:"dotacje"},
+                  {id:"i3", n:"Natalia Kowalska", s:"dotacje"}],
+    projekt:     [{id:"s2", n:"Grzegorz Guźniczak", s:"projekty rekuperacji, podłogówki"}]
+  };
+
+  var CLIENTS = [
+    {id:"c1", n:"Jan Kowalski",        s:"601 234 567 · Bielsko-Biała"},
+    {id:"c2", n:"NOVA sp. z o.o.",     s:"512 900 118 · Czechowice"},
+    {id:"c3", n:"Agnieszka Lis",       s:"698 441 203 · Pszczyna"}
+  ];
+
+  /* Deale klienta — zadanie wiąże się z klientem wyłącznie przez deal.
+     Jeden deal wybieramy sam, przy kilku pytamy, przy zerze idzie bez powiązania. */
+  var CLIENT_DEALS = {
+    c1: [{id:"cd1", n:"PV 9,8 kWp", s:"etap: montaż"},
+         {id:"cd2", n:"Pompa ciepła 12 kW", s:"etap: oferta"}],
+    c2: [{id:"cd3", n:"PV 40 kWp — hala", s:"etap: sprzedane"}],
+    c3: []
+  };
+  var PROJECTS = [
+    {id:"d1", n:"PV 9,8 kWp — Kowalski",     s:"etap: montaż · Bielsko-Biała"},
+    {id:"d2", n:"Pompa ciepła 12 kW — NOVA", s:"etap: umowa · Czechowice"},
+    {id:"d3", n:"Serwis PV — Os. Zielone",   s:"etap: zgłoszenie · Pszczyna"}
+  ];
+
+  var PRIOS = [
+    {k:"low",    l:"Niski",    h:"gdy będzie czas",   c:"var(--d-info)"},
+    {k:"normal", l:"Normalny", h:"zwykły tryb",       c:"var(--d-brand)"},
+    {k:"high",   l:"Wysoki",   h:"na dziś / pilne",   c:"var(--d-danger)"}
+  ];
+
+  var DICTATION = ("Klient zgłasza brak ciepłej wody od wczoraj wieczorem. "
+    + "Pompa ciepła głośno buczy przy starcie. Prosi o wizytę serwisu w tym tygodniu, "
+    + "najlepiej po piętnastej.").split(" ");
+
+  var STEP_TITLES = ["Nazwa","Opis","Kogo dotyczy","Zespół","Osoba","Priorytet","Termin","Gotowe"];
+
+  var NOTES = {
+    1:"<p><b>Punkt wejścia.</b> Nazwa zadania zostaje tam, gdzie jest dziś — pole <code>title</code>, wymagane. Wejście z połączenia nadal podstawia „Kontakt: <i>numer</i>”.</p><p>Dopiero <b>Dalej</b> otwiera kreator, więc szybkie zadanie nadal da się wpisać w dwa dotknięcia.</p>",
+    2:"<p><b>Opisz szerzej zadanie.</b> Duży przycisk mikrofonu uruchamia istniejący <code>SpeechToText</code> — ten sam, co w notatkach głosowych, dyktowanie ciągłe pl-PL.</p><p>Tekst pojawia się na żywo w polu i zostaje edytowalny, więc rozpoznanie można poprawić. Krok wolno pominąć.</p>",
+    3:"<p><b>Kogo dotyczy.</b> Ten krok wybiera endpoint zapisu — patrz pole <code>endpoint</code> obok.</p><p>Zadanie wiąże się z klientem wyłącznie przez deal, więc po wybraniu klienta: jeden deal bierzemy sami, przy kilku pytamy którego dotyczy, przy zerze zadanie idzie bez powiązania. Ręcznie wpisany kontakt <b>zakłada klienta</b> (<code>POST /clients</code>, stąd osobne imię i nazwisko).</p><p>Kliknij <b>Jan Kowalski</b> — ma dwa deale, więc dojdzie pytanie.</p>",
+    4:"<p><b>Jaki zespół.</b> Kafelki to słownik <code>USER_FUNCTIONS</code> z ADR-0013 plus „Moje” (ja) i „Monter” — montaż jest rolą, nie funkcją.</p><p>Wybór wyłącznie jednego, zachowanie przycisku radio. Zawęża listę osób w następnym kroku.</p>",
+    5:"<p><b>Osoba.</b> Sama lista osób pełniących wybraną funkcję — <b>nic nie jest zaznaczone z góry</b>, bo „osoba domyślna działu” nie istnieje dziś w danych.</p><p>Jedna osoba może pełnić kilka funkcji, więc te same nazwiska wracają w kilku kafelkach — i tak ma być.</p>",
+    6:"<p><b>Priorytet.</b> Trzy wartości zgodne z modelem: <code>low</code> / <code>normal</code> / <code>high</code>. Kolor niesie znaczenie, nie dekoruje.</p>",
+    7:"<p><b>Graniczna data.</b> Domyślnie <i>bez terminu</i>. Skróty (dziś, jutro, koniec tygodnia) załatwiają większość przypadków, kalendarz jest dla reszty.</p><p>Przycisk zmienia się na <b>Zakończ</b> — to jedyne miejsce, gdzie zadanie zostaje zapisane.</p>",
+    8:"<p><b>Potwierdzenie.</b> Podsumowanie zamiast samego zielonego banera — z linią „Zapis”, żeby było widać, którą ścieżką zadanie poszło na serwer.</p>"
+  };
+
+  /* ── Ikony ────────────────────────────────────────────────────── */
+  var ICONS = {
+    user:'<circle cx="12" cy="8" r="3.4"/><path d="M5 20a7 7 0 0 1 14 0"/>',
+    wrench:'<path d="M15.4 4.4a4.5 4.5 0 0 0-5.9 5.5L4 15.4a2 2 0 0 0 2.8 2.8l5.5-5.5a4.5 4.5 0 0 0 5.5-5.9l-2.7 2.7-2.4-.6-.6-2.4z"/>',
+    shield:'<path d="M12 3 5 6v5.5c0 4.3 2.9 7.7 7 9.5 4.1-1.8 7-5.2 7-9.5V6z"/><path d="m9.2 12 2 2 3.6-3.8"/>',
+    route:'<circle cx="6" cy="6" r="2.2"/><circle cx="18" cy="18" r="2.2"/><path d="M8.2 6H14a3.5 3.5 0 0 1 0 7h-4a3.5 3.5 0 0 0 0 7h5.8"/>',
+    box:'<path d="M20.5 15.6V8.4a1.5 1.5 0 0 0-.8-1.3l-6.9-3.8a1.5 1.5 0 0 0-1.6 0L4.3 7.1a1.5 1.5 0 0 0-.8 1.3v7.2a1.5 1.5 0 0 0 .8 1.3l6.9 3.8a1.5 1.5 0 0 0 1.6 0l6.9-3.8a1.5 1.5 0 0 0 .8-1.3z"/><path d="M3.7 7.6 12 12.2l8.3-4.6M12 12.2V21"/>',
+    receipt:'<path d="M6 3h12v18l-2-1.4-2 1.4-2-1.4-2 1.4-2-1.4L6 21z"/><path d="M9 8h6M9 12h6M9 16h3"/>',
+    headset:'<path d="M4 13v-1a8 8 0 0 1 16 0v1"/><path d="M4 13h2.5v5H5.5A1.5 1.5 0 0 1 4 16.5zM20 13h-2.5v5h1A1.5 1.5 0 0 0 20 16.5z"/><path d="M17.5 18v.5a2.5 2.5 0 0 1-2.5 2.5h-2"/>',
+    hammer:'<path d="m14.5 5.5 4 4M17 3l4 4-2.5 2.5-4-4z"/><path d="m14 9-9 9a2.1 2.1 0 0 0 3 3l9-9"/>',
+    flask:'<path d="M9.5 3v6L4.8 17.6A2 2 0 0 0 6.6 20.6h10.8a2 2 0 0 0 1.8-3L14.5 9V3z"/><path d="M8.5 3h7M7.4 14.5h9.2"/>',
+    megaphone:'<path d="M4 10v4a1.5 1.5 0 0 0 1.5 1.5H8l8 4.5V5L8 9.5H5.5A1.5 1.5 0 0 0 4 11z"/><path d="M18.5 9.5a3.5 3.5 0 0 1 0 5"/>',
+    coins:'<ellipse cx="12" cy="6.5" rx="6.5" ry="2.8"/><path d="M5.5 6.5v5c0 1.5 2.9 2.8 6.5 2.8s6.5-1.3 6.5-2.8v-5"/><path d="M5.5 11.5v5c0 1.5 2.9 2.8 6.5 2.8s6.5-1.3 6.5-2.8v-5"/>',
+    ruler:'<path d="m3.5 15.5 12-12 5 5-12 12z"/><path d="m7 12 2 2M10 9l2 2M13 6l2 2"/>',
+    mic:'<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3"/>',
+    stop:'<rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor" stroke="none"/>',
+    check:'<path d="m5 12.5 4.5 4.5L19 7"/>',
+    back:'<path d="m14.5 5-7 7 7 7" stroke="currentColor" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>'
+  };
+  function svg(name, cls){
+    return '<svg viewBox="0 0 24 24" class="'+(cls||"")+'" aria-hidden="true">'+ICONS[name]+'</svg>';
+  }
+  function esc(s){
+    return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+  function initials(n){
+    var p = n.replace(/[—·].*/,"").trim().split(/\s+/);
+    return (p[0]||"?").charAt(0).toUpperCase() + (p[1]? p[1].charAt(0).toUpperCase() : "");
+  }
+
+  /* ── Stan ─────────────────────────────────────────────────────── */
+  function freshState(){
+    return {
+      step:1,
+      title:"",
+      desc:"",
+      descSource:null,
+      recording:false,
+      recSec:0,
+      subject:"client",
+      clientId:null,
+      dealId:null,
+      newClient:{imie:"",nazwisko:"",tel:"",mail:""},
+      projectId:null,
+      team:null,
+      person:null,
+      priority:"normal",
+      dueMode:"none",
+      dueDay:null,
+      touchedPerson:false
+    };
+  }
+
+  /* ── Render ekranu ────────────────────────────────────────────── */
+  function teamLabel(k){ for(var i=0;i<TEAMS.length;i++){ if(TEAMS[i].k===k) return TEAMS[i].l; } return null; }
+  function personById(st){
+    if(!st.team || !st.person || st.person==="none") return null;
+    var list = PEOPLE[st.team] || [];
+    for(var i=0;i<list.length;i++){ if(list[i].id===st.person) return list[i]; }
+    return null;
+  }
+  function subjectLabel(st){
+    if(st.subject==="internal") return "zadanie wewnętrzne";
+    if(st.subject==="project"){
+      for(var i=0;i<PROJECTS.length;i++){ if(PROJECTS[i].id===st.projectId) return PROJECTS[i].n; }
+      return null;
+    }
+    for(var j=0;j<CLIENTS.length;j++){
+      if(CLIENTS[j].id!==st.clientId) continue;
+      var ds = CLIENT_DEALS[st.clientId] || [];
+      for(var k=0;k<ds.length;k++){
+        if(ds[k].id===st.dealId) return CLIENTS[j].n + " → " + ds[k].n;
+      }
+      return CLIENTS[j].n;
+    }
+    var nowy = (st.newClient.imie+" "+st.newClient.nazwisko).trim();
+    if(nowy) return nowy + (st.newClient.tel? " · "+st.newClient.tel : "") + " (nowy)";
+    return null;
+  }
+  function prioLabel(k){ for(var i=0;i<PRIOS.length;i++){ if(PRIOS[i].k===k) return PRIOS[i].l; } return "Normalny"; }
+  /* Który endpoint dostanie to zadanie — trzy istniejące ścieżki tworzenia. */
+  function endpointFor(st){
+    if(st.subject==="project" && st.projectId) return "POST /projects/:id/tasks";
+    if(st.subject==="client"  && st.clientId)
+      return (st.dealId && st.dealId!=="none") ? "POST /deals/:id/tasks" : "POST /tasks";
+    if(st.subject==="client"  && (st.newClient.imie || st.newClient.nazwisko))
+      return "POST /clients → POST /tasks";
+    return "POST /tasks";
+  }
+
+  function dueLabel(st){
+    if(st.dueMode==="none" || !st.dueDay) return "Bez terminu";
+    return st.dueDay + " września 2026";
+  }
+
+  function screenBody(st){
+    var h = "";
+    switch(st.step){
+
+    case 1:
+      h += '<div class="q">Jak nazwiemy to zadanie?</div>';
+      h += '<div class="qsub">Krótko — szczegóły dopiszesz albo podyktujesz na następnym ekranie.</div>';
+      h += '<input class="field" data-in="title" value="'+esc(st.title)+'" placeholder="np. Wymiana pompy obiegowej">';
+      h += '<div class="note">Wejście z połączenia podstawia tu „Kontakt: 601 234 567”.</div>';
+      break;
+
+    case 2:
+      h += '<div class="q">Opisz szerzej zadanie</div>';
+      h += '<div class="qsub">Możesz podyktować — tekst pojawi się poniżej do poprawki.</div>';
+      h += '<div class="mic">';
+      h += '<button class="micbtn'+(st.recording?" live":"")+'" data-act="mic" aria-label="'+(st.recording?"Zakończ dyktowanie":"Dyktuj opis")+'">'+svg(st.recording?"stop":"mic")+'</button>';
+      if(st.recording){
+        h += '<div class="wave">';
+        for(var w=0;w<9;w++){ h += '<i style="animation-delay:'+(w*90)+'ms"></i>'; }
+        h += '</div>';
+        h += '<div class="mictext">Słucham… <b>0:'+(st.recSec<10?"0":"")+st.recSec+'</b> — dotknij, by zakończyć</div>';
+      } else {
+        h += '<div class="mictext">'+(st.desc? "Dotknij, by dyktować dalej" : "Dotknij i mów po polsku")+'</div>';
+      }
+      h += '</div>';
+      h += '<textarea class="field" rows="5" data-in="desc" placeholder="…albo wpisz opis ręcznie">'+esc(st.desc)+'</textarea>';
+      if(st.descSource==="voice"){ h += '<div class="note">Opis z dyktowania — możesz go poprawić przed przejściem dalej.</div>'; }
+      break;
+
+    case 3:
+      h += '<div class="q">Kogo dotyczy zadanie?</div>';
+      h += '<div class="seg">'
+        +  '<button data-act="subject" data-v="client"   aria-pressed="'+(st.subject==="client")+'">Klient</button>'
+        +  '<button data-act="subject" data-v="project"  aria-pressed="'+(st.subject==="project")+'">Projekt</button>'
+        +  '<button data-act="subject" data-v="internal" aria-pressed="'+(st.subject==="internal")+'">Wewnętrzne</button>'
+        +  '</div>';
+      if(st.subject==="client"){
+        h += '<div class="lbl">Wybierz z kartoteki</div>';
+        h += '<div class="rows">';
+        for(var c=0;c<CLIENTS.length;c++){
+          var cl = CLIENTS[c];
+          h += '<button class="row" data-act="client" data-v="'+cl.id+'" aria-pressed="'+(st.clientId===cl.id)+'">'
+            +  '<span class="avatar">'+initials(cl.n)+'</span>'
+            +  '<span class="rowmain"><span class="rowtitle">'+esc(cl.n)+'</span><span class="rowsub">'+esc(cl.s)+'</span></span>'
+            +  '</button>';
+        }
+        h += '</div>';
+
+        // Deale wybranego klienta — dopiero one niosą powiązanie zadania.
+        if(st.clientId){
+          var deals = CLIENT_DEALS[st.clientId] || [];
+          if(deals.length === 0){
+            h += '<div class="note">Ten klient nie ma żadnego deala — zadanie powstanie bez powiązania.</div>';
+          } else if(deals.length === 1){
+            h += '<div class="note">Powiązane z dealem <b>'+esc(deals[0].n)+'</b> — jedyny deal tego klienta.</div>';
+          } else {
+            h += '<div class="lbl">Którego deala dotyczy?</div>';
+            h += '<div class="rows">';
+            for(var dd=0;dd<deals.length;dd++){
+              var de = deals[dd];
+              h += '<button class="row" data-act="deal" data-v="'+de.id+'" aria-pressed="'+(st.dealId===de.id)+'">'
+                +  '<span class="avatar">▸</span>'
+                +  '<span class="rowmain"><span class="rowtitle">'+esc(de.n)+'</span><span class="rowsub">'+esc(de.s)+'</span></span>'
+                +  '</button>';
+            }
+            h += '<button class="row" data-act="deal" data-v="none" aria-pressed="'+(st.dealId==="none")+'">'
+              +  '<span class="avatar">—</span>'
+              +  '<span class="rowmain"><span class="rowtitle">Żadnego</span><span class="rowsub">zadanie bez powiązania</span></span>'
+              +  '</button>';
+            h += '</div>';
+          }
+        }
+
+        h += '<div class="lbl">…albo wpisz nowy kontakt</div>';
+        h += '<input class="field" data-in="cimie" value="'+esc(st.newClient.imie)+'" placeholder="Imię *">';
+        h += '<input class="field" data-in="cnazw" value="'+esc(st.newClient.nazwisko)+'" placeholder="Nazwisko *">';
+        h += '<input class="field" data-in="ctel" value="'+esc(st.newClient.tel)+'" placeholder="Telefon" inputmode="tel">';
+        h += '<input class="field" data-in="cmail" value="'+esc(st.newClient.mail)+'" placeholder="E-mail (opcjonalnie)">';
+        h += '<div class="note">Nowy kontakt zakłada klienta w kartotece (<b>POST /clients</b>) — dlatego imię i nazwisko są osobno i wymagane.</div>';
+      } else if(st.subject==="project"){
+        h += '<div class="lbl">Projekt z CRM</div>';
+        h += '<div class="rows">';
+        for(var p=0;p<PROJECTS.length;p++){
+          var pr = PROJECTS[p];
+          h += '<button class="row" data-act="project" data-v="'+pr.id+'" aria-pressed="'+(st.projectId===pr.id)+'">'
+            +  '<span class="avatar">'+initials(pr.n)+'</span>'
+            +  '<span class="rowmain"><span class="rowtitle">'+esc(pr.n)+'</span><span class="rowsub">'+esc(pr.s)+'</span></span>'
+            +  '</button>';
+        }
+        h += '</div>';
+        h += '<div class="note">Projekt zapisuje się przez <b>POST /projects/:id/tasks</b> — ta ścieżka już istnieje.</div>';
+      } else {
+        h += '<div class="note">Zadanie bez powiązania — np. porządki w magazynie albo zamówienie materiałów biurowych.</div>';
+      }
+      break;
+
+    case 4:
+      h += '<div class="q">Jaki zespół?</div>';
+      h += '<div class="qsub">Jeden wybór. Zawęzi listę osób w następnym kroku.</div>';
+      h += '<div class="tiles">';
+      for(var t=0;t<TEAMS.length;t++){
+        var tm = TEAMS[t];
+        h += '<button class="tile" data-act="team" data-v="'+tm.k+'" aria-pressed="'+(st.team===tm.k)+'">'
+          +  svg(tm.ic) + '<span class="tl">'+esc(tm.l)+'</span><span class="th">'+esc(tm.h)+'</span></button>';
+      }
+      h += '</div>';
+      break;
+
+    case 5:
+      var list = PEOPLE[st.team] || [];
+      h += '<div class="q">Kto się tym zajmie?</div>';
+      h += '<div class="qsub">'+(st.team? "Funkcja: "+esc(teamLabel(st.team)) : "Najpierw wybierz zespół")+'</div>';
+      h += '<div class="rows">';
+      for(var q=0;q<list.length;q++){
+        var pe = list[q];
+        h += '<button class="row" data-act="person" data-v="'+pe.id+'" aria-pressed="'+(st.person===pe.id)+'">'
+          +  '<span class="avatar">'+initials(pe.n)+'</span>'
+          +  '<span class="rowmain"><span class="rowtitle">'+esc(pe.n)+'</span><span class="rowsub">'+esc(pe.s)+'</span></span>'
+          +  '</button>';
+      }
+      h += '<button class="row" data-act="person" data-v="none" aria-pressed="'+(st.person==="none")+'">'
+        +  '<span class="avatar">—</span>'
+        +  '<span class="rowmain"><span class="rowtitle">Bez przypisania</span><span class="rowsub">ktoś z zespołu odbierze</span></span>'
+        +  '</button>';
+      h += '</div>';
+      h += '<div class="note">Nic nie jest zaznaczone z góry — nie mamy w danych „osoby domyślnej działu".</div>';
+      break;
+
+    case 6:
+      h += '<div class="q">Priorytet</div>';
+      h += '<div class="rows">';
+      for(var r=0;r<PRIOS.length;r++){
+        var pri = PRIOS[r];
+        h += '<button class="row" data-act="prio" data-v="'+pri.k+'" aria-pressed="'+(st.priority===pri.k)+'">'
+          +  '<span class="avatar" style="background:'+pri.c+';color:#080808">'+(r===0?"↓":r===1?"=":"↑")+'</span>'
+          +  '<span class="rowmain"><span class="rowtitle">'+esc(pri.l)+'</span><span class="rowsub">'+esc(pri.h)+'</span></span>'
+          +  '</button>';
+      }
+      h += '</div>';
+      break;
+
+    case 7:
+      h += '<div class="q">Graniczna data</div>';
+      h += '<div class="seg">'
+        +  '<button data-act="duemode" data-v="none" aria-pressed="'+(st.dueMode==="none")+'">Bez daty</button>'
+        +  '<button data-act="duemode" data-v="date" aria-pressed="'+(st.dueMode==="date")+'">Wybierz termin</button>'
+        +  '</div>';
+      if(st.dueMode==="date"){
+        h += '<div class="chips">'
+          +  '<button class="chip" data-act="quick" data-v="1"  aria-pressed="'+(st.dueDay===1)+'">Dziś</button>'
+          +  '<button class="chip" data-act="quick" data-v="2"  aria-pressed="'+(st.dueDay===2)+'">Jutro</button>'
+          +  '<button class="chip" data-act="quick" data-v="6"  aria-pressed="'+(st.dueDay===6)+'">Koniec tygodnia</button>'
+          +  '<button class="chip" data-act="quick" data-v="8"  aria-pressed="'+(st.dueDay===8)+'">Za tydzień</button>'
+          +  '</div>';
+        h += '<div class="cal"><div class="calhead"><b>Wrzesień 2026</b><span>pn – nd</span></div><div class="calgrid">';
+        var dn = ["pn","wt","śr","cz","pt","so","nd"];
+        for(var d0=0;d0<7;d0++){ h += '<u>'+dn[d0]+'</u>'; }
+        h += '<span></span>';
+        for(var d=1;d<=30;d++){
+          h += '<button data-act="day" data-v="'+d+'" aria-pressed="'+(st.dueDay===d)+'">'+d+'</button>';
+        }
+        h += '</div></div>';
+      } else {
+        h += '<div class="note">Zadanie bez terminu trafia na koniec listy i nie generuje przypomnień.</div>';
+      }
+      break;
+
+    case 8:
+      h += '<div class="okbanner">'+svg("check")+'<span>Zadanie utworzone</span></div>';
+      h += '<div class="summary">';
+      h += '<div class="sline"><u>Tytuł</u><b>'+esc(st.title || "—")+'</b></div>';
+      h += '<div class="sline"><u>Opis</u><b>'+(st.desc? esc(st.desc.slice(0,90))+(st.desc.length>90?"…":"") : "—")+'</b></div>';
+      h += '<div class="sline"><u>Dotyczy</u><b>'+esc(subjectLabel(st) || "—")+'</b></div>';
+      h += '<div class="sline"><u>Zespół</u><b>'+esc(teamLabel(st.team) || "—")+'</b></div>';
+      h += '<div class="sline"><u>Osoba</u><b>'+esc((personById(st)||{}).n || "bez przypisania")+'</b></div>';
+      h += '<div class="sline"><u>Zapis</u><b>'+esc(endpointFor(st))+'</b></div>';
+      h += '<div class="sline"><u>Priorytet</u><b>'+esc(prioLabel(st.priority))+'</b></div>';
+      h += '<div class="sline"><u>Termin</u><b>'+esc(dueLabel(st))+'</b></div>';
+      h += '</div>';
+      h += '<div class="note">Powrót zabiera na listę zadań. Zadanie widać też w module Zadania na webie.</div>';
+      break;
+    }
+    return h;
+  }
+
+  function footerBody(st){
+    var s = st.step;
+    if(s===8){
+      return '<button class="btn primary" data-act="reset">Gotowe</button>';
+    }
+    var canNext = true, skip = "";
+    if(s===1) canNext = st.title.trim().length > 0;
+    if(s===2) skip = "Pomiń";
+    if(s===3){
+      if(st.subject==="client")  canNext = !!st.clientId ||
+        (st.newClient.imie.trim().length>0 && st.newClient.nazwisko.trim().length>0);
+      if(st.subject==="project") canNext = !!st.projectId;
+      if(st.subject!=="internal") skip = "Pomiń";
+    }
+    if(s===4) canNext = !!st.team;
+    if(s===7) canNext = st.dueMode==="none" || !!st.dueDay;
+    var h = "";
+    if(skip) h += '<button class="btn ghost" data-act="next">'+skip+'</button>';
+    h += '<button class="btn primary" data-act="next"'+(canNext?"":" disabled")+'>'+(s===7?"Zakończ":"Dalej")+'</button>';
+    return h;
+  }
+
+  function renderDevice(el, st){
+    var segs = "";
+    for(var i=1;i<=7;i++){
+      segs += '<i class="'+(st.step>i?"on":(st.step===i?"now":""))+'"></i>';
+    }
+    el.innerHTML =
+      '<div class="statusbar"><span>9:41</span><span>EKOTAK · 5G ▮</span></div>'
+      + '<div class="topbar">'
+      +   '<button class="iconbtn" data-act="back" aria-label="Wstecz"'+(st.step===1?" disabled":"")+'>'+svg("back")+'</button>'
+      +   '<span class="toptitle">'+(st.step===8? "Zadanie" : "Nowe zadanie")+'</span>'
+      +   (st.step<8? '<span class="stepcount">'+st.step+' / 7</span>' : '')
+      + '</div>'
+      + (st.step<8 ? '<div class="prog">'+segs+'</div>' : '<div class="prog"></div>')
+      + '<div class="screen">'+screenBody(st)+'</div>'
+      + '<div class="footer">'+footerBody(st)+'</div>';
+  }
+
+  /* ── Panel stanu ──────────────────────────────────────────────── */
+  function renderState(st){
+    function line(k,v,hi){
+      var empty = (v===null||v===undefined||v==="");
+      return '<div><k>'+k+'</k><v class="'+(empty?"empty":"")+'">'
+        + (empty? "—" : (hi? "<em>"+esc(v)+"</em>" : esc(v))) + '</v></div>';
+    }
+    var p = personById(st);
+    document.getElementById("statepanel").innerHTML =
+        line("title", st.title)
+      + line("description", st.desc ? st.desc.slice(0,60)+(st.desc.length>60?"…":"") : "")
+      + line("źródło opisu", st.descSource==="voice" ? "dyktowanie" : (st.desc? "wpisany":""))
+      + line("dotyczy", subjectLabel(st))
+      + line("funkcja", teamLabel(st.team), true)
+      + line("assigneeId", p ? p.id : (st.person==="none" ? "null" : ""))
+      + line("priority", st.priority)
+      + line("dueAt", st.dueMode==="date" && st.dueDay ? "2026-09-"+(st.dueDay<10?"0":"")+st.dueDay : (st.step>=7?"null":""))
+      + line("endpoint", st.step>=3 ? endpointFor(st) : "", true);
+
+    document.getElementById("stepnote").innerHTML =
+      '<p style="font-family:\'IBM Plex Mono\',monospace;font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--brand);margin-bottom:10px">'
+      + (st.step<8 ? "Krok "+st.step+" / 7 — " : "Finał — ") + esc(STEP_TITLES[st.step-1]) + '</p>'
+      + NOTES[st.step];
+  }
+
+  /* ── Interakcja ───────────────────────────────────────────────── */
+  var live = document.getElementById("live");
+  var state = freshState();
+  var recTimer = null, recWord = 0;
+
+  function paint(){ renderDevice(live, state); renderState(state); }
+
+  function stopRec(){
+    if(recTimer){ clearInterval(recTimer); recTimer = null; }
+    state.recording = false;
+  }
+
+  function startRec(){
+    state.recording = true;
+    state.recSec = 0;
+    recWord = 0;
+    state.descSource = "voice";
+    recTimer = setInterval(function(){
+      if(recWord < DICTATION.length){
+        state.desc = (state.desc ? state.desc+" " : "") + DICTATION[recWord];
+        recWord++;
+        if(recWord % 3 === 0) state.recSec++;
+      } else {
+        state.recSec++;
+        if(state.recSec > 14){ stopRec(); }
+      }
+      paint();
+    }, 260);
+    paint();
+  }
+
+  // Osoby domyślnej celowo nie ma — krok 5 pokazuje samą listę, nic nie jest
+  // zaznaczone z góry (decyzja z 2026-09-01).
+
+  live.addEventListener("click", function(ev){
+    var b = ev.target.closest("button[data-act]");
+    if(!b) return;
+    var act = b.getAttribute("data-act");
+    var v = b.getAttribute("data-v");
+
+    if(act==="next"){ stopRec(); state.step = Math.min(8, state.step+1); }
+    else if(act==="back"){ stopRec(); state.step = Math.max(1, state.step-1); }
+    else if(act==="reset"){ state = freshState(); }
+    else if(act==="mic"){ if(state.recording) stopRec(); else { startRec(); return; } }
+    else if(act==="subject"){ state.subject = v; }
+    else if(act==="client"){
+      state.clientId = (state.clientId===v? null : v);
+      var ds = CLIENT_DEALS[state.clientId] || [];
+      state.dealId = ds.length === 1 ? ds[0].id : null; // jeden deal wybieramy sami
+    }
+    else if(act==="deal"){ state.dealId = v; }
+    else if(act==="project"){ state.projectId = (state.projectId===v? null : v); }
+    else if(act==="team"){ state.team = v; state.person = null; }
+    else if(act==="person"){ state.person = v || null; }
+    else if(act==="prio"){ state.priority = v; }
+    else if(act==="duemode"){ state.dueMode = v; if(v==="none") state.dueDay = null; }
+    else if(act==="quick" || act==="day"){ state.dueDay = parseInt(v,10); }
+    paint();
+  });
+
+  live.addEventListener("input", function(ev){
+    var f = ev.target.closest("[data-in]");
+    if(!f) return;
+    var key = f.getAttribute("data-in");
+    if(key==="title"){ state.title = f.value; }
+    else if(key==="desc"){ state.desc = f.value; if(state.descSource!=="voice") state.descSource = "text"; }
+    else if(key==="cimie"){ state.newClient.imie = f.value; }
+    else if(key==="cnazw"){ state.newClient.nazwisko = f.value; }
+    else if(key==="ctel"){ state.newClient.tel = f.value; }
+    else if(key==="cmail"){ state.newClient.mail = f.value; }
+    // Przerysowujemy tylko stopkę — pole tekstowe nie może stracić fokusu.
+    live.querySelector(".footer").innerHTML = footerBody(state);
+    renderState(state);
+  });
+
+  document.querySelectorAll(".appthemer button").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var t = btn.getAttribute("data-appt");
+      document.querySelectorAll(".appthemer button").forEach(function(o){
+        o.setAttribute("aria-pressed", String(o===btn));
+      });
+      document.querySelectorAll(".device").forEach(function(d){ d.setAttribute("data-app-theme", t); });
+    });
+  });
+
+  paint();
+
+  /* ── Taśma ekranów ────────────────────────────────────────────── */
+  var PRESETS = [
+    {step:1, cap:["Nazwa zadania","Jedyne pole wymagane. Wejście z połączenia podstawia numer."],
+     patch:{title:"Brak c.w.u. — pompa ciepła"}},
+    {step:2, cap:["Opis + dyktowanie","Mikrofon uruchamia rozpoznawanie mowy pl-PL; tekst zostaje edytowalny."],
+     patch:{title:"Brak c.w.u. — pompa ciepła", recording:true, recSec:7,
+            desc:"Klient zgłasza brak ciepłej wody od wczoraj wieczorem. Pompa ciepła głośno buczy przy starcie."}},
+    {step:3, cap:["Kogo dotyczy — klient","Z kartoteki, albo ręczny kontakt, który zakłada klienta. Klient z kilkoma dealami dopytuje, którego dotyczy."],
+     patch:{title:"Brak c.w.u. — pompa ciepła", subject:"client", clientId:"c1", dealId:"cd2"}},
+    {step:3, cap:["…albo projekt","Ta sama plansza, druga zakładka — deal z CRM."],
+     patch:{title:"Brak c.w.u. — pompa ciepła", subject:"project", projectId:"d1"}},
+    {step:4, cap:["Zespół","Dwanaście kafelków — słownik funkcji, wybór jednego."],
+     patch:{title:"Brak c.w.u. — pompa ciepła", team:"serwis"}},
+    {step:5, cap:["Osoba","Osoby pełniące wybraną funkcję. Nic nie jest zaznaczone z góry."],
+     patch:{title:"Brak c.w.u. — pompa ciepła", team:"serwis", person:"s2"}},
+    {step:6, cap:["Priorytet","Trzy wartości modelu: low / normal / high."],
+     patch:{title:"Brak c.w.u. — pompa ciepła", team:"serwis", person:"s2", priority:"high"}},
+    {step:7, cap:["Graniczna data","Bez daty albo kalendarz. Przycisk: Zakończ."],
+     patch:{title:"Brak c.w.u. — pompa ciepła", team:"serwis", person:"s2", priority:"high", dueMode:"date", dueDay:4}},
+    {step:8, cap:["Potwierdzenie","Podsumowanie tego, co poszło na serwer."],
+     patch:{title:"Brak c.w.u. — pompa ciepła", subject:"client", clientId:"c1", dealId:"cd2", team:"serwis", person:"s2",
+            priority:"high", dueMode:"date", dueDay:4,
+            desc:"Klient zgłasza brak ciepłej wody od wczoraj wieczorem. Pompa ciepła głośno buczy przy starcie."}}
+  ];
+
+  var strip = document.getElementById("strip");
+  PRESETS.forEach(function(p, idx){
+    var st = freshState();
+    for(var key in p.patch){ if(Object.prototype.hasOwnProperty.call(p.patch,key)) st[key] = p.patch[key]; }
+    st.step = p.step;
+
+    var frame = document.createElement("div");
+    frame.className = "frame";
+    var holder = document.createElement("div");
+    holder.className = "holder";
+    var dev = document.createElement("div");
+    dev.className = "device";
+    dev.setAttribute("data-app-theme","dark");
+    dev.setAttribute("aria-hidden","true");
+    renderDevice(dev, st);
+    holder.appendChild(dev);
+
+    var cap = document.createElement("div");
+    cap.className = "cap";
+    cap.innerHTML = '<i>'+(p.step<8? "krok "+p.step : "finał")+'</i><b>'+esc(p.cap[0])+'</b><span>'+esc(p.cap[1])+'</span>';
+
+    frame.appendChild(holder);
+    frame.appendChild(cap);
+    strip.appendChild(frame);
+  });
+
+  /* ── Tabela mapowania ─────────────────────────────────────────── */
+  var DEPT = {
+    moje:"—",
+    serwis:"Serwis",
+    inzynier:"Inżynier opiekun",
+    koordynator:"Zaopatrzenie, magazyn i koordynacja",
+    zaopatrzenie:"Zaopatrzenie, magazyn i koordynacja",
+    ksiegowosc:"Księgowość",
+    bow:"Biuro Obsługi Wstępnej",
+    montaz:"Wykonawstwo",
+    technolog:"Projektowo-techniczny",
+    marketing:"Marketing",
+    dotacje:"Dotacje",
+    projekt:"Projektowo-techniczny"
+  };
+  var tb = document.getElementById("mapping");
+  TEAMS.forEach(function(t){
+    var names = (PEOPLE[t.k] || []).map(function(p){ return p.n; }).join(", ") || "—";
+    var tr = document.createElement("tr");
+    tr.innerHTML = "<td><b>"+esc(t.l)+"</b></td><td><code>"+esc(t.code)+"</code></td><td>"
+      + esc(names)+"</td><td>"+esc(DEPT[t.k])+"</td>";
+    tb.appendChild(tr);
+  });
+})();
+</script>
