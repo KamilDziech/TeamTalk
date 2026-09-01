@@ -46,6 +46,13 @@ class UpdateTaskUseCase @Inject constructor(
         taskRepository.updateTask(id, patch)
 }
 
+/** Usunięcie zadania z menu karty. Nieodwracalne, więc UI pyta o potwierdzenie. */
+class DeleteTaskUseCase @Inject constructor(
+    private val taskRepository: TaskRepository,
+) {
+    suspend operator fun invoke(id: String) = taskRepository.deleteTask(id)
+}
+
 /**
  * Odhaczenie i cofnięcie odhaczenia — najczęstsza akcja na liście, więc ma
  * własną nazwę zamiast gołego patcha ze statusem w ekranie.

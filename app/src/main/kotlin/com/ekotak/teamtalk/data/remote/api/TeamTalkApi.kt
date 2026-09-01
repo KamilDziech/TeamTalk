@@ -273,6 +273,10 @@ interface TeamTalkApi {
         @Body patch: JsonObject,
     ): TaskResponseDto
 
+    /** Usunięcie zadania (menu karty). Odpowiedź bez ciała — 204. */
+    @DELETE("api/tasks/{id}")
+    suspend fun deleteTask(@Path("id") id: String)
+
     /** Zadania jednego deala — zakładka „Zadania" karty klienta (wchodzi w E2). */
     @GET("api/deals/{id}/tasks")
     suspend fun getDealTasks(@Path("id") dealId: String): List<TaskResponseDto>

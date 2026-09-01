@@ -13,6 +13,7 @@ import com.ekotak.teamtalk.domain.model.TaskSection
 import com.ekotak.teamtalk.domain.model.slaLabel
 import com.ekotak.teamtalk.domain.model.TaskStatus
 import com.ekotak.teamtalk.domain.usecase.task.AddTaskCommentUseCase
+import com.ekotak.teamtalk.domain.usecase.task.DeleteTaskUseCase
 import com.ekotak.teamtalk.domain.usecase.task.GetTaskCommentsUseCase
 import com.ekotak.teamtalk.domain.usecase.task.GetTaskMembersUseCase
 import com.ekotak.teamtalk.domain.usecase.task.GetTaskUseCase
@@ -44,6 +45,7 @@ class TaskDetailViewModel @Inject constructor(
     private val getComments: GetTaskCommentsUseCase,
     private val addComment: AddTaskCommentUseCase,
     private val updateTask: UpdateTaskUseCase,
+    private val deleteTask: DeleteTaskUseCase,
     private val getTaskMembers: GetTaskMembersUseCase,
     private val markDiscussionRead: MarkDiscussionReadUseCase,
     savedStateHandle: SavedStateHandle,
@@ -152,6 +154,38 @@ class TaskDetailViewModel @Inject constructor(
         TaskPatch(estimatedMinutes = Edit(minutes)),
         if (minutes == null) "Zdjęto szacowany czas." else "Potrzebny czas: ${minutes} min.",
     )
+
+    /**
+     * Opis zadania. Kreator wypełnia go tylko wtedy, gdy ktoś podyktował albo
+     * wpisał szczegóły, więc dopisanie opisu później jest zwykłą ścieżką, a nie
+     * wyjątkiem. Pusty tekst czyści pole (`null`), zamiast zapisywać pusty ciąg.
+     */
+    fun setDescription(text: String) {
+        val value = text.trim().ifBlank { null }
+        if (value == _uiState.value.task?.description?.trim()?.ifBlank { null }) return
+        patch(
+            TaskPatch(description = Edit(value)),
+            if (value == null) "Usunięto opis." else "Zapisano opis.",
+        )
+    }
+
+    /**
+     * Usunięcie zadania. [onDeleted] zamyka kartę — robimy to dopiero po
+     * potwierdzeniu z serwera, żeby nie zamykać ekranu przy nieudanym zapisie.
+     */
+    fun delete(onDeleted: () -> Unit) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(saving = true, message = null) }
+            try {
+                deleteTask(taskId)
+                onDeleted()
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(saving = false, message = crmErrorMessage(e, "Nie udało się usunąć zadania"))
+                }
+            }
+        }
+    }
 
     private fun patch(patch: TaskPatch, okMessage: String) {
         if (patch.isEmpty) return

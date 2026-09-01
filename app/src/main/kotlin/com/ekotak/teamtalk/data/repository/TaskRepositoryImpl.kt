@@ -121,6 +121,13 @@ class TaskRepositoryImpl @Inject constructor(
         return local.toDomain()
     }
 
+    override suspend fun deleteTask(id: String) {
+        api.deleteTask(id)
+        // Kolejka idzie do kosza razem z zadaniem — nie ma już czego łatać.
+        mutationDao.deleteForTask(id)
+        taskDao.deleteById(id)
+    }
+
     override fun observePendingTaskIds(): Flow<Set<String>> =
         mutationDao.observePendingTaskIds().map { it.toSet() }
 

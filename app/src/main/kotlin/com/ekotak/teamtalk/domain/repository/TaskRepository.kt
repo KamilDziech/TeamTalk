@@ -46,6 +46,13 @@ interface TaskRepository {
      */
     suspend fun updateTask(id: String, patch: TaskPatch): Task
 
+    /**
+     * Usunięcie zadania (menu karty). Wymaga sieci — kolejka offline wozi
+     * zmiany pól, a nie usunięcia: cofnąć się z niego nie da, więc lepiej
+     * powiedzieć wprost „bez zasięgu nie usuniemy" niż obiecywać na później.
+     */
+    suspend fun deleteTask(id: String)
+
     /** Zadania z niewysłaną zmianą — znacznik „czeka na wysyłkę" na liście. */
     fun observePendingTaskIds(): Flow<Set<String>>
 
