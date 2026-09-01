@@ -49,7 +49,11 @@ class MentionsWorker @AssistedInject constructor(
             val comment = discussion.lastComment ?: continue
             val at = parseIsoMillis(comment.createdAt) ?: continue
             if (at > newest) newest = at
-            if (discussion.unreadCount == 0 || at <= seenAt) continue
+            // Powiadamiamy tylko o WYWOŁANIACH (@), nie o każdym nowym
+            // komentarzu w dyskusji, w której bierzemy udział: kanał nazywa się
+            // „Wywołania w zadaniach" i tak go człowiek rozumie. Zwykłe odpowiedzi
+            // widać po liczniku w skrzynce — bez wibrowania telefonu.
+            if (!discussion.mentionedMe || discussion.unreadCount == 0 || at <= seenAt) continue
             // Pierwsze uruchomienie (seenAt == 0) nie zasypuje szuflady zaległą
             // korespondencją — zapamiętujemy stan i trąbimy dopiero od następnego.
             if (seenAt == 0L) continue
