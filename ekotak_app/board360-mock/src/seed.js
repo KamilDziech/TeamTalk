@@ -132,10 +132,24 @@ function seedClients(db) {
   });
 }
 
+/**
+ * Krotki kod karty deala pokazywany ludziom (4 znaki [a-z0-9], jak
+ * `deal_code_gen()` w board360). Wchodzi m.in. w tytul dyskusji w Komunikatorze
+ * ("Nazwisko · kod deala"), wiec musi byc unikatem.
+ */
+function dealCode(db) {
+  const taken = new Set(db.deals.map((d) => d.code));
+  for (;;) {
+    const code = Math.random().toString(36).slice(2, 6).padEnd(4, '0');
+    if (!taken.has(code)) return code;
+  }
+}
+
 /** Deal z pelnym kompletem pol — odpowiedz API nigdy nie gubi klucza. */
 function makeDeal(db, overrides) {
   const deal = {
     id: uuid(),
+    code: dealCode(db),
     organizationId: db.organization.id,
     clientId: '',
     ownerId: '',
@@ -608,7 +622,7 @@ function seed(db) {
     slaHours: 168,
     estimatedMinutes: 30,
   });
-  task({
+  const tOffer = task({
     dealId: dOffer.id,
     title: 'Wyslac oferte po kalkulacji 10 kW',
     description: 'Klient chce wariant z magazynem i bez.',
@@ -640,7 +654,7 @@ function seed(db) {
     slaHours: 24,
     createdAt: daysAgo(3),
   });
-  task({
+  const tCrew = task({
     dealId: dSold.id,
     title: 'Potwierdzic termin ekipy z klientem',
     assignee: users.koordynator,
@@ -673,6 +687,50 @@ function seed(db) {
     section: 'po_montazu',
     createdBy: users.serwisant,
   });
+
+  // ── Komentarze i wywolania (@) ─────────────────────────────────────────────
+  // Dyskusja w Komunikatorze = watek komentarzy zadania. Zestaw dobrany tak, by
+  // `serwisant@ekotak.pl` mial po zalogowaniu jedno wywolanie nieprzeczytane
+  // (wywolal go koordynator) i jeden watek, w ktorym sam pisal.
+  const comment = (task, author, body, mentioned = [], createdAt = null) => {
+    const row = {
+      id: uuid(),
+      organizationId: db.organization.id,
+      taskId: task.id,
+      authorId: author.id,
+      body,
+      createdAt: createdAt || nowIso(),
+    };
+    db.taskComments.push(row);
+    for (const user of mentioned) {
+      db.taskCommentMentions.push({
+        id: uuid(),
+        organizationId: db.organization.id,
+        taskId: task.id,
+        commentId: row.id,
+        userId: user.id,
+        createdAt: row.createdAt,
+      });
+    }
+    task.commentCount = db.taskComments.filter((c) => c.taskId === task.id).length;
+    return row;
+  };
+
+  comment(
+    tOffer,
+    users.koordynator,
+    '@Jan Serwisant klient dopytuje o wariant z magazynem — masz gotowa kalkulacje?',
+    [users.serwisant],
+    daysAgo(0.8),
+  );
+  comment(tOffer, users.serwisant, 'Kalkulacja gotowa, dosylam PDF jeszcze dzis.', [], daysAgo(0.6));
+  comment(
+    tCrew,
+    users.serwisant,
+    'Klient prosi o poniedzialek. @Piotr Koordynator potwierdzisz ekipe?',
+    [users.koordynator],
+    daysAgo(0.3),
+  );
 
   return { users, clients, missedNowak };
 }

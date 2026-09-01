@@ -126,6 +126,7 @@ Trzy konta zamiast jednego, bo tylko tak da się na telefonie sprawdzić, że pr
 ### Zadania
 - `GET /api/tasks/members` — z `functions[]` i `additionalRoles[]` (po nich kreator filtruje osoby pod kafelkami zespołów)
 - `GET /api/tasks?status=&assignee=me`, `POST /api/tasks`
+- `GET /api/tasks/:id` — jedno zadanie (karta otwierana z powiadomienia albo z dyskusji)
 - `PATCH /api/tasks/:id` — pojedyncze pola (`status`, `dueAt`, `assigneeId`, `priority`, `section`, `estimatedMinutes`, `slaHours`), `DELETE /api/tasks/:id` → 204
 - `GET /api/deals/:id/tasks`, `POST /api/deals/:id/tasks` — tak zadanie wiąże się z klientem (`Task` nie ma `clientId`)
 - `GET /api/projects?status=active&templates=0`, `POST /api/projects/:id/tasks` (wymaga `projects.manage`)
@@ -134,9 +135,24 @@ Rekord zadania ma pełny kształt z board360 — `section`, `slaHours`, `estimat
 `createdBy` oraz doklejane przy odczycie `dealName` / `projectName`. Sekcja zadania zakładanego pod dealem
 wyprowadza się z etapu deala, o ile nie podano jej wprost.
 
-**Czego jeszcze nie ma:** komentarzy, załączników i modułu `discussions` (nieprzeczytane) — wchodzą razem
-z etapem E5 aplikacji mobilnej, patrz `design/mockups/modul-zadania.html`. Nie ma też
-`GET /api/tasks/:id`, bo nie ma go jeszcze w samym board360.
+### Komentarze i Komunikator wewnętrzny
+- `GET /api/tasks/:id/comments`, `POST /api/tasks/:id/comments` `{body, mentions[]}` — `mentions[]` to
+  TOKENY wywołań (`user:<id>`, `role:<rola>`, `watchers`, `all`), nie nazwiska; w tekście komentarza
+  zostaje „@Imię Nazwisko". `DELETE /api/task-comments/:id` → 204
+- `GET /api/discussions` — skrzynka: dyskusje, w których użytkownik bierze udział (wywołany LUB komentował)
+- `GET /api/discussions/unread-count` → `{count}` (plakietka, powiadomienia)
+- `GET /api/discussions/:taskId`, `POST /api/discussions/:taskId/read|unread`
+- `POST /api/discussions/:taskId/comments` — odpowiedź ze skrzynki; ląduje jako komentarz pod zadaniem
+
+Dyskusja **jest** wątkiem komentarzy jednego zadania — nie ma osobnej rozmowy obok. `title` liczy backend:
+`Nazwisko · kod deala` dla zadań pod dealem, nazwa projektu dla projektowych, tytuł zadania dla luźnych
+(ustalenia z 2026-09-01, `ekotak-app/docs/tasks/wywolanie-w-komentarzu.md`). Deal ma przez to pole `code`.
+
+Seed zakłada trzy komentarze, w tym dwa wywołania — po zalogowaniu `serwisant@ekotak.pl` ma jedno
+nieprzeczytane wywołanie od koordynatora.
+
+**Czego jeszcze nie ma:** załączników zadań — wchodzą z etapem E5, patrz `design/mockups/modul-zadania.html`.
+Nie ma też wątków deal-level z panelu (`/api/discussions/deal/:id`): mobilka ich nie woła.
 
 ### Zdrowie
 - `GET /api/health` → `{ok, service, time, counts}` (używane też przez `HEALTHCHECK` w obrazie)

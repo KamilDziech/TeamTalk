@@ -58,6 +58,7 @@ app.use('/api', require('./src/routes/intake'));
 app.use('/api', require('./src/routes/catalog'));
 app.use('/api', require('./src/routes/telephony'));
 app.use('/api', require('./src/routes/tasks'));
+app.use('/api', require('./src/routes/discussions'));
 
 app.use((req, res) => res.status(404).json({ message: `Brak trasy: ${req.method} ${req.path}` }));
 

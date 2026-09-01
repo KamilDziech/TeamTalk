@@ -7,14 +7,22 @@
  * `dealName` / `projectName` sa doklejane przy odczycie (tak samo jak w panelu,
  * gdzie nie sa kolumnami tabeli) — sluza kolumnie "Zrodla" i wierszowi listy.
  *
- * Czego tu (jeszcze) nie ma: komentarzy, zalacznikow i modulu `discussions`.
- * Wchodza razem z etapem E5 aplikacji mobilnej — patrz design/mockups/modul-zadania.html.
+ * Sa tu takze komentarze karty zadania z wywolaniami (@) — Komunikator siedzi
+ * osobno w `routes/discussions.js`, bo w board360 to inny modul. Czego (jeszcze)
+ * nie ma: zalacznikow — wchodza z etapem E5, patrz design/mockups/modul-zadania.html.
  */
 
 const express = require('express');
 const { uuid, nowIso } = require('../crypto');
 const { requireAuth, requirePermission, unprocessable } = require('../middleware');
-const { db, userById, dealById, clientById } = require('../store');
+const {
+  db,
+  userById,
+  dealById,
+  clientById,
+  recordMentions,
+  markDiscussionRead,
+} = require('../store');
 
 const router = express.Router();
 
@@ -159,6 +167,81 @@ router.get('/tasks', requireAuth, requirePermission('tasks.view'), (req, res) =>
 router.post('/tasks', requireAuth, requirePermission('tasks.manage'), (req, res) =>
   buildTask(req, res, {}),
 );
+
+/**
+ * Jedno zadanie po id — trasa MUSI byc za `/tasks/members`, inaczej "members"
+ * wpadnie w `:id`. Karta zadania w telefonie otwiera sie takze z powiadomienia
+ * i z odnosnika w dyskusji, wiec nie da sie jej zlozyc z pozycji listy.
+ */
+router.get('/tasks/:id', requireAuth, requirePermission('tasks.view'), (req, res) => {
+  const task = taskById(req.user.organizationId, req.params.id);
+  if (!task) return res.status(404).json({ message: 'Zadanie nie istnieje.' });
+  return res.json(present(req.user.organizationId, task));
+});
+
+// ── Komentarze karty zadania ─────────────────────────────────────────────────
+// Komentuje kazdy z `tasks.view` — to wspolpraca, nie zarzadzanie zadaniem.
+// `mentions[]` to tokeny wywolan ("user:<id>", "role:<rola>", "watchers",
+// "all"); rozwijamy je do userow przy zapisie, tak jak robi to board360.
+
+/** Komentarz w postaci, ktora widzi klient API (z danymi autora). */
+function presentComment(orgId, row) {
+  const author = userById(orgId, row.authorId);
+  return {
+    id: row.id,
+    taskId: row.taskId,
+    authorId: row.authorId,
+    authorEmail: author ? author.email : null,
+    authorFirstName: author ? author.firstName || null : null,
+    authorLastName: author ? author.lastName || null : null,
+    body: row.body,
+    createdAt: row.createdAt,
+  };
+}
+
+router.get('/tasks/:id/comments', requireAuth, requirePermission('tasks.view'), (req, res) => {
+  const task = taskById(req.user.organizationId, req.params.id);
+  if (!task) return res.status(404).json({ message: 'Zadanie nie istnieje.' });
+  const list = db.taskComments
+    .filter((c) => c.taskId === task.id && c.organizationId === req.user.organizationId)
+    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+  return res.json(list.map((c) => presentComment(req.user.organizationId, c)));
+});
+
+router.post('/tasks/:id/comments', requireAuth, requirePermission('tasks.view'), (req, res) => {
+  const task = taskById(req.user.organizationId, req.params.id);
+  if (!task) return res.status(404).json({ message: 'Zadanie nie istnieje.' });
+  const body = typeof (req.body || {}).body === 'string' ? req.body.body.trim() : '';
+  if (!body) return unprocessable(res, 'Tresc komentarza jest wymagana.', ['tresc komentarza']);
+
+  const row = {
+    id: uuid(),
+    organizationId: req.user.organizationId,
+    taskId: task.id,
+    authorId: req.user.id,
+    body,
+    createdAt: nowIso(),
+  };
+  db.taskComments.push(row);
+  recordMentions(req.user.organizationId, task.id, row.id, req.user.id, (req.body || {}).mentions);
+  // Wlasny komentarz nie moze wracac jako nieprzeczytany u autora.
+  markDiscussionRead(req.user.organizationId, req.user.id, task.id);
+  task.commentCount = db.taskComments.filter((c) => c.taskId === task.id).length;
+  task.updatedAt = nowIso();
+  return res.status(201).json(presentComment(req.user.organizationId, row));
+});
+
+router.delete('/task-comments/:id', requireAuth, requirePermission('tasks.view'), (req, res) => {
+  const idx = db.taskComments.findIndex(
+    (c) => c.id === req.params.id && c.organizationId === req.user.organizationId,
+  );
+  if (idx < 0) return res.status(404).json({ message: 'Komentarz nie istnieje.' });
+  const [row] = db.taskComments.splice(idx, 1);
+  db.taskCommentMentions = db.taskCommentMentions.filter((m) => m.commentId !== row.id);
+  const task = taskById(req.user.organizationId, row.taskId);
+  if (task) task.commentCount = db.taskComments.filter((c) => c.taskId === task.id).length;
+  return res.status(204).end();
+});
 
 // ── Zadania pod dealem (tak zadanie wiaze sie z klientem) ────────────────────
 router.get('/deals/:id/tasks', requireAuth, requirePermission('tasks.view'), (req, res) => {
