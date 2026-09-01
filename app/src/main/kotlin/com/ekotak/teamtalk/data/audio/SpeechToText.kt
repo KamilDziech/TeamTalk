@@ -20,6 +20,10 @@ import javax.inject.Singleton
  * automatycznie wznawiana, dzięki czemu użytkownik może mówić dłużej niż jedną
  * wypowiedź. Zakończenie następuje dopiero po [stop] / [cancel].
  *
+ * Tryb jednej wypowiedzi (`start(continuous = false)`) kończy się sam po pierwszym
+ * rozpoznaniu — tak działa dyktowanie do pól wyszukiwania, gdzie mikrofon nie może
+ * zostać włączony po wypowiedzeniu nazwiska.
+ *
  * WAŻNE: wszystkie metody muszą być wołane z wątku głównego (wymóg SpeechRecognizer).
  */
 @Singleton
@@ -30,6 +34,9 @@ class SpeechToText @Inject constructor(
     private var recognizer: SpeechRecognizer? = null
     private var listening = false
 
+    /** Czy sesja ma się wznawiać po każdej wypowiedzi (dyktowanie opisu). */
+    private var continuous = true
+
     /** Tekst już rozpoznany (zatwierdzone fragmenty). */
     private val finalized = StringBuilder()
 
@@ -39,15 +46,19 @@ class SpeechToText @Inject constructor(
     /** Wołane przy błędzie uniemożliwiającym dalsze rozpoznawanie. */
     var onError: ((String) -> Unit)? = null
 
+    /** Wołane, gdy sesja jednej wypowiedzi skończyła się sama (bez [stop]). */
+    var onDone: (() -> Unit)? = null
+
     fun isAvailable(): Boolean = SpeechRecognizer.isRecognitionAvailable(context)
 
-    fun start() {
+    fun start(continuous: Boolean = true) {
         if (!isAvailable()) {
             onError?.invoke("Rozpoznawanie mowy niedostępne na tym urządzeniu")
             return
         }
         finalized.clear()
         listening = true
+        this.continuous = continuous
         ensureRecognizer()
         recognizer?.startListening(buildIntent())
     }
@@ -81,9 +92,21 @@ class SpeechToText @Inject constructor(
         }
     }
 
+    /** Domyka sesję jednej wypowiedzi — mikrofon gaśnie bez udziału użytkownika. */
+    private fun finish() {
+        if (!listening) return
+        listening = false
+        release()
+        onDone?.invoke()
+    }
+
     /** Wznawia nasłuch (dyktowanie ciągłe), o ile użytkownik nie zakończył. */
     private fun restart() {
         if (!listening) return
+        if (!continuous) {
+            finish()
+            return
+        }
         // Drobne opóźnienie stabilizuje ponowny start na części urządzeń.
         mainHandler.post {
             if (listening) {

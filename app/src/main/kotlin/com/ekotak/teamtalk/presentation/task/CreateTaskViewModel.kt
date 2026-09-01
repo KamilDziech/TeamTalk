@@ -52,6 +52,26 @@ enum class WizardStep {
 /** Tryb kroku „kogo dotyczy". */
 enum class SubjectMode { CLIENT, PROJECT, INTERNAL }
 
+/**
+ * Pole kreatora, do którego akurat mówi użytkownik. Rozpoznawanie mowy obsługuje
+ * jedną sesję naraz, więc w stanie trzymamy jedno pole zamiast flagi przy każdym.
+ */
+enum class VoiceField {
+    TITLE,
+    DESCRIPTION,
+    CLIENT,
+    PROJECT,
+    PERSON,
+    CONTACT_FIRST_NAME,
+    CONTACT_LAST_NAME,
+}
+
+/** Dopasowanie do frazy z wyszukiwarki; pusta fraza pasuje do wszystkiego. */
+private fun String.matchesQuery(query: String): Boolean {
+    val q = query.trim().lowercase()
+    return q.isEmpty() || lowercase().contains(q)
+}
+
 @HiltViewModel
 class CreateTaskViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
@@ -98,7 +118,8 @@ class CreateTaskViewModel @Inject constructor(
         // ── Krok 1–2 ──────────────────────────────────────────────────────────
         val title: String = "",
         val description: String = "",
-        val isRecording: Boolean = false,
+        /** Pole, do którego trwa dyktowanie; `null` = mikrofon wyłączony. */
+        val voiceField: VoiceField? = null,
         val recordingSeconds: Int = 0,
         // ── Krok 3 ────────────────────────────────────────────────────────────
         val subjectMode: SubjectMode = SubjectMode.CLIENT,
@@ -110,12 +131,14 @@ class CreateTaskViewModel @Inject constructor(
         val selectedDealId: String? = null,
         val newContact: NewContact = NewContact(),
         val projects: List<TaskProject> = emptyList(),
+        val projectQuery: String = "",
         val isLoadingProjects: Boolean = false,
         val projectsError: String? = null,
         val selectedProjectId: String? = null,
         // ── Krok 4–7 ──────────────────────────────────────────────────────────
         val team: TaskTeam? = null,
         val members: List<TaskMember> = emptyList(),
+        val personQuery: String = "",
         val isLoadingMembers: Boolean = false,
         /** Id zalogowanego użytkownika — po nim kafelek „Moje" znajduje jedyną osobę. */
         val selfId: String? = null,
@@ -133,6 +156,27 @@ class CreateTaskViewModel @Inject constructor(
         val teamMembers: List<TaskMember>
             get() = team?.membersFrom(members, selfId) ?: emptyList()
 
+        /** Czy trwa dyktowanie do wskazanego pola. */
+        fun isListening(field: VoiceField): Boolean = voiceField == field
+
+        /**
+         * Projekty po zawężeniu wyszukiwarką. Wybrany zostaje na liście nawet gdy
+         * nie pasuje do frazy — inaczej znikałby razem z powodem, dla którego
+         * przycisk „Dalej" jest aktywny.
+         */
+        val visibleProjects: List<TaskProject>
+            get() = projects.filter {
+                it.id == selectedProjectId || it.name.matchesQuery(projectQuery)
+            }
+
+        /** Osoby z kafelka po zawężeniu wyszukiwarką (wybrana zawsze widoczna). */
+        val visibleMembers: List<TaskMember>
+            get() = teamMembers.filter {
+                it.id == assigneeId ||
+                    it.displayName.matchesQuery(personQuery) ||
+                    it.email.matchesQuery(personQuery)
+            }
+
         /** Numer planszy pokazywany użytkownikowi; [WizardStep.DONE] jest poza licznikiem. */
         val stepNumber: Int get() = steps.indexOf(step) + 1
 
@@ -140,10 +184,22 @@ class CreateTaskViewModel @Inject constructor(
         val isLastStep: Boolean get() = step == steps.lastOrNull()
     }
 
+    /** Komplet plansz tego przebiegu, zanim kafelek zespołu którąś z nich zdejmie. */
+    private val baseSteps: List<WizardStep> = if (isShort) WizardStep.SHORT else WizardStep.WIZARD
+
+    /**
+     * Plansze do pokazania przy danym kafelku. „Moje" nie pyta o wykonawcę —
+     * zadanie idzie na twórcę, więc krok z osobą znika. Zdejmujemy go dopiero
+     * gdy znamy [selfId]; bez niego nie mielibyśmy kogo wpisać i pytanie o osobę
+     * nadal ma sens.
+     */
+    private fun stepsFor(team: TaskTeam?, selfId: String?): List<WizardStep> =
+        if (team == TaskTeam.MOJE && selfId != null) baseSteps - WizardStep.PERSON else baseSteps
+
     private val _uiState = MutableStateFlow(
         UiState(
             step = if (isShort) WizardStep.TEAM else WizardStep.TITLE,
-            steps = if (isShort) WizardStep.SHORT else WizardStep.WIZARD,
+            steps = baseSteps,
             title = defaultTitle(),
             description = presetNote.orEmpty(),
         ),
@@ -202,7 +258,7 @@ class CreateTaskViewModel @Inject constructor(
             (state.step == WizardStep.SUBJECT && state.subjectMode != SubjectMode.INTERNAL)
 
     fun next() {
-        stopRecording()
+        stopVoice()
         val state = _uiState.value
         val steps = state.steps
         val idx = steps.indexOf(state.step)
@@ -223,6 +279,7 @@ class CreateTaskViewModel @Inject constructor(
                     clientDeals = emptyList(),
                     newContact = NewContact(),
                     selectedProjectId = null,
+                    projectQuery = "",
                     subjectMode = SubjectMode.INTERNAL,
                 )
             }
@@ -231,7 +288,7 @@ class CreateTaskViewModel @Inject constructor(
     }
 
     fun back() {
-        stopRecording()
+        stopVoice()
         val steps = _uiState.value.steps
         val idx = steps.indexOf(_uiState.value.step)
         if (idx <= 0) return
@@ -254,29 +311,43 @@ class CreateTaskViewModel @Inject constructor(
 
     fun onDescriptionChange(value: String) = _uiState.update { it.copy(description = value) }
 
-    fun toggleRecording() {
-        if (_uiState.value.isRecording) stopRecording() else startRecording()
+    // ── Dyktowanie ───────────────────────────────────────────────────────────
+
+    /** Włącza dyktowanie do wskazanego pola albo je kończy, gdy już trwa. */
+    fun toggleVoice(field: VoiceField) {
+        if (_uiState.value.voiceField == field) stopVoice() else startVoice(field)
     }
 
-    private fun startRecording() {
+    private fun startVoice(field: VoiceField) {
+        // Rozpoznawanie ma jedną sesję — sięgając po mikrofon w innym polu,
+        // kończymy poprzednie dyktowanie zamiast startować drugie naraz.
+        stopVoice()
         if (!speechToText.isAvailable()) {
             _uiState.update {
-                it.copy(error = "Rozpoznawanie mowy niedostępne — wpisz opis ręcznie")
+                it.copy(error = "Rozpoznawanie mowy niedostępne — wpisz tekst ręcznie")
             }
             return
         }
-        // Dyktowanie dopisuje do tego, co już jest — poprzedni tekst zostaje.
-        val prefix = _uiState.value.description.trim()
-        speechToText.onText = { text ->
-            val merged = if (prefix.isBlank()) text else "$prefix $text"
-            _uiState.update { it.copy(description = merged) }
-        }
+        // Opis dopisuje się do tego, co już jest; krótkie pola nadpisujemy w całości.
+        val prefix =
+            if (field == VoiceField.DESCRIPTION) _uiState.value.description.trim() else ""
+        speechToText.onText = { text -> applyVoiceText(field, prefix, text) }
         speechToText.onError = { message ->
             stopTimer()
-            _uiState.update { it.copy(isRecording = false, error = message) }
+            _uiState.update { it.copy(voiceField = null, error = message) }
         }
-        speechToText.start()
-        _uiState.update { it.copy(isRecording = true, recordingSeconds = 0, error = null) }
+        speechToText.onDone = {
+            stopTimer()
+            _uiState.update { it.copy(voiceField = null) }
+        }
+        // Ciągiem dyktuje się tylko opis. Przy szukaniu jedna wypowiedź kończy
+        // sesję — mikrofon nie ma prawa zostać włączony po nazwisku klienta.
+        speechToText.start(continuous = field == VoiceField.DESCRIPTION)
+        _uiState.update { it.copy(voiceField = field, recordingSeconds = 0, error = null) }
+        if (field == VoiceField.DESCRIPTION) startTimer()
+    }
+
+    private fun startTimer() {
         timerJob = viewModelScope.launch {
             var seconds = 0
             while (true) {
@@ -287,11 +358,29 @@ class CreateTaskViewModel @Inject constructor(
         }
     }
 
-    private fun stopRecording() {
-        if (!_uiState.value.isRecording) return
+    /** Rozpoznany tekst trafia do pola, z którego uruchomiono mikrofon. */
+    private fun applyVoiceText(field: VoiceField, prefix: String, text: String) {
+        when (field) {
+            VoiceField.DESCRIPTION -> {
+                val merged = if (prefix.isBlank()) text else "$prefix $text"
+                _uiState.update { it.copy(description = merged) }
+            }
+            VoiceField.TITLE -> onTitleChange(asSentence(text))
+            VoiceField.CLIENT -> onClientQueryChange(asQuery(text))
+            VoiceField.PROJECT -> onProjectQueryChange(asQuery(text))
+            VoiceField.PERSON -> onPersonQueryChange(asQuery(text))
+            VoiceField.CONTACT_FIRST_NAME ->
+                onNewContactChange(_uiState.value.newContact.copy(firstName = asName(text)))
+            VoiceField.CONTACT_LAST_NAME ->
+                onNewContactChange(_uiState.value.newContact.copy(lastName = asName(text)))
+        }
+    }
+
+    private fun stopVoice() {
+        if (_uiState.value.voiceField == null) return
         stopTimer()
         speechToText.stop() // rozpoznany tekst wpadł już przez `onText`
-        _uiState.update { it.copy(isRecording = false) }
+        _uiState.update { it.copy(voiceField = null) }
     }
 
     private fun stopTimer() {
@@ -299,9 +388,27 @@ class CreateTaskViewModel @Inject constructor(
         timerJob = null
     }
 
+    /**
+     * Fraza wyszukiwania z dyktowania. Rozpoznawanie lubi dokleić kropkę albo
+     * znak zapytania — w zapytaniu do kartoteki nie znalazłyby nic.
+     */
+    private fun asQuery(text: String): String = text.trim().trimEnd('.', ',', '!', '?').trim()
+
+    /** Imię/nazwisko z dyktowania — każdy człon wielką literą. */
+    private fun asName(text: String): String = asQuery(text)
+        .split(' ')
+        .filter { it.isNotBlank() }
+        .joinToString(" ") { part -> part.replaceFirstChar { it.uppercaseChar() } }
+
+    /** Tytuł z dyktowania — wielka litera na początku, reszta jak powiedziana. */
+    private fun asSentence(text: String): String =
+        asQuery(text).replaceFirstChar { it.uppercaseChar() }
+
     // ── Krok 3: kogo dotyczy ─────────────────────────────────────────────────
 
     fun onSubjectModeChange(mode: SubjectMode) {
+        // Zakładka zmienia pole, do którego szło dyktowanie — mikrofon gasimy.
+        stopVoice()
         _uiState.update { it.copy(subjectMode = mode, error = null) }
         if (mode == SubjectMode.PROJECT && _uiState.value.projects.isEmpty()) loadProjects()
     }
@@ -361,6 +468,8 @@ class CreateTaskViewModel @Inject constructor(
     fun onNewContactChange(contact: NewContact) =
         _uiState.update { it.copy(newContact = contact, error = null) }
 
+    fun onProjectQueryChange(query: String) = _uiState.update { it.copy(projectQuery = query) }
+
     fun onProjectSelect(projectId: String?) = _uiState.update {
         it.copy(selectedProjectId = if (it.selectedProjectId == projectId) null else projectId)
     }
@@ -390,8 +499,19 @@ class CreateTaskViewModel @Inject constructor(
 
     fun onTeamChange(team: TaskTeam) = _uiState.update {
         // Zmiana kafelka unieważnia wybraną osobę — mogła być z innego działu.
-        it.copy(team = team, assigneeId = null, assigneeCleared = false)
+        // Fraza wyszukiwania też idzie do kosza, bo dotyczyła poprzedniej listy.
+        // Wyjątek to „Moje": wykonawcą jest twórca zadania, więc wpisujemy go od
+        // razu i nie pytamy o osobę — plansza PERSON wypada z kreatora.
+        it.copy(
+            team = team,
+            assigneeId = if (team == TaskTeam.MOJE) it.selfId else null,
+            assigneeCleared = false,
+            personQuery = "",
+            steps = stepsFor(team, it.selfId),
+        )
     }
+
+    fun onPersonQueryChange(query: String) = _uiState.update { it.copy(personQuery = query) }
 
     fun onAssigneeChange(id: String?) = _uiState.update {
         it.copy(assigneeId = id, assigneeCleared = id == null)
@@ -408,7 +528,21 @@ class CreateTaskViewModel @Inject constructor(
                 val userId = sessionPreferences.session.first()?.userId
                 val members = taskRepository.getMembers()
                 _uiState.update {
-                    it.copy(members = members, selfId = userId, isLoadingMembers = false)
+                    // W skrócie po rozmowie kafelki są pierwszą planszą, więc „Moje"
+                    // może paść, zanim poznamy zalogowanego. Uzupełniamy wtedy
+                    // wykonawcę i dopiero teraz zdejmujemy planszę z osobą.
+                    val mine = it.team == TaskTeam.MOJE
+                    it.copy(
+                        members = members,
+                        selfId = userId,
+                        isLoadingMembers = false,
+                        assigneeId = if (mine && it.assigneeId == null) userId else it.assigneeId,
+                        // Planszy, na której użytkownik właśnie stoi, nie wolno wyjąć
+                        // spod niego — zniknęłaby z listy i nawigacja nie miałaby
+                        // od czego liczyć następnego kroku.
+                        steps = if (it.step == WizardStep.PERSON) it.steps
+                        else stepsFor(it.team, userId),
+                    )
                 }
             } catch (e: Exception) {
                 _uiState.update {

@@ -1,5 +1,9 @@
 package com.ekotak.teamtalk.presentation.task
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -45,6 +49,7 @@ import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -63,10 +68,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ekotak.teamtalk.domain.model.Deal
 import com.ekotak.teamtalk.domain.model.TaskMember
@@ -80,10 +87,19 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+/** Komunikat pod polem, do którego akurat leci dyktowanie. */
+private const val LISTENING_HINT = "Słucham… mów teraz, mikrofon wyłączy się sam."
+
+/** Od tylu pozycji lista dostaje własną wyszukiwarkę; krótsza mieści się na ekranie. */
+private const val SEARCHABLE_LIST_SIZE = 5
+
 /**
  * Kreator nowego zadania — siedem plansz plus podsumowanie. Zamiast jednego
  * długiego formularza pytamy o jedną rzecz naraz: nazwa, opis (z dyktowaniem),
  * kogo dotyczy, zespół, osoba, priorytet, termin.
+ *
+ * Każde pole tekstowe ma mikrofon: opis dyktuje się ciągiem, krótkie pola
+ * i wyszukiwarki jedną wypowiedzią (patrz [CreateTaskViewModel.toggleVoice]).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -94,6 +110,29 @@ fun CreateTaskScreen(
     val state by viewModel.uiState.collectAsState()
     var showDatePicker by remember { mutableStateOf(false) }
     val isDone = state.step == WizardStep.DONE
+
+    val context = LocalContext.current
+    // Pole czekające na zgodę na mikrofon — po niej dyktowanie rusza samo,
+    // żeby użytkownik nie musiał dotykać mikrofonu drugi raz.
+    var pendingVoice by remember { mutableStateOf<VoiceField?>(null) }
+    val micPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        val field = pendingVoice
+        pendingVoice = null
+        if (granted && field != null) viewModel.toggleVoice(field)
+    }
+    val onVoice: (VoiceField) -> Unit = { field ->
+        val granted = ContextCompat.checkSelfPermission(
+            context, Manifest.permission.RECORD_AUDIO
+        ) == PackageManager.PERMISSION_GRANTED
+        if (granted) {
+            viewModel.toggleVoice(field)
+        } else {
+            pendingVoice = field
+            micPermission.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
@@ -147,11 +186,11 @@ fun CreateTaskScreen(
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     when (state.step) {
-                        WizardStep.TITLE -> StepTitle(state, viewModel)
-                        WizardStep.DESCRIPTION -> StepDescription(state, viewModel)
-                        WizardStep.SUBJECT -> StepSubject(state, viewModel)
+                        WizardStep.TITLE -> StepTitle(state, viewModel, onVoice)
+                        WizardStep.DESCRIPTION -> StepDescription(state, viewModel, onVoice)
+                        WizardStep.SUBJECT -> StepSubject(state, viewModel, onVoice)
                         WizardStep.TEAM -> StepTeam(state, viewModel)
-                        WizardStep.PERSON -> StepPerson(state, viewModel)
+                        WizardStep.PERSON -> StepPerson(state, viewModel, onVoice)
                         WizardStep.PRIORITY -> StepPriority(state, viewModel)
                         WizardStep.DUE -> StepDue(state) { showDatePicker = true }
                         WizardStep.DONE -> StepDone(state, viewModel)
@@ -278,31 +317,48 @@ private fun WizardFooter(
 // ── Kroki ────────────────────────────────────────────────────────────────────
 
 @Composable
-private fun StepTitle(state: CreateTaskViewModel.UiState, vm: CreateTaskViewModel) {
+private fun StepTitle(
+    state: CreateTaskViewModel.UiState,
+    vm: CreateTaskViewModel,
+    onVoice: (VoiceField) -> Unit,
+) {
     Question("Jak nazwiemy to zadanie?", "Krótko — szczegóły dopiszesz na następnym ekranie.")
     OutlinedTextField(
         value = state.title,
         onValueChange = vm::onTitleChange,
         placeholder = { Text("np. Wymiana pompy obiegowej") },
+        trailingIcon = {
+            VoiceIcon(
+                active = state.isListening(VoiceField.TITLE),
+                hint = "Podyktuj nazwę zadania",
+                onClick = { onVoice(VoiceField.TITLE) },
+            )
+        },
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
         shape = RoundedCornerShape(12.dp),
     )
+    if (state.isListening(VoiceField.TITLE)) Hint(LISTENING_HINT)
 }
 
 @Composable
-private fun StepDescription(state: CreateTaskViewModel.UiState, vm: CreateTaskViewModel) {
+private fun StepDescription(
+    state: CreateTaskViewModel.UiState,
+    vm: CreateTaskViewModel,
+    onVoice: (VoiceField) -> Unit,
+) {
     Question("Opisz szerzej zadanie", "Możesz podyktować — tekst pojawi się poniżej do poprawki.")
 
+    val listening = state.isListening(VoiceField.DESCRIPTION)
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        MicButton(isRecording = state.isRecording, onClick = vm::toggleRecording)
+        MicButton(isRecording = listening, onClick = { onVoice(VoiceField.DESCRIPTION) })
         Text(
             text = when {
-                state.isRecording -> "Słucham… ${formatSeconds(state.recordingSeconds)} — dotknij, by zakończyć"
+                listening -> "Słucham… ${formatSeconds(state.recordingSeconds)} — dotknij, by zakończyć"
                 state.description.isNotBlank() -> "Dotknij, by dyktować dalej"
                 else -> "Dotknij i mów po polsku"
             },
@@ -325,7 +381,11 @@ private fun StepDescription(state: CreateTaskViewModel.UiState, vm: CreateTaskVi
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun StepSubject(state: CreateTaskViewModel.UiState, vm: CreateTaskViewModel) {
+private fun StepSubject(
+    state: CreateTaskViewModel.UiState,
+    vm: CreateTaskViewModel,
+    onVoice: (VoiceField) -> Unit,
+) {
     Question("Kogo dotyczy zadanie?")
 
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -347,8 +407,8 @@ private fun StepSubject(state: CreateTaskViewModel.UiState, vm: CreateTaskViewMo
     }
 
     when (state.subjectMode) {
-        SubjectMode.CLIENT -> ClientPicker(state, vm)
-        SubjectMode.PROJECT -> ProjectPicker(state, vm)
+        SubjectMode.CLIENT -> ClientPicker(state, vm, onVoice)
+        SubjectMode.PROJECT -> ProjectPicker(state, vm, onVoice)
         SubjectMode.INTERNAL -> Hint(
             "Zadanie bez powiązania — na przykład porządki w magazynie albo zamówienie materiałów."
         )
@@ -356,24 +416,18 @@ private fun StepSubject(state: CreateTaskViewModel.UiState, vm: CreateTaskViewMo
 }
 
 @Composable
-private fun ClientPicker(state: CreateTaskViewModel.UiState, vm: CreateTaskViewModel) {
-    OutlinedTextField(
+private fun ClientPicker(
+    state: CreateTaskViewModel.UiState,
+    vm: CreateTaskViewModel,
+    onVoice: (VoiceField) -> Unit,
+) {
+    VoiceSearchField(
         value = state.clientQuery,
         onValueChange = vm::onClientQueryChange,
-        placeholder = { Text("Szukaj w kartotece") },
-        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-        trailingIcon = {
-            if (state.clientQuery.isNotBlank()) {
-                Icon(
-                    imageVector = Icons.Default.Clear,
-                    contentDescription = "Wyczyść",
-                    modifier = Modifier.clickable { vm.onClientQueryChange("") },
-                )
-            }
-        },
-        modifier = Modifier.fillMaxWidth(),
-        singleLine = true,
-        shape = RoundedCornerShape(12.dp),
+        placeholder = "Szukaj w kartotece",
+        listening = state.isListening(VoiceField.CLIENT),
+        voiceHint = "Powiedz nazwisko albo firmę",
+        onVoice = { onVoice(VoiceField.CLIENT) },
     )
 
     state.clients.take(if (state.selectedClient == null) 6 else 3).forEach { client ->
@@ -386,6 +440,10 @@ private fun ClientPicker(state: CreateTaskViewModel.UiState, vm: CreateTaskViewM
         )
     }
 
+    if (state.clientQuery.isNotBlank() && state.clients.isEmpty()) {
+        Hint("Nikogo takiego nie ma w kartotece — załóż go poniżej jako nowy kontakt.")
+    }
+
     state.selectedClient?.let { ClientDeals(state, vm) }
 
     Label("…albo wpisz nowy kontakt")
@@ -394,6 +452,13 @@ private fun ClientPicker(state: CreateTaskViewModel.UiState, vm: CreateTaskViewM
         value = contact.firstName,
         onValueChange = { vm.onNewContactChange(contact.copy(firstName = it)) },
         placeholder = { Text("Imię *") },
+        trailingIcon = {
+            VoiceIcon(
+                active = state.isListening(VoiceField.CONTACT_FIRST_NAME),
+                hint = "Podyktuj imię",
+                onClick = { onVoice(VoiceField.CONTACT_FIRST_NAME) },
+            )
+        },
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
         shape = RoundedCornerShape(12.dp),
@@ -402,10 +467,22 @@ private fun ClientPicker(state: CreateTaskViewModel.UiState, vm: CreateTaskViewM
         value = contact.lastName,
         onValueChange = { vm.onNewContactChange(contact.copy(lastName = it)) },
         placeholder = { Text("Nazwisko *") },
+        trailingIcon = {
+            VoiceIcon(
+                active = state.isListening(VoiceField.CONTACT_LAST_NAME),
+                hint = "Podyktuj nazwisko",
+                onClick = { onVoice(VoiceField.CONTACT_LAST_NAME) },
+            )
+        },
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
         shape = RoundedCornerShape(12.dp),
     )
+    if (state.isListening(VoiceField.CONTACT_FIRST_NAME) ||
+        state.isListening(VoiceField.CONTACT_LAST_NAME)
+    ) {
+        Hint(LISTENING_HINT)
+    }
     OutlinedTextField(
         value = contact.phone,
         onValueChange = { vm.onNewContactChange(contact.copy(phone = it)) },
@@ -461,26 +538,53 @@ private fun ClientDeals(state: CreateTaskViewModel.UiState, vm: CreateTaskViewMo
 }
 
 @Composable
-private fun ProjectPicker(state: CreateTaskViewModel.UiState, vm: CreateTaskViewModel) {
+private fun ProjectPicker(
+    state: CreateTaskViewModel.UiState,
+    vm: CreateTaskViewModel,
+    onVoice: (VoiceField) -> Unit,
+) {
     when {
         state.isLoadingProjects -> Hint("Wczytuję projekty…")
         state.projectsError != null -> Hint(state.projectsError)
         state.projects.isEmpty() -> Hint("Brak aktywnych projektów.")
-        else -> state.projects.forEach { project ->
-            ChoiceRow(
-                title = project.name,
-                subtitle = project.taskCount?.let { "$it zadań" } ?: "",
-                initials = "▸",
-                selected = state.selectedProjectId == project.id,
-                onClick = { vm.onProjectSelect(project.id) },
-            )
+        else -> {
+            // Przy kilku projektach wyszukiwarka jest samym hałasem — lista i tak
+            // mieści się na ekranie.
+            if (state.projects.size >= SEARCHABLE_LIST_SIZE) {
+                VoiceSearchField(
+                    value = state.projectQuery,
+                    onValueChange = vm::onProjectQueryChange,
+                    placeholder = "Szukaj projektu",
+                    listening = state.isListening(VoiceField.PROJECT),
+                    voiceHint = "Powiedz nazwę projektu",
+                    onVoice = { onVoice(VoiceField.PROJECT) },
+                )
+            }
+            val projects = state.visibleProjects
+            if (projects.isEmpty()) Hint("Żaden projekt nie pasuje do: ${state.projectQuery}")
+            projects.forEach { project ->
+                ChoiceRow(
+                    title = project.name,
+                    subtitle = project.taskCount?.let { "$it zadań" } ?: "",
+                    initials = "▸",
+                    selected = state.selectedProjectId == project.id,
+                    onClick = { vm.onProjectSelect(project.id) },
+                )
+            }
         }
     }
 }
 
 @Composable
 private fun StepTeam(state: CreateTaskViewModel.UiState, vm: CreateTaskViewModel) {
-    Question("Jaki zespół?", "Jeden wybór. Zawęzi listę osób w następnym kroku.")
+    Question(
+        "Jaki zespół?",
+        if (state.team == TaskTeam.MOJE) {
+            "„Moje” przypisuje zadanie Tobie — kroku z osobą już nie będzie."
+        } else {
+            "Jeden wybór. Zawęzi listę osób w następnym kroku."
+        },
+    )
     TaskTeam.entries.chunked(3).forEach { row ->
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             row.forEach { team ->
@@ -498,7 +602,11 @@ private fun StepTeam(state: CreateTaskViewModel.UiState, vm: CreateTaskViewModel
 }
 
 @Composable
-private fun StepPerson(state: CreateTaskViewModel.UiState, vm: CreateTaskViewModel) {
+private fun StepPerson(
+    state: CreateTaskViewModel.UiState,
+    vm: CreateTaskViewModel,
+    onVoice: (VoiceField) -> Unit,
+) {
     Question(
         "Kto się tym zajmie?",
         state.team?.let { "Zespół: ${it.label}" } ?: "Najpierw wybierz zespół",
@@ -507,9 +615,22 @@ private fun StepPerson(state: CreateTaskViewModel.UiState, vm: CreateTaskViewMod
         Hint("Wczytuję listę osób…")
         return
     }
-    val people = state.teamMembers
-    if (people.isEmpty()) {
+    if (state.teamMembers.isEmpty()) {
         Hint("Nikt nie ma przypisanej tej funkcji w module Zespół.")
+    }
+    if (state.teamMembers.size >= SEARCHABLE_LIST_SIZE) {
+        VoiceSearchField(
+            value = state.personQuery,
+            onValueChange = vm::onPersonQueryChange,
+            placeholder = "Szukaj osoby",
+            listening = state.isListening(VoiceField.PERSON),
+            voiceHint = "Powiedz imię albo nazwisko",
+            onVoice = { onVoice(VoiceField.PERSON) },
+        )
+    }
+    val people = state.visibleMembers
+    if (people.isEmpty() && state.teamMembers.isNotEmpty()) {
+        Hint("Nikt z tego zespołu nie pasuje do: ${state.personQuery}")
     }
     people.forEach { member: TaskMember ->
         ChoiceRow(
@@ -756,6 +877,65 @@ private fun ChoiceRow(
                 }
             }
         }
+    }
+}
+
+/**
+ * Pole wyszukiwania z mikrofonem — jeden wzór dla kartoteki, projektów i osób.
+ * Dyktowanie wpisuje frazę na żywo, więc lista zawęża się w trakcie mówienia.
+ */
+@Composable
+private fun VoiceSearchField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    listening: Boolean,
+    voiceHint: String,
+    onVoice: () -> Unit,
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        placeholder = { Text(placeholder) },
+        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+        trailingIcon = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (value.isNotBlank()) {
+                    Icon(
+                        imageVector = Icons.Default.Clear,
+                        contentDescription = "Wyczyść",
+                        modifier = Modifier.clickable { onValueChange("") },
+                    )
+                }
+                VoiceIcon(active = listening, hint = voiceHint, onClick = onVoice)
+            }
+        },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+        shape = RoundedCornerShape(12.dp),
+    )
+    if (listening) Hint(LISTENING_HINT)
+}
+
+/** Mikrofon w polu tekstowym; w trakcie dyktowania pulsuje na czerwono. */
+@Composable
+private fun VoiceIcon(active: Boolean, hint: String, onClick: () -> Unit) {
+    val transition = rememberInfiniteTransition(label = "voice")
+    val pulse by transition.animateFloat(
+        initialValue = 1f,
+        targetValue = if (active) 1.25f else 1f,
+        animationSpec = infiniteRepeatable(tween(650), RepeatMode.Reverse),
+        label = "voicePulse",
+    )
+    IconButton(onClick = onClick) {
+        Icon(
+            imageVector = Icons.Default.Mic,
+            contentDescription = if (active) "Zakończ dyktowanie" else hint,
+            tint = if (active) Red600 else MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .size(22.dp)
+                .scale(if (active) pulse else 1f),
+        )
     }
 }
 

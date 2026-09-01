@@ -1,5 +1,7 @@
 package com.ekotak.teamtalk.presentation.navigation
 
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
@@ -149,7 +151,14 @@ private fun MainScreen(
             startDestination = "home",
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
+                .padding(padding)
+                // `padding()` odsuwa treść, ale NIE odhacza inseta — a każdy ekran
+                // w środku ma własny Scaffold i `imePadding()`. Bez tego pasek
+                // nawigacji liczył się dwa razy i klawiatura wypychała pole
+                // komentarza o 2×135 px za wysoko (S24, Android 16). Odhaczamy sam
+                // dół: górę zostawiamy ekranom, bo AppTopBar wpuszcza gradient pod
+                // pasek statusu.
+                .consumeWindowInsets(PaddingValues(bottom = padding.calculateBottomPadding())),
         ) {
             // ── Pulpit (ekran startowy) ────────────────────────────────────────
             composable("home") {
