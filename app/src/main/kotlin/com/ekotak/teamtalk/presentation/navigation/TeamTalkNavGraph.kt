@@ -39,6 +39,7 @@ import com.ekotak.teamtalk.presentation.postcallnote.PostCallNoteScreen
 import com.ekotak.teamtalk.presentation.settings.SettingsScreen
 import com.ekotak.teamtalk.presentation.task.CreateTaskScreen
 import com.ekotak.teamtalk.presentation.task.CreateTaskViewModel
+import com.ekotak.teamtalk.presentation.task.TaskListScreen
 import com.ekotak.teamtalk.presentation.voicereport.VoiceReportScreen
 
 /** Klucz komunikatu wracającego do kartoteki z ekranów potomnych. */
@@ -143,6 +144,7 @@ private fun MainScreen(deepLinkCallLogId: String? = null, deepLinkPostCallPhone:
                         val route = when (module.key) {
                             "clients" -> "clients"
                             "crm" -> "crm"
+                            "tasks" -> "tasks"
                             else -> "module/${module.key}"
                         }
                         navController.navigate(route)
@@ -163,6 +165,14 @@ private fun MainScreen(deepLinkCallLogId: String? = null, deepLinkPostCallPhone:
                         onNavigateBack = { navController.popBackStack() },
                     )
                 }
+            }
+
+            // ── Zadania zespołu (kafelek pulpitu) ──────────────────────────────
+            composable("tasks") {
+                TaskListScreen(
+                    onCreateTask = { navController.navigate("create_task") },
+                    onNavigateBack = { navController.popBackStack() },
+                )
             }
 
             // ── CRM / lejek sprzedaży (kafelek pulpitu) ────────────────────────

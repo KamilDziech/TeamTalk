@@ -12,7 +12,11 @@ data class CreateTaskRequest(
     val priority: String? = null,
 )
 
-/** Odpowiedź board360 dla zadania. Większość pól opcjonalna (odporność na zmiany). */
+/**
+ * Odpowiedź board360 dla zadania — pełny kształt z `domain/task.ts`. Większość
+ * pól opcjonalna (odporność na starszy backend): `section`, `slaHours` czy
+ * `commentCount` dołożono do panelu później niż samo zadanie.
+ */
 @Serializable
 data class TaskResponseDto(
     val id: String,
@@ -23,7 +27,22 @@ data class TaskResponseDto(
     val dueAt: String? = null,
     val status: String? = null,
     val priority: String? = null,
+    /** Sekcja zadania (etap lejka + „dotacja"); null = „Bez sekcji". */
+    val section: String? = null,
+    val estimatedMinutes: Int? = null,
+    /** SLA w godzinach: 24 / 168 / 720. */
+    val slaHours: Int? = null,
+    val commentCount: Int = 0,
+    /** Id zlecającego albo „system" dla zadań od automatu. */
+    val createdBy: String? = null,
+    /** Powiązanie z klientem idzie przez deal — `Task` nie ma `clientId`. */
+    val dealId: String? = null,
+    /** Nazwa klienta z deala; board360 dokleja ją przy odczycie. */
+    val dealName: String? = null,
+    val projectId: String? = null,
+    val projectName: String? = null,
     val createdAt: String? = null,
+    val updatedAt: String? = null,
 )
 
 /**

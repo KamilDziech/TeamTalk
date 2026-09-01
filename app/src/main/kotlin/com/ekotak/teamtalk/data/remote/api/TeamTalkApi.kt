@@ -242,8 +242,33 @@ interface TeamTalkApi {
     @GET("api/tasks/members")
     suspend fun getTaskMembers(): List<TaskMemberDto>
 
+    /**
+     * Zadania zespołu. Filtry wykonawcy i statusu robimy lokalnie na pobranej
+     * liście (przełączanie chipów bez okrążenia po sieci), więc bez parametrów
+     * — z serwera bierzemy całość raz i trzymamy w cache Room.
+     */
+    @GET("api/tasks")
+    suspend fun getTasks(
+        @Query("status") status: String? = null,
+        @Query("assignee") assignee: String? = null,
+    ): List<TaskResponseDto>
+
     @POST("api/tasks")
     suspend fun createTask(@Body request: CreateTaskRequest): TaskResponseDto
+
+    /**
+     * Zmiana pól zadania. Ciało jako `JsonObject` (`buildTaskPatch`), bo API
+     * rozróżnia brak pola od jawnego `null`.
+     */
+    @PATCH("api/tasks/{id}")
+    suspend fun updateTask(
+        @Path("id") id: String,
+        @Body patch: JsonObject,
+    ): TaskResponseDto
+
+    /** Zadania jednego deala — zakładka „Zadania" karty klienta (wchodzi w E2). */
+    @GET("api/deals/{id}/tasks")
+    suspend fun getDealTasks(@Path("id") dealId: String): List<TaskResponseDto>
 
     /** Zadanie pod dealem — tak wiąże się zadanie z klientem (Task nie ma `clientId`). */
     @POST("api/deals/{id}/tasks")

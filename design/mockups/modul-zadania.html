@@ -1,0 +1,971 @@
+<title>Zadania w TeamTalku</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Roboto:wght@400;500;700&display=swap">
+
+<style>
+/* ── Tokeny strony (jasny = bazowy; te same co w kreator-zadania.html) ─── */
+:root{
+  --bg:#EEF3F9; --bg-2:#DBE6F2; --surface:#FFFFFF;
+  --fg:#0F1720; --muted:#5A6B7C; --border:#C3CBD4;
+  --brand:#2FA84F; --brand-loud:#44D62C; --ink:#080808;
+  --warn:#B4680A; --danger:#C5343A; --info:#2563EB;
+  --shadow:0 1px 2px rgba(15,23,32,.06), 0 10px 30px rgba(15,23,32,.08);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0B1220; --bg-2:#12161F; --surface:#12161F;
+    --fg:#E6EDF3; --muted:#9FB0C3; --border:#2A3441;
+    --brand:#44D62C; --brand-loud:#44D62C; --ink:#080808;
+    --warn:#F59E0B; --danger:#E5484D; --info:#5B8DEF;
+    --shadow:0 1px 2px rgba(0,0,0,.5), 0 14px 40px rgba(0,0,0,.45);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0B1220; --bg-2:#12161F; --surface:#12161F;
+  --fg:#E6EDF3; --muted:#9FB0C3; --border:#2A3441;
+  --brand:#44D62C; --brand-loud:#44D62C; --ink:#080808;
+  --warn:#F59E0B; --danger:#E5484D; --info:#5B8DEF;
+  --shadow:0 1px 2px rgba(0,0,0,.5), 0 14px 40px rgba(0,0,0,.45);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--fg);
+  font-family:"Archivo","Segoe UI",system-ui,sans-serif;
+  font-size:16px; line-height:1.55; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px 96px}
+h1,h2,h3{text-wrap:balance;margin:0}
+a{color:inherit}
+
+/* ── Nagłówek ─────────────────────────────────────────────────────── */
+.masthead{padding:52px 0 32px;border-bottom:1px solid var(--border);display:grid;gap:18px}
+.eyebrow{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
+  display:flex;flex-wrap:wrap;align-items:center;gap:10px;
+}
+.eyebrow b{color:var(--brand);font-weight:600}
+.masthead h1{font-size:clamp(34px,5.4vw,58px);font-weight:800;letter-spacing:-.025em;line-height:1.02}
+.lede{font-size:17px;color:var(--muted);max-width:62ch}
+.lede b{color:var(--fg);font-weight:600}
+
+/* ── Sekcje ───────────────────────────────────────────────────────── */
+section{padding:52px 0 0}
+.shead{display:grid;gap:8px;margin-bottom:26px;max-width:70ch}
+.shead h2{font-size:clamp(22px,2.6vw,30px);font-weight:700;letter-spacing:-.015em}
+.shead p{margin:0;color:var(--muted);font-size:15px}
+.snum{
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--brand);font-weight:600;
+}
+
+/* ── Karty / listy ────────────────────────────────────────────────── */
+.cards{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.card{
+  background:var(--surface);border:1px solid var(--border);border-radius:16px;
+  padding:18px 18px 16px;display:grid;gap:8px;align-content:start;
+}
+.card h3{font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px}
+.card p{margin:0;font-size:13.5px;color:var(--muted)}
+.card code,code{
+  font-family:"IBM Plex Mono",monospace;font-size:12px;
+  background:var(--bg-2);padding:1px 5px;border-radius:5px;
+}
+/* kod dziedziczy tło z --bg-2, więc oba motywy załatwia sam token */
+
+.dot{width:8px;height:8px;border-radius:50%;flex:none}
+.dot.ok{background:var(--brand)}
+.dot.part{background:var(--warn)}
+.dot.no{background:var(--danger)}
+
+/* ── Tabele ───────────────────────────────────────────────────────── */
+.tablewrap{overflow-x:auto;border:1px solid var(--border);border-radius:16px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:620px;font-size:13.5px}
+th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--border);vertical-align:top}
+th{
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--muted);font-weight:600;white-space:nowrap;
+}
+tr:last-child td{border-bottom:none}
+td.mono,th.mono{font-family:"IBM Plex Mono",monospace;font-size:12px}
+.tag{
+  font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;
+  font-weight:600;padding:2px 7px;border-radius:999px;white-space:nowrap;
+  border:1px solid var(--border);color:var(--muted);
+}
+.tag.jest{color:var(--brand);border-color:color-mix(in srgb,var(--brand) 45%,var(--border))}
+.tag.brak{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 45%,var(--border))}
+.tag.mock{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 45%,var(--border))}
+
+/* ── Makiety: telefon ─────────────────────────────────────────────── */
+.screens{display:grid;gap:34px 26px;grid-template-columns:repeat(auto-fit,minmax(330px,1fr))}
+.screenblock{display:grid;gap:16px;justify-items:center}
+.caption{max-width:34ch;display:grid;gap:6px}
+.caption h3{font-size:15.5px;font-weight:700;display:flex;gap:9px;align-items:baseline}
+.caption h3 i{
+  font-style:normal;font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--brand);
+}
+.caption p{margin:0;font-size:13px;color:var(--muted)}
+
+.phone{
+  width:340px;padding:11px;border-radius:38px;
+  background:linear-gradient(160deg,#3a4152,#161a22);box-shadow:var(--shadow);flex:none;
+}
+.device{
+  --d-bg:#0B1220;--d-surface:#12161F;--d-panel:#1A212E;
+  --d-fg:#E6EDF3;--d-muted:#9FB0C3;--d-border:#2A3441;
+  --d-brand:#44D62C;--d-ink:#080808;
+  --d-danger:#E5484D;--d-warn:#F59E0B;--d-info:#5B8DEF;--d-violet:#C084FC;
+  width:318px;height:664px;border-radius:28px;overflow:hidden;
+  background:var(--d-bg);color:var(--d-fg);
+  font-family:"Roboto",system-ui,sans-serif;font-size:14px;line-height:1.4;
+  display:flex;flex-direction:column;position:relative;
+}
+.statusbar{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:8px 16px 2px;font-size:11px;color:var(--d-muted);
+  font-variant-numeric:tabular-nums;flex:none;
+}
+.topbar{display:flex;align-items:center;gap:8px;padding:8px 12px 8px;flex:none}
+.iconbtn{
+  width:32px;height:32px;border-radius:50%;border:none;background:transparent;
+  color:var(--d-fg);display:grid;place-items:center;flex:none;position:relative;
+}
+.iconbtn svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.iconbtn .bump{
+  position:absolute;top:4px;right:4px;width:7px;height:7px;border-radius:50%;
+  background:var(--d-brand);border:2px solid var(--d-bg);
+}
+.toptitle{font-size:16px;font-weight:500;flex:1;min-width:0}
+.screen{flex:1;overflow:hidden;padding:0 14px 8px;display:flex;flex-direction:column;gap:11px}
+
+.seg{display:flex;background:var(--d-panel);border-radius:11px;padding:3px;gap:3px;flex:none}
+.seg span{
+  flex:1;font-size:11.5px;padding:7px 2px;border-radius:9px;text-align:center;
+  color:var(--d-muted);
+}
+.seg span[data-on]{background:var(--d-surface);color:var(--d-fg);font-weight:500}
+
+.chips{display:flex;flex-wrap:wrap;gap:6px;flex:none}
+.chip{
+  font-size:11px;padding:4px 9px;border-radius:999px;border:1px solid var(--d-border);
+  color:var(--d-muted);display:inline-flex;align-items:center;gap:5px;white-space:nowrap;
+}
+.chip[data-on]{
+  border-color:var(--d-brand);color:var(--d-brand);
+  background:color-mix(in srgb,var(--d-brand) 13%,var(--d-surface));
+}
+.chip.warnchip[data-on]{
+  border-color:var(--d-warn);color:var(--d-warn);
+  background:color-mix(in srgb,var(--d-warn) 13%,var(--d-surface));
+}
+
+.grouphead{
+  display:flex;align-items:center;gap:8px;padding:4px 2px 0;flex:none;
+  font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--d-muted);font-weight:700;
+}
+.grouphead .cnt{
+  font-weight:500;letter-spacing:0;text-transform:none;font-size:11px;
+  color:var(--d-muted);opacity:.75;
+}
+.grouphead .line{flex:1;height:1px;background:var(--d-border)}
+
+.list{display:grid;gap:7px}
+.trow{
+  display:flex;gap:10px;background:var(--d-surface);border:1px solid var(--d-border);
+  border-radius:12px;padding:9px 11px 9px 10px;position:relative;overflow:hidden;
+}
+.trow.prio::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--d-danger)}
+.tick{
+  width:19px;height:19px;border-radius:50%;border:1.6px solid var(--d-muted);flex:none;margin-top:2px;
+  display:grid;place-items:center;
+}
+.tick svg{width:11px;height:11px;stroke:var(--d-ink);fill:none;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;visibility:hidden}
+.tick[data-done]{background:var(--d-brand);border-color:var(--d-brand)}
+.tick[data-done] svg{visibility:visible}
+.tmain{flex:1;min-width:0;display:grid;gap:3px}
+.ttitle{font-size:13.5px;font-weight:500;line-height:1.25}
+.trow[data-done] .ttitle{color:var(--d-muted);text-decoration:line-through}
+.tmeta{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center;font-size:10.5px;color:var(--d-muted)}
+.tmeta .src{display:inline-flex;align-items:center;gap:4px}
+.tmeta .src b{font-weight:500;color:var(--d-fg);opacity:.85}
+.tmeta .sq{width:7px;height:7px;border-radius:2px;flex:none}
+.tmeta .due.over{color:var(--d-danger)}
+.tmeta .due.soon{color:var(--d-warn)}
+.tmeta .comm{display:inline-flex;align-items:center;gap:3px}
+.tmeta .comm svg{width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:1.8}
+.tmeta .unread{width:6px;height:6px;border-radius:50%;background:var(--d-brand)}
+.sla{
+  font-size:9.5px;letter-spacing:.04em;padding:2px 6px;border-radius:999px;
+  background:var(--d-panel);color:var(--d-muted);white-space:nowrap;
+}
+.sla.warn{color:var(--d-warn);background:color-mix(in srgb,var(--d-warn) 16%,var(--d-surface))}
+.sla.over{color:var(--d-danger);background:color-mix(in srgb,var(--d-danger) 16%,var(--d-surface))}
+.sla.queue{color:var(--d-info);background:color-mix(in srgb,var(--d-info) 16%,var(--d-surface))}
+.who{
+  width:26px;height:26px;border-radius:50%;flex:none;display:grid;place-items:center;align-self:center;
+  background:var(--d-panel);font-size:10px;font-weight:700;letter-spacing:.02em;color:var(--d-fg);
+}
+
+.fab{
+  position:absolute;right:16px;bottom:18px;width:54px;height:54px;border-radius:18px;
+  background:var(--d-brand);color:var(--d-ink);display:grid;place-items:center;
+  box-shadow:0 8px 22px rgba(0,0,0,.45);
+}
+.fab svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2.4;stroke-linecap:round}
+
+/* arkusz filtrów */
+.sheetdim{position:absolute;inset:0;background:rgba(4,8,14,.62)}
+.sheet{
+  position:absolute;left:0;right:0;bottom:0;background:var(--d-surface);
+  border-top-left-radius:22px;border-top-right-radius:22px;
+  border-top:1px solid var(--d-border);padding:10px 16px 16px;display:grid;gap:12px;
+}
+.grab{width:38px;height:4px;border-radius:2px;background:var(--d-border);justify-self:center}
+.sheet h4{margin:0;font-size:15px;font-weight:700}
+.lbl{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--d-muted);font-weight:600}
+.fgroup{display:grid;gap:6px}
+.sheetbtns{display:flex;gap:9px;padding-top:2px}
+.btn{
+  flex:1;font-size:14px;font-weight:500;height:44px;border-radius:12px;
+  border:1px solid var(--d-border);color:var(--d-fg);display:grid;place-items:center;
+}
+.btn.ghost{flex:0 0 104px;color:var(--d-muted)}
+.btn.primary{background:var(--d-brand);color:var(--d-ink);border-color:var(--d-brand);font-weight:700}
+
+/* karta zadania */
+.detail{display:grid;gap:11px;overflow:hidden}
+.dtitle{font-size:19px;font-weight:700;line-height:1.2;letter-spacing:-.01em}
+.badges{display:flex;flex-wrap:wrap;gap:6px}
+.badge{
+  font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  padding:3px 8px;border-radius:999px;background:var(--d-panel);color:var(--d-muted);
+}
+.badge.sec{background:color-mix(in srgb,var(--d-violet) 18%,var(--d-surface));color:var(--d-violet)}
+.badge.hi{background:color-mix(in srgb,var(--d-danger) 17%,var(--d-surface));color:var(--d-danger)}
+.badge.sla{background:color-mix(in srgb,var(--d-warn) 17%,var(--d-surface));color:var(--d-warn)}
+.frows{display:grid;gap:1px;background:var(--d-border);border:1px solid var(--d-border);border-radius:13px;overflow:hidden}
+.frow{display:flex;align-items:center;gap:10px;background:var(--d-surface);padding:10px 12px}
+.frow svg{width:16px;height:16px;stroke:var(--d-muted);fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.frow .k{font-size:12px;color:var(--d-muted);flex:1}
+.frow .v{font-size:12.5px;font-weight:500;text-align:right}
+.frow .v.dim{color:var(--d-muted);font-weight:400}
+.srcbox{
+  display:flex;align-items:center;gap:10px;background:var(--d-panel);
+  border-radius:13px;padding:10px 12px;
+}
+.srcbox .avatar{
+  width:32px;height:32px;border-radius:50%;background:var(--d-surface);
+  display:grid;place-items:center;font-size:11px;font-weight:700;flex:none;
+}
+.srcbox .m{flex:1;min-width:0}
+.srcbox .m b{display:block;font-size:13px;font-weight:500}
+.srcbox .m span{display:block;font-size:10.5px;color:var(--d-muted)}
+.srcbox .go{color:var(--d-muted);font-size:18px}
+.desc{font-size:12.5px;color:var(--d-muted);line-height:1.5}
+.footer{margin-top:auto;display:flex;gap:9px;padding-top:6px}
+
+/* komentarze */
+.feed{display:grid;gap:11px;overflow:hidden}
+.cmt{display:flex;gap:9px}
+.cmt .avatar{
+  width:29px;height:29px;border-radius:50%;background:var(--d-panel);flex:none;
+  display:grid;place-items:center;font-size:10.5px;font-weight:700;
+}
+.cmt .cb{flex:1;min-width:0;display:grid;gap:3px}
+.cmt .ch{display:flex;gap:7px;align-items:baseline}
+.cmt .ch b{font-size:12px;font-weight:600}
+.cmt .ch span{font-size:10px;color:var(--d-muted)}
+.cmt .bubble{
+  background:var(--d-surface);border:1px solid var(--d-border);border-radius:12px;
+  border-top-left-radius:4px;padding:8px 10px;font-size:12.5px;line-height:1.45;
+}
+.cmt.me .bubble{background:color-mix(in srgb,var(--d-brand) 12%,var(--d-surface));border-color:color-mix(in srgb,var(--d-brand) 35%,var(--d-border))}
+.mention{color:var(--d-brand);font-weight:500}
+.att{
+  display:flex;align-items:center;gap:8px;margin-top:6px;padding:7px 9px;
+  background:var(--d-panel);border-radius:10px;font-size:11.5px;
+}
+.att svg{width:15px;height:15px;stroke:var(--d-muted);fill:none;stroke-width:1.7;flex:none}
+.att span{color:var(--d-muted);font-size:10px;margin-left:auto}
+.sysline{
+  display:flex;align-items:center;gap:8px;font-size:10.5px;color:var(--d-muted);
+}
+.sysline .line{flex:1;height:1px;background:var(--d-border)}
+.composer{
+  margin-top:auto;display:flex;align-items:center;gap:7px;background:var(--d-surface);
+  border:1px solid var(--d-border);border-radius:24px;padding:6px 8px 6px 14px;
+}
+.composer .ph{flex:1;font-size:12.5px;color:var(--d-muted)}
+.composer .mini{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;color:var(--d-muted);flex:none}
+.composer .mini svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.composer .send{background:var(--d-brand);color:var(--d-ink)}
+.composer .send svg{stroke:var(--d-ink)}
+
+/* ── Etapy ────────────────────────────────────────────────────────── */
+.steps{display:grid;gap:12px}
+.step{
+  display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:start;
+  background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px 18px;
+}
+.step .no{
+  font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:600;color:var(--ink);
+  background:var(--brand-loud);width:30px;height:30px;border-radius:9px;display:grid;place-items:center;
+}
+.step h3{font-size:15px;font-weight:700;margin-bottom:3px}
+.step p{margin:0;font-size:13.5px;color:var(--muted)}
+.step .files{
+  margin-top:8px;display:flex;flex-wrap:wrap;gap:5px;
+  font-family:"IBM Plex Mono",monospace;font-size:11px;
+}
+.step .files i{
+  font-style:normal;background:var(--bg-2);color:var(--muted);
+  padding:2px 7px;border-radius:6px;border:1px solid var(--border);
+}
+
+/* ── Pytania ──────────────────────────────────────────────────────── */
+.qs{display:grid;gap:12px}
+.qq{
+  background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--brand);
+  border-radius:14px;padding:16px 18px;display:grid;gap:7px;
+}
+.qq h3{font-size:15.5px;font-weight:700}
+.qq p{margin:0;font-size:13.5px;color:var(--muted)}
+.qq .opts{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+.qq .opts i{
+  font-style:normal;font-size:12px;padding:4px 10px;border-radius:999px;
+  border:1px solid var(--border);color:var(--fg);background:var(--bg-2);
+}
+.qq .rec{color:var(--brand);font-weight:600;font-size:12.5px}
+
+footer.end{
+  margin-top:56px;padding-top:22px;border-top:1px solid var(--border);
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--muted);
+  display:flex;flex-wrap:wrap;gap:10px 22px;
+}
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="eyebrow">
+      <span>TeamTalk Android</span> · <b>moduł Zadania</b> · <span>zakres ustalony 2026-09-01</span>
+    </div>
+    <h1>Zadania w TeamTalku</h1>
+    <p class="lede">
+      Aplikacja umie dziś <b>założyć</b> zadanie — kreator po rozmowie i z karty klienta działa.
+      Nie umie go <b>zobaczyć</b>: kafelek „Zadania" prowadzi do zaślepki, a zadanie przypisane
+      w terenie znika z oczu aż do panelu. Ten dokument pokazuje, jak wygląda brakująca połowa
+      modułu i co trzeba dopisać po obu stronach — w Androidzie i w board360.
+    </p>
+  </header>
+
+  <section>
+    <div class="shead">
+      <div class="snum">01 — Punkt wyjścia</div>
+      <h2>Co już jest, a czego brakuje</h2>
+      <p>Stan na dziś, wprost z kodu obu repozytoriów.</p>
+    </div>
+    <div class="cards">
+      <div class="card">
+        <h3><i class="dot ok"></i> Kreator zadania</h3>
+        <p>Siedem plansz (tytuł → opis z dyktowaniem → kogo dotyczy → zespół → osoba → priorytet →
+        termin) plus tryb skrócony po rozmowie. <code>CreateTaskScreen.kt</code>, 33 kB.</p>
+      </div>
+      <div class="card">
+        <h3><i class="dot ok"></i> Zapis do board360</h3>
+        <p>Trzy warianty powiązania: bez niczego, pod dealem klienta, w projekcie.
+        <code>POST /api/tasks</code>, <code>/deals/{id}/tasks</code>, <code>/projects/{id}/tasks</code>.</p>
+      </div>
+      <div class="card">
+        <h3><i class="dot part"></i> Słownik zespołów</h3>
+        <p>Dwanaście kafelków funkcji (lustro <code>USER_FUNCTIONS</code>) + <code>GET /api/tasks/members</code>.
+        Gotowe do ponownego użycia w filtrze osoby.</p>
+      </div>
+      <div class="card">
+        <h3><i class="dot no"></i> Lista zadań</h3>
+        <p>Brak. Kafelek „Zadania" (<code>HomeModules.kt:148</code>) otwiera
+        <code>ModulePlaceholderScreen</code> — „wersja mobilna w przygotowaniu".</p>
+      </div>
+      <div class="card">
+        <h3><i class="dot no"></i> Karta zadania</h3>
+        <p>Brak. Nie da się zmienić statusu, terminu ani wykonawcy — zadanie po utworzeniu
+        jest z telefonu tylko do zapisu.</p>
+      </div>
+      <div class="card">
+        <h3><i class="dot no"></i> Komentarze i załączniki</h3>
+        <p>Brak w aplikacji i brak w atrapie <code>board360-mock</code> (ma tylko
+        <code>GET/POST /tasks</code> i <code>/tasks/members</code>).</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead">
+      <div class="snum">02 — Makieta</div>
+      <h2>Cztery ekrany</h2>
+      <p>
+        Lista → arkusz filtrów → karta zadania → wątek komentarzy. Rysowane w ciemnym motywie
+        aplikacji; wszystkie etykiety są 1:1 z panelem board360, żeby te same zadania nazywały się
+        tak samo na obu ekranach.
+      </p>
+    </div>
+
+    <div class="screens">
+
+      <!-- ── Ekran 1: lista ─────────────────────────────────────── -->
+      <div class="screenblock">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>9:41</span><span>▮▮▮ 78%</span></div>
+          <div class="topbar">
+            <div class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></div>
+            <div class="toptitle">Zadania</div>
+            <div class="iconbtn"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg></div>
+            <div class="iconbtn"><span class="bump"></span><svg viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"/></svg></div>
+          </div>
+          <div class="screen">
+            <div class="seg">
+              <span data-on>Do wykonania</span><span>Zlecone</span><span>Wszystkie</span>
+            </div>
+            <div class="chips">
+              <span class="chip" data-on>Moje ✕</span>
+              <span class="chip" data-on>Otwarte ✕</span>
+              <span class="chip warnchip" data-on>Zaległe ✕</span>
+              <span class="chip">Sortuj: termin</span>
+            </div>
+
+            <div class="grouphead">Oferta <span class="cnt">2</span><span class="line"></span></div>
+            <div class="list">
+              <div class="trow prio">
+                <div class="tick"><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></div>
+                <div class="tmain">
+                  <div class="ttitle">Wysłać ofertę po kalkulacji 10 kW</div>
+                  <div class="tmeta">
+                    <span class="src"><i class="sq" style="background:#38BDF8"></i><b>Anna Kowalska</b></span>
+                    <span class="due soon">dziś 14:00</span>
+                    <span class="sla warn">SLA 3 h</span>
+                    <span class="comm"><svg viewBox="0 0 24 24"><path d="M20 12a7 7 0 0 1-7 7H8l-4 3v-4a7 7 0 0 1 3-13h6a7 7 0 0 1 7 7z"/></svg>2</span>
+                    <span class="unread"></span>
+                  </div>
+                </div>
+                <div class="who">MN</div>
+              </div>
+              <div class="trow">
+                <div class="tick"><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></div>
+                <div class="tmain">
+                  <div class="ttitle">Dosłać rzut dachu do kalkulacji</div>
+                  <div class="tmeta">
+                    <span class="src"><i class="sq" style="background:#38BDF8"></i><b>Piotr Zieliński</b></span>
+                    <span class="due">jutro</span>
+                    <span class="sla">SLA 7 dni</span>
+                  </div>
+                </div>
+                <div class="who">MN</div>
+              </div>
+            </div>
+
+            <div class="grouphead">Przed montażem <span class="cnt">2</span><span class="line"></span></div>
+            <div class="list">
+              <div class="trow prio">
+                <div class="tick"><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></div>
+                <div class="tmain">
+                  <div class="ttitle">Zamówić inwerter Fronius 10 kW</div>
+                  <div class="tmeta">
+                    <span class="src"><i class="sq" style="background:#C084FC"></i><b>Montaże wrzesień</b></span>
+                    <span class="due over">2 dni po terminie</span>
+                    <span class="sla over">SLA −14 h</span>
+                  </div>
+                </div>
+                <div class="who">MN</div>
+              </div>
+              <div class="trow">
+                <div class="tick"><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></div>
+                <div class="tmain">
+                  <div class="ttitle">Potwierdzić termin ekipy z klientem</div>
+                  <div class="tmeta">
+                    <span class="src"><i class="sq" style="background:#38BDF8"></i><b>Ewa Sikora</b></span>
+                    <span class="due">pt, 5 wrz</span>
+                    <span class="sla queue">czeka na wysyłkę</span>
+                  </div>
+                </div>
+                <div class="who">MN</div>
+              </div>
+            </div>
+
+            <div class="grouphead">Po montażu <span class="cnt">1</span><span class="line"></span></div>
+            <div class="list">
+              <div class="trow" data-done>
+                <div class="tick" data-done><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></div>
+                <div class="tmain">
+                  <div class="ttitle">Zgłoszenie do Mój Prąd</div>
+                  <div class="tmeta">
+                    <span class="src"><i class="sq" style="background:#38BDF8"></i><b>Jan Bąk</b></span>
+                    <span class="due">wykonane wczoraj</span>
+                  </div>
+                </div>
+                <div class="who">MN</div>
+              </div>
+            </div>
+          </div>
+          <div class="fab"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div>
+        </div></div>
+        <div class="caption">
+          <h3><i>01</i> Lista zadań</h3>
+          <p>
+            Segment u góry to filtr roli z panelu (wykonawca / zlecający / oba). Grupy = sekcje
+            zadania, czyli etapy lejka. W wierszu: kółko „zrobione" na kciuk, klient albo projekt
+            jako źródło, termin, znacznik SLA, licznik komentarzy z kropką nieprzeczytanych.
+            Niebieski znacznik „czeka na wysyłkę" to zmiana zrobiona bez zasięgu, stojąca w kolejce.
+            FAB wchodzi w istniejący kreator.
+          </p>
+        </div>
+      </div>
+
+      <!-- ── Ekran 2: filtry ────────────────────────────────────── -->
+      <div class="screenblock">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>9:41</span><span>▮▮▮ 78%</span></div>
+          <div class="topbar">
+            <div class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></div>
+            <div class="toptitle">Zadania</div>
+            <div class="iconbtn"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg></div>
+            <div class="iconbtn"><svg viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"/></svg></div>
+          </div>
+          <div class="screen" style="opacity:.5">
+            <div class="seg"><span data-on>Do wykonania</span><span>Zlecone</span><span>Wszystkie</span></div>
+            <div class="list">
+              <div class="trow"><div class="tick"></div><div class="tmain"><div class="ttitle">Wysłać ofertę po kalkulacji</div></div></div>
+              <div class="trow"><div class="tick"></div><div class="tmain"><div class="ttitle">Dosłać rzut dachu</div></div></div>
+            </div>
+          </div>
+          <div class="sheetdim"></div>
+          <div class="sheet">
+            <div class="grab"></div>
+            <h4>Filtruj i sortuj</h4>
+            <div class="fgroup">
+              <div class="lbl">Osoba</div>
+              <div class="chips">
+                <span class="chip" data-on>Moje</span><span class="chip">Wszyscy</span>
+                <span class="chip">Biuro</span><span class="chip">Montażyści</span>
+                <span class="chip">Nieprzypisane</span>
+              </div>
+            </div>
+            <div class="fgroup">
+              <div class="lbl">Status</div>
+              <div class="chips">
+                <span class="chip">Wszystkie</span><span class="chip" data-on>Do zrobienia</span>
+                <span class="chip" data-on>W toku</span><span class="chip">Zrobione</span>
+              </div>
+            </div>
+            <div class="fgroup">
+              <div class="lbl">Priorytet · Termin</div>
+              <div class="chips">
+                <span class="chip">Wysoki</span><span class="chip">Normalny</span>
+                <span class="chip">Dziś</span><span class="chip warnchip" data-on>Zaległe</span>
+              </div>
+            </div>
+            <div class="fgroup">
+              <div class="lbl">Źródło</div>
+              <div class="chips">
+                <span class="chip" data-on>Wszystkie</span><span class="chip">Klient</span><span class="chip">Projekt</span>
+              </div>
+            </div>
+            <div class="fgroup">
+              <div class="lbl">Sortowanie</div>
+              <div class="chips">
+                <span class="chip" data-on>Termin</span><span class="chip">Priorytet</span>
+                <span class="chip">Najnowsze</span><span class="chip">Nazwa A→Z</span>
+              </div>
+            </div>
+            <div class="sheetbtns">
+              <div class="btn ghost">Wyczyść</div>
+              <div class="btn primary">Pokaż 12 zadań</div>
+            </div>
+          </div>
+        </div></div>
+        <div class="caption">
+          <h3><i>02</i> Filtry w arkuszu</h3>
+          <p>
+            Panel ma pasek filtrów szeroki na cały ekran — na telefonie to jeden arkusz od dołu,
+            obsługiwany kciukiem. Wybory wracają na listę jako chipy, a przycisk zatwierdzenia od razu
+            mówi, ile zadań zostanie. Grupy osób (Biuro / Montażyści / Pozostali) biorą się z tego
+            samego <code>GET /api/tasks/members</code>, co kreator.
+          </p>
+        </div>
+      </div>
+
+      <!-- ── Ekran 3: karta ─────────────────────────────────────── -->
+      <div class="screenblock">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>9:41</span><span>▮▮▮ 78%</span></div>
+          <div class="topbar">
+            <div class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></div>
+            <div class="toptitle">Zadanie</div>
+            <div class="iconbtn"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/></svg></div>
+          </div>
+          <div class="screen detail">
+            <div class="dtitle">Wysłać ofertę po kalkulacji 10 kW</div>
+            <div class="badges">
+              <span class="badge sec">Oferta</span>
+              <span class="badge hi">Wysoki</span>
+              <span class="badge sla">SLA — zostało 3 h</span>
+            </div>
+            <div class="frows">
+              <div class="frow">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>
+                <span class="k">Status</span><span class="v">W toku</span>
+              </div>
+              <div class="frow">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.4"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>
+                <span class="k">Wykonawca</span><span class="v">Marek Nowak</span>
+              </div>
+              <div class="frow">
+                <svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3.5v3M16 3.5v3"/></svg>
+                <span class="k">Termin</span><span class="v">dziś, 14:00</span>
+              </div>
+              <div class="frow">
+                <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h10M4 17h7"/></svg>
+                <span class="k">Sekcja</span><span class="v">Oferta</span>
+              </div>
+              <div class="frow">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 7.5v5l3.5 2"/></svg>
+                <span class="k">Potrzebny czas</span><span class="v dim">45 min</span>
+              </div>
+              <div class="frow">
+                <svg viewBox="0 0 24 24"><path d="M12 3.5l7.5 3v5c0 4.4-3 8.1-7.5 9-4.5-.9-7.5-4.6-7.5-9v-5z"/></svg>
+                <span class="k">Zlecił</span><span class="v dim">Ewa Sikora · wczoraj</span>
+              </div>
+            </div>
+            <div class="srcbox">
+              <div class="avatar">AK</div>
+              <div class="m"><b>Anna Kowalska</b><span>Deal · etap Oferta · 42 800 zł brutto</span></div>
+              <div class="go">›</div>
+            </div>
+            <div class="desc">
+              Klient prosi o wariant z magazynem 10 kWh i bez. Zdjęcia dachu w kartotece,
+              rzut dosyła syn do czwartku.
+            </div>
+            <div class="footer">
+              <div class="btn">Komentarze 2</div>
+              <div class="btn primary">Zrobione</div>
+            </div>
+          </div>
+        </div></div>
+        <div class="caption">
+          <h3><i>03</i> Karta zadania</h3>
+          <p>
+            Każdy wiersz jest edytowalny i wysyła <code>PATCH /api/tasks/{id}</code> z jednym polem —
+            bez trybu edycji i przycisku „Zapisz". Kafel źródła prowadzi wprost do karty deala, która
+            w aplikacji już istnieje. Na dole to, co robi się najczęściej w terenie: zamknięcie zadania.
+          </p>
+        </div>
+      </div>
+
+      <!-- ── Ekran 4: komentarze ────────────────────────────────── -->
+      <div class="screenblock">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>9:41</span><span>▮▮▮ 78%</span></div>
+          <div class="topbar">
+            <div class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></div>
+            <div class="toptitle">Komentarze</div>
+            <div class="iconbtn"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/></svg></div>
+          </div>
+          <div class="screen feed">
+            <div class="sysline"><span class="line"></span>Wysłać ofertę po kalkulacji 10 kW<span class="line"></span></div>
+            <div class="cmt">
+              <div class="avatar">ES</div>
+              <div class="cb">
+                <div class="ch"><b>Ewa Sikora</b><span>wczoraj 16:20</span></div>
+                <div class="bubble">Klient chce dwa warianty — z magazynem i bez. Termin twardy, w piątek jedzie do banku.</div>
+              </div>
+            </div>
+            <div class="cmt me">
+              <div class="avatar">MN</div>
+              <div class="cb">
+                <div class="ch"><b>Marek Nowak</b><span>dziś 8:05</span></div>
+                <div class="bubble">
+                  Kalkulacja gotowa. <span class="mention">@Koordynator</span> — potrzebuję potwierdzenia
+                  dostępności magazynu przed wysyłką.
+                  <div class="att">
+                    <svg viewBox="0 0 24 24"><path d="M14 3v5h5"/><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/></svg>
+                    oferta-kowalska-v2.pdf <span>412 kB</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="cmt">
+              <div class="avatar">TK</div>
+              <div class="cb">
+                <div class="ch"><b>Tomasz Kula</b><span>dziś 8:41</span></div>
+                <div class="bubble">Magazyn jest, dostawa 12 wrz. Wysyłaj wariant z magazynem jako pierwszy.</div>
+              </div>
+            </div>
+            <div class="composer">
+              <div class="ph">Napisz komentarz…</div>
+              <div class="mini"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M16 12v1.5a2.5 2.5 0 0 0 5 0V12a9 9 0 1 0-3.5 7.1"/></svg></div>
+              <div class="mini"><svg viewBox="0 0 24 24"><path d="M21 12.5l-8.6 8.6a5 5 0 0 1-7-7l9-9a3.4 3.4 0 1 1 4.8 4.8l-9 9a1.8 1.8 0 0 1-2.5-2.5l8.3-8.3"/></svg></div>
+              <div class="mini send"><svg viewBox="0 0 24 24"><path d="M4 12l16-8-5.5 16-3-6.5z"/></svg></div>
+            </div>
+          </div>
+        </div></div>
+        <div class="caption">
+          <h3><i>04</i> Wątek komentarzy</h3>
+          <p>
+            To ten sam wątek co „Komunikator" w panelu — moduł <code>discussions</code>. Wzmianki
+            (<code>@osoba</code>, <code>@rola</code>) idą jako tokeny w polu <code>mentions</code>.
+            Wejście w wątek wysyła <code>POST /api/discussions/{taskId}/read</code>, więc kropka
+            nieprzeczytanych gaśnie tak samo jak w panelu. Spinacz na telefonie ma jedną przewagę:
+            zdjęcie z aparatu wprost do zadania.
+          </p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <section>
+    <div class="shead">
+      <div class="snum">03 — Kontrakt</div>
+      <h2>Czego brakuje w API</h2>
+      <p>
+        board360 ma prawie wszystko — brakuje tego w warstwie mobilnej i w atrapie, na której
+        testujemy. Jeden realny brak po stronie panelu: <b>nie ma odczytu pojedynczego zadania</b>.
+      </p>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>Endpoint</th><th>Do czego</th><th>board360</th><th>TeamTalkApi</th><th>board360-mock</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="mono">GET /api/tasks</td><td>lista + filtry <code>status</code>, <code>assignee</code></td><td><span class="tag jest">jest</span></td><td><span class="tag jest">E1</span></td><td><span class="tag jest">jest</span></td></tr>
+          <tr><td class="mono">GET /api/tasks/{id}</td><td>karta zadania po wejściu z powiadomienia</td><td><span class="tag brak">brak</span></td><td><span class="tag brak">E2</span></td><td><span class="tag brak">brak</span></td></tr>
+          <tr><td class="mono">PATCH /api/tasks/{id}</td><td>status, termin, wykonawca, priorytet, sekcja, SLA</td><td><span class="tag jest">jest</span></td><td><span class="tag jest">E1</span></td><td><span class="tag jest">jest</span></td></tr>
+          <tr><td class="mono">DELETE /api/tasks/{id}</td><td>usunięcie z menu karty</td><td><span class="tag jest">jest</span></td><td><span class="tag brak">E2</span></td><td><span class="tag jest">jest</span></td></tr>
+          <tr><td class="mono">GET /api/deals/{id}/tasks</td><td>zakładka „Zadania" na karcie deala</td><td><span class="tag jest">jest</span></td><td><span class="tag jest">E1</span></td><td><span class="tag jest">jest</span></td></tr>
+          <tr><td class="mono">POST /api/deals/{id}/tasks</td><td>zadanie spod karty klienta (kreator)</td><td><span class="tag jest">jest</span></td><td><span class="tag jest">jest</span></td><td><span class="tag jest">jest</span></td></tr>
+          <tr><td class="mono">GET /api/projects · POST /api/projects/{id}/tasks</td><td>krok „kogo dotyczy" w kreatorze</td><td><span class="tag jest">jest</span></td><td><span class="tag jest">jest</span></td><td><span class="tag jest">jest</span></td></tr>
+          <tr><td class="mono">GET · POST /api/tasks/{id}/comments</td><td>wątek komentarzy, wzmianki</td><td><span class="tag jest">jest</span></td><td><span class="tag brak">brak</span></td><td><span class="tag mock">brak</span></td></tr>
+          <tr><td class="mono">GET · POST /api/tasks/{id}/attachments</td><td>załączniki, zdjęcie z aparatu</td><td><span class="tag jest">jest</span></td><td><span class="tag brak">brak</span></td><td><span class="tag mock">brak</span></td></tr>
+          <tr><td class="mono">GET /api/discussions/unread-count</td><td>licznik na kafelku „Zadania"</td><td><span class="tag jest">jest</span></td><td><span class="tag brak">brak</span></td><td><span class="tag mock">brak</span></td></tr>
+          <tr><td class="mono">POST /api/discussions/{id}/read</td><td>gaszenie kropki po wejściu w wątek</td><td><span class="tag jest">jest</span></td><td><span class="tag brak">brak</span></td><td><span class="tag mock">brak</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="cards" style="margin-top:16px">
+      <div class="card">
+        <h3>Model zadania jest okrojony</h3>
+        <p>
+          Mobilny <code>TaskResponseDto</code> zna 9 pól, board360 zwraca 20. Do dopisania:
+          <code>section</code>, <code>slaHours</code>, <code>estimatedMinutes</code>,
+          <code>commentCount</code>, <code>createdBy</code>, <code>dealId</code>/<code>dealName</code>,
+          <code>projectId</code>/<code>projectName</code>, <code>updatedAt</code>.
+        </p>
+      </div>
+      <div class="card">
+        <h3>Sekcje i SLA to lustro słownika</h3>
+        <p>
+          Dziewięć sekcji (Audyt … Dotacja) i trzy progi SLA (24 h / 7 dni / 30 dni) trzeba
+          przenieść do Kotlina tak jak <code>TaskTeam</code> — z adnotacją, że zmiana po stronie
+          panelu wymaga ręcznej aktualizacji pliku.
+        </p>
+      </div>
+      <div class="card">
+        <h3>Atrapa już nadążyła</h3>
+        <p>
+          <code>board360-mock</code> ma komplet tras zadań, pełny kształt rekordu, projekty
+          i seed pod każdą sekcję. Przy okazji wyszło, że kreator wołał
+          <code>POST /deals/{id}/tasks</code> i <code>/projects</code>, których atrapa
+          nie miała wcale — dostawał 404.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead">
+      <div class="snum">04 — Zakres</div>
+      <h2>Co z panelu wchodzi na telefon</h2>
+      <p>Panel jest tablicą do planowania. Telefon ma być listą do odhaczania — dlatego część rzeczy świadomie zostaje na biurku.</p>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Funkcja w board360</th><th>Na telefonie</th><th>Dlaczego</th></tr></thead>
+        <tbody>
+          <tr><td>Filtr roli: do wykonania / zlecone / wszystkie</td><td><span class="tag jest">1:1</span></td><td>Rozstrzyga, czyją listę widzę — bez tego moduł jest bezużyteczny.</td></tr>
+          <tr><td>Filtr osoby: moje / grupa / osoba / nieprzypisane</td><td><span class="tag jest">1:1</span></td><td>Ten sam słownik osób co kreator, gotowy do użycia.</td></tr>
+          <tr><td>Sekcje jako grupy (9 etapów lejka)</td><td><span class="tag jest">1:1</span></td><td>Nagłówki grup na liście, zwijane.</td></tr>
+          <tr><td>Kolumna „Źródła" (projekty i klienci)</td><td><span class="tag mock">skrót</span></td><td>Zamiast kolumny — znacznik w wierszu i filtr Klient / Projekt w arkuszu.</td></tr>
+          <tr><td>Sortowanie (8 opcji)</td><td><span class="tag mock">4 opcje</span></td><td>Termin, priorytet, najnowsze, nazwa. Reszta nie zarabia na miejsce.</td></tr>
+          <tr><td>Szybka belka dodawania</td><td><span class="tag mock">FAB</span></td><td>FAB wchodzi w istniejący kreator — nie budujemy drugiej ścieżki tworzenia.</td></tr>
+          <tr><td>Zmiana kolejności przeciąganiem</td><td><span class="tag brak">pomijamy</span></td><td>Kolejność ręczna jest narzędziem planowania, nie pracy w terenie.</td></tr>
+          <tr><td>Duplikowanie, kopiowanie linku</td><td><span class="tag brak">pomijamy</span></td><td>Czynności biurkowe.</td></tr>
+          <tr><td>Zdjęcie z aparatu jako załącznik</td><td><span class="tag jest">tylko mobile</span></td><td>Jedyna rzecz, którą telefon robi lepiej niż panel — dokumentacja z montażu.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead">
+      <div class="snum">05 — Realizacja</div>
+      <h2>Plan po ustaleniach</h2>
+      <p>
+        Pierwsza wersja to E1 + E2. Kolejka offline i powiadomienia są ustalone, ale wchodzą zaraz
+        po niej — inaczej pierwszy build odsuwa się o kolejny tydzień.
+        <b>E1 jest zrobione</b>: kafelek „Zadania" otwiera listę, atrapa ma komplet tras,
+        <code>gradlew assembleDebug</code> przechodzi.
+      </p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="no">E1</div>
+        <div>
+          <h3>Lista i odhaczanie <span class="tag jest">zrobione</span></h3>
+          <p>
+            Kafelek „Zadania" przestaje być zaślepką. Lista z segmentem roli, filtrami w arkuszu,
+            grupami sekcji i zmianą statusu jednym dotknięciem. Room od razu jako źródło prawdy dla
+            listy (baza idzie z wersji 4 na 5), żeby E3 nie przepisywał warstwy danych od nowa.
+          </p>
+          <div class="files">
+            <i>TaskListScreen.kt</i><i>TaskListViewModel.kt</i><i>TaskFilterSheet.kt</i>
+            <i>TaskSections.kt</i><i>TaskEntity.kt · TaskDao.kt</i><i>migracja Room 4→5</i>
+            <i>TeamTalkApi.kt +GET/PATCH</i><i>TeamTalkNavGraph.kt</i><i>mock: tasks.js +PATCH</i>
+          </div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="no">E2</div>
+        <div>
+          <h3>Karta zadania <span class="tag jest">pierwsza wersja</span></h3>
+          <p>
+            Wszystkie pola edytowalne w miejscu, źródło z przejściem do karty deala, menu z usuwaniem.
+            Wchodzi tu <code>GET /api/tasks/{id}</code> — nowa trasa po stronie board360, use case plus
+            kontroler, i to samo w atrapie.
+          </p>
+          <div class="files">
+            <i>TaskDetailScreen.kt</i><i>TaskDetailViewModel.kt</i><i>TaskDto.kt (pełny model)</i>
+            <i>TaskMapper.kt</i><i>api: task.usecases.ts +GetTask</i><i>api: tasks.controller.ts</i>
+          </div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="no">E3</div>
+        <div>
+          <h3>Kolejka offline</h3>
+          <p>
+            Zmiany zapisują się lokalnie i lecą na serwer, gdy wróci zasięg — osobna tabela zmian
+            oczekujących i worker synchronizujący, wzorowany na <code>PostCallNoteWorker</code>.
+            Reguła konfliktu do zatwierdzenia: <code>PATCH</code> idzie pojedynczymi polami, więc
+            wygrywa ostatni zapis; zadanie usunięte w panelu (404) porzuca zmianę z komunikatem,
+            a wiersz z niewysłaną zmianą ma na liście znacznik „czeka na wysyłkę".
+          </p>
+          <div class="files">
+            <i>TaskMutationEntity.kt</i><i>TaskSyncWorker.kt</i><i>migracja Room 5→6</i>
+            <i>TaskRepositoryImpl (zapis lokalny + kolejka)</i>
+          </div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="no">E4</div>
+        <div>
+          <h3>Przypomnienia</h3>
+          <p>
+            <code>WorkManager</code> co 15 minut pyta o nieprzeczytane i zadania na dziś, po czym
+            pokazuje lokalne powiadomienie — ta sama infrastruktura co skaner nieodebranych połączeń
+            (<code>NotificationHelper</code> już jest). Do tego licznik na kafelku pulpitu.
+          </p>
+          <div class="files"><i>TaskReminderWorker.kt</i><i>NotificationHelper +kanał zadań</i><i>HomeScreen (licznik)</i></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="no">E5</div>
+        <div>
+          <h3>Komentarze i załączniki</h3>
+          <p>
+            Wątek, wzmianki, kropka nieprzeczytanych, zdjęcie z aparatu wprost do zadania.
+            Największa dokładka po stronie atrapy — komentarzy i załączników w mocku nie ma wcale.
+          </p>
+          <div class="files"><i>TaskCommentsScreen.kt</i><i>DiscussionsApi</i><i>mock: comments + attachments + discussions</i></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead">
+      <div class="snum">06 — Ustalenia</div>
+      <h2>Co zapadło, co zostaje otwarte</h2>
+      <p>Cztery decyzje z 1 września 2026 wyznaczają zakres; trzy rzeczy da się dodomknąć w trakcie E1.</p>
+    </div>
+    <div class="qs">
+      <div class="qq">
+        <h3>Pierwsza wersja: E1 + E2 <span class="tag jest">ustalone</span></h3>
+        <p>
+          Lista z filtrami i odhaczaniem plus karta zadania z edycją pól. Komentarze, załączniki
+          i przypomnienia wchodzą po niej — lista, której nie da się poprawić, szybko zaczyna kłamać,
+          więc te dwa etapy jadą razem.
+        </p>
+      </div>
+      <div class="qq">
+        <h3><code>GET /api/tasks/{id}</code> dopisujemy <span class="tag jest">ustalone</span></h3>
+        <p>
+          Nowa trasa w board360 (use case + kontroler + atrapa). Dzięki temu w kartę zadania da się
+          wejść wprost z powiadomienia, bez pobierania całej listy — czego wymagają E3 i E4.
+        </p>
+      </div>
+      <div class="qq">
+        <h3>Pełny offline z kolejką <span class="tag jest">ustalone</span></h3>
+        <p>
+          Zadania działają bez zasięgu, a zmiany czekają w kolejce na sieć. To najdroższa z czterech
+          decyzji: dokłada tabelę zmian oczekujących, worker synchronizujący, znacznik „czeka na
+          wysyłkę" na liście i reguły konfliktu (E3). Room wchodzi więc już w E1, żeby nie przepisywać
+          warstwy danych dwa razy.
+        </p>
+      </div>
+      <div class="qq">
+        <h3>Odpytywanie + lokalne powiadomienia <span class="tag jest">ustalone</span></h3>
+        <p>
+          <code>WorkManager</code> co 15 minut, bez czekania na pushe z serwera. Ten sam mechanizm
+          i ten sam <code>NotificationHelper</code> co skaner nieodebranych połączeń.
+        </p>
+      </div>
+      <div class="qq">
+        <h3>Otwarte: czy kolejka obejmuje też tworzenie zadania?</h3>
+        <p>
+          Zmiana istniejącego zadania kolejkuje się łatwo. Tworzenie jest trudniejsze: kreator wiąże
+          zadanie z dealem albo projektem i potrzebuje identyfikatora z serwera, a zadanie założone
+          offline nie ma go do czasu wysyłki.
+        </p>
+        <div class="opts"><i>Kolejka tylko dla zmian</i><i>Także tworzenie, z lokalnym identyfikatorem</i></div>
+        <p class="rec">Sugeruję na start tylko zmiany — kreator i tak wymaga listy osób z serwera.</p>
+      </div>
+      <div class="qq">
+        <h3>Otwarte: sekcje na liście — grupy czy filtr?</h3>
+        <p>
+          Dziewięć sekcji na ekranie 5,5 cala to dużo nagłówków. Można grupować (jak panel) albo
+          traktować sekcję jak kolejny chip filtra i zostawić płaską listę po terminie.
+        </p>
+        <div class="opts"><i>Grupy zwijane</i><i>Płasko + filtr sekcji</i><i>Przełącznik w arkuszu</i></div>
+      </div>
+      <div class="qq">
+        <h3>Otwarte: kto może zamykać cudze zadania?</h3>
+        <p>
+          board360 daje <code>tasks.manage</code> obu rolom poza adminem — technicznie każdy może
+          zamknąć każde zadanie. Pytanie, czy na telefonie tego nie przyciąć, żeby nie zamykać cudzej
+          pracy przez pomyłkę w kieszeni.
+        </p>
+        <div class="opts"><i>Jak panel — bez ograniczeń</i><i>Tylko swoje i zlecone</i><i>Cudze za potwierdzeniem</i></div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="end">
+    <span>TeamTalk Android · moduł Zadania</span>
+    <span>źródła: api/src/modules/tasks · web/src/app/app/tasks · presentation/task</span>
+    <span>design/mockups/modul-zadania.html</span>
+  </footer>
+
+</div>

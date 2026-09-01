@@ -3,10 +3,27 @@ package com.ekotak.teamtalk.domain.repository
 import com.ekotak.teamtalk.domain.model.Task
 import com.ekotak.teamtalk.domain.model.TaskLink
 import com.ekotak.teamtalk.domain.model.TaskMember
+import com.ekotak.teamtalk.domain.model.TaskPatch
 import com.ekotak.teamtalk.domain.model.TaskPriority
 import com.ekotak.teamtalk.domain.model.TaskProject
+import kotlinx.coroutines.flow.Flow
 
 interface TaskRepository {
+    /**
+     * Zadania zespołu z cache Room — strumień rusza od danych lokalnych, więc
+     * lista pokazuje się bez zasięgu, a odświeżenie z sieci dochodzi po chwili.
+     */
+    fun observeTasks(): Flow<List<Task>>
+
+    /** Pobranie z board360 i podmiana cache. Błąd leci dalej (pull-to-refresh). */
+    suspend fun refreshTasks()
+
+    /**
+     * Zmiana pól zadania (`PATCH /api/tasks/:id`). Wymaga sieci — kolejka zmian
+     * zrobionych offline wchodzi dopiero w E3.
+     */
+    suspend fun updateTask(id: String, patch: TaskPatch): Task
+
     /** Lista członków zespołu (do wyboru osoby przypisanej). */
     suspend fun getMembers(): List<TaskMember>
 

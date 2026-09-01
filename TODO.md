@@ -212,8 +212,34 @@ ikony 1:1. Pominięte na mobile: Raporty, Zasoby, Marketing, Faktury KSeF.
 - ✅ Kafelki: Asystent, CRM, Klienci, Mapa, Komunikacja, Montaże, Serwis, Magazyn, Zadania, Kalendarz
 - ✅ Kafelek „Klienci" → istniejąca kartoteka (ClientListScreen)
 - ✅ Kafelek „CRM" → lejek sprzedaży (DealListScreen, §6a)
+- ✅ Kafelek „Zadania" → lista zadań zespołu (TaskListScreen, §11a)
 - 🚧 Pozostałe kafelki → ekran-zaślepka „wersja mobilna w przygotowaniu"
 - ❌ Zmiana kolejności kafelków przeciąganiem (jest w board360, brak na mobile)
+
+---
+
+## 11a. Moduł Zadania (kafelek „Zadania")
+
+Mobilny odpowiednik tablicy „Zadania" z board360. Zakres i makieta:
+`design/mockups/modul-zadania.html`. Etapy: E1 lista → E2 karta zadania →
+E3 kolejka offline → E4 przypomnienia → E5 komentarze i załączniki.
+
+- ✅ Lista zadań z cache Room (`tasks`, baza w wersji 5) — widoczna bez zasięgu
+- ✅ Filtr roli: Do wykonania / Zlecone / Wszystkie (wykonawca vs zlecający)
+- ✅ Filtr osoby: Moje, Wszyscy, grupy Biuro / Montażyści / Pozostali, konkretna
+  osoba, Nieprzypisane — grupy liczone jak w panelu (rola dodatkowa = główna)
+- ✅ Filtry statusu, priorytetu, terminu (Dziś / Zaległe) i źródła (Klient / Projekt)
+  w arkuszu od dołu + sortowanie (termin, priorytet, najnowsze, nazwa)
+- ✅ Sekcje jako nagłówki grup (9 etapów lejka + „Bez sekcji"), z przełącznikiem
+  na płaską listę — do rozstrzygnięcia z zamawiającym, co zostaje domyślnie
+- ✅ Znacznik SLA (24 h / 7 dni / 30 dni) liczony od utworzenia, z ostrzeżeniem
+  na ostatnich 25 % okna i alarmem po terminie
+- ✅ Odhaczenie zadania i wysoki priorytet wprost z wiersza (`PATCH /api/tasks/:id`)
+- ✅ Wyszukiwarka (tytuł, opis, osoba, źródło), pull-to-refresh, FAB w kreator
+- ❌ Karta zadania z edycją pól (E2) — wymaga `GET /api/tasks/:id` w board360
+- ❌ Kolejka zmian offline (E3) — dziś zapis wymaga sieci, awaria idzie w snackbar
+- ❌ Przypomnienia i licznik nieprzeczytanych (E4)
+- ❌ Komentarze i załączniki (E5) — brak też w atrapie board360-mock
 
 ---
 

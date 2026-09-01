@@ -1,10 +1,10 @@
 package com.ekotak.teamtalk.domain.model
 
 /** Priorytet zadania (kontrakt board360). */
-enum class TaskPriority(val wire: String) {
-    LOW("low"),
-    NORMAL("normal"),
-    HIGH("high");
+enum class TaskPriority(val wire: String, val label: String) {
+    LOW("low", "Niski"),
+    NORMAL("normal", "Normalny"),
+    HIGH("high", "Wysoki");
 
     companion object {
         fun fromWire(value: String?): TaskPriority =
@@ -12,10 +12,36 @@ enum class TaskPriority(val wire: String) {
     }
 }
 
+/** Status zadania. Etykiety 1:1 ze `STATUS_LABEL` z tablicy zadań board360. */
+enum class TaskStatus(val wire: String, val label: String) {
+    OPEN("open", "Do zrobienia"),
+    IN_PROGRESS("in_progress", "W toku"),
+    DONE("done", "Zrobione");
+
+    companion object {
+        fun fromWire(value: String?): TaskStatus =
+            entries.firstOrNull { it.wire == value } ?: OPEN
+    }
+}
+
+/**
+ * Skąd wzięło się zadanie — klient (przez swój deal) albo projekt. board360
+ * dokleja nazwy przy odczycie listy, więc na telefonie nie trzeba dobierać
+ * kartoteki, żeby pokazać, kogo zadanie dotyczy.
+ */
+sealed interface TaskSource {
+    val id: String
+    val label: String?
+
+    data class Deal(override val id: String, override val label: String?) : TaskSource
+    data class Project(override val id: String, override val label: String?) : TaskSource
+}
+
 /**
  * Zadanie zespołu (board360, FR-26). Tworzone m.in. po połączeniu telefonicznym.
- * Powiązanie zadania niesie [TaskLink] — z klientem wiąże je jego deal, bo model
- * zadania nie ma pola `clientId`. Klient bez deala trafia do opisu.
+ * Powiązanie przy tworzeniu niesie [TaskLink] — z klientem wiąże je jego deal, bo
+ * model zadania nie ma pola `clientId`; przy odczycie to samo powiązanie wraca
+ * jako [source].
  */
 data class Task(
     val id: String,
@@ -24,9 +50,21 @@ data class Task(
     val assigneeId: String?,
     val assigneeEmail: String?,
     val dueAt: String?,
-    val status: String,
+    val status: TaskStatus,
     val priority: TaskPriority,
+    /** Sekcja (rozwijalna grupa na liście); null = „Bez sekcji". */
+    val section: TaskSection?,
+    /** Szacowany nakład („potrzebny czas") w minutach; null = nie podano. */
+    val estimatedMinutes: Int?,
+    /** SLA w godzinach (24 / 168 / 720); termin SLA = createdAt + slaHours. */
+    val slaHours: Int?,
+    /** Liczba komentarzy — znacznik na wierszu listy (wątek wchodzi w E5). */
+    val commentCount: Int,
+    /** Kto zlecił: id użytkownika albo „system" (automat board360). */
+    val createdBy: String?,
     val createdAt: String,
+    val updatedAt: String?,
+    val source: TaskSource?,
 )
 
 /**
@@ -71,4 +109,13 @@ data class TaskMember(
             .filter { it.isNotBlank() }
             .joinToString(" ")
             .ifBlank { email }
+
+    /** Inicjały do awatara na liście zadań — „Jan Serwisant" → „JS". */
+    val initials: String
+        get() = displayName.split(' ', '.', '-')
+            .filter { it.isNotBlank() }
+            .take(2)
+            .map { it.first().uppercaseChar() }
+            .joinToString("")
+            .ifBlank { "?" }
 }

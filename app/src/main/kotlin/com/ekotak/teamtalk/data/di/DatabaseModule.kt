@@ -39,4 +39,5 @@ object DatabaseModule {
     @Provides fun provideCallLogDao(db: TeamTalkDatabase): CallLogDao             = db.callLogDao()
     @Provides fun provideVoiceReportDao(db: TeamTalkDatabase): VoiceReportDao     = db.voiceReportDao()
     @Provides fun provideDeviceDao(db: TeamTalkDatabase): DeviceDao               = db.deviceDao()
+    @Provides fun provideTaskDao(db: TeamTalkDatabase): TaskDao                   = db.taskDao()
 }
