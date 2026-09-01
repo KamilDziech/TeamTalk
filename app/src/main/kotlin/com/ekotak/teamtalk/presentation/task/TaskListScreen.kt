@@ -7,6 +7,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -62,6 +64,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextDecoration
@@ -439,37 +442,35 @@ private fun DoneToggle(done: Boolean, pending: Boolean, onClick: () -> Unit) {
     }
 }
 
-/** Druga linia wiersza: źródło, termin, SLA i znacznik komentarzy. */
+/**
+ * Druga linia wiersza: źródło, termin, SLA i znacznik komentarzy.
+ *
+ * `FlowRow`, a nie `Row`: przy nazwie klienta, zaległym terminie i SLA naraz
+ * zwykły wiersz ściskał ostatni znacznik do pionowej kolumny liter („SL/A/−2/
+ * dni"). Tutaj nadmiar przenosi się do drugiej linii.
+ */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TaskMeta(task: Task, done: Boolean, queued: Boolean = false) {
     val due = dueLabel(task.dueAt)
     val overdue = !done && isOverdue(task.dueAt)
     val sla = slaState(task.createdAt, task.slaHours, done)
 
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
+    FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         task.source?.let { source ->
-            Icon(
-                imageVector = when (source) {
+            MetaItem(
+                icon = when (source) {
                     is TaskSource.Deal -> Icons.Default.Person
                     is TaskSource.Project -> Icons.Default.Folder
                 },
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(12.dp),
-            )
-            Text(
                 text = source.label ?: when (source) {
                     is TaskSource.Deal -> "Klient"
                     is TaskSource.Project -> "Projekt"
                 },
-                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(start = (-4).dp),
             )
         }
 
@@ -499,17 +500,10 @@ private fun TaskMeta(task: Task, done: Boolean, queued: Boolean = false) {
         }
 
         if (task.commentCount > 0) {
-            Icon(
-                Icons.Default.ChatBubbleOutline,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(12.dp),
-            )
-            Text(
+            MetaItem(
+                icon = Icons.Default.ChatBubbleOutline,
                 text = "${task.commentCount}",
-                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = (-4).dp),
             )
         }
 
@@ -517,19 +511,41 @@ private fun TaskMeta(task: Task, done: Boolean, queued: Boolean = false) {
         // bo z punktu widzenia człowieka weszła — ale znacznik mówi wprost, że
         // serwer jeszcze o niej nie wie.
         if (queued) {
-            Icon(
-                Icons.Default.CloudUpload,
-                contentDescription = null,
-                tint = SyncBlue,
-                modifier = Modifier.size(12.dp),
-            )
-            Text(
+            MetaItem(
+                icon = Icons.Default.CloudUpload,
                 text = "czeka na wysyłkę",
-                style = MaterialTheme.typography.labelSmall,
                 color = SyncBlue,
-                modifier = Modifier.padding(start = (-4).dp),
             )
         }
+    }
+}
+
+/**
+ * Ikona ze swoim podpisem. Para siedzi we własnym wierszu z ciaśniejszym
+ * odstępem, bo `spacedBy` wiersza nadrzędnego rozdziela grupy, a nie ikonę od
+ * jej tekstu. Wcześniej ściągałem podpis ujemnym paddingiem — Compose odrzuca
+ * ujemne wartości wyjątkiem i lista zadań wywalała aplikację przy każdym
+ * wierszu ze źródłem albo komentarzem.
+ */
+@Composable
+private fun MetaItem(icon: ImageVector, text: String, color: Color) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = color,
+            modifier = Modifier.size(12.dp),
+        )
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelSmall,
+            color = color,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
