@@ -91,9 +91,14 @@ fun TaskDetailScreen(
         }
     }
 
-    // Nowy komentarz ma być widoczny bez przewijania ręką.
-    LaunchedEffect(state.comments.size) {
-        if (state.comments.isNotEmpty()) listState.animateScrollToItem(state.comments.size)
+    // Nowy komentarz ma być widoczny bez przewijania ręką. Nad wątkiem stoją
+    // cztery pozycje listy — nagłówek, pola, opis i tytuł dyskusji — więc sam
+    // licznik komentarzy celowałby w środek karty, a nie w ostatni wpis.
+    LaunchedEffect(state.comments.size, state.task != null) {
+        if (state.comments.isNotEmpty()) {
+            val headers = if (state.task != null) 4 else 0
+            listState.animateScrollToItem(headers + state.comments.size - 1)
+        }
     }
 
     Scaffold(
