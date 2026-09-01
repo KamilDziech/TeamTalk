@@ -25,6 +25,7 @@ class SessionPreferences @Inject constructor(
         private val KEY_ROLE           = stringPreferencesKey("user_role")
         private val KEY_DISPLAY_NAME   = stringPreferencesKey("display_name")
         private val KEY_THEME          = stringPreferencesKey("theme_mode")
+        private val KEY_MENTIONS_SEEN_AT = longPreferencesKey("mentions_seen_at")
     }
 
     /** Token sesji board360 (wysyłany jako cookie `b360_session`). */
@@ -67,6 +68,17 @@ class SessionPreferences @Inject constructor(
             prefs[KEY_ROLE]         = role
             prefs[KEY_DISPLAY_NAME] = displayName
         }
+    }
+
+    /**
+     * Do kiedy pokazaliśmy już powiadomienia o wywołaniach (@) — robotnik
+     * odpytuje skrzynkę co 15 min i bez tego znacznika trąbiłby o tym samym
+     * komentarzu do skutku. 0 = jeszcze nic nie pokazywaliśmy.
+     */
+    val mentionsSeenAt: Flow<Long> = dataStore.data.map { it[KEY_MENTIONS_SEEN_AT] ?: 0L }
+
+    suspend fun saveMentionsSeenAt(millis: Long) {
+        dataStore.edit { it[KEY_MENTIONS_SEEN_AT] = millis }
     }
 
     suspend fun clear() {

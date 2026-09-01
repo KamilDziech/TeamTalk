@@ -39,6 +39,8 @@ import com.ekotak.teamtalk.presentation.postcallnote.PostCallNoteScreen
 import com.ekotak.teamtalk.presentation.settings.SettingsScreen
 import com.ekotak.teamtalk.presentation.task.CreateTaskScreen
 import com.ekotak.teamtalk.presentation.task.CreateTaskViewModel
+import com.ekotak.teamtalk.presentation.discussion.DiscussionListScreen
+import com.ekotak.teamtalk.presentation.task.TaskDetailScreen
 import com.ekotak.teamtalk.presentation.task.TaskListScreen
 import com.ekotak.teamtalk.presentation.voicereport.VoiceReportScreen
 
@@ -57,6 +59,7 @@ fun TeamTalkNavGraph(
     viewModel: MainViewModel = hiltViewModel(),
     deepLinkCallLogId: String? = null,
     deepLinkPostCallPhone: String? = null,
+    deepLinkTaskId: String? = null,
 ) {
     val navController = rememberNavController()
     val sessionState by viewModel.sessionState.collectAsState()
@@ -95,13 +98,18 @@ fun TeamTalkNavGraph(
             MainScreen(
                 deepLinkCallLogId = deepLinkCallLogId,
                 deepLinkPostCallPhone = deepLinkPostCallPhone,
+                deepLinkTaskId = deepLinkTaskId,
             )
         }
     }
 }
 
 @Composable
-private fun MainScreen(deepLinkCallLogId: String? = null, deepLinkPostCallPhone: String? = null) {
+private fun MainScreen(
+    deepLinkCallLogId: String? = null,
+    deepLinkPostCallPhone: String? = null,
+    deepLinkTaskId: String? = null,
+) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -118,6 +126,14 @@ private fun MainScreen(deepLinkCallLogId: String? = null, deepLinkPostCallPhone:
         if (deepLinkPostCallPhone != null) {
             val encoded = URLEncoder.encode(deepLinkPostCallPhone, "UTF-8")
             navController.navigate("post_call_note?phone=$encoded") { launchSingleTop = true }
+        }
+    }
+
+    // Powiadomienie o wywołaniu (@) prowadzi wprost w kartę zadania — tam jest
+    // dyskusja, a nie do skrzynki, przez którą trzeba by się przeklikiwać.
+    LaunchedEffect(deepLinkTaskId) {
+        if (deepLinkTaskId != null) {
+            navController.navigate("task/$deepLinkTaskId") { launchSingleTop = true }
         }
     }
 
@@ -145,6 +161,7 @@ private fun MainScreen(deepLinkCallLogId: String? = null, deepLinkPostCallPhone:
                             "clients" -> "clients"
                             "crm" -> "crm"
                             "tasks" -> "tasks"
+                            "communication" -> "discussions"
                             else -> "module/${module.key}"
                         }
                         navController.navigate(route)
@@ -171,6 +188,24 @@ private fun MainScreen(deepLinkCallLogId: String? = null, deepLinkPostCallPhone:
             composable("tasks") {
                 TaskListScreen(
                     onCreateTask = { navController.navigate("create_task") },
+                    onOpenTask = { taskId -> navController.navigate("task/$taskId") },
+                    onNavigateBack = { navController.popBackStack() },
+                )
+            }
+
+            // Karta zadania — także cel powiadomienia o wywołaniu (@) i wejścia
+            // z Komunikatora: dyskusja to komentarze tego zadania.
+            composable(
+                route = "task/{taskId}",
+                arguments = listOf(navArgument("taskId") { type = NavType.StringType }),
+            ) {
+                TaskDetailScreen(onNavigateBack = { navController.popBackStack() })
+            }
+
+            // ── Komunikator wewnętrzny (kafelek „Komunikacja") ─────────────────
+            composable("discussions") {
+                DiscussionListScreen(
+                    onOpenTask = { taskId -> navController.navigate("task/$taskId") },
                     onNavigateBack = { navController.popBackStack() },
                 )
             }

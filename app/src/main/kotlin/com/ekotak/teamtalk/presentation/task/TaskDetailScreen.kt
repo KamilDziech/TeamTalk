@@ -1,0 +1,277 @@
+package com.ekotak.teamtalk.presentation.task
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Divider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.ekotak.teamtalk.domain.model.Task
+import com.ekotak.teamtalk.domain.model.TaskComment
+import com.ekotak.teamtalk.domain.model.TaskPriority
+import com.ekotak.teamtalk.domain.model.TaskSource
+import com.ekotak.teamtalk.domain.model.TaskStatus
+import com.ekotak.teamtalk.presentation.components.AppTopBar
+import com.ekotak.teamtalk.presentation.components.MentionComposer
+import com.ekotak.teamtalk.presentation.components.rememberMentionState
+import com.ekotak.teamtalk.presentation.crm.formatDateTime
+import com.ekotak.teamtalk.presentation.theme.EkotakGreen
+import com.ekotak.teamtalk.presentation.theme.Orange600
+import com.ekotak.teamtalk.presentation.theme.Red600
+
+/**
+ * Karta zadania: nagłówek z tym, kogo zadanie dotyczy, szybkie akcje
+ * (odhaczenie, priorytet) i WĄTEK KOMENTARZY — ten sam, który w Komunikatorze
+ * jest dyskusją. Wpisanie „@" i wybór osoby wywołuje ją: komentarz zostaje tu,
+ * a wywołany dostaje dyskusję podpisaną nazwiskiem klienta.
+ */
+@Composable
+fun TaskDetailScreen(
+    onNavigateBack: () -> Unit,
+    viewModel: TaskDetailViewModel = hiltViewModel(),
+) {
+    val state by viewModel.uiState.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val mention = rememberMentionState()
+    val listState = rememberLazyListState()
+
+    LaunchedEffect(state.message) {
+        state.message?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.consumeMessage()
+        }
+    }
+
+    // Nowy komentarz ma być widoczny bez przewijania ręką.
+    LaunchedEffect(state.comments.size) {
+        if (state.comments.isNotEmpty()) listState.animateScrollToItem(state.comments.size)
+    }
+
+    Scaffold(
+        topBar = { AppTopBar(title = "Zadanie", onNavigateBack = onNavigateBack) },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+        ) {
+            when {
+                state.isLoading -> Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) { CircularProgressIndicator() }
+
+                state.error != null -> Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(24.dp),
+                    contentAlignment = Alignment.Center,
+                ) { Text(state.error!!, color = Red600) }
+
+                else -> {
+                    val task = state.task
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        if (task != null) {
+                            item { TaskHeader(task, state.saving, viewModel) }
+                            item {
+                                Divider()
+                                Text(
+                                    text = if (state.comments.isEmpty()) {
+                                        "Dyskusja"
+                                    } else {
+                                        "Dyskusja (${state.comments.size})"
+                                    },
+                                    style = MaterialTheme.typography.titleSmall,
+                                    modifier = Modifier.padding(top = 8.dp),
+                                )
+                            }
+                        }
+                        if (state.comments.isEmpty()) {
+                            item {
+                                Text(
+                                    "Brak komentarzy. Wpisz @ i wybierz osobę, żeby ją wywołać.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                        items(state.comments, key = { it.id }) { CommentBubble(it) }
+                    }
+
+                    Surface(tonalElevation = 2.dp) {
+                        MentionComposer(
+                            state = mention,
+                            members = state.members,
+                            sending = state.sending,
+                            modifier = Modifier.padding(12.dp),
+                            onSend = {
+                                viewModel.send(mention.text, mention.tokens) { mention.clear() }
+                            },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TaskHeader(task: Task, saving: Boolean, viewModel: TaskDetailViewModel) {
+    val done = task.status == TaskStatus.DONE
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = { viewModel.setDone(!done) }, enabled = !saving) {
+                Icon(
+                    Icons.Filled.Check,
+                    contentDescription = if (done) "Cofnij odhaczenie" else "Odhacz zadanie",
+                    tint = if (done) EkotakGreen else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Text(
+                text = task.title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                textDecoration = if (done) TextDecoration.LineThrough else null,
+                modifier = Modifier.weight(1f),
+            )
+            IconButton(
+                onClick = { viewModel.setPriority(task.priority != TaskPriority.HIGH) },
+                enabled = !saving,
+            ) {
+                val high = task.priority == TaskPriority.HIGH
+                Icon(
+                    if (high) Icons.Filled.Star else Icons.Filled.StarBorder,
+                    contentDescription = if (high) "Zdejmij wysoki priorytet" else "Wysoki priorytet",
+                    tint = if (high) Orange600 else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        // Kogo dotyczy — to samo, co podpisuje dyskusję w Komunikatorze.
+        when (val source = task.source) {
+            is TaskSource.Deal -> InfoRow(Icons.Filled.Person, source.label ?: "Klient z deala")
+            is TaskSource.Project -> InfoRow(Icons.Filled.Folder, source.label ?: "Projekt")
+            null -> Unit
+        }
+
+        task.description?.takeIf { it.isNotBlank() }?.let {
+            Text(it, style = MaterialTheme.typography.bodyMedium)
+        }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            AssistChip(onClick = {}, label = { Text(task.status.label) })
+            dueLabel(task.dueAt)?.let { due ->
+                AssistChip(
+                    onClick = {},
+                    label = {
+                        Text(
+                            due,
+                            color = if (isOverdue(task.dueAt) && !done) Red600 else MaterialTheme.colorScheme.onSurface,
+                        )
+                    },
+                )
+            }
+        }
+
+        slaState(task.createdAt, task.slaHours, done)?.let { sla ->
+            Text(
+                sla.text,
+                style = MaterialTheme.typography.labelMedium,
+                color = when (sla.level) {
+                    SlaLevel.OVER -> Red600
+                    SlaLevel.WARN -> Orange600
+                    SlaLevel.OK -> MaterialTheme.colorScheme.onSurfaceVariant
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun InfoRow(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Icon(
+            icon,
+            contentDescription = null,
+            modifier = Modifier.size(16.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** Dymek komentarza — własne po prawej, cudze po lewej (jak w Komunikatorze). */
+@Composable
+private fun CommentBubble(comment: TaskComment) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = if (comment.mine) Arrangement.End else Arrangement.Start,
+    ) {
+        Column(
+            modifier = Modifier
+                .background(
+                    if (comment.mine) EkotakGreen.copy(alpha = 0.16f)
+                    else MaterialTheme.colorScheme.surfaceVariant,
+                    RoundedCornerShape(12.dp),
+                )
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+        ) {
+            Text(
+                "${comment.authorName} · ${formatDateTime(comment.createdAt) ?: ""}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(comment.body, style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+}

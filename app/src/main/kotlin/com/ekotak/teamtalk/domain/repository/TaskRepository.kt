@@ -1,6 +1,7 @@
 package com.ekotak.teamtalk.domain.repository
 
 import com.ekotak.teamtalk.domain.model.Task
+import com.ekotak.teamtalk.domain.model.TaskComment
 import com.ekotak.teamtalk.domain.model.TaskLink
 import com.ekotak.teamtalk.domain.model.TaskMember
 import com.ekotak.teamtalk.domain.model.TaskPatch
@@ -17,6 +18,22 @@ interface TaskRepository {
 
     /** Pobranie z board360 i podmiana cache. Błąd leci dalej (pull-to-refresh). */
     suspend fun refreshTasks()
+
+    /**
+     * Jedno zadanie (`GET /api/tasks/:id`) z odświeżeniem cache. Karta otwiera
+     * się też z powiadomienia i z dyskusji, więc nie zawsze jest w cache.
+     */
+    suspend fun getTask(id: String): Task
+
+    /** Komentarze karty zadania — to zarazem wątek dyskusji w Komunikatorze. */
+    suspend fun getComments(taskId: String): List<TaskComment>
+
+    /**
+     * Nowy komentarz. [mentions] to tokeny wywołań („user:<id>", „role:<rola>",
+     * „watchers", „all") — backend rozwija je do osób i wciąga zadanie do ich
+     * skrzynek w Komunikatorze.
+     */
+    suspend fun addComment(taskId: String, body: String, mentions: List<String>): TaskComment
 
     /**
      * Zmiana pól zadania (`PATCH /api/tasks/:id`). Wymaga sieci — kolejka zmian

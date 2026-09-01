@@ -91,6 +91,7 @@ import com.ekotak.teamtalk.presentation.theme.Red600
 @Composable
 fun TaskListScreen(
     onCreateTask: () -> Unit,
+    onOpenTask: (String) -> Unit = {},
     onNavigateBack: (() -> Unit)? = null,
     viewModel: TaskListViewModel = hiltViewModel(),
 ) {
@@ -210,6 +211,7 @@ fun TaskListScreen(
                                     pending = task.id in state.pendingIds,
                                     onToggleDone = { viewModel.onToggleDone(task) },
                                     onTogglePriority = { viewModel.onTogglePriority(task) },
+                                    onOpen = { onOpenTask(task.id) },
                                 )
                             }
                         }
@@ -331,6 +333,7 @@ private fun SectionHeader(label: String, count: Int) {
 /**
  * Wiersz zadania. Kółko po lewej zamyka i otwiera zadanie jednym dotknięciem —
  * to najczęstsza czynność w terenie i dlatego ma największy cel dotykowy.
+ * Dotknięcie reszty wiersza wchodzi w kartę zadania (opis, dyskusja).
  */
 @Composable
 private fun TaskRow(
@@ -339,6 +342,7 @@ private fun TaskRow(
     pending: Boolean,
     onToggleDone: () -> Unit,
     onTogglePriority: () -> Unit,
+    onOpen: () -> Unit = {},
 ) {
     val done = task.status == TaskStatus.DONE
     val high = task.priority == TaskPriority.HIGH
@@ -355,7 +359,12 @@ private fun TaskRow(
         ) {
             DoneToggle(done = done, pending = pending, onClick = onToggleDone)
 
-            Column(modifier = Modifier.weight(1f).padding(start = 4.dp)) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable(onClick = onOpen)
+                    .padding(start = 4.dp),
+            ) {
                 Text(
                     text = task.title,
                     style = MaterialTheme.typography.titleSmall,

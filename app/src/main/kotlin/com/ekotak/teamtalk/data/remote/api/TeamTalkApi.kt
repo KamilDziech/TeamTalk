@@ -257,6 +257,13 @@ interface TeamTalkApi {
     suspend fun createTask(@Body request: CreateTaskRequest): TaskResponseDto
 
     /**
+     * Jedno zadanie po id — karta otwiera się także z powiadomienia i z
+     * odnośnika w dyskusji, więc nie da się jej złożyć z pozycji listy.
+     */
+    @GET("api/tasks/{id}")
+    suspend fun getTask(@Path("id") id: String): TaskResponseDto
+
+    /**
      * Zmiana pól zadania. Ciało jako `JsonObject` (`buildTaskPatch`), bo API
      * rozróżnia brak pola od jawnego `null`.
      */
@@ -290,4 +297,38 @@ interface TeamTalkApi {
         @Query("status") status: String = "active",
         @Query("templates") templates: String = "0",
     ): List<ProjectDto>
+
+    // ── Komentarze zadania i Komunikator wewnętrzny ───────────────────────────
+    // Wywołanie kogoś przez @ w komentarzu wciąga zadanie do jego skrzynki, a
+    // odpowiedź ze skrzynki wraca jako komentarz pod zadaniem — to jeden wątek,
+    // nie dwa (ustalenia 2026-09-01, `docs/tasks/wywolanie-w-komentarzu.md`).
+
+    @GET("api/tasks/{id}/comments")
+    suspend fun getTaskComments(@Path("id") taskId: String): List<TaskCommentDto>
+
+    @POST("api/tasks/{id}/comments")
+    suspend fun addTaskComment(
+        @Path("id") taskId: String,
+        @Body request: AddCommentRequest,
+    ): TaskCommentDto
+
+    /** Skrzynka: dyskusje, w których bierzemy udział (wywołani albo pisaliśmy). */
+    @GET("api/discussions")
+    suspend fun getDiscussions(): List<DiscussionSummaryDto>
+
+    /** Sam licznik — tyle wystarczy plakietce i robotnikowi powiadomień. */
+    @GET("api/discussions/unread-count")
+    suspend fun getDiscussionsUnreadCount(): UnreadCountDto
+
+    @GET("api/discussions/{taskId}")
+    suspend fun getDiscussionThread(@Path("taskId") taskId: String): DiscussionThreadDto
+
+    @POST("api/discussions/{taskId}/read")
+    suspend fun markDiscussionRead(@Path("taskId") taskId: String)
+
+    @POST("api/discussions/{taskId}/comments")
+    suspend fun addDiscussionComment(
+        @Path("taskId") taskId: String,
+        @Body request: AddCommentRequest,
+    ): DiscussionCommentDto
 }

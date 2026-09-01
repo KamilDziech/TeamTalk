@@ -34,17 +34,22 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_CALL_LOG_ID = "extra_call_log_id"
         const val EXTRA_POST_CALL_PHONE = "extra_post_call_phone"
         const val EXTRA_OPEN_POST_CALL_NOTE = "extra_open_post_call_note"
+
+        /** Karta zadania otwierana z powiadomienia o wywołaniu (@) w komentarzu. */
+        const val EXTRA_TASK_ID = "extra_task_id"
     }
 
     private val settingsVm: SettingsViewModel by viewModels()
     private var deepLinkCallLogId by mutableStateOf<String?>(null)
     private var deepLinkPostCallPhone by mutableStateOf<String?>(null)
+    private var deepLinkTaskId by mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setShowWhenLocked(true)
         setTurnScreenOn(true)
         deepLinkCallLogId = intent.getStringExtra(EXTRA_CALL_LOG_ID)
+        deepLinkTaskId = intent.getStringExtra(EXTRA_TASK_ID)
         if (intent.getBooleanExtra(EXTRA_OPEN_POST_CALL_NOTE, false)) {
             deepLinkPostCallPhone = intent.getStringExtra(EXTRA_POST_CALL_PHONE) ?: ""
         }
@@ -77,6 +82,7 @@ class MainActivity : ComponentActivity() {
                     TeamTalkNavGraph(
                         deepLinkCallLogId = deepLinkCallLogId,
                         deepLinkPostCallPhone = deepLinkPostCallPhone,
+                        deepLinkTaskId = deepLinkTaskId,
                     )
                 }
             }
@@ -86,6 +92,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         deepLinkCallLogId = intent.getStringExtra(EXTRA_CALL_LOG_ID)
+        deepLinkTaskId = intent.getStringExtra(EXTRA_TASK_ID)
         if (intent.getBooleanExtra(EXTRA_OPEN_POST_CALL_NOTE, false)) {
             deepLinkPostCallPhone = intent.getStringExtra(EXTRA_POST_CALL_PHONE) ?: ""
         }

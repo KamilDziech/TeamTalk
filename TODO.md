@@ -213,6 +213,7 @@ ikony 1:1. Pominięte na mobile: Raporty, Zasoby, Marketing, Faktury KSeF.
 - ✅ Kafelek „Klienci" → istniejąca kartoteka (ClientListScreen)
 - ✅ Kafelek „CRM" → lejek sprzedaży (DealListScreen, §6a)
 - ✅ Kafelek „Zadania" → lista zadań zespołu (TaskListScreen, §11a)
+- ✅ Kafelek „Komunikacja" → Komunikator wewnętrzny (DiscussionListScreen, §11a)
 - 🚧 Pozostałe kafelki → ekran-zaślepka „wersja mobilna w przygotowaniu"
 - ❌ Zmiana kolejności kafelków przeciąganiem (jest w board360, brak na mobile)
 
@@ -236,10 +237,19 @@ E3 kolejka offline → E4 przypomnienia → E5 komentarze i załączniki.
   na ostatnich 25 % okna i alarmem po terminie
 - ✅ Odhaczenie zadania i wysoki priorytet wprost z wiersza (`PATCH /api/tasks/:id`)
 - ✅ Wyszukiwarka (tytuł, opis, osoba, źródło), pull-to-refresh, FAB w kreator
-- ❌ Karta zadania z edycją pól (E2) — wymaga `GET /api/tasks/:id` w board360
+- 🚧 Karta zadania (E2) — `GET /api/tasks/:id` dopisane w board360 i w atrapie;
+  karta ma nagłówek ze źródłem, odhaczenie, priorytet i wątek komentarzy.
+  Brakuje edycji terminu, wykonawcy, sekcji i SLA wprost z karty
 - ❌ Kolejka zmian offline (E3) — dziś zapis wymaga sieci, awaria idzie w snackbar
-- ❌ Przypomnienia i licznik nieprzeczytanych (E4)
-- ❌ Komentarze i załączniki (E5) — brak też w atrapie board360-mock
+- 🚧 Przypomnienia i licznik nieprzeczytanych (E4) — jest robotnik wywołań
+  (`MentionsWorker`, co 15 min → lokalne powiadomienie); brak plakietki na
+  kafelku pulpitu i przypomnień o terminach zadań
+- 🚧 Komentarze (E5) — wątek w karcie zadania z wywołaniami przez `@`;
+  załączniki nadal bez wsparcia (brak też w atrapie board360-mock)
+- ✅ Wywołanie osoby przez `@` w komentarzu → dyskusja w Komunikatorze
+  (kafelek „Komunikacja" → skrzynka, wiersz podpisany `Nazwisko · kod deala`,
+  wejście prowadzi w kartę zadania). Ustalenia:
+  `../ekotak-app/docs/tasks/wywolanie-w-komentarzu.md`
 
 ---
 

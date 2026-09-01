@@ -52,4 +52,7 @@ abstract class RepositoryModule {
 
     @Binds @Singleton
     abstract fun bindDealMessageRepository(impl: DealMessageRepositoryImpl): DealMessageRepository
+
+    @Binds @Singleton
+    abstract fun bindDiscussionRepository(impl: DiscussionRepositoryImpl): DiscussionRepository
 }

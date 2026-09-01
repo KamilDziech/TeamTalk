@@ -1,0 +1,181 @@
+package com.ekotak.teamtalk.presentation.task
+
+import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.ekotak.teamtalk.domain.model.Edit
+import com.ekotak.teamtalk.domain.model.Task
+import com.ekotak.teamtalk.domain.model.TaskComment
+import com.ekotak.teamtalk.domain.model.TaskMember
+import com.ekotak.teamtalk.domain.model.TaskPatch
+import com.ekotak.teamtalk.domain.model.TaskPriority
+import com.ekotak.teamtalk.domain.model.TaskStatus
+import com.ekotak.teamtalk.domain.usecase.task.AddTaskCommentUseCase
+import com.ekotak.teamtalk.domain.usecase.task.GetTaskCommentsUseCase
+import com.ekotak.teamtalk.domain.usecase.task.GetTaskMembersUseCase
+import com.ekotak.teamtalk.domain.usecase.task.GetTaskUseCase
+import com.ekotak.teamtalk.domain.usecase.task.MarkDiscussionReadUseCase
+import com.ekotak.teamtalk.domain.usecase.task.UpdateTaskUseCase
+import com.ekotak.teamtalk.presentation.crm.crmErrorMessage
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+/**
+ * Karta zadania (E2) wraz z wątkiem komentarzy (E5 w części „komentarze").
+ *
+ * Wątek komentarzy jest jednocześnie DYSKUSJĄ w Komunikatorze: wywołanie kogoś
+ * przez @ wciąga to zadanie do jego skrzynki, a odpowiedź napisana w skrzynce
+ * wraca tutaj. Dlatego wejście w kartę zeruje licznik nieprzeczytanych — to ten
+ * sam wątek, a nie dwie równoległe rozmowy.
+ *
+ * Zapis wymaga sieci (kolejka offline to E3), więc błąd idzie na wierzch
+ * zamiast udawać, że zmiana weszła.
+ */
+@HiltViewModel
+class TaskDetailViewModel @Inject constructor(
+    private val getTask: GetTaskUseCase,
+    private val getComments: GetTaskCommentsUseCase,
+    private val addComment: AddTaskCommentUseCase,
+    private val updateTask: UpdateTaskUseCase,
+    private val getTaskMembers: GetTaskMembersUseCase,
+    private val markDiscussionRead: MarkDiscussionReadUseCase,
+    savedStateHandle: SavedStateHandle,
+) : ViewModel() {
+
+    val taskId: String = checkNotNull(savedStateHandle["taskId"])
+
+    data class UiState(
+        val isLoading: Boolean = true,
+        val error: String? = null,
+        val message: String? = null,
+        val task: Task? = null,
+        val comments: List<TaskComment> = emptyList(),
+        val members: List<TaskMember> = emptyList(),
+        val membersById: Map<String, TaskMember> = emptyMap(),
+        /** Trwa zapis pola karty — przyciski stanu na czas zapisu gasną. */
+        val saving: Boolean = false,
+        val sending: Boolean = false,
+    )
+
+    private val _uiState = MutableStateFlow(UiState())
+    val uiState: StateFlow<UiState> = _uiState.asStateFlow()
+
+    init {
+        load()
+        loadMembers()
+    }
+
+    private fun load() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            try {
+                val task = getTask(taskId)
+                val comments = getComments(taskId)
+                _uiState.update {
+                    it.copy(isLoading = false, task = task, comments = comments)
+                }
+                // Otwarta karta = przeczytana dyskusja. Świadomie po cichu:
+                // nieudany znacznik odczytu nie jest powodem, by straszyć błędem.
+                runCatching { markDiscussionRead(taskId) }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        error = crmErrorMessage(e, "Nie udało się wczytać zadania"),
+                    )
+                }
+            }
+        }
+    }
+
+    private fun loadMembers() {
+        viewModelScope.launch {
+            runCatching { sortMembersForTasks(getTaskMembers()) }
+                .onSuccess { members ->
+                    _uiState.update {
+                        it.copy(members = members, membersById = members.associateBy { m -> m.id })
+                    }
+                }
+        }
+    }
+
+    fun refresh() = load()
+
+    /** Odhaczenie zadania wprost z karty — najczęstsza akcja. */
+    fun setDone(done: Boolean) = patch(
+        TaskPatch(status = Edit(if (done) TaskStatus.DONE else TaskStatus.OPEN)),
+        if (done) "Zadanie odhaczone." else "Zadanie znów otwarte.",
+    )
+
+    fun setPriority(high: Boolean) = patch(
+        TaskPatch(priority = Edit(if (high) TaskPriority.HIGH else TaskPriority.NORMAL)),
+        if (high) "Priorytet wysoki." else "Priorytet normalny.",
+    )
+
+    fun setAssignee(memberId: String?) = patch(
+        TaskPatch(assigneeId = Edit(memberId)),
+        if (memberId == null) "Zdjęto wykonawcę." else "Zmieniono wykonawcę.",
+    )
+
+    fun setStatus(status: TaskStatus) = patch(
+        TaskPatch(status = Edit(status)),
+        "Zmieniono status: ${status.label}.",
+    )
+
+    private fun patch(patch: TaskPatch, okMessage: String) {
+        if (patch.isEmpty) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(saving = true, message = null) }
+            try {
+                val task = updateTask(taskId, patch)
+                _uiState.update { it.copy(saving = false, task = task, message = okMessage) }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(saving = false, message = crmErrorMessage(e, "Nie udało się zapisać"))
+                }
+            }
+        }
+    }
+
+    /**
+     * Komentarz z wywołaniami. [mentions] to tokeny („user:<id>", „role:<rola>",
+     * „watchers", „all") — backend rozwija je do osób i to on zakłada im
+     * dyskusję w Komunikatorze; telefon niczego nie rozsyła sam.
+     */
+    fun send(body: String, mentions: List<String>, onSent: () -> Unit) {
+        val text = body.trim()
+        if (text.isEmpty()) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(sending = true, message = null) }
+            try {
+                val comment = addComment(taskId, text, mentions)
+                _uiState.update {
+                    it.copy(
+                        sending = false,
+                        comments = it.comments + comment,
+                        // Licznik na karcie ma się zgadzać bez ponownego pobrania.
+                        task = it.task?.copy(commentCount = it.comments.size + 1),
+                        message = if (mentions.isEmpty()) null else "Wywołanie wysłane.",
+                    )
+                }
+                onSent()
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        sending = false,
+                        message = crmErrorMessage(e, "Nie udało się wysłać komentarza"),
+                    )
+                }
+            }
+        }
+    }
+
+    fun consumeMessage() {
+        _uiState.update { it.copy(message = null) }
+    }
+}
