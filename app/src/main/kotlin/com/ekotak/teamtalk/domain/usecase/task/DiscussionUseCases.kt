@@ -3,9 +3,11 @@ package com.ekotak.teamtalk.domain.usecase.task
 import com.ekotak.teamtalk.domain.model.Discussion
 import com.ekotak.teamtalk.domain.model.DiscussionThread
 import com.ekotak.teamtalk.domain.model.Task
+import com.ekotak.teamtalk.domain.model.TaskAttachment
 import com.ekotak.teamtalk.domain.model.TaskComment
 import com.ekotak.teamtalk.domain.repository.DiscussionRepository
 import com.ekotak.teamtalk.domain.repository.TaskRepository
+import java.io.File
 import javax.inject.Inject
 
 /** Jedno zadanie po id — wejście w kartę z powiadomienia albo z dyskusji. */
@@ -63,4 +65,38 @@ class MarkDiscussionReadUseCase @Inject constructor(
     private val discussionRepository: DiscussionRepository,
 ) {
     suspend operator fun invoke(taskId: String) = discussionRepository.markRead(taskId)
+}
+
+/** Załączniki karty zadania (metadane). */
+class GetTaskAttachmentsUseCase @Inject constructor(
+    private val taskRepository: TaskRepository,
+) {
+    suspend operator fun invoke(taskId: String): List<TaskAttachment> =
+        taskRepository.getAttachments(taskId)
+}
+
+/** Wgranie pliku do zadania — bajty czyta ekran, tu jedzie gotowa zawartość. */
+class UploadTaskAttachmentUseCase @Inject constructor(
+    private val taskRepository: TaskRepository,
+) {
+    suspend operator fun invoke(
+        taskId: String,
+        name: String,
+        contentType: String,
+        bytes: ByteArray,
+    ): TaskAttachment = taskRepository.uploadAttachment(taskId, name, contentType, bytes)
+}
+
+/** Pobranie treści załącznika do pliku (cache aplikacji) — do otwarcia w systemie. */
+class DownloadTaskAttachmentUseCase @Inject constructor(
+    private val taskRepository: TaskRepository,
+) {
+    suspend operator fun invoke(id: String, target: File) =
+        taskRepository.downloadAttachmentTo(id, target)
+}
+
+class DeleteTaskAttachmentUseCase @Inject constructor(
+    private val taskRepository: TaskRepository,
+) {
+    suspend operator fun invoke(id: String) = taskRepository.deleteAttachment(id)
 }

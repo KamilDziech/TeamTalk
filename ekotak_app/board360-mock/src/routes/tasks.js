@@ -13,7 +13,11 @@
  */
 
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
+const multer = require('multer');
 const { uuid, nowIso } = require('../crypto');
+const { UPLOADS_DIR, MAX_UPLOAD_BYTES } = require('../config');
 const { requireAuth, requirePermission, unprocessable } = require('../middleware');
 const {
   db,
@@ -25,6 +29,9 @@ const {
 } = require('../store');
 
 const router = express.Router();
+
+/** Zalaczniki karty zadania — ten sam limit rozmiaru co nagrania rozmow. */
+const upload = multer({ dest: UPLOADS_DIR, limits: { fileSize: MAX_UPLOAD_BYTES } });
 
 const TASK_PRIORITIES = new Set(['low', 'normal', 'high']);
 const TASK_STATUSES = new Set(['open', 'in_progress', 'done']);
@@ -350,6 +357,100 @@ router.post('/projects/:id/tasks', requireAuth, requirePermission('projects.mana
   const project = projectById(req.user.organizationId, req.params.id);
   if (!project) return res.status(404).json({ message: 'Projekt nie istnieje.' });
   return buildTask(req, res, { projectId: project.id });
+});
+
+// ── Zalaczniki karty zadania ─────────────────────────────────────────────────
+// Wgrywa i kasuje kazdy z `tasks.view` — to wspolpraca, nie zarzadzanie
+// zadaniem (tak samo jak komentarze). Tresc pliku ladnie na dysku w UPLOADS_DIR,
+// w bazie zostaja metadane z `storageKey`, dokladnie jak w board360.
+
+/** Zalacznik w postaci, ktora widzi klient API (z danymi osoby wgrywajacej). */
+function presentAttachment(orgId, row) {
+  const uploader = userById(orgId, row.uploadedBy);
+  return {
+    id: row.id,
+    taskId: row.taskId,
+    name: row.name,
+    storageKey: row.storageKey,
+    size: row.size,
+    contentType: row.contentType,
+    uploadedBy: row.uploadedBy,
+    uploaderEmail: uploader ? uploader.email : null,
+    uploaderFirstName: uploader ? uploader.firstName || null : null,
+    uploaderLastName: uploader ? uploader.lastName || null : null,
+    createdAt: row.createdAt,
+  };
+}
+
+router.get('/tasks/:id/attachments', requireAuth, requirePermission('tasks.view'), (req, res) => {
+  const task = taskById(req.user.organizationId, req.params.id);
+  if (!task) return res.status(404).json({ message: 'Zadanie nie istnieje.' });
+  const list = db.taskAttachments
+    .filter((a) => a.organizationId === req.user.organizationId && a.taskId === task.id)
+    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+  return res.json(list.map((a) => presentAttachment(req.user.organizationId, a)));
+});
+
+router.post(
+  '/tasks/:id/attachments',
+  requireAuth,
+  requirePermission('tasks.view'),
+  upload.single('file'),
+  (req, res) => {
+    const task = taskById(req.user.organizationId, req.params.id);
+    if (!task) return res.status(404).json({ message: 'Zadanie nie istnieje.' });
+    if (!req.file) return unprocessable(res, 'Brak pliku (pole „file").');
+
+    const id = uuid();
+    // Rozszerzenie zostawiamy przy nazwie na dysku, zeby dalo sie podejrzec
+    // wgrane pliki recznie; nazwa oryginalna i tak jedzie w metadanych.
+    const ext = (path.extname(req.file.originalname || '') || '').replace(/[^.\w]/g, '');
+    const key = `task-attachments/${req.user.organizationId}/${id}${ext}`;
+    fs.renameSync(req.file.path, path.join(UPLOADS_DIR, path.basename(key)));
+
+    const row = {
+      id,
+      organizationId: req.user.organizationId,
+      taskId: task.id,
+      name: req.file.originalname || 'plik',
+      storageKey: key,
+      size: req.file.size,
+      contentType: req.file.mimetype || 'application/octet-stream',
+      uploadedBy: req.user.id,
+      createdAt: nowIso(),
+    };
+    db.taskAttachments.push(row);
+    return res.status(201).json(presentAttachment(req.user.organizationId, row));
+  },
+);
+
+router.get('/task-attachments/:id', requireAuth, requirePermission('tasks.view'), (req, res) => {
+  const row = db.taskAttachments.find(
+    (a) => a.id === req.params.id && a.organizationId === req.user.organizationId,
+  );
+  if (!row) return res.status(404).json({ message: 'Zalacznik nie istnieje.' });
+  const file = path.join(UPLOADS_DIR, path.basename(row.storageKey));
+  if (!fs.existsSync(file)) return res.status(404).json({ message: 'Brak tresci pliku.' });
+  res.setHeader('Content-Type', row.contentType);
+  // `filename*` w UTF-8 — nazwy plikow z polskimi znakami inaczej sie sypia.
+  res.setHeader(
+    'Content-Disposition',
+    `attachment; filename*=UTF-8''${encodeURIComponent(row.name)}`,
+  );
+  return fs.createReadStream(file).pipe(res);
+});
+
+router.delete('/task-attachments/:id', requireAuth, requirePermission('tasks.view'), (req, res) => {
+  const idx = db.taskAttachments.findIndex(
+    (a) => a.id === req.params.id && a.organizationId === req.user.organizationId,
+  );
+  if (idx < 0) return res.status(404).json({ message: 'Zalacznik nie istnieje.' });
+  const [row] = db.taskAttachments.splice(idx, 1);
+  // Plik z dysku tez leci — atrapa nie ma po co zbierac smieci miedzy testami.
+  try {
+    fs.unlinkSync(path.join(UPLOADS_DIR, path.basename(row.storageKey)));
+  } catch (_) {}
+  return res.status(204).end();
 });
 
 module.exports = router;

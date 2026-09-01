@@ -17,6 +17,29 @@ data class TaskComment(
 )
 
 /**
+ * Załącznik karty zadania. Treść leży po stronie serwera — telefon pobiera ją
+ * dopiero na żądanie, do pliku tymczasowego, i oddaje systemowi do otwarcia.
+ */
+data class TaskAttachment(
+    val id: String,
+    val name: String,
+    val size: Long,
+    val contentType: String?,
+    /** „Imię Nazwisko" albo e-mail osoby, która plik wgrała. */
+    val uploaderName: String?,
+    val createdAt: String,
+) {
+    /** „412 kB" / „2,4 MB" — rozmiar w podpisie pliku. */
+    val sizeLabel: String
+        get() = when {
+            size <= 0 -> ""
+            size < 1024 -> "$size B"
+            size < 1024 * 1024 -> "${size / 1024} kB"
+            else -> String.format(java.util.Locale("pl"), "%.1f MB", size / (1024.0 * 1024))
+        }
+}
+
+/**
  * Pozycja skrzynki Komunikatora. [title] to nazwa KLIENTA („Nowak · a3dc"),
  * [taskTitle] zostaje zajawką — po tym poznaje się, o które zadanie chodzi.
  */

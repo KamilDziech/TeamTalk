@@ -80,3 +80,22 @@ data class DiscussionThreadDto(
 /** Licznik nieprzeczytanych do plakietki i do powiadomień. */
 @Serializable
 data class UnreadCountDto(val count: Int = 0)
+
+/**
+ * Załącznik karty zadania (`GET /api/tasks/{id}/attachments`). Treść pliku leży
+ * po stronie serwera pod `storageKey`; tu jadą same metadane plus podpis osoby,
+ * która plik wgrała — telefon nie ma listy userów pod ręką.
+ */
+@Serializable
+data class TaskAttachmentDto(
+    val id: String,
+    val taskId: String? = null,
+    val name: String,
+    val size: Long = 0,
+    val contentType: String? = null,
+    val uploadedBy: String? = null,
+    val uploaderEmail: String? = null,
+    val uploaderFirstName: String? = null,
+    val uploaderLastName: String? = null,
+    val createdAt: String,
+)

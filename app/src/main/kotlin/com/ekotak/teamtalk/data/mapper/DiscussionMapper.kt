@@ -3,9 +3,11 @@ package com.ekotak.teamtalk.data.mapper
 import com.ekotak.teamtalk.data.remote.dto.DiscussionCommentDto
 import com.ekotak.teamtalk.data.remote.dto.DiscussionSummaryDto
 import com.ekotak.teamtalk.data.remote.dto.DiscussionThreadDto
+import com.ekotak.teamtalk.data.remote.dto.TaskAttachmentDto
 import com.ekotak.teamtalk.data.remote.dto.TaskCommentDto
 import com.ekotak.teamtalk.domain.model.Discussion
 import com.ekotak.teamtalk.domain.model.DiscussionThread
+import com.ekotak.teamtalk.domain.model.TaskAttachment
 import com.ekotak.teamtalk.domain.model.TaskComment
 
 /**
@@ -55,4 +57,18 @@ fun DiscussionThreadDto.toDomain(): DiscussionThread = DiscussionThread(
     dealId      = dealId,
     projectName = projectName,
     comments    = comments.map { it.toDomain() },
+)
+
+/** Metadane załącznika; podpis osoby składamy tak samo jak przy komentarzu. */
+fun TaskAttachmentDto.toDomain(): TaskAttachment = TaskAttachment(
+    id           = id,
+    name         = name,
+    size         = size,
+    contentType  = contentType,
+    uploaderName = listOfNotNull(uploaderFirstName, uploaderLastName)
+        .filter { it.isNotBlank() }
+        .joinToString(" ")
+        .ifBlank { uploaderEmail ?: "" }
+        .ifBlank { null },
+    createdAt    = createdAt,
 )

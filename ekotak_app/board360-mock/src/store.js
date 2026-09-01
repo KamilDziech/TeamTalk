@@ -18,6 +18,8 @@ const db = {
   // Dyskusja w Komunikatorze = watek komentarzy JEDNEGO zadania (board360 nie
   // ma osobnej tabeli dyskusji). Wzmianki rozwiniete do userow przy zapisie.
   taskComments: [],        // {id, organizationId, taskId, authorId, body, createdAt}
+  // Metadane zalacznikow; tresc lezy na dysku w UPLOADS_DIR pod `storageKey`.
+  taskAttachments: [],     // {id, organizationId, taskId, name, storageKey, size, contentType, uploadedBy, createdAt}
   taskCommentMentions: [], // {id, organizationId, taskId, commentId, userId, createdAt}
   discussionReads: [],     // {organizationId, userId, taskId, lastReadAt}
   // ── CRM ────────────────────────────────────────────────────────────────────

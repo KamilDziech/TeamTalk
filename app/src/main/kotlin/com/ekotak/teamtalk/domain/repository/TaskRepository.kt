@@ -1,6 +1,7 @@
 package com.ekotak.teamtalk.domain.repository
 
 import com.ekotak.teamtalk.domain.model.Task
+import com.ekotak.teamtalk.domain.model.TaskAttachment
 import com.ekotak.teamtalk.domain.model.TaskComment
 import com.ekotak.teamtalk.domain.model.TaskLink
 import com.ekotak.teamtalk.domain.model.TaskMember
@@ -8,6 +9,7 @@ import com.ekotak.teamtalk.domain.model.TaskPatch
 import com.ekotak.teamtalk.domain.model.TaskPriority
 import com.ekotak.teamtalk.domain.model.TaskProject
 import kotlinx.coroutines.flow.Flow
+import java.io.File
 
 /** Czy kolejka zmian opróżniła się do końca, czy trzeba wrócić po sieci. */
 enum class TaskSyncResult { DONE, RETRY }
@@ -30,6 +32,25 @@ interface TaskRepository {
 
     /** Komentarze karty zadania — to zarazem wątek dyskusji w Komunikatorze. */
     suspend fun getComments(taskId: String): List<TaskComment>
+
+    /** Załączniki karty zadania (metadane; treść pobiera się osobno). */
+    suspend fun getAttachments(taskId: String): List<TaskAttachment>
+
+    /**
+     * Wgranie pliku. Bajty czyta warstwa prezentacji (to ona ma `ContentResolver`
+     * i wie, co użytkownik wybrał) — repozytorium dostaje gotową zawartość.
+     */
+    suspend fun uploadAttachment(
+        taskId: String,
+        name: String,
+        contentType: String,
+        bytes: ByteArray,
+    ): TaskAttachment
+
+    /** Pobranie treści do wskazanego pliku — strumieniem, bez trzymania w RAM. */
+    suspend fun downloadAttachmentTo(id: String, target: File)
+
+    suspend fun deleteAttachment(id: String)
 
     /**
      * Nowy komentarz. [mentions] to tokeny wywołań („user:<id>", „role:<rola>",

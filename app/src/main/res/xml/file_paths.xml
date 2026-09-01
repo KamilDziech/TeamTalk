@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Ścieżki, które FileProvider wolno udostępnić innym aplikacjom. Trzymamy się
+  jednego katalogu: pobrane załączniki lądują w cache i stamtąd oddajemy je
+  systemowi do otwarcia. Reszta danych aplikacji zostaje niewidoczna.
+-->
+<paths>
+    <cache-path name="task-attachments" path="attachments/" />
+</paths>

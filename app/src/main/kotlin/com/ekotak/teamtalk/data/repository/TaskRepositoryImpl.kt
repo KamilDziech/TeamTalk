@@ -13,6 +13,7 @@ import com.ekotak.teamtalk.data.remote.dto.CreateTaskRequest
 import com.ekotak.teamtalk.data.remote.dto.buildTaskPatch
 import com.ekotak.teamtalk.data.sync.TaskSyncScheduler
 import com.ekotak.teamtalk.domain.model.Task
+import com.ekotak.teamtalk.domain.model.TaskAttachment
 import com.ekotak.teamtalk.domain.model.TaskComment
 import com.ekotak.teamtalk.domain.model.TaskLink
 import com.ekotak.teamtalk.domain.model.TaskMember
@@ -25,9 +26,13 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.Json
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import retrofit2.HttpException
+import java.io.File
 import java.io.IOException
 import javax.inject.Inject
 
@@ -127,6 +132,37 @@ class TaskRepositoryImpl @Inject constructor(
         mutationDao.deleteForTask(id)
         taskDao.deleteById(id)
     }
+
+    // ── Załączniki ────────────────────────────────────────────────────────────
+    // Bez cache: plik na karcie zadania ogląda się rzadko, a trzymanie kopii
+    // każdego zdjęcia z montażu w pamięci telefonu kosztowałoby więcej, niż
+    // warte jest jego offline'owe pokazanie.
+
+    override suspend fun getAttachments(taskId: String): List<TaskAttachment> =
+        api.getTaskAttachments(taskId).map { it.toDomain() }
+
+    override suspend fun uploadAttachment(
+        taskId: String,
+        name: String,
+        contentType: String,
+        bytes: ByteArray,
+    ): TaskAttachment {
+        val part = MultipartBody.Part.createFormData(
+            "file",
+            name,
+            bytes.toRequestBody(contentType.toMediaTypeOrNull()),
+        )
+        return api.uploadTaskAttachment(taskId, part).toDomain()
+    }
+
+    /** Strumień prosto do pliku — zdjęcie z montażu nie musi przechodzić przez RAM. */
+    override suspend fun downloadAttachmentTo(id: String, target: File) {
+        api.downloadTaskAttachment(id).byteStream().use { input ->
+            target.outputStream().use { output -> input.copyTo(output) }
+        }
+    }
+
+    override suspend fun deleteAttachment(id: String) = api.deleteTaskAttachment(id)
 
     override fun observePendingTaskIds(): Flow<Set<String>> =
         mutationDao.observePendingTaskIds().map { it.toSet() }

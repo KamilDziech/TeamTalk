@@ -30,6 +30,18 @@
         android:theme="@style/Theme.TeamTalk"
         android:usesCleartextTraffic="true">
 
+        <!-- Pobrany załącznik zadania oddajemy systemowi jako content:// —
+             od Androida 7 file:// w intencji kończy się wyjątkiem. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
         <!-- Disable auto-init so HiltWorkerFactory from Configuration.Provider takes effect -->
         <provider
             android:name="androidx.startup.InitializationProvider"

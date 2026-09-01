@@ -316,6 +316,30 @@ interface TeamTalkApi {
         @Body request: AddCommentRequest,
     ): TaskCommentDto
 
+    // ── Załączniki karty zadania ──────────────────────────────────────────────
+
+    @GET("api/tasks/{id}/attachments")
+    suspend fun getTaskAttachments(@Path("id") taskId: String): List<TaskAttachmentDto>
+
+    /** Wgranie pliku (pole `file`). Limit po stronie board360: 25 MB. */
+    @Multipart
+    @POST("api/tasks/{id}/attachments")
+    suspend fun uploadTaskAttachment(
+        @Path("id") taskId: String,
+        @Part file: MultipartBody.Part,
+    ): TaskAttachmentDto
+
+    /**
+     * Treść pliku. `@Streaming`, bo załącznikiem bywa zdjęcie z montażu —
+     * nie ma powodu trzymać go w pamięci w całości.
+     */
+    @Streaming
+    @GET("api/task-attachments/{id}")
+    suspend fun downloadTaskAttachment(@Path("id") id: String): ResponseBody
+
+    @DELETE("api/task-attachments/{id}")
+    suspend fun deleteTaskAttachment(@Path("id") id: String)
+
     /** Skrzynka: dyskusje, w których bierzemy udział (wywołani albo pisaliśmy). */
     @GET("api/discussions")
     suspend fun getDiscussions(): List<DiscussionSummaryDto>

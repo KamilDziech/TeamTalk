@@ -171,6 +171,13 @@ fun TaskDetailScreen(
                                 )
                             }
                             item {
+                                TaskAttachments(
+                                    attachments = state.attachments,
+                                    uploading = state.uploading,
+                                    viewModel = viewModel,
+                                )
+                            }
+                            item {
                                 TaskDescriptionCard(
                                     task = task,
                                     saving = state.saving,

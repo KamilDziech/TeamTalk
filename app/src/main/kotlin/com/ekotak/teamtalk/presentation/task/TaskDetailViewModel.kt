@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ekotak.teamtalk.domain.model.Edit
 import com.ekotak.teamtalk.domain.model.Task
+import com.ekotak.teamtalk.domain.model.TaskAttachment
 import com.ekotak.teamtalk.domain.model.TaskComment
 import com.ekotak.teamtalk.domain.model.TaskMember
 import com.ekotak.teamtalk.domain.model.TaskPatch
@@ -13,7 +14,11 @@ import com.ekotak.teamtalk.domain.model.TaskSection
 import com.ekotak.teamtalk.domain.model.slaLabel
 import com.ekotak.teamtalk.domain.model.TaskStatus
 import com.ekotak.teamtalk.domain.usecase.task.AddTaskCommentUseCase
+import com.ekotak.teamtalk.domain.usecase.task.DeleteTaskAttachmentUseCase
 import com.ekotak.teamtalk.domain.usecase.task.DeleteTaskUseCase
+import com.ekotak.teamtalk.domain.usecase.task.DownloadTaskAttachmentUseCase
+import com.ekotak.teamtalk.domain.usecase.task.GetTaskAttachmentsUseCase
+import com.ekotak.teamtalk.domain.usecase.task.UploadTaskAttachmentUseCase
 import com.ekotak.teamtalk.domain.usecase.task.GetTaskCommentsUseCase
 import com.ekotak.teamtalk.domain.usecase.task.GetTaskMembersUseCase
 import com.ekotak.teamtalk.domain.usecase.task.GetTaskUseCase
@@ -26,6 +31,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.io.File
 import javax.inject.Inject
 
 /**
@@ -46,6 +52,10 @@ class TaskDetailViewModel @Inject constructor(
     private val addComment: AddTaskCommentUseCase,
     private val updateTask: UpdateTaskUseCase,
     private val deleteTask: DeleteTaskUseCase,
+    private val getAttachments: GetTaskAttachmentsUseCase,
+    private val uploadAttachment: UploadTaskAttachmentUseCase,
+    private val downloadAttachment: DownloadTaskAttachmentUseCase,
+    private val deleteAttachment: DeleteTaskAttachmentUseCase,
     private val getTaskMembers: GetTaskMembersUseCase,
     private val markDiscussionRead: MarkDiscussionReadUseCase,
     savedStateHandle: SavedStateHandle,
@@ -64,6 +74,8 @@ class TaskDetailViewModel @Inject constructor(
         /** Trwa zapis pola karty — przyciski stanu na czas zapisu gasną. */
         val saving: Boolean = false,
         val sending: Boolean = false,
+        val uploading: Boolean = false,
+        val attachments: List<TaskAttachment> = emptyList(),
     )
 
     private val _uiState = MutableStateFlow(UiState())
@@ -72,6 +84,7 @@ class TaskDetailViewModel @Inject constructor(
     init {
         load()
         loadMembers()
+        loadAttachments()
     }
 
     private fun load() {
@@ -167,6 +180,74 @@ class TaskDetailViewModel @Inject constructor(
             TaskPatch(description = Edit(value)),
             if (value == null) "Usunięto opis." else "Zapisano opis.",
         )
+    }
+
+    // ── Załączniki ────────────────────────────────────────────────────────────
+
+    private fun loadAttachments() {
+        viewModelScope.launch {
+            runCatching { getAttachments(taskId) }
+                .onSuccess { list -> _uiState.update { it.copy(attachments = list) } }
+        }
+    }
+
+    /**
+     * Wgranie pliku. Zawartość czyta ekran (to on ma `ContentResolver` i wie,
+     * co użytkownik wybrał w systemowym wyborze) — tu przychodzą gotowe bajty.
+     */
+    fun addAttachment(name: String, contentType: String, bytes: ByteArray) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(uploading = true, message = null) }
+            try {
+                val added = uploadAttachment(taskId, name, contentType, bytes)
+                _uiState.update {
+                    it.copy(
+                        uploading = false,
+                        attachments = it.attachments + added,
+                        message = "Dodano załącznik.",
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(uploading = false, message = crmErrorMessage(e, "Nie udało się wgrać pliku"))
+                }
+            }
+        }
+    }
+
+    fun removeAttachment(id: String) {
+        viewModelScope.launch {
+            try {
+                deleteAttachment(id)
+                _uiState.update {
+                    it.copy(
+                        attachments = it.attachments.filterNot { a -> a.id == id },
+                        message = "Usunięto załącznik.",
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(message = crmErrorMessage(e, "Nie udało się usunąć pliku")) }
+            }
+        }
+    }
+
+    /**
+     * Pobiera plik do cache i oddaje go ekranowi, żeby ten otworzył go
+     * systemowym podglądem. Nazwa pliku na dysku bierze się z id — dwa
+     * załączniki o tej samej nazwie nie mają się nadpisywać.
+     */
+    fun openAttachment(attachment: TaskAttachment, cacheDir: File, onReady: (File) -> Unit) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(message = null) }
+            try {
+                val dir = File(cacheDir, "attachments").apply { mkdirs() }
+                val target = File(dir, "${attachment.id}-${attachment.name}")
+                if (!target.exists()) downloadAttachment(attachment.id, target)
+                onReady(target)
+            } catch (e: Exception) {
+                _uiState.update { it.copy(message = crmErrorMessage(e, "Nie udało się otworzyć pliku")) }
+            }
+        }
     }
 
     /**
