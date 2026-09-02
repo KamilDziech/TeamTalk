@@ -25,7 +25,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Whatshot
 import androidx.compose.material.icons.filled.ZoomOutMap
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -54,6 +56,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -106,21 +109,9 @@ fun MapScreen(
 
     Scaffold(
         topBar = {
-            AppTopBar(title = "Mapa zleceń", onNavigateBack = onNavigateBack) {
-                if (!state.isFleet) {
-                    SingleChoiceSegmentedButtonRow(modifier = Modifier.padding(end = 8.dp)) {
-                        MapMode.entries.forEachIndexed { index, mode ->
-                            SegmentedButton(
-                                selected = state.mode == mode,
-                                onClick = { viewModel.setMode(mode) },
-                                shape = SegmentedButtonDefaults.itemShape(index, MapMode.entries.size),
-                            ) {
-                                Text(mode.label, style = MaterialTheme.typography.labelSmall)
-                            }
-                        }
-                    }
-                }
-            }
+            // Przełącznik piny/heatmapa siedzi przy pasku szukania, nie w belce:
+            // wordmark „ekotak · Mapa zleceń" i tak zjada całą jej szerokość.
+            AppTopBar(title = "Mapa zleceń", onNavigateBack = onNavigateBack)
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
@@ -141,8 +132,9 @@ fun MapScreen(
             SearchRow(
                 keyword = state.keyword,
                 filterCount = state.activeFilterCount,
+                mode = state.mode,
                 onKeyword = viewModel::setKeyword,
-                onSearch = viewModel::requestFit,
+                onMode = viewModel::setMode,
                 onFilters = { showFilters = true },
             )
 
@@ -157,7 +149,15 @@ fun MapScreen(
 
             Chips(state = state, onChip = viewModel::setChip)
 
-            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            // `clip` jest tu obowiązkowe: widok osmdroida rysuje kafelki poza
+            // swoimi granicami, a AndroidView niczego nie przycina — bez tego
+            // mapa zasłania zakładki widoków, pasek szukania i chipy.
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp)),
+            ) {
                 OsmMapView(
                     points = state.shown,
                     mode = state.mode,
@@ -305,8 +305,9 @@ private fun ViewTabs(state: MapViewModel.UiState, onSelect: (MapViewTab) -> Unit
 private fun SearchRow(
     keyword: String,
     filterCount: Int,
+    mode: MapMode,
     onKeyword: (String) -> Unit,
-    onSearch: () -> Unit,
+    onMode: (MapMode) -> Unit,
     onFilters: () -> Unit,
 ) {
     Row(
@@ -319,7 +320,9 @@ private fun SearchRow(
             onValueChange = onKeyword,
             modifier = Modifier.weight(1f),
             singleLine = true,
-            placeholder = { Text("Klient, instalacja, miasto…") },
+            // Pełna podpowiedź panelu („Klient, instalacja, miasto…") zawija się
+            // w dwie linie i rozpycha pole — na telefonie zostaje sam początek.
+            placeholder = { Text("Klient, miasto…", maxLines = 1) },
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
             trailingIcon = {
                 if (keyword.isNotEmpty()) {
@@ -330,6 +333,14 @@ private fun SearchRow(
             },
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
         )
+        IconButton(
+            onClick = { onMode(if (mode == MapMode.PINS) MapMode.HEAT else MapMode.PINS) },
+        ) {
+            Icon(
+                if (mode == MapMode.PINS) Icons.Default.Whatshot else Icons.Default.Place,
+                contentDescription = if (mode == MapMode.PINS) "Pokaż heatmapę" else "Pokaż piny",
+            )
+        }
         BadgedBox(
             badge = { if (filterCount > 0) Badge { Text(filterCount.toString()) } },
         ) {

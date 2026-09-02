@@ -220,8 +220,11 @@ private class Cluster(val position: GeoPoint, val points: List<MapPoint>)
  */
 private fun cluster(map: MapView, points: List<MapPoint>): List<Cluster> {
     val projection = map.projection
-    val buckets = HashMap<Long, MutableList<MapPoint>>()
     val screen = android.graphics.Point()
+
+    // Krok 1: zgrubne kubełki po siatce — tanie odsianie punktów odległych.
+    val buckets = HashMap<Long, MutableList<MapPoint>>()
+    val bucketPixels = HashMap<Long, Pair<Float, Float>>()
     for (point in points) {
         val geo = point.geoPoint() ?: continue
         projection.toPixels(geo, screen)
@@ -229,18 +232,43 @@ private fun cluster(map: MapView, points: List<MapPoint>): List<Cluster> {
         val cy = Math.floorDiv(screen.y, CLUSTER_RADIUS_PX)
         val key = (cx.toLong() shl 32) xor (cy.toLong() and 0xFFFFFFFFL)
         buckets.getOrPut(key) { mutableListOf() }.add(point)
+        bucketPixels[key] = (cx * CLUSTER_RADIUS_PX + CLUSTER_RADIUS_PX / 2f) to
+            (cy * CLUSTER_RADIUS_PX + CLUSTER_RADIUS_PX / 2f)
     }
-    return buckets.values.map { group ->
-        if (group.size == 1) {
+
+    // Krok 2: scalanie sąsiednich kubełków. Bez tego przy 600 punktach każdy
+    // kwadrat siatki rysuje własne kółko i mapa robi się zieloną plamą —
+    // markercluster w panelu skleja je w jedno, więc tu tak samo: największy
+    // kubełek zbiera wszystkie bliższe niż promień klastra.
+    val order = buckets.keys.sortedByDescending { buckets.getValue(it).size }
+    val taken = HashSet<Long>()
+    val out = ArrayList<Cluster>()
+    for (key in order) {
+        if (key in taken) continue
+        taken += key
+        val group = ArrayList(buckets.getValue(key))
+        val (ax, ay) = bucketPixels.getValue(key)
+        for (other in order) {
+            if (other in taken) continue
+            val (bx, by) = bucketPixels.getValue(other)
+            val dx = ax - bx
+            val dy = ay - by
+            if (dx * dx + dy * dy <= (CLUSTER_RADIUS_PX * 1.6f) * (CLUSTER_RADIUS_PX * 1.6f)) {
+                taken += other
+                group.addAll(buckets.getValue(other))
+            }
+        }
+        out += if (group.size == 1) {
             Cluster(group.first().geoPoint()!!, group)
         } else {
-            // Środek grupy = średnia współrzędnych; przy komórce 60 px różnica
-            // wobec środka ciężkości jest niewidoczna, a liczy się szybciej.
-            val lat = group.mapNotNull { it.lat }.average()
-            val lng = group.mapNotNull { it.lng }.average()
-            Cluster(GeoPoint(lat, lng), group)
+            // Środek = średnia współrzędnych grupy (środek ciężkości skupiska).
+            Cluster(
+                GeoPoint(group.mapNotNull { it.lat }.average(), group.mapNotNull { it.lng }.average()),
+                group,
+            )
         }
     }
+    return out
 }
 
 /** Kadr do widocznych punktów (albo do okręgu promienia, gdy jest ustawiony). */

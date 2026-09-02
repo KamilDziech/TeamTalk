@@ -17,6 +17,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -179,13 +180,19 @@ private fun SheetAction(
     highlighted: Boolean = false,
     onClick: () -> Unit,
 ) {
-    OutlinedButton(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
-        Icon(
-            icon,
-            contentDescription = null,
-            modifier = Modifier.size(18.dp),
-            tint = if (highlighted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-        )
+    // Akcentem świeci wyłącznie akcja główna (karta deala) — reszta jest
+    // neutralna, żeby zieleń coś znaczyła, zamiast malować cały arkusz.
+    val content = if (highlighted) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.onSurface
+    }
+    OutlinedButton(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = content),
+    ) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
         Text(
             label,
             modifier = Modifier
