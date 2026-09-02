@@ -17,6 +17,7 @@ kotlinSerialization    = "1.7.3"
 coroutines             = "1.8.1"
 datastore              = "1.1.1"
 workManager            = "2.9.1"
+osmdroid               = "6.1.20"
 
 [libraries]
 # Core
@@ -59,6 +60,9 @@ kotlinx-serialization-json         = { group = "org.jetbrains.kotlinx", name = "
 
 # Coroutines
 kotlinx-coroutines-android         = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
+
+# Mapa (OpenStreetMap — te same kafelki co Leaflet w panelu, bez klucza API)
+osmdroid-android                   = { group = "org.osmdroid", name = "osmdroid-android", version.ref = "osmdroid" }
 
 # DataStore
 datastore-preferences              = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }

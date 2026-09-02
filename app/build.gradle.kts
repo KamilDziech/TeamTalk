@@ -102,6 +102,9 @@ dependencies {
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
 
+    // Mapa (osmdroid — podkład OSM, klastrowanie i heatmapa rysowane u nas)
+    implementation(libs.osmdroid.android)
+
     // DataStore
     implementation(libs.datastore.preferences)
 

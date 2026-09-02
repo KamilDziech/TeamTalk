@@ -15,8 +15,9 @@ import com.ekotak.teamtalk.data.local.entity.*
         DeviceEntity::class,
         TaskEntity::class,
         TaskMutationEntity::class,
+        MapPointEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -29,4 +30,5 @@ abstract class TeamTalkDatabase : RoomDatabase() {
     abstract fun deviceDao(): DeviceDao
     abstract fun taskDao(): TaskDao
     abstract fun taskMutationDao(): TaskMutationDao
+    abstract fun mapPointDao(): MapPointDao
 }

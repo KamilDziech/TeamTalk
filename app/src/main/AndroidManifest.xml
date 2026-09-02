@@ -13,6 +13,13 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
+    <!-- Mapa: osmdroid sprawdza stan sieci przed pobraniem kafelków, a filtr
+         „moja lokalizacja" pyta o pozycję (obie zgody są opcjonalne — bez nich
+         mapa działa, tylko środek promienia trzeba wpisać ręcznie). -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
     <!-- Widoczność usługi rozpoznawania mowy (Android 11+) dla SpeechRecognizer -->
     <queries>
         <intent>

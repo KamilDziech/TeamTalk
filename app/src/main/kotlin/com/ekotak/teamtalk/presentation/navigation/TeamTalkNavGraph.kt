@@ -34,6 +34,7 @@ import com.ekotak.teamtalk.presentation.crm.DealEditScreen
 import com.ekotak.teamtalk.presentation.crm.DealListScreen
 import com.ekotak.teamtalk.presentation.crm.KnowledgeArticleScreen
 import com.ekotak.teamtalk.presentation.history.HistoryScreen
+import com.ekotak.teamtalk.presentation.map.MapScreen
 import com.ekotak.teamtalk.presentation.home.HomeScreen
 import com.ekotak.teamtalk.presentation.home.ModulePlaceholderScreen
 import com.ekotak.teamtalk.presentation.home.homeModule
@@ -171,6 +172,7 @@ private fun MainScreen(
                             "crm" -> "crm"
                             "tasks" -> "tasks"
                             "communication" -> "discussions"
+                            "map" -> "map"
                             else -> "module/${module.key}"
                         }
                         navController.navigate(route)
@@ -209,6 +211,15 @@ private fun MainScreen(
                 arguments = listOf(navArgument("taskId") { type = NavType.StringType }),
             ) {
                 TaskDetailScreen(onNavigateBack = { navController.popBackStack() })
+            }
+
+            // ── Mapa zleceń (kafelek pulpitu) ─────────────────────────────────
+            composable("map") {
+                MapScreen(
+                    onOpenDeal = { dealId -> navController.navigate("deal/$dealId") },
+                    onOpenClient = { clientId -> navController.navigate("client/$clientId") },
+                    onNavigateBack = { navController.popBackStack() },
+                )
             }
 
             // ── Komunikator wewnętrzny (kafelek „Komunikacja") ─────────────────

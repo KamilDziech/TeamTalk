@@ -340,6 +340,34 @@ interface TeamTalkApi {
     @DELETE("api/task-attachments/{id}")
     suspend fun deleteTaskAttachment(@Path("id") id: String)
 
+    // ── Serwis i przeglądy (moduł Mapa: widoki „Serwisy" i „Przeglądy") ──────────
+
+    /**
+     * Zlecenia serwisowe. Bez filtrów — mapa i tak potrzebuje kompletu, żeby
+     * policzyć chipy statusów, a filtrowanie robimy lokalnie na cache.
+     */
+    @GET("api/service-jobs")
+    suspend fun getServiceJobs(): List<ServiceJobResponseDto>
+
+    /** Serwisanci — filtr osoby w widokach serwisowych. */
+    @GET("api/technicians")
+    suspend fun getTechnicians(): List<TechnicianDto>
+
+    /** Karty przeglądów gwarancyjnych (Panasonic). */
+    @GET("api/warranty-cards")
+    suspend fun getWarrantyCards(): List<WarrantyCardDto>
+
+    /**
+     * Współrzędne kart ze snapshotu geokodera. Osobna trasa, bo karta trzyma
+     * adres jako wolny tekst — snapshot jest wspólny z panelem.
+     */
+    @GET("api/warranty-cards/geo")
+    suspend fun getWarrantyCardsGeo(): List<WarrantyGeoDto>
+
+    /** Podpowiedzi miejscowości do filtra „lokalizacja" na mapie. */
+    @GET("api/geo/suggest")
+    suspend fun suggestPlaces(@Query("q") query: String): List<PlaceSuggestionDto>
+
     /** Skrzynka: dyskusje, w których bierzemy udział (wywołani albo pisaliśmy). */
     @GET("api/discussions")
     suspend fun getDiscussions(): List<DiscussionSummaryDto>

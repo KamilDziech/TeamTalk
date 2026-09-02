@@ -55,4 +55,7 @@ abstract class RepositoryModule {
 
     @Binds @Singleton
     abstract fun bindDiscussionRepository(impl: DiscussionRepositoryImpl): DiscussionRepository
+
+    @Binds @Singleton
+    abstract fun bindMapRepository(impl: MapRepositoryImpl): MapRepository
 }

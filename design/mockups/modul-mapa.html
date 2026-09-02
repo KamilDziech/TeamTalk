@@ -1,0 +1,1008 @@
+<title>Mapa zleceń w TeamTalku</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Roboto:wght@400;500;700&display=swap">
+
+<style>
+/* ── Tokeny strony (jasny = bazowy; te same co modul-zadania.html) ─────── */
+:root{
+  --bg:#EEF3F9; --bg-2:#DBE6F2; --surface:#FFFFFF;
+  --fg:#0F1720; --muted:#5A6B7C; --border:#C3CBD4;
+  --brand:#2FA84F; --brand-loud:#44D62C; --ink:#080808;
+  --warn:#B4680A; --danger:#C5343A; --info:#2563EB;
+  --shadow:0 1px 2px rgba(15,23,32,.06), 0 10px 30px rgba(15,23,32,.08);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0B1220; --bg-2:#12161F; --surface:#12161F;
+    --fg:#E6EDF3; --muted:#9FB0C3; --border:#2A3441;
+    --brand:#44D62C; --brand-loud:#44D62C; --ink:#080808;
+    --warn:#F59E0B; --danger:#E5484D; --info:#5B8DEF;
+    --shadow:0 1px 2px rgba(0,0,0,.5), 0 14px 40px rgba(0,0,0,.45);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0B1220; --bg-2:#12161F; --surface:#12161F;
+  --fg:#E6EDF3; --muted:#9FB0C3; --border:#2A3441;
+  --brand:#44D62C; --brand-loud:#44D62C; --ink:#080808;
+  --warn:#F59E0B; --danger:#E5484D; --info:#5B8DEF;
+  --shadow:0 1px 2px rgba(0,0,0,.5), 0 14px 40px rgba(0,0,0,.45);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--fg);
+  font-family:"Archivo","Segoe UI",system-ui,sans-serif;
+  font-size:16px; line-height:1.55; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px 96px}
+h1,h2,h3{text-wrap:balance;margin:0}
+a{color:inherit}
+code{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.88em;
+  background:var(--bg-2);border:1px solid var(--border);border-radius:5px;padding:1px 5px;
+}
+
+/* ── Nagłówek ─────────────────────────────────────────────────────── */
+.masthead{padding:52px 0 32px;border-bottom:1px solid var(--border);display:grid;gap:18px}
+.eyebrow{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
+  display:flex;flex-wrap:wrap;align-items:center;gap:10px;
+}
+.eyebrow b{color:var(--brand);font-weight:600}
+.masthead h1{font-size:clamp(34px,5.4vw,58px);font-weight:800;letter-spacing:-.025em;line-height:1.02}
+.lede{font-size:17px;color:var(--muted);max-width:62ch;margin:0}
+.lede b{color:var(--fg);font-weight:600}
+
+/* ── Sekcje ───────────────────────────────────────────────────────── */
+section{padding:52px 0 0}
+.shead{display:grid;gap:8px;margin-bottom:26px;max-width:70ch}
+.shead h2{font-size:clamp(22px,2.6vw,30px);font-weight:700;letter-spacing:-.015em}
+.shead p{margin:0;color:var(--muted);font-size:15px}
+.snum{
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--brand);font-weight:600;
+}
+
+.cards{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(268px,1fr))}
+.card{
+  background:var(--surface);border:1px solid var(--border);border-radius:14px;
+  padding:15px 17px;display:grid;gap:7px;align-content:start;
+}
+.card h3{font-size:14.5px;font-weight:700;display:flex;align-items:center;gap:8px}
+.card p{margin:0;font-size:13.5px;color:var(--muted)}
+.dot{width:9px;height:9px;border-radius:50%;flex:none;display:inline-block}
+.dot.ok{background:var(--brand)}
+.dot.part{background:var(--warn)}
+.dot.no{background:var(--danger)}
+
+.tablewrap{overflow-x:auto;border:1px solid var(--border);border-radius:14px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:660px;font-size:13.5px}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:top}
+th{
+  font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--muted);font-weight:600;white-space:nowrap;
+}
+tbody tr:last-child td{border-bottom:none}
+td.mono{font-family:"IBM Plex Mono",monospace;font-size:12px;white-space:nowrap}
+.tag{
+  font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--border);
+  color:var(--muted);white-space:nowrap;display:inline-block;
+}
+.tag.jest{color:var(--brand);border-color:color-mix(in srgb,var(--brand) 45%,var(--border))}
+.tag.brak{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 45%,var(--border))}
+.tag.mock{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 45%,var(--border))}
+
+/* ── Makiety: telefon ─────────────────────────────────────────────── */
+.screens{display:grid;gap:34px 26px;grid-template-columns:repeat(auto-fit,minmax(330px,1fr))}
+.screenblock{display:grid;gap:16px;justify-items:center}
+.caption{max-width:34ch;display:grid;gap:6px}
+.caption h3{font-size:15.5px;font-weight:700;display:flex;gap:9px;align-items:baseline}
+.caption h3 i{font-style:normal;font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--brand)}
+.caption p{margin:0;font-size:13px;color:var(--muted)}
+
+.phone{
+  width:340px;padding:11px;border-radius:38px;
+  background:linear-gradient(160deg,#3a4152,#161a22);box-shadow:var(--shadow);flex:none;
+}
+.device{
+  --d-bg:#0B1220;--d-surface:#12161F;--d-panel:#1A212E;
+  --d-fg:#E6EDF3;--d-muted:#9FB0C3;--d-border:#2A3441;
+  --d-brand:#44D62C;--d-ink:#080808;
+  --d-danger:#E5484D;--d-warn:#F59E0B;--d-info:#5B8DEF;--d-violet:#C084FC;
+  width:318px;height:664px;border-radius:28px;overflow:hidden;
+  background:var(--d-bg);color:var(--d-fg);
+  font-family:"Roboto",system-ui,sans-serif;font-size:14px;line-height:1.4;
+  display:flex;flex-direction:column;position:relative;
+}
+.statusbar{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:8px 16px 2px;font-size:11px;color:var(--d-muted);
+  font-variant-numeric:tabular-nums;flex:none;
+}
+.topbar{display:flex;align-items:center;gap:6px;padding:6px 10px;flex:none}
+.iconbtn{
+  width:32px;height:32px;border-radius:50%;border:none;background:transparent;
+  color:var(--d-fg);display:grid;place-items:center;flex:none;position:relative;
+}
+.iconbtn svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.toptitle{font-size:16px;font-weight:500;flex:1;min-width:0}
+.screen{flex:1;overflow:hidden;padding:0 12px 8px;display:flex;flex-direction:column;gap:9px}
+
+/* przełącznik trybu piny/heatmapa */
+.modeseg{display:flex;background:var(--d-panel);border-radius:999px;padding:2px;gap:2px;flex:none}
+.modeseg span{font-size:10.5px;padding:4px 9px;border-radius:999px;color:var(--d-muted)}
+.modeseg span[data-on]{background:var(--d-surface);color:var(--d-fg);font-weight:500}
+
+/* pasek widoków (przewijany poziomo) */
+.viewtabs{display:flex;gap:6px;flex:none;overflow:hidden;-webkit-mask-image:linear-gradient(90deg,#000 88%,transparent);mask-image:linear-gradient(90deg,#000 88%,transparent)}
+.viewtab{
+  font-size:11.5px;padding:6px 10px;border-radius:999px;white-space:nowrap;
+  border:1px solid var(--d-border);color:var(--d-muted);display:inline-flex;gap:5px;align-items:center;
+}
+.viewtab b{font-weight:500;opacity:.7;font-variant-numeric:tabular-nums}
+.viewtab[data-on]{
+  background:color-mix(in srgb,var(--d-brand) 15%,var(--d-surface));
+  border-color:var(--d-brand);color:var(--d-brand);font-weight:500;
+}
+.viewtab[data-on] b{opacity:.85}
+
+/* pasek szukania + przycisk filtrów */
+.searchrow{display:flex;gap:7px;flex:none}
+.searchbox{
+  flex:1;min-width:0;display:flex;align-items:center;gap:7px;background:var(--d-surface);
+  border:1px solid var(--d-border);border-radius:11px;padding:7px 10px;font-size:12.5px;color:var(--d-muted);
+}
+.searchbox svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.8;flex:none}
+.filterbtn{
+  width:38px;border:1px solid var(--d-border);border-radius:11px;background:var(--d-surface);
+  display:grid;place-items:center;position:relative;flex:none;color:var(--d-fg);
+}
+.filterbtn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round}
+.filterbtn .cnt{
+  position:absolute;top:-6px;right:-6px;min-width:16px;height:16px;padding:0 4px;border-radius:999px;
+  background:var(--d-brand);color:var(--d-ink);font-size:9.5px;font-weight:700;
+  display:grid;place-items:center;border:2px solid var(--d-bg);
+}
+.locpill{
+  display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--d-fg);
+  background:color-mix(in srgb,var(--d-brand) 14%,var(--d-surface));
+  border:1px solid color-mix(in srgb,var(--d-brand) 50%,var(--d-border));
+  border-radius:999px;padding:4px 9px;flex:none;align-self:flex-start;
+}
+.locpill .x{color:var(--d-muted);font-size:12px}
+
+/* chipy legendy/filtra statusu */
+.chips{display:flex;gap:6px;flex:none;overflow:hidden;-webkit-mask-image:linear-gradient(90deg,#000 90%,transparent);mask-image:linear-gradient(90deg,#000 90%,transparent)}
+.chip{
+  font-size:11px;padding:4px 9px;border-radius:999px;border:1px solid var(--d-border);
+  color:var(--d-muted);display:inline-flex;align-items:center;gap:5px;white-space:nowrap;
+}
+.chip .cdot{width:7px;height:7px;border-radius:50%;flex:none;background:currentColor}
+.chip[data-on]{background:var(--d-brand);border-color:var(--d-brand);color:var(--d-ink);font-weight:700}
+
+/* ── Płyta mapy ───────────────────────────────────────────────────── */
+.map{
+  position:relative;flex:1;min-height:0;border-radius:14px;overflow:hidden;
+  border:1px solid var(--d-border);background:#E9E5DC;
+}
+.map svg.plate{position:absolute;inset:0;width:100%;height:100%}
+.pin{
+  position:absolute;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;
+  font-size:11px;font-weight:800;color:#0b0b0b;background:var(--c);
+  border:1.5px solid rgba(255,255,255,.9);box-shadow:0 0 0 1px rgba(0,0,0,.45);
+  transform:translate(-50%,-50%);
+}
+.pin.sel{
+  width:30px;height:30px;font-size:14px;
+  box-shadow:0 0 0 1px rgba(0,0,0,.45),0 0 0 7px color-mix(in srgb,var(--c) 35%,transparent);
+}
+.cluster{
+  position:absolute;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;
+  background:rgba(110,204,57,.6);transform:translate(-50%,-50%);
+  font-size:12px;font-weight:700;color:#20340f;
+}
+.cluster::before{content:"";position:absolute;inset:5px;border-radius:50%;background:rgba(110,204,57,.85)}
+.cluster span{position:relative}
+.heat{position:absolute;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none}
+.radius{
+  position:absolute;border-radius:50%;transform:translate(-50%,-50%);
+  border:1.5px solid #44d62c;background:rgba(68,214,44,.08);
+}
+.mapbtns{position:absolute;right:8px;top:8px;display:grid;gap:6px}
+.mapbtn{
+  width:32px;height:32px;border-radius:9px;background:rgba(11,18,32,.86);color:#E6EDF3;
+  border:1px solid rgba(230,237,243,.18);display:grid;place-items:center;
+}
+.mapbtn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.attrib{
+  position:absolute;right:0;bottom:0;font-size:8.5px;color:#3b4654;
+  background:rgba(255,255,255,.72);padding:1px 5px;border-radius:5px 0 0 0;
+}
+.scalebar{position:absolute;left:8px;bottom:8px;font-size:8.5px;color:#3b4654}
+.scalebar i{display:block;height:4px;border:1px solid #3b4654;border-top:none;width:52px;font-style:normal}
+
+/* pasek „bez lokalizacji” */
+.nogeo{flex:none;border:1px solid var(--d-border);border-radius:12px;background:var(--d-surface);overflow:hidden}
+.nogeo .head{display:flex;align-items:center;gap:7px;padding:8px 11px;font-size:11.5px;color:var(--d-warn)}
+.nogeo .head b{font-weight:500;color:var(--d-fg)}
+.nogeo .row{
+  display:flex;align-items:center;gap:8px;padding:7px 11px;border-top:1px solid var(--d-border);font-size:11.5px;
+}
+.nogeo .row .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nogeo .row .ct{color:var(--d-muted);font-size:10.5px}
+.nogeo .row .go{color:var(--d-brand);font-size:10.5px;white-space:nowrap}
+
+/* ── Arkusz dolny ─────────────────────────────────────────────────── */
+.scrim{position:absolute;inset:0;background:rgba(4,8,15,.55)}
+.sheet{
+  position:absolute;left:0;right:0;bottom:0;background:var(--d-surface);
+  border-top:1px solid var(--d-border);border-radius:20px 20px 0 0;padding:10px 14px 16px;
+  display:flex;flex-direction:column;gap:10px;
+}
+.grab{width:34px;height:4px;border-radius:999px;background:var(--d-border);margin:0 auto 2px}
+.sheet h4{margin:0;font-size:14.5px;font-weight:500}
+.flabel{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--d-muted);font-weight:700}
+.seg{display:flex;background:var(--d-panel);border-radius:11px;padding:3px;gap:3px}
+.seg span{flex:1;font-size:11.5px;padding:7px 2px;border-radius:9px;text-align:center;color:var(--d-muted)}
+.seg span[data-on]{background:var(--d-surface);color:var(--d-fg);font-weight:500}
+.select{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  background:var(--d-panel);border:1px solid var(--d-border);border-radius:11px;
+  padding:9px 11px;font-size:12.5px;
+}
+.select .val{color:var(--d-fg)}
+.select .arr{color:var(--d-muted);font-size:11px}
+.geolist{display:grid;gap:1px;background:var(--d-border);border:1px solid var(--d-border);border-radius:11px;overflow:hidden}
+.geolist div{background:var(--d-panel);padding:8px 11px;font-size:12px}
+.geolist div.gps{color:var(--d-brand);display:flex;align-items:center;gap:7px}
+.geolist div.gps svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.8}
+.radii{display:flex;gap:6px;flex-wrap:wrap}
+.radii i{
+  font-style:normal;font-size:11px;padding:5px 10px;border-radius:999px;
+  border:1px solid var(--d-border);color:var(--d-muted);
+}
+.radii i[data-on]{border-color:var(--d-brand);color:var(--d-ink);background:var(--d-brand);font-weight:700}
+.sheetbtns{display:flex;gap:9px;margin-top:2px}
+.btn{
+  flex:1;text-align:center;padding:11px;border-radius:12px;font-size:13px;font-weight:500;
+  border:1px solid var(--d-border);color:var(--d-fg);
+}
+.btn.primary{background:var(--d-brand);color:var(--d-ink);border-color:var(--d-brand);font-weight:700}
+
+/* karta punktu */
+.pcard{display:flex;gap:10px;align-items:flex-start}
+.pcard .badge{
+  width:30px;height:30px;border-radius:50%;display:grid;place-items:center;flex:none;
+  font-size:13px;font-weight:800;color:#0b0b0b;background:var(--c);
+  border:1.5px solid rgba(255,255,255,.9);
+}
+.pcard .who{flex:1;min-width:0;display:grid;gap:2px}
+.pcard .who b{font-size:15px;font-weight:500}
+.pcard .who span{font-size:11.5px;color:var(--d-muted)}
+.meta{display:grid;gap:7px}
+.meta .r{display:flex;gap:9px;font-size:12px;align-items:baseline}
+.meta .r .k{color:var(--d-muted);width:74px;flex:none;font-size:11px}
+.meta .r .v{flex:1;min-width:0}
+.pillrow{display:flex;gap:5px;flex-wrap:wrap}
+.pillrow i{
+  font-style:normal;font-size:10.5px;padding:3px 8px;border-radius:999px;
+  border:1px solid var(--d-border);color:var(--d-muted);
+}
+.actions{display:grid;gap:7px}
+.act{
+  display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:12px;
+  border:1px solid var(--d-border);background:var(--d-panel);font-size:12.5px;
+}
+.act svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.act.brandy{border-color:color-mix(in srgb,var(--d-brand) 50%,var(--d-border));color:var(--d-brand)}
+.act .chev{margin-left:auto;color:var(--d-muted)}
+
+/* ── Etapy ────────────────────────────────────────────────────────── */
+.steps{display:grid;gap:12px}
+.step{
+  display:flex;gap:16px;background:var(--surface);border:1px solid var(--border);
+  border-radius:14px;padding:16px 18px;
+}
+.step .no{
+  font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:600;color:var(--brand);
+  border:1px solid color-mix(in srgb,var(--brand) 40%,var(--border));border-radius:8px;
+  padding:3px 8px;height:fit-content;flex:none;
+}
+.step h3{font-size:15px;font-weight:700;display:flex;flex-wrap:wrap;gap:9px;align-items:center}
+.step p{margin:6px 0 0;font-size:13.5px;color:var(--muted)}
+.files{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.files i{
+  font-style:normal;font-family:"IBM Plex Mono",monospace;font-size:11px;
+  padding:3px 8px;border-radius:6px;background:var(--bg-2);color:var(--muted);
+  border:1px solid var(--border);
+}
+
+/* ── Ustalenia ────────────────────────────────────────────────────── */
+.qs{display:grid;gap:12px}
+.qq{
+  background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--brand);
+  border-radius:14px;padding:16px 18px;display:grid;gap:7px;
+}
+.qq h3{font-size:15.5px;font-weight:700;display:flex;flex-wrap:wrap;gap:9px;align-items:center}
+.qq p{margin:0;font-size:13.5px;color:var(--muted)}
+.qq .opts{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+.qq .opts i{
+  font-style:normal;font-size:12px;padding:4px 10px;border-radius:999px;
+  border:1px solid var(--border);color:var(--fg);background:var(--bg-2);
+}
+.qq .rec{color:var(--brand);font-weight:600;font-size:12.5px}
+
+/* legenda kolorów punktów */
+.palette{display:grid;gap:9px;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));margin-top:16px}
+.sw{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--muted)}
+.sw b{
+  width:22px;height:22px;border-radius:50%;display:grid;place-items:center;flex:none;
+  font-size:11px;font-weight:800;color:#0b0b0b;border:1.5px solid rgba(255,255,255,.9);
+  box-shadow:0 0 0 1px rgba(0,0,0,.25);
+}
+.sw em{font-style:normal;font-family:"IBM Plex Mono",monospace;font-size:11px;opacity:.75}
+
+footer.end{
+  margin-top:56px;padding-top:22px;border-top:1px solid var(--border);
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--muted);
+  display:flex;flex-wrap:wrap;gap:10px 22px;
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="eyebrow">
+      <span>TeamTalk Android</span> · <b>moduł Mapa</b> · <span>zakres ustalony 2026-09-02</span>
+    </div>
+    <h1>Mapa zleceń w TeamTalku</h1>
+    <p class="lede">
+      W panelu mapa jest narzędziem planowania: handlowiec patrzy na województwo i układa trasę.
+      Na telefonie ta sama mapa odpowiada na jedno pytanie — <b>co mam dziś wokół siebie</b>.
+      Dokument pokazuje pełne odwzorowanie <code>web/src/app/app/map</code> na Compose,
+      z osmdroidem zamiast Leafletu, i wymienia wszystko, co trzeba dopisać po obu stronach.
+    </p>
+  </header>
+
+  <section>
+    <div class="shead">
+      <div class="snum">01 — Punkt wyjścia</div>
+      <h2>Co panel już umie, a czego telefon nie ma</h2>
+      <p>Stan na dziś, wprost z kodu obu repozytoriów.</p>
+    </div>
+    <div class="cards">
+      <div class="card">
+        <h3><i class="dot ok"></i> Panel: pięć widoków</h3>
+        <p>Flota (zaślepka), Klienci bieżący, Klienci zakończeni, Serwisy, Przeglądy.
+        Jeden typ punktu <code>MapPoint</code> dla deala, zlecenia i karty gwarancyjnej.
+        <code>MapView.tsx</code>, 814 linii.</p>
+      </div>
+      <div class="card">
+        <h3><i class="dot ok"></i> Panel: „badge” liczony serwerowo</h3>
+        <p>Kolor, etykieta, kolejność i litera w pinie powstają w <code>page.tsx</code>,
+        więc klient rysuje markery tak samo niezależnie od źródła danych. Ten sam podział
+        przenosimy na warstwę <code>domain</code> w Kotlinie.</p>
+      </div>
+      <div class="card">
+        <h3><i class="dot part"></i> Telefon: dane już płyną</h3>
+        <p><code>GET /api/deals</code> i <code>/api/clients</code> (z obiektem <code>geo</code>),
+        rodzaje instalacji i słownik osób są w <code>TeamTalkApi.kt</code> — obsługuje je moduł CRM.
+        Mapa nie potrzebuje ich od nowa.</p>
+      </div>
+      <div class="card">
+        <h3><i class="dot no"></i> Telefon: kafelek to zaślepka</h3>
+        <p>„Mapa” (<code>HomeModules.kt</code>, klucz <code>map</code>) prowadzi do
+        <code>ModulePlaceholderScreen</code>. W nawigacji nie ma trasy <code>map</code>.</p>
+      </div>
+      <div class="card">
+        <h3><i class="dot no"></i> Telefon: brak silnika mapy</h3>
+        <p><code>libs.versions.toml</code> nie zna żadnej biblioteki mapowej — pierwszy build
+        po dodaniu osmdroida wymaga sieci, bo w lokalnym cache Gradle jej nie ma.</p>
+      </div>
+      <div class="card">
+        <h3><i class="dot no"></i> Telefon: brak trzech źródeł</h3>
+        <p>Serwisy, serwisanci i karty gwarancyjne nie mają metod w Retroficie.
+        Brakuje też odpowiednika <code>/app/geo</code> — podpowiedzi miejscowości w panelu
+        obsługuje trasa Next.js, której mobilka nie widzi.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead">
+      <div class="snum">02 — Makieta</div>
+      <h2>Cztery ekrany</h2>
+      <p>
+        Mapa z pinami → arkusz filtrów → karta punktu → heatmapa serwisów. Ten sam ciemny motyw
+        co reszta aplikacji, podkład OSM taki jak w panelu. Wszystkie etykiety, kolory i litery
+        w pinach są 1:1 z <code>mapColors.ts</code> — ten sam deal ma na obu ekranach ten sam kolor.
+      </p>
+    </div>
+
+    <div class="screens">
+
+      <!-- ── Ekran 1: piny ──────────────────────────────────────── -->
+      <div class="screenblock">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>9:41</span><span>▮▮▮ 78%</span></div>
+          <div class="topbar">
+            <div class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></div>
+            <div class="toptitle">Mapa zleceń</div>
+            <div class="modeseg"><span data-on>Piny</span><span>Heatmapa</span></div>
+          </div>
+          <div class="screen">
+            <div class="viewtabs">
+              <span class="viewtab">Flota</span>
+              <span class="viewtab" data-on>Bieżący <b>128</b></span>
+              <span class="viewtab">Zakończeni <b>64</b></span>
+              <span class="viewtab">Serwisy <b>23</b></span>
+            </div>
+            <div class="searchrow">
+              <div class="searchbox">
+                <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg>
+                <span>Klient, instalacja, miasto…</span>
+              </div>
+              <div class="filterbtn">
+                <svg viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+              </div>
+            </div>
+            <div class="chips">
+              <span class="chip" data-on>Wszystkie (128)</span>
+              <span class="chip" style="color:#4aa3ff"><i class="cdot"></i>Lead (31)</span>
+              <span class="chip" style="color:#a371f7"><i class="cdot"></i>Kwalifikacja (18)</span>
+              <span class="chip" style="color:#ffa657"><i class="cdot"></i>Oferta (22)</span>
+            </div>
+            <div class="map">
+              <svg class="plate" viewBox="0 0 294 330" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+                <rect width="294" height="330" fill="#E9E5DC"/>
+                <path d="M0 226 C46 210 74 246 116 238 C160 230 186 262 226 250 L294 258 L294 330 L0 330 Z" fill="#D7E4CB"/>
+                <path d="M182 0 C176 44 206 62 200 104 C194 148 226 170 216 214 L232 330 L294 330 L294 0 Z" fill="#DFE7D5"/>
+                <path d="M0 96 C40 88 58 118 100 112 C138 106 152 76 196 84 C232 90 258 72 294 78" fill="none" stroke="#A7D3E0" stroke-width="7"/>
+                <g fill="none" stroke="#FFFFFF" stroke-width="5.5" stroke-linecap="round">
+                  <path d="M-10 158 C60 150 96 186 158 174 C214 164 246 196 304 186"/>
+                  <path d="M138 -10 C132 60 158 96 148 158 C138 220 166 262 158 340"/>
+                </g>
+                <g fill="none" stroke="#F3D9A8" stroke-width="3" stroke-linecap="round">
+                  <path d="M20 300 C60 288 74 250 118 244 C158 238 172 206 214 208"/>
+                  <path d="M240 40 C214 78 232 112 206 148 C182 182 200 214 176 246"/>
+                  <path d="M-10 62 C34 66 52 42 92 48 C122 52 130 28 164 32"/>
+                </g>
+                <g fill="#CDC7BA">
+                  <rect x="44" y="176" width="16" height="12" rx="2"/>
+                  <rect x="66" y="192" width="12" height="10" rx="2"/>
+                  <rect x="186" y="118" width="18" height="13" rx="2"/>
+                  <rect x="212" y="136" width="11" height="9" rx="2"/>
+                </g>
+              </svg>
+              <span class="pin" style="--c:#4aa3ff;left:22%;top:22%">L</span>
+              <span class="pin" style="--c:#ffa657;left:38%;top:34%">O</span>
+              <span class="pin" style="--c:#44d62c;left:30%;top:52%">M</span>
+              <span class="pin" style="--c:#a371f7;left:58%;top:20%">K</span>
+              <span class="pin" style="--c:#f2c94c;left:70%;top:44%">S</span>
+              <span class="pin" style="--c:#17b3a3;left:52%;top:66%">P</span>
+              <span class="pin" style="--c:#4aa3ff;left:76%;top:74%">L</span>
+              <span class="pin" style="--c:#f778ba;left:20%;top:78%">A</span>
+              <span class="cluster" style="left:46%;top:42%"><span>17</span></span>
+              <span class="cluster" style="left:68%;top:60%;width:32px;height:32px;font-size:11px"><span>9</span></span>
+              <div class="mapbtns">
+                <div class="mapbtn"><svg viewBox="0 0 24 24"><path d="M9 4H4v5M15 4h5v5M15 20h5v-5M9 20H4v-5"/></svg></div>
+                <div class="mapbtn"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></div>
+              </div>
+              <div class="scalebar">20 km<i></i></div>
+              <div class="attrib">© OpenStreetMap</div>
+            </div>
+            <div class="nogeo">
+              <div class="head">▸ <b>Bez lokalizacji: 7</b> — adres niezweryfikowany</div>
+            </div>
+          </div>
+        </div></div>
+        <div class="caption">
+          <h3><i>01</i> Klienci bieżący</h3>
+          <p>
+            Widoki jako przewijany pasek zamiast pięciu zakładek, chipy etapów jako legenda i filtr,
+            klastrowanie tak jak w panelu. Litera w pinie to pierwsza litera etapu — punkty da się
+            rozróżnić bez koloru. Dwa przyciski na mapie: „dopasuj widok” i „moja lokalizacja”.
+          </p>
+        </div>
+      </div>
+
+      <!-- ── Ekran 2: filtry ────────────────────────────────────── -->
+      <div class="screenblock">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>9:41</span><span>▮▮▮ 78%</span></div>
+          <div class="topbar">
+            <div class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></div>
+            <div class="toptitle">Mapa zleceń</div>
+            <div class="modeseg"><span data-on>Piny</span><span>Heatmapa</span></div>
+          </div>
+          <div class="screen" style="opacity:.45">
+            <div class="viewtabs">
+              <span class="viewtab">Flota</span>
+              <span class="viewtab" data-on>Bieżący <b>128</b></span>
+              <span class="viewtab">Zakończeni <b>64</b></span>
+            </div>
+            <div class="searchrow">
+              <div class="searchbox">
+                <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg>
+                <span>Klient, instalacja, miasto…</span>
+              </div>
+              <div class="filterbtn"><svg viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"/></svg></div>
+            </div>
+            <div class="map">
+              <svg class="plate" viewBox="0 0 294 330" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+                <rect width="294" height="330" fill="#E9E5DC"/>
+                <path d="M0 226 C46 210 74 246 116 238 C160 230 186 262 226 250 L294 258 L294 330 L0 330 Z" fill="#D7E4CB"/>
+                <g fill="none" stroke="#FFFFFF" stroke-width="5.5" stroke-linecap="round">
+                  <path d="M-10 158 C60 150 96 186 158 174 C214 164 246 196 304 186"/>
+                  <path d="M138 -10 C132 60 158 96 148 158 C138 220 166 262 158 340"/>
+                </g>
+              </svg>
+            </div>
+          </div>
+          <div class="scrim"></div>
+          <div class="sheet">
+            <div class="grab"></div>
+            <h4>Filtry</h4>
+            <div>
+              <div class="flabel" style="margin-bottom:5px">Opiekun</div>
+              <div class="seg"><span data-on>Główny</span><span>Etapowy</span></div>
+            </div>
+            <div class="select"><span class="val">Marta Zielińska (34)</span><span class="arr">▾</span></div>
+            <div>
+              <div class="flabel" style="margin-bottom:5px">Rodzaj instalacji</div>
+              <div class="select"><span class="val">Pompy ciepła (61)</span><span class="arr">▾</span></div>
+            </div>
+            <div>
+              <div class="flabel" style="margin-bottom:5px">Lokalizacja</div>
+              <div class="geolist">
+                <div class="gps">
+                  <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+                  Moja lokalizacja
+                </div>
+                <div>Poznań, Wielkopolskie</div>
+                <div>Poznań-Grunwald, Wielkopolskie</div>
+              </div>
+            </div>
+            <div>
+              <div class="flabel" style="margin-bottom:5px">Promień</div>
+              <div class="radii">
+                <i>bez</i><i>+5</i><i>+10</i><i>+15</i><i data-on>+30 km</i><i>+50</i><i>+75</i>
+              </div>
+            </div>
+            <div class="sheetbtns">
+              <span class="btn">Wyczyść</span>
+              <span class="btn primary">Pokaż 34 punkty</span>
+            </div>
+          </div>
+        </div></div>
+        <div class="caption">
+          <h3><i>02</i> Arkusz filtrów</h3>
+          <p>
+            Pasek szukania z panelu (słowo · lokalizacja · promień) nie mieści się w jednej linii,
+            więc słowo kluczowe zostaje na górze, a reszta chowa się w arkuszu. Te same filtry i te
+            same liczniki. „Moja lokalizacja” to jedyna pozycja, której panel nie ma.
+          </p>
+        </div>
+      </div>
+
+      <!-- ── Ekran 3: karta punktu ──────────────────────────────── -->
+      <div class="screenblock">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>9:41</span><span>▮▮▮ 78%</span></div>
+          <div class="topbar">
+            <div class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></div>
+            <div class="toptitle">Mapa zleceń</div>
+            <div class="modeseg"><span data-on>Piny</span><span>Heatmapa</span></div>
+          </div>
+          <div class="screen">
+            <div class="viewtabs">
+              <span class="viewtab">Flota</span>
+              <span class="viewtab" data-on>Bieżący <b>128</b></span>
+              <span class="viewtab">Zakończeni <b>64</b></span>
+            </div>
+            <div class="map">
+              <svg class="plate" viewBox="0 0 294 330" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+                <rect width="294" height="330" fill="#E9E5DC"/>
+                <path d="M0 246 C46 230 74 266 116 258 C160 250 186 282 226 270 L294 278 L294 330 L0 330 Z" fill="#D7E4CB"/>
+                <path d="M0 76 C40 68 58 98 100 92 C138 86 152 56 196 64 C232 70 258 52 294 58" fill="none" stroke="#A7D3E0" stroke-width="8"/>
+                <g fill="none" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round">
+                  <path d="M-10 138 C60 130 96 166 158 154 C214 144 246 176 304 166"/>
+                  <path d="M118 -10 C112 60 138 96 128 158 C118 220 146 262 138 340"/>
+                  <path d="M304 250 C244 244 214 214 158 210"/>
+                </g>
+                <g fill="none" stroke="#F3D9A8" stroke-width="3.2" stroke-linecap="round">
+                  <path d="M20 200 C60 188 74 150 118 144 C158 138 172 106 214 108"/>
+                  <path d="M240 20 C214 58 232 92 206 128"/>
+                </g>
+                <g fill="#CDC7BA">
+                  <rect x="150" y="120" width="20" height="14" rx="2"/>
+                  <rect x="176" y="140" width="12" height="10" rx="2"/>
+                  <rect x="120" y="152" width="14" height="11" rx="2"/>
+                </g>
+              </svg>
+              <span class="pin sel" style="--c:#ffa657;left:50%;top:38%">O</span>
+              <span class="pin" style="--c:#4aa3ff;left:24%;top:24%">L</span>
+              <span class="pin" style="--c:#44d62c;left:76%;top:28%">M</span>
+              <div class="mapbtns">
+                <div class="mapbtn"><svg viewBox="0 0 24 24"><path d="M9 4H4v5M15 4h5v5M15 20h5v-5M9 20H4v-5"/></svg></div>
+              </div>
+              <div class="attrib">© OpenStreetMap</div>
+            </div>
+          </div>
+          <div class="sheet">
+            <div class="grab"></div>
+            <div class="pcard">
+              <span class="badge" style="--c:#ffa657">O</span>
+              <span class="who">
+                <b>Krzysztof Nowak</b>
+                <span>Oferta · Swarzędz · 12 km od Ciebie</span>
+              </span>
+            </div>
+            <div class="meta">
+              <div class="r"><span class="k">Instalacje</span>
+                <span class="v pillrow"><i>Pompy ciepła</i><i>Fotowoltaika</i></span>
+              </div>
+              <div class="r"><span class="k">Opiekun</span><span class="v">Marta Zielińska</span></div>
+              <div class="r"><span class="k">Adres</span><span class="v">ul. Poznańska 14, 62-020 Swarzędz</span></div>
+            </div>
+            <div class="actions">
+              <div class="act brandy">
+                <svg viewBox="0 0 24 24"><path d="M3.5 5h17l-6.6 7.6V19l-3.8 1.8v-8.2z"/></svg>
+                Otwórz kartę deala <span class="chev">›</span>
+              </div>
+              <div class="act">
+                <svg viewBox="0 0 24 24"><path d="M3 11l18-8-8 18-2-8z"/></svg>
+                Nawiguj <span class="chev">›</span>
+              </div>
+              <div class="act">
+                <svg viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a12 12 0 0 0 5 5L15 13l5 2v4a1.8 1.8 0 0 1-2 1.8A16 16 0 0 1 3.2 6 1.8 1.8 0 0 1 5 4z"/></svg>
+                Zadzwoń <span class="chev">›</span>
+              </div>
+            </div>
+          </div>
+        </div></div>
+        <div class="caption">
+          <h3><i>03</i> Karta punktu</h3>
+          <p>
+            Odpowiednik dymka z panelu. Panel daje w nim jeden odnośnik — na telefonie dochodzi
+            nawigacja (intent <code>geo:</code>) i telefon do klienta, bo numer i tak jest w karcie
+            klienta. Odległość „od Ciebie” liczy się lokalnie, tym samym haversinem co filtr promienia.
+          </p>
+        </div>
+      </div>
+
+      <!-- ── Ekran 4: heatmapa serwisów ─────────────────────────── -->
+      <div class="screenblock">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>9:41</span><span>▮▮▮ 78%</span></div>
+          <div class="topbar">
+            <div class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></div>
+            <div class="toptitle">Mapa zleceń</div>
+            <div class="modeseg"><span>Piny</span><span data-on>Heatmapa</span></div>
+          </div>
+          <div class="screen">
+            <div class="viewtabs">
+              <span class="viewtab">Zakończeni <b>64</b></span>
+              <span class="viewtab" data-on>Serwisy <b>23</b></span>
+              <span class="viewtab">Przeglądy <b>41</b></span>
+            </div>
+            <div class="searchrow">
+              <div class="searchbox">
+                <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg>
+                <span>Klient, instalacja, miasto…</span>
+              </div>
+              <div class="filterbtn">
+                <svg viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+                <span class="cnt">2</span>
+              </div>
+            </div>
+            <span class="locpill">📍 Poznań +30 km <span class="x">✕</span></span>
+            <div class="chips">
+              <span class="chip">Wszystkie (23)</span>
+              <span class="chip" style="color:#f85149"><i class="cdot"></i>Po SLA (3)</span>
+              <span class="chip" style="color:#ffa657"><i class="cdot"></i>nowe (9)</span>
+              <span class="chip" style="color:#4aa3ff"><i class="cdot"></i>w toku (7)</span>
+            </div>
+            <div class="map">
+              <svg class="plate" viewBox="0 0 294 300" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+                <rect width="294" height="300" fill="#E9E5DC"/>
+                <path d="M0 206 C46 190 74 226 116 218 C160 210 186 242 226 230 L294 238 L294 300 L0 300 Z" fill="#D7E4CB"/>
+                <g fill="none" stroke="#FFFFFF" stroke-width="5.5" stroke-linecap="round">
+                  <path d="M-10 138 C60 130 96 166 158 154 C214 144 246 176 304 166"/>
+                  <path d="M138 -10 C132 60 158 96 148 158 C138 220 166 262 158 310"/>
+                </g>
+                <g fill="none" stroke="#F3D9A8" stroke-width="3" stroke-linecap="round">
+                  <path d="M20 270 C60 258 74 220 118 214 C158 208 172 176 214 178"/>
+                </g>
+              </svg>
+              <span class="heat" style="left:46%;top:44%;width:150px;height:150px;background:radial-gradient(circle,rgba(248,81,73,.85) 0%,rgba(242,201,76,.6) 34%,rgba(68,214,44,.42) 60%,rgba(74,163,255,.18) 80%,transparent 100%)"></span>
+              <span class="heat" style="left:24%;top:70%;width:96px;height:96px;background:radial-gradient(circle,rgba(242,201,76,.7) 0%,rgba(68,214,44,.45) 45%,rgba(74,163,255,.2) 75%,transparent 100%)"></span>
+              <span class="heat" style="left:76%;top:26%;width:80px;height:80px;background:radial-gradient(circle,rgba(68,214,44,.55) 0%,rgba(74,163,255,.28) 55%,transparent 100%)"></span>
+              <span class="radius" style="left:46%;top:44%;width:210px;height:210px"></span>
+              <div class="mapbtns">
+                <div class="mapbtn"><svg viewBox="0 0 24 24"><path d="M9 4H4v5M15 4h5v5M15 20h5v-5M9 20H4v-5"/></svg></div>
+                <div class="mapbtn"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></div>
+              </div>
+              <div class="attrib">© OpenStreetMap</div>
+            </div>
+            <div class="nogeo">
+              <div class="head">▾ <b>Bez lokalizacji: 3</b> — adres niezweryfikowany</div>
+              <div class="row"><span class="nm">Anna Wiśniewska</span><span class="ct">Luboń</span><span class="go">Zwaliduj →</span></div>
+              <div class="row"><span class="nm">Serwis — Zakład Mleczarski</span><span class="ct">61-001</span><span class="go">Zwaliduj →</span></div>
+            </div>
+          </div>
+        </div></div>
+        <div class="caption">
+          <h3><i>04</i> Serwisy i heatmapa</h3>
+          <p>
+            Ten sam ekran po przełączeniu widoku i trybu. Awaria po przekroczeniu SLA dostaje własny
+            chip i czerwień — dokładnie jak w panelu. Okrąg promienia i pigułka wybranej lokalizacji
+            zostają widoczne, żeby było wiadomo, czego dotyczy licznik.
+          </p>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="palette">
+      <span class="sw"><b style="background:#4aa3ff">L</b>Lead <em>#4aa3ff</em></span>
+      <span class="sw"><b style="background:#ffa657">O</b>Oferta <em>#ffa657</em></span>
+      <span class="sw"><b style="background:#44d62c">M</b>Montaż <em>#44d62c</em></span>
+      <span class="sw"><b style="background:#17b3a3">P</b>Po montażu <em>#17b3a3</em></span>
+      <span class="sw"><b style="background:#f85149">A</b>Po SLA <em>#f85149</em></span>
+      <span class="sw"><b style="background:#6e7681">Z</b>Zakończony <em>#6e7681</em></span>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead">
+      <div class="snum">03 — API</div>
+      <h2>Czego brakuje po drodze</h2>
+      <p>
+        board360 ma prawie komplet — brakuje tego w warstwie mobilnej. Dwa realne braki po stronie
+        panelu: <b>współrzędne kart gwarancyjnych</b> (dziś statyczny plik w repo web)
+        i <b>podpowiedzi miejscowości</b> (dziś trasa Next.js, niedostępna dla Androida).
+      </p>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>Endpoint</th><th>Do czego na mapie</th><th>board360</th><th>TeamTalkApi</th><th>Etap</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="mono">GET /api/deals</td><td>punkty widoków „Klienci bieżący” i „zakończeni”</td><td><span class="tag jest">jest</span></td><td><span class="tag jest">jest</span></td><td>M1</td></tr>
+          <tr><td class="mono">GET /api/clients</td><td>współrzędne <code>geo</code>, miasto, adres do nawigacji</td><td><span class="tag jest">jest</span></td><td><span class="tag jest">jest</span></td><td>M1</td></tr>
+          <tr><td class="mono">GET /api/deals/installations/current</td><td>filtr rodzaju instalacji</td><td><span class="tag jest">jest</span></td><td><span class="tag jest">jest</span></td><td>M1</td></tr>
+          <tr><td class="mono">GET /api/categories</td><td>nazwy root-kategorii do tego filtra</td><td><span class="tag jest">jest</span></td><td><span class="tag jest">jest</span></td><td>M1</td></tr>
+          <tr><td class="mono">GET /api/tasks/members</td><td>opiekunowie (główny i etapowy)</td><td><span class="tag jest">jest</span></td><td><span class="tag jest">jest</span></td><td>M1</td></tr>
+          <tr><td class="mono">GET /api/geo/suggest</td><td>podpowiedzi miejscowości — proxy Nominatim</td><td><span class="tag brak">tylko w web</span></td><td><span class="tag brak">brak</span></td><td>M2</td></tr>
+          <tr><td class="mono">GET /api/service-jobs</td><td>widoki „Serwisy” i „Przeglądy”, znacznik SLA</td><td><span class="tag jest">jest</span></td><td><span class="tag brak">brak</span></td><td>M3</td></tr>
+          <tr><td class="mono">GET /api/technicians</td><td>filtr serwisanta</td><td><span class="tag jest">jest</span></td><td><span class="tag brak">brak</span></td><td>M3</td></tr>
+          <tr><td class="mono">GET /api/warranty-cards</td><td>przeglądy Panasonic — nazwa, status, technik</td><td><span class="tag jest">jest</span></td><td><span class="tag brak">brak</span></td><td>M4</td></tr>
+          <tr><td class="mono">GET /api/warranty-cards/geo</td><td>współrzędne kart zamiast <code>warranty-geo.json</code></td><td><span class="tag brak">dopisujemy</span></td><td><span class="tag brak">brak</span></td><td>M4</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="cards" style="margin-top:16px">
+      <div class="card">
+        <h3>Snapshot geo przestaje być plikiem</h3>
+        <p>
+          <code>warranty-geo.json</code> (3336 linii) leży w repo panelu i jest wczytywany w czasie
+          budowania. Nowa trasa zwraca to samo — <code>{id, lat, lng, city}</code> — a panel
+          i telefon czytają jedno źródło. Mobilka trzyma odpowiedź w Room, więc działa bez sieci.
+        </p>
+      </div>
+      <div class="card">
+        <h3>Geokoder potrzebuje własnej trasy</h3>
+        <p>
+          Panel woła <code>/app/geo</code> — trasę Next.js, która dopiero pyta Nominatim
+          (limit ~1 zapytanie/s, wymagany <code>User-Agent</code>). Android nie może iść do Nominatim
+          wprost: dostałby ten sam limit rozłożony na wszystkie telefony. Ta sama logika przenosi się
+          do API jako <code>GET /api/geo/suggest</code>, z cache po stronie serwera.
+        </p>
+      </div>
+      <div class="card">
+        <h3>Kafelki OSM mają regulamin</h3>
+        <p>
+          Publiczny serwer kafelków wymaga rozpoznawalnego <code>User-Agent</code>
+          (<code>Configuration.userAgentValue</code>) i zabrania masowego pobierania.
+          Na start wystarczy — przy większym ruchu przechodzimy na własny serwer kafelków,
+          zmiana to jeden URL w źródle podkładu.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead">
+      <div class="snum">04 — Zakres</div>
+      <h2>Co z panelu wchodzi na telefon</h2>
+      <p>
+        „1:1” znaczy: ta sama funkcja i ten sam wynik, nie ten sam układ pikseli. Pasek szukania
+        z panelu ma cztery pola w jednej linii — na 5,5 cala to się nie mieści, więc rozkłada się
+        na pole u góry i arkusz filtrów. Reszta jest przeniesiona wprost.
+      </p>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Funkcja w panelu</th><th>Na telefonie</th><th>Jak</th></tr></thead>
+        <tbody>
+          <tr><td>Pięć widoków (Flota · Bieżący · Zakończeni · Serwisy · Przeglądy)</td><td><span class="tag jest">1:1</span></td><td>Przewijany pasek zamiast zakładek; te same liczniki, ten sam reset filtrów przy zmianie widoku.</td></tr>
+          <tr><td>Chipy etapu/statusu jako legenda i filtr</td><td><span class="tag jest">1:1</span></td><td>Te same kolory, etykiety i kolejność — „badge” liczony w warstwie domenowej, jak w <code>page.tsx</code>.</td></tr>
+          <tr><td>Piny z literą + klastrowanie</td><td><span class="tag jest">1:1</span></td><td>osmdroid + <code>RadiusMarkerClusterer</code>; ikona rysowana z tego samego wzoru (koło 22 dp, biała obwódka, inicjał).</td></tr>
+          <tr><td>Heatmapa</td><td><span class="tag jest">1:1</span></td><td>osmdroid nie ma warstwy cieplnej — rysujemy własny <code>Overlay</code> z tym samym gradientem co <code>leaflet.heat</code>.</td></tr>
+          <tr><td>Szukanie: słowo kluczowe</td><td><span class="tag jest">1:1</span></td><td>Pole u góry, filtruje po nazwie, mieście i nazwach instalacji.</td></tr>
+          <tr><td>Szukanie: lokalizacja + promień</td><td><span class="tag mock">w arkuszu</span></td><td>Podpowiedzi z geokodera, te same progi (5–100 km), ten sam okrąg na mapie i ten sam haversine.</td></tr>
+          <tr><td>Filtr opiekuna (główny / etapowy) i serwisanta</td><td><span class="tag jest">1:1</span></td><td>Segment + lista osób z licznikami; słownik osób ten sam co w kreatorze zadań.</td></tr>
+          <tr><td>Filtr rodzaju instalacji</td><td><span class="tag jest">1:1</span></td><td>Lista root-kategorii z licznikami.</td></tr>
+          <tr><td>Lista „bez lokalizacji”</td><td><span class="tag jest">1:1</span></td><td>Rozwijany pasek pod mapą; wiersz prowadzi do karty klienta, gdzie adres da się zwalidować.</td></tr>
+          <tr><td>Zoom scrollem tylko z Ctrl (i podpowiedź o tym)</td><td><span class="tag brak">pomijamy</span></td><td>Rozwiązuje problem, którego dotyk nie ma — mapa nie kradnie przewijania strony.</td></tr>
+          <tr><td>Zaślepka „Flota” z odnośnikiem do modułu Zasoby</td><td><span class="tag mock">skrót</span></td><td>Zostaje sam komunikat: Zasoby są świadomie pominięte na mobile, więc nie ma dokąd prowadzić.</td></tr>
+          <tr><td>—</td><td><span class="tag jest">tylko mobile</span></td><td>Moja lokalizacja jako środek promienia, nawigacja do punktu, telefon do klienta, praca bez zasięgu.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead">
+      <div class="snum">05 — Realizacja</div>
+      <h2>Plan po ustaleniach</h2>
+      <p>
+        Cztery etapy w kolejności, w której każdy zostawia działającą aplikację. M1 daje mapę
+        klientów — sam w sobie użyteczny moduł. M4 domyka komplet pięciu widoków z panelu.
+      </p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="no">M1</div>
+        <div>
+          <h3>Mapa klientów</h3>
+          <p>
+            osmdroid w <code>libs.versions.toml</code>, podkład OSM z własnym
+            <code>User-Agent</code>, trasa <code>map</code> zamiast zaślepki. Punkty z dealów
+            i klientów, „badge” (kolor, etykieta, kolejność, litera) liczony w warstwie domenowej —
+            dokładnie tak jak dziś w <code>page.tsx</code>, żeby serwisy i przeglądy wpięły się
+            później bez zmiany rysowania. Klastrowanie, chipy, szukanie po słowie, lista bez
+            lokalizacji, przycisk „dopasuj widok”.
+          </p>
+          <div class="files">
+            <i>MapScreen.kt · MapViewModel.kt</i><i>MapPoint.kt (domain)</i><i>MapBadge.kt</i>
+            <i>OsmMapView.kt (AndroidView)</i><i>MarkerIcons.kt</i><i>MapClusterer.kt</i>
+            <i>TeamTalkNavGraph.kt +map</i><i>libs.versions.toml +osmdroid</i>
+          </div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="no">M2</div>
+        <div>
+          <h3>Lokalizacja, promień i nawigacja</h3>
+          <p>
+            Arkusz filtrów: opiekun główny/etapowy, osoba, rodzaj instalacji, lokalizacja z geokodera
+            albo z GPS, promień 5–100 km z okręgiem na mapie. Do tego karta punktu z akcjami:
+            karta deala, nawigacja intentem <code>geo:</code>, telefon. Po stronie API nowa trasa
+            <code>/api/geo/suggest</code> — przeniesiona logika z <code>web/src/app/app/geo</code>.
+          </p>
+          <div class="files">
+            <i>MapFilterSheet.kt</i><i>MapPointSheet.kt</i><i>GeoSuggestRepository.kt</i>
+            <i>LocationProvider.kt</i><i>AndroidManifest +ACCESS_FINE_LOCATION</i>
+            <i>api: geo.controller.ts</i>
+          </div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="no">M3</div>
+        <div>
+          <h3>Serwisy, heatmapa i offline</h3>
+          <p>
+            Widoki „Serwisy” i „Przeglądy” ze zleceń serwisowych wraz z filtrem serwisanta
+            i znacznikiem po SLA. Heatmapa jako własny <code>Overlay</code> z gradientem
+            z <code>leaflet.heat</code>. Punkty lądują w Room (migracja 6→7), a kafelki w cache
+            osmdroida — mapa otwiera się w kotłowni bez zasięgu, z datą ostatniej synchronizacji.
+          </p>
+          <div class="files">
+            <i>ServiceJobDto.kt · TechnicianDto.kt</i><i>MapPointEntity.kt · MapPointDao.kt</i>
+            <i>HeatOverlay.kt</i><i>Room 6→7</i><i>TeamTalkApi +service-jobs +technicians</i>
+          </div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="no">M4</div>
+        <div>
+          <h3>Przeglądy gwarancyjne</h3>
+          <p>
+            Karty Panasonic jako piny z literą „P” i statusem karty. Po stronie panelu nowa trasa
+            <code>/api/warranty-cards/geo</code> ze snapshotu, po stronie telefonu — cache w Room.
+            Karta bez współrzędnych trafia na listę „bez lokalizacji”, tak jak w panelu.
+          </p>
+          <div class="files">
+            <i>WarrantyCardDto.kt</i><i>api: warranty-cards.controller.ts +geo</i>
+            <i>api: warranty-geo (źródło snapshotu)</i><i>MapViewModel (widok inspection)</i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead">
+      <div class="snum">06 — Ustalenia</div>
+      <h2>Co zapadło, co zostaje otwarte</h2>
+      <p>Cztery decyzje z 2 września 2026 wyznaczają zakres; trzy rzeczy domykamy w trakcie M1–M2.</p>
+    </div>
+    <div class="qs">
+      <div class="qq">
+        <h3>osmdroid, nie Google Maps <span class="tag jest">ustalone</span></h3>
+        <p>
+          Te same kafelki OSM co Leaflet w panelu, bez klucza API i bez Play Services — działa też
+          na telefonach bez usług Google, a mapa wygląda identycznie po obu stronach. Koszt:
+          klastrowanie z <code>osmdroid-bonuspack</code> i heatmapa napisana samodzielnie.
+          Pierwszy build wymaga sieci — tych bibliotek nie ma w lokalnym cache Gradle.
+        </p>
+      </div>
+      <div class="qq">
+        <h3>Wszystkie pięć widoków <span class="tag jest">ustalone</span></h3>
+        <p>
+          Pełne odwzorowanie panelu, łącznie z zaślepką Floty. Wymaga dopisania do Retrofita
+          trzech źródeł (<code>/service-jobs</code>, <code>/technicians</code>,
+          <code>/warranty-cards</code>) — dlatego wchodzą w M3 i M4, po działającej mapie klientów.
+        </p>
+      </div>
+      <div class="qq">
+        <h3>Geo kart gwarancyjnych z API <span class="tag jest">ustalone</span></h3>
+        <p>
+          Zamiast kopiować <code>warranty-geo.json</code> do assetów — nowa trasa
+          <code>GET /api/warranty-cards/geo</code>. Jedno źródło dla panelu i telefonu; po
+          regeneracji snapshotu nie trzeba wydawać nowego APK.
+        </p>
+      </div>
+      <div class="qq">
+        <h3>GPS, nawigacja i praca bez zasięgu <span class="tag jest">ustalone</span></h3>
+        <p>
+          Trzy rzeczy, których panel nie ma, bo nie ma po co: „jestem tutaj” jako środek promienia,
+          nawigacja do klienta i mapa działająca bez sieci. To jest powód, dla którego mapa na
+          telefonie w ogóle zarabia na miejsce.
+        </p>
+      </div>
+      <div class="qq">
+        <h3>Otwarte: co znaczy „bez zasięgu” dla kafelków?</h3>
+        <p>
+          Punkty w Room to sprawa prosta. Kafelki są cięższe: cache osmdroida trzyma tylko to,
+          co użytkownik już obejrzał, więc mapa okolicy klienta, w której nikt nie był, będzie pusta.
+          Alternatywa to wcześniejsze pobranie obszaru — kosztem miejsca na telefonie i regulaminu OSM.
+        </p>
+        <div class="opts"><i>Tylko cache z użycia</i><i>Pobranie województwa na życzenie</i><i>Pobranie promienia wokół trasy dnia</i></div>
+        <p class="rec">Sugeruję na start sam cache z użycia — dopiero po nim widać, czy brakuje więcej.</p>
+      </div>
+      <div class="qq">
+        <h3>Otwarte: czy heatmapa jest potrzebna w pierwszej wersji?</h3>
+        <p>
+          W panelu służy do patrzenia na skupiska w skali województwa. Na telefonie widać zwykle
+          jedną okolicę, gdzie heatmapa mówi mniej niż piny. Własny overlay to realna robota — można
+          go przesunąć za M3.
+        </p>
+        <div class="opts"><i>W M3, jak zaplanowano</i><i>Po pierwszym wydaniu</i></div>
+      </div>
+      <div class="qq">
+        <h3>Otwarte: skąd numer telefonu w karcie punktu?</h3>
+        <p>
+          Karta punktu pokazuje akcję „Zadzwoń”, ale <code>/api/deals</code> zwraca sam identyfikator
+          klienta. Albo dociągamy telefon z listy klientów (jest już w cache CRM), albo akcja prowadzi
+          do karty klienta i tam dzwoni.
+        </p>
+        <div class="opts"><i>Numer z cache klientów</i><i>Przez kartę klienta</i></div>
+        <p class="rec">Sugeruję numer z cache — moduł Klienci i tak trzyma pełną kartotekę lokalnie.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer class="end">
+    <span>TeamTalk Android · moduł Mapa</span>
+    <span>źródła: web/src/app/app/map · api/src/modules/service · presentation/crm</span>
+    <span>design/mockups/modul-mapa.html</span>
+  </footer>
+
+</div>

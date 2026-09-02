@@ -7,6 +7,7 @@ import androidx.datastore.preferences.preferencesDataStoreFile
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.room.Room
 import com.ekotak.teamtalk.data.local.dao.*
+import com.ekotak.teamtalk.data.local.database.MIGRATION_6_7
 import com.ekotak.teamtalk.data.local.database.TeamTalkDatabase
 import dagger.Module
 import dagger.Provides
@@ -20,15 +21,18 @@ import javax.inject.Singleton
 object DatabaseModule {
 
     /**
-     * Baza jest cache'em, więc podniesienie wersji kasuje ją zamiast pisać
-     * migrację. UWAGA przy kolejnej zmianie schematu: od wersji 6 leży tu też
-     * kolejka niewysłanych zmian zadań (`task_mutations`) — tego skasować nie
-     * wolno bez zastanowienia, bo to jedyna kopia decyzji zrobionych offline.
+     * Baza jest cache'em, więc podniesienie wersji zwykle kasuje ją zamiast
+     * pisać migrację. UWAGA: od wersji 6 leży tu też kolejka niewysłanych zmian
+     * zadań (`task_mutations`) — tego skasować nie wolno bez zastanowienia, bo
+     * to jedyna kopia decyzji zrobionych offline. Dlatego wersja 7 (cache mapy)
+     * dochodzi migracją, a kasowanie zostaje wyłącznie jako ostatnia deska
+     * ratunku dla ścieżek, których nie obsłużyliśmy.
      */
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): TeamTalkDatabase =
         Room.databaseBuilder(context, TeamTalkDatabase::class.java, "teamtalk.db")
+            .addMigrations(MIGRATION_6_7)
             .fallbackToDestructiveMigration()
             .build()
 
@@ -47,4 +51,5 @@ object DatabaseModule {
     @Provides fun provideDeviceDao(db: TeamTalkDatabase): DeviceDao               = db.deviceDao()
     @Provides fun provideTaskDao(db: TeamTalkDatabase): TaskDao                   = db.taskDao()
     @Provides fun provideTaskMutationDao(db: TeamTalkDatabase): TaskMutationDao   = db.taskMutationDao()
+    @Provides fun provideMapPointDao(db: TeamTalkDatabase): MapPointDao           = db.mapPointDao()
 }
