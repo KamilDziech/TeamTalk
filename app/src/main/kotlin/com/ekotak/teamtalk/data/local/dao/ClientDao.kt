@@ -13,16 +13,8 @@ interface ClientDao {
     @Query("SELECT * FROM clients ORDER BY lastName, firstName")
     fun observeAll(): Flow<List<ClientEntity>>
 
-    @Query("""
-        SELECT * FROM clients
-        WHERE firstName LIKE '%' || :query || '%'
-           OR lastName  LIKE '%' || :query || '%'
-           OR phone     LIKE '%' || :query || '%'
-           OR phone2    LIKE '%' || :query || '%'
-           OR email     LIKE '%' || :query || '%'
-        ORDER BY lastName, firstName
-    """)
-    fun observeByQuery(query: String): Flow<List<ClientEntity>>
+    // Szukania nie ma tu celowo: `LIKE` porównuje hasło z każdą kolumną osobno
+    // i nie zna polskich ogonków, więc filtruje ClientRepositoryImpl.
 
     @Query("SELECT * FROM clients WHERE id = :id LIMIT 1")
     fun observeById(id: String): Flow<ClientEntity?>

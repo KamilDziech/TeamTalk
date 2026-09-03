@@ -10,6 +10,7 @@ import com.ekotak.teamtalk.domain.model.DealStage
 import com.ekotak.teamtalk.domain.model.DuplicateGroup
 import com.ekotak.teamtalk.domain.model.duplicateGroups
 import com.ekotak.teamtalk.domain.repository.AuthRepository
+import com.ekotak.teamtalk.domain.search.matchesQuery
 import com.ekotak.teamtalk.domain.usecase.calllog.GetCallLogsUseCase
 import com.ekotak.teamtalk.domain.usecase.calllog.MakeCallUseCase
 import com.ekotak.teamtalk.domain.usecase.client.ClientDirectoryData
@@ -232,13 +233,6 @@ class ClientListViewModel @Inject constructor(
         }
     }
 
-    private fun matches(client: Client, query: String): Boolean = listOfNotNull(
-        client.displayName,
-        client.phone,
-        client.phone2,
-        client.email,
-        client.email2,
-        client.address,
-        client.place,
-    ).any { it.contains(query, ignoreCase = true) }
+    /** Wspólne dopasowanie: hasło po słowach, bez ogonków (patrz TextSearch). */
+    private fun matches(client: Client, query: String): Boolean = client.matchesQuery(query)
 }

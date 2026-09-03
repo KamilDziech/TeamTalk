@@ -17,6 +17,8 @@ import com.ekotak.teamtalk.domain.model.membersFrom
 import com.ekotak.teamtalk.domain.repository.ClientRepository
 import com.ekotak.teamtalk.domain.repository.DealRepository
 import com.ekotak.teamtalk.domain.repository.TaskRepository
+import com.ekotak.teamtalk.domain.search.matchesQuery
+import com.ekotak.teamtalk.domain.search.similarTo
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -64,12 +66,6 @@ enum class VoiceField {
     PERSON,
     CONTACT_FIRST_NAME,
     CONTACT_LAST_NAME,
-}
-
-/** Dopasowanie do frazy z wyszukiwarki; pusta fraza pasuje do wszystkiego. */
-private fun String.matchesQuery(query: String): Boolean {
-    val q = query.trim().lowercase()
-    return q.isEmpty() || lowercase().contains(q)
 }
 
 @HiltViewModel
@@ -125,6 +121,14 @@ class CreateTaskViewModel @Inject constructor(
         val subjectMode: SubjectMode = SubjectMode.CLIENT,
         val clientQuery: String = "",
         val clients: List<Client> = emptyList(),
+        /** Cała kartoteka z pamięci telefonu — po niej szukamy podobnych nazwisk. */
+        val allClients: List<Client> = emptyList(),
+        /**
+         * Hasła, przy których użytkownik odpowiedział „to ktoś nowy". Trzymamy
+         * treść, a nie samo „tak/nie", żeby pytanie wróciło samo, gdy wpisze
+         * coś innego.
+         */
+        val dismissedSuggestion: String? = null,
         val selectedClient: Client? = null,
         val clientDeals: List<Deal> = emptyList(),
         val isLoadingDeals: Boolean = false,
@@ -158,6 +162,34 @@ class CreateTaskViewModel @Inject constructor(
 
         /** Czy trwa dyktowanie do wskazanego pola. */
         fun isListening(field: VoiceField): Boolean = voiceField == field
+
+        /**
+         * Nazwy, do których szukamy podobnych: hasło z wyszukiwarki i to, co
+         * użytkownik zdążył wpisać w nowym kontakcie. Oba naraz, bo połowa
+         * duplikatów powstaje tak, że ktoś nie znalazł osoby w kartotece
+         * i zaczął ją wpisywać ręcznie tuż pod spodem.
+         */
+        val suggestionProbes: List<String>
+            get() = listOf(clientQuery, newContact.displayName).filter { it.isNotBlank() }
+
+        /** Klucz odpowiedzi „to ktoś nowy" — zmiana hasła przywraca pytanie. */
+        val suggestionKey: String get() = suggestionProbes.joinToString("|")
+
+        /**
+         * Wpisy z kartoteki na tyle podobne do wpisanej nazwy, że trzeba
+         * zapytać, czy nie chodzi o którąś z nich. Pytamy tylko wtedy, gdy
+         * wyszukiwarka nic nie znalazła albo ktoś zakłada nowy kontakt —
+         * przy trafieniach lista i tak stoi obok.
+         */
+        val similarClients: List<Client>
+            get() {
+                if (suggestionKey.isBlank() || dismissedSuggestion == suggestionKey) return emptyList()
+                if (clients.isNotEmpty() && newContact.displayName.isBlank()) return emptyList()
+                return allClients.similarTo(
+                    probes = suggestionProbes,
+                    exclude = clients.map { it.id }.toSet() + setOfNotNull(selectedClient?.id),
+                )
+            }
 
         /**
          * Projekty po zawężeniu wyszukiwarką. Wybrany zostaje na liście nawet gdy
@@ -211,7 +243,7 @@ class CreateTaskViewModel @Inject constructor(
 
     init {
         loadMembers()
-        observeClients("")
+        observeAllClients()
         if (presetClientId != null) loadPresetClient(presetClientId)
     }
 
@@ -418,15 +450,60 @@ class CreateTaskViewModel @Inject constructor(
         observeClients(query)
     }
 
+    /**
+     * Cała kartoteka, przez cały czas trwania kreatora — z niej biorą się
+     * podobne nazwiska i lista przy pustej wyszukiwarce. Osobno od [searchJob],
+     * bo tamten gaśnie przy każdej literze.
+     */
+    private fun observeAllClients() {
+        viewModelScope.launch {
+            clientRepository.getClients(null).collect { list ->
+                _uiState.update {
+                    it.copy(
+                        allClients = list,
+                        // Przy pustym haśle „wyniki" to po prostu kartoteka.
+                        clients = if (it.clientQuery.isBlank()) list.take(MAX_CLIENT_RESULTS) else it.clients,
+                    )
+                }
+            }
+        }
+    }
+
     private fun observeClients(query: String) {
         searchJob?.cancel()
+        if (query.isBlank()) {
+            _uiState.update { it.copy(clients = it.allClients.take(MAX_CLIENT_RESULTS)) }
+            return
+        }
         searchJob = viewModelScope.launch {
-            if (query.isNotBlank()) delay(250) // odsapnięcie przy pisaniu
-            clientRepository.getClients(query.ifBlank { null }).collect { list ->
+            delay(250) // odsapnięcie przy pisaniu
+            clientRepository.getClients(query).collect { list ->
                 _uiState.update { it.copy(clients = list.take(MAX_CLIENT_RESULTS)) }
             }
         }
     }
+
+    /**
+     * „Tak, to ten klient" — podpowiedź zastępuje wpisywany kontakt, żeby
+     * zapis nie założył duplikatu tuż obok istniejącej karty.
+     */
+    fun onSuggestionAccept(client: Client) {
+        _uiState.update {
+            it.copy(
+                subjectMode = SubjectMode.CLIENT,
+                selectedProjectId = null,
+                clientQuery = client.displayName,
+                newContact = NewContact(),
+                dismissedSuggestion = null,
+            )
+        }
+        observeClients(client.displayName)
+        onClientSelect(client)
+    }
+
+    /** „Nie, to ktoś nowy" — chowa pytanie do czasu zmiany wpisanej nazwy. */
+    fun onSuggestionDismiss() =
+        _uiState.update { it.copy(dismissedSuggestion = it.suggestionKey) }
 
     fun onClientSelect(client: Client?) {
         if (client == null || _uiState.value.selectedClient?.id == client.id) {

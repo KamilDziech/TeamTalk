@@ -415,6 +415,40 @@ private fun StepSubject(
     }
 }
 
+/**
+ * Pytanie „czy to nie ta osoba?" — wpisy z kartoteki na tyle podobne do
+ * wpisanej nazwy, że nowy kontakt byłby duplikatem. Wchodzi tam, gdzie
+ * wyszukiwarka nic nie znalazła: literówka, przekręcone nazwisko z dyktowania
+ * albo drugie imię, którego w kartotece nie ma.
+ */
+@Composable
+private fun SimilarClients(state: CreateTaskViewModel.UiState, vm: CreateTaskViewModel) {
+    val similar = state.similarClients
+    if (similar.isEmpty()) return
+
+    Label("Czy chodzi o kogoś z kartoteki?")
+    Hint(
+        if (similar.size == 1) "Dokładnie takiego wpisu nie ma, ale ten jest bardzo podobny."
+        else "Dokładnie takiego wpisu nie ma, ale te są bardzo podobne."
+    )
+    similar.forEach { client ->
+        ChoiceRow(
+            title = client.displayName,
+            subtitle = listOfNotNull(client.primaryPhone, client.place).joinToString(" · "),
+            initials = initialsOf(client.displayName),
+            selected = false,
+            onClick = { vm.onSuggestionAccept(client) },
+        )
+    }
+    ChoiceRow(
+        title = "Nie, to ktoś nowy",
+        subtitle = "załóż nowy kontakt poniżej",
+        initials = "+",
+        selected = false,
+        onClick = vm::onSuggestionDismiss,
+    )
+}
+
 @Composable
 private fun ClientPicker(
     state: CreateTaskViewModel.UiState,
@@ -440,9 +474,11 @@ private fun ClientPicker(
         )
     }
 
-    if (state.clientQuery.isNotBlank() && state.clients.isEmpty()) {
+    if (state.clientQuery.isNotBlank() && state.clients.isEmpty() && state.similarClients.isEmpty()) {
         Hint("Nikogo takiego nie ma w kartotece — załóż go poniżej jako nowy kontakt.")
     }
+
+    SimilarClients(state, vm)
 
     state.selectedClient?.let { ClientDeals(state, vm) }
 

@@ -15,6 +15,7 @@ import com.ekotak.teamtalk.domain.model.Client
 import com.ekotak.teamtalk.domain.model.ClientDraft
 import com.ekotak.teamtalk.domain.model.NewClient
 import com.ekotak.teamtalk.domain.repository.ClientRepository
+import com.ekotak.teamtalk.domain.search.matchesQuery
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.map
@@ -26,14 +27,20 @@ class ClientRepositoryImpl @Inject constructor(
     private val clientDao: ClientDao,
 ) : ClientRepository {
 
+    /**
+     * Szukanie leci po stronie aplikacji, nie zapytaniem SQL. `LIKE` porównywał
+     * całe hasło z każdą kolumną osobno, więc „Jan Kowalski" nie trafiał w
+     * nikogo (imię jest w jednej kolumnie, nazwisko w drugiej), a ogonki
+     * rozjeżdżały wielkość liter. [matchesQuery] dzieli hasło na słowa i zdejmuje
+     * ogonki; kartoteka mieści się w pamięci — cała ładuje się i tak na mapę.
+     */
     override fun getClients(query: String?): Flow<List<Client>> = channelFlow {
-        val localFlow = if (query.isNullOrBlank()) {
-            clientDao.observeAll()
-        } else {
-            clientDao.observeByQuery(query)
+        val localFlow = clientDao.observeAll().map { rows ->
+            val clients = rows.map { it.toDomain() }
+            if (query.isNullOrBlank()) clients else clients.filter { it.matchesQuery(query) }
         }
 
-        launch { localFlow.map { it.map { e -> e.toDomain() } }.collect(::send) }
+        launch { localFlow.collect(::send) }
 
         try {
             val fresh = api.getClients(q = query)
