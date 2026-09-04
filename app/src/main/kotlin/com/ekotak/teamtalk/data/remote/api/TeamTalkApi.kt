@@ -349,13 +349,52 @@ interface TeamTalkApi {
     @GET("api/service-jobs")
     suspend fun getServiceJobs(): List<ServiceJobResponseDto>
 
-    /** Serwisanci — filtr osoby w widokach serwisowych. */
+    /** Pojedyncze zlecenie — wejście w kartę z powiadomienia o SLA. */
+    @GET("api/service-jobs/{id}")
+    suspend fun getServiceJob(@Path("id") id: String): ServiceJobResponseDto
+
+    /** Nowe zgłoszenie / przegląd. Wymaga `service.manage`. */
+    @POST("api/service-jobs")
+    suspend fun createServiceJob(@Body body: ServiceJobCreateDto): ServiceJobResponseDto
+
+    /**
+     * Zmiana zlecenia. Ciało budujemy jako `JsonObject` (`buildServiceJobPatch`)
+     * — API rozróżnia brak pola od jawnego `null` (np. zdjęcie serwisanta).
+     */
+    @PATCH("api/service-jobs/{id}")
+    suspend fun updateServiceJob(
+        @Path("id") id: String,
+        @Body patch: JsonObject,
+    ): ServiceJobResponseDto
+
+    /** Serwisanci — przypisanie zlecenia i filtr osoby. */
     @GET("api/technicians")
     suspend fun getTechnicians(): List<TechnicianDto>
 
     /** Karty przeglądów gwarancyjnych (Panasonic). */
     @GET("api/warranty-cards")
     suspend fun getWarrantyCards(): List<WarrantyCardDto>
+
+    /** Nowa karta gwarancyjna. */
+    @POST("api/warranty-cards")
+    suspend fun createWarrantyCard(@Body body: WarrantyCardCreateDto): WarrantyCardDto
+
+    /** Zmiana pól karty (producent, status, notatka, numery seryjne). */
+    @PATCH("api/warranty-cards/{id}")
+    suspend fun updateWarrantyCard(
+        @Path("id") id: String,
+        @Body patch: JsonObject,
+    ): WarrantyCardDto
+
+    /**
+     * Zapis pozycji harmonogramu (rok 1..5) — trasa jest upsertem po `ordinal`,
+     * więc odpowiada całą kartą z przeliczonymi licznikami.
+     */
+    @PUT("api/warranty-cards/{id}/inspections")
+    suspend fun upsertWarrantyInspection(
+        @Path("id") id: String,
+        @Body body: JsonObject,
+    ): WarrantyCardDto
 
     /**
      * Współrzędne kart ze snapshotu geokodera. Osobna trasa, bo karta trzyma

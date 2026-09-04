@@ -13,10 +13,12 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.ekotak.teamtalk.data.notification.NotificationHelper
 import com.ekotak.teamtalk.data.sync.CalendarSyncScheduler
+import com.ekotak.teamtalk.data.sync.ServiceSyncScheduler
 import com.ekotak.teamtalk.data.sync.TaskSyncScheduler
 import com.ekotak.teamtalk.service.CallMonitorService
 import com.ekotak.teamtalk.worker.CalendarReminderWorker
 import com.ekotak.teamtalk.worker.MentionsWorker
+import com.ekotak.teamtalk.worker.ServiceSlaWorker
 import com.ekotak.teamtalk.worker.TaskReminderWorker
 import dagger.hilt.android.HiltAndroidApp
 import java.util.concurrent.TimeUnit
@@ -28,6 +30,8 @@ class TeamTalkApp : Application(), Configuration.Provider {
     @Inject lateinit var workerFactory: HiltWorkerFactory
 
     @Inject lateinit var taskSyncScheduler: TaskSyncScheduler
+
+    @Inject lateinit var serviceSyncScheduler: ServiceSyncScheduler
 
     @Inject lateinit var calendarSyncScheduler: CalendarSyncScheduler
 
@@ -41,11 +45,28 @@ class TeamTalkApp : Application(), Configuration.Provider {
         createNotificationChannel()
         scheduleMentionsPolling()
         scheduleTaskReminders()
+        scheduleSlaAlerts()
         scheduleCalendarReminders()
         // Proces mógł zginąć z pełną kolejką zmian — przy starcie prosimy
         // o jej opróżnienie. Pusta kolejka kończy robotnika od razu.
         taskSyncScheduler.scheduleSync()
+        serviceSyncScheduler.scheduleSync()
         calendarSyncScheduler.scheduleSync()
+    }
+
+    /**
+     * Alarmy okna SLA. Co 15 minut — krócej WorkManager nie pozwala, a okno
+     * awarii to 24 h, więc kwadrans rozdzielczości w zupełności wystarcza.
+     * Bez warunku sieci: robotnik liczy z cache, więc ostrzeże także wtedy, gdy
+     * telefon siedzi w kotłowni bez zasięgu.
+     */
+    private fun scheduleSlaAlerts() {
+        val request = PeriodicWorkRequestBuilder<ServiceSlaWorker>(15, TimeUnit.MINUTES).build()
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            ServiceSlaWorker.UNIQUE_NAME,
+            ExistingPeriodicWorkPolicy.KEEP,
+            request,
+        )
     }
 
     /**
@@ -136,6 +157,15 @@ class TeamTalkApp : Application(), Configuration.Provider {
                     NotificationManager.IMPORTANCE_DEFAULT,
                 ).apply {
                     description = "Zadania z terminem na dziś albo po terminie"
+                }
+            )
+            nm.createNotificationChannel(
+                NotificationChannel(
+                    NotificationHelper.SLA_CHANNEL_ID,
+                    "Okno SLA serwisu",
+                    NotificationManager.IMPORTANCE_HIGH,
+                ).apply {
+                    description = "Twoje zlecenie awaryjne zbliża się do końca okna SLA"
                 }
             )
             nm.createNotificationChannel(

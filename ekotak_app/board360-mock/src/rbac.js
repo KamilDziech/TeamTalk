@@ -16,6 +16,9 @@ const ALL_PERMS = [
   'tasks.manage',
   'projects.view',
   'projects.manage',
+  // Modul Serwis (zlecenia + karty przegladow gwarancyjnych).
+  'service.view',
+  'service.manage',
   // Modul Kalendarz — jedno uprawnienie na odczyt i zapis; o prawie pisania
   // decyduje poziom dostepu do kalendarza, nie rola (jak w board360).
   'calendar.view',
@@ -31,18 +34,21 @@ const ROLE_PERMS = {
   koordynator: [
     'crm.view', 'deal.manage', 'telephony.use', 'reports.view',
     'tasks.view', 'tasks.manage', 'projects.view', 'projects.manage',
-    'calendar.view', 'calendar.override_busy',
+    'service.view', 'service.manage', 'calendar.view', 'calendar.override_busy',
   ],
   // Serwisant widzi projekty, ale nie zaklada w nich zadan — na tym koncie da sie
   // na telefonie sprawdzic, ze krok "projekt" w kreatorze konczy sie kodem 403.
   serwisant: [
     'crm.view', 'telephony.use', 'tasks.view', 'tasks.manage', 'projects.view',
-    'calendar.view',
+    'service.view', 'service.manage', 'calendar.view',
   ],
+  // Biuro celowo BEZ serwisu — tak samo jak w board360, gdzie modul Serwis ma
+  // role admin / koordynator / serwisant / montaz. Konta biurowego seed nie
+  // zaklada, wiec sciezke 403 sprawdza sie recznie (zmiana roli w seedzie).
   biuro: ['crm.view', 'deal.manage', 'tasks.view', 'tasks.manage', 'projects.view', 'calendar.view', 'calendar.override_busy'],
   montaz: [
     'crm.view', 'tasks.view', 'tasks.manage', 'projects.view',
-    'calendar.view',
+    'service.view', 'service.manage', 'calendar.view',
   ],
   stazysta: [],
 };

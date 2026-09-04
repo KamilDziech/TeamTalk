@@ -26,6 +26,9 @@ class NotificationHelper @Inject constructor(
         const val MENTIONS_CHANNEL_ID = "mentions"
         const val REMINDERS_CHANNEL_ID = "task_reminders"
 
+        /** Alarmy okna SLA zleceń serwisowych (2 h przed i po przekroczeniu). */
+        const val SLA_CHANNEL_ID = "service_sla"
+
         /** Przypomnienia o wydarzeniach kalendarza (30 min przed). */
         const val CALENDAR_CHANNEL_ID = "calendar_reminders"
 
@@ -110,6 +113,45 @@ class NotificationHelper @Inject constructor(
             .build()
 
         NotificationManagerCompat.from(context).notify(REMINDER_NOTIFICATION_ID, notification)
+    }
+
+    /**
+     * Alarm okna SLA własnego zlecenia awaryjnego: dwie godziny przed końcem
+     * i w chwili przekroczenia (ustalenie 2026-09-02). Id liczymy ze zlecenia,
+     * więc drugi alarm podmienia pierwszy zamiast piętrzyć się w szufladzie.
+     * Dotknięcie otwiera kartę zlecenia.
+     */
+    fun showSlaAlert(title: String, text: String, jobId: String, urgent: Boolean) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED
+        ) return
+
+        val contentIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra(MainActivity.EXTRA_SERVICE_JOB_ID, jobId)
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            jobId.hashCode(),
+            contentIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+        val notification = NotificationCompat.Builder(context, SLA_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_ekotak)
+            .setColor(ContextCompat.getColor(context, R.color.ekotak_green))
+            .setContentTitle(title)
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setPriority(
+                if (urgent) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_DEFAULT,
+            )
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .build()
+
+        NotificationManagerCompat.from(context).notify(jobId.hashCode(), notification)
     }
 
     /**

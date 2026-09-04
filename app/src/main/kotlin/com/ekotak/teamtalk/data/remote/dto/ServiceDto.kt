@@ -3,9 +3,9 @@ package com.ekotak.teamtalk.data.remote.dto
 import kotlinx.serialization.Serializable
 
 /**
- * Zlecenie serwisowe (`GET /api/service-jobs`). Na mapie interesuje nas typ
- * (awaria → widok „Serwisy", przegląd/konserwacja → „Przeglądy"), status,
- * serwisant i flaga przekroczonego SLA — resztę pól zostawiamy na moduł Serwis.
+ * Zlecenie serwisowe (`GET /api/service-jobs`). Komplet pól kontraktu board360 —
+ * moduł Mapa czyta z tego typ, status i SLA, moduł Serwis potrzebuje reszty
+ * (opis usterki, priorytet, okno SLA) do listy i karty zlecenia.
  */
 @Serializable
 data class ServiceJobResponseDto(
@@ -24,7 +24,19 @@ data class ServiceJobResponseDto(
     val slaBreached: Boolean = false,
 )
 
-/** Serwisant (`GET /api/technicians`) — do filtra osoby w widokach serwisowych. */
+/** Ciało `POST /api/service-jobs`. Klient opcjonalny — zapis „na szybko”. */
+@Serializable
+data class ServiceJobCreateDto(
+    val type: String,
+    val clientId: String? = null,
+    val technicianId: String? = null,
+    val scheduledAt: String? = null,
+    val note: String? = null,
+    val priority: String? = null,
+    val slaHours: Int? = null,
+)
+
+/** Serwisant (`GET /api/technicians`) — przypisanie i filtr osoby. */
 @Serializable
 data class TechnicianDto(
     val id: String,
@@ -34,19 +46,24 @@ data class TechnicianDto(
     val region: String? = null,
 )
 
-/** Przegląd w karcie gwarancyjnej — potrzebny tylko po to, by wskazać serwisanta. */
+/** Przegląd w karcie gwarancyjnej — jedna pozycja harmonogramu (rok 1..5). */
 @Serializable
 data class WarrantyInspectionDto(
     val id: String,
+    val cardId: String = "",
     val ordinal: Int = 0,
     val plannedAt: String? = null,
     val doneAt: String? = null,
+    val price: Int? = null,
     val technicianId: String? = null,
+    val note: String? = null,
     /** `done` / `overdue` / `planned` / `unscheduled` — liczone przez API. */
     val computedStatus: String = "unscheduled",
+    /** Data planowana przed uruchomieniem instalacji — do korekty. */
+    val suspect: Boolean = false,
 )
 
-/** Karta gwarancyjna Panasonic (`GET /api/warranty-cards`) — widok „Przeglądy". */
+/** Karta gwarancyjna Panasonic (`GET /api/warranty-cards`). */
 @Serializable
 data class WarrantyCardDto(
     val id: String,
@@ -54,9 +71,33 @@ data class WarrantyCardDto(
     val name: String = "",
     /** Adres jako wolny tekst; współrzędne idą osobno ze snapshotu geo. */
     val location: String? = null,
+    val commissionedAt: String? = null,
     val status: String = "inne",
-    val nextPlannedAt: String? = null,
+    val outdoorModel: String? = null,
+    val outdoorSerial: String? = null,
+    val indoorModel: String? = null,
+    val indoorSerial: String? = null,
+    val note: String? = null,
     val inspections: List<WarrantyInspectionDto> = emptyList(),
+    val doneCount: Int = 0,
+    val overdueCount: Int = 0,
+    val suspectCount: Int = 0,
+    val nextPlannedAt: String? = null,
+)
+
+/** Ciało `POST /api/warranty-cards`. */
+@Serializable
+data class WarrantyCardCreateDto(
+    val name: String,
+    val brand: String? = null,
+    val location: String? = null,
+    val commissionedAt: String? = null,
+    val status: String? = null,
+    val outdoorModel: String? = null,
+    val outdoorSerial: String? = null,
+    val indoorModel: String? = null,
+    val indoorSerial: String? = null,
+    val note: String? = null,
 )
 
 /**

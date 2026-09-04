@@ -60,5 +60,8 @@ abstract class RepositoryModule {
     abstract fun bindMapRepository(impl: MapRepositoryImpl): MapRepository
 
     @Binds @Singleton
+    abstract fun bindServiceRepository(impl: ServiceRepositoryImpl): ServiceRepository
+
+    @Binds @Singleton
     abstract fun bindCalendarRepository(impl: CalendarRepositoryImpl): CalendarRepository
 }

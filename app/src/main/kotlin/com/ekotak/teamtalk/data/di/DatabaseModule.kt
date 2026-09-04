@@ -55,6 +55,8 @@ object DatabaseModule {
     @Provides fun provideTaskDao(db: TeamTalkDatabase): TaskDao                   = db.taskDao()
     @Provides fun provideTaskMutationDao(db: TeamTalkDatabase): TaskMutationDao   = db.taskMutationDao()
     @Provides fun provideMapPointDao(db: TeamTalkDatabase): MapPointDao           = db.mapPointDao()
+    @Provides fun provideServiceDao(db: TeamTalkDatabase): ServiceDao             = db.serviceDao()
+    @Provides fun provideServiceMutationDao(db: TeamTalkDatabase): ServiceMutationDao = db.serviceMutationDao()
     @Provides fun provideCalendarDao(db: TeamTalkDatabase): CalendarDao               = db.calendarDao()
     @Provides fun provideCalendarMutationDao(db: TeamTalkDatabase): CalendarMutationDao = db.calendarMutationDao()
 }

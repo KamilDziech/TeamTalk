@@ -1,0 +1,1294 @@
+<title>Serwis i Przeglądy w TeamTalku</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Roboto:wght@400;500;700&display=swap">
+
+<style>
+/* ── Tokeny strony (te same co modul-mapa.html / modul-zadania.html) ───── */
+:root{
+  --bg:#EEF3F9; --bg-2:#DBE6F2; --surface:#FFFFFF;
+  --fg:#0F1720; --muted:#5A6B7C; --border:#C3CBD4;
+  --brand:#2FA84F; --brand-loud:#44D62C; --ink:#080808;
+  --warn:#B4680A; --danger:#C5343A; --info:#2563EB;
+  --shadow:0 1px 2px rgba(15,23,32,.06), 0 10px 30px rgba(15,23,32,.08);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0B1220; --bg-2:#12161F; --surface:#12161F;
+    --fg:#E6EDF3; --muted:#9FB0C3; --border:#2A3441;
+    --brand:#44D62C; --brand-loud:#44D62C; --ink:#080808;
+    --warn:#F59E0B; --danger:#E5484D; --info:#5B8DEF;
+    --shadow:0 1px 2px rgba(0,0,0,.5), 0 14px 40px rgba(0,0,0,.45);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0B1220; --bg-2:#12161F; --surface:#12161F;
+  --fg:#E6EDF3; --muted:#9FB0C3; --border:#2A3441;
+  --brand:#44D62C; --brand-loud:#44D62C; --ink:#080808;
+  --warn:#F59E0B; --danger:#E5484D; --info:#5B8DEF;
+  --shadow:0 1px 2px rgba(0,0,0,.5), 0 14px 40px rgba(0,0,0,.45);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--fg);
+  font-family:"Archivo","Segoe UI",system-ui,sans-serif;
+  font-size:16px; line-height:1.55; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px 96px}
+h1,h2,h3{text-wrap:balance;margin:0}
+a{color:inherit}
+code{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.88em;
+  background:var(--bg-2);border:1px solid var(--border);border-radius:5px;padding:1px 5px;
+}
+
+/* ── Nagłówek ─────────────────────────────────────────────────────── */
+.masthead{padding:52px 0 32px;border-bottom:1px solid var(--border);display:grid;gap:18px}
+.eyebrow{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
+  display:flex;flex-wrap:wrap;align-items:center;gap:10px;
+}
+.eyebrow b{color:var(--brand);font-weight:600}
+.masthead h1{font-size:clamp(34px,5.4vw,58px);font-weight:800;letter-spacing:-.025em;line-height:1.02}
+.lede{font-size:17px;color:var(--muted);max-width:62ch;margin:0}
+.lede b{color:var(--fg);font-weight:600}
+
+/* ── Sekcje ───────────────────────────────────────────────────────── */
+section{padding:52px 0 0}
+.shead{display:grid;gap:8px;margin-bottom:26px;max-width:70ch}
+.shead h2{font-size:clamp(22px,2.6vw,30px);font-weight:700;letter-spacing:-.015em}
+.shead p{margin:0;color:var(--muted);font-size:15px}
+.snum{
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--brand);font-weight:600;
+}
+
+.cards{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(268px,1fr))}
+.card{
+  background:var(--surface);border:1px solid var(--border);border-radius:14px;
+  padding:15px 17px;display:grid;gap:7px;align-content:start;
+}
+.card h3{font-size:14.5px;font-weight:700;display:flex;align-items:center;gap:8px}
+.card p{margin:0;font-size:13.5px;color:var(--muted)}
+.dot{width:9px;height:9px;border-radius:50%;flex:none;display:inline-block}
+.dot.ok{background:var(--brand)}
+.dot.part{background:var(--warn)}
+.dot.no{background:var(--danger)}
+
+.tablewrap{overflow-x:auto;border:1px solid var(--border);border-radius:14px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:700px;font-size:13.5px}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:top}
+th{
+  font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--muted);font-weight:600;white-space:nowrap;
+}
+tbody tr:last-child td{border-bottom:none}
+td.mono{font-family:"IBM Plex Mono",monospace;font-size:12px;white-space:nowrap}
+.tag{
+  font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--border);
+  color:var(--muted);white-space:nowrap;display:inline-block;
+}
+.tag.jest{color:var(--brand);border-color:color-mix(in srgb,var(--brand) 45%,var(--border))}
+.tag.brak{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 45%,var(--border))}
+.tag.mock{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 45%,var(--border))}
+.tag.nowe{color:var(--info);border-color:color-mix(in srgb,var(--info) 45%,var(--border))}
+
+/* ── Makiety: telefon ─────────────────────────────────────────────── */
+.screens{display:grid;gap:34px 26px;grid-template-columns:repeat(auto-fit,minmax(330px,1fr))}
+.screenblock{display:grid;gap:16px;justify-items:center}
+.caption{max-width:34ch;display:grid;gap:6px}
+.caption h3{font-size:15.5px;font-weight:700;display:flex;gap:9px;align-items:baseline}
+.caption h3 i{font-style:normal;font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--brand)}
+.caption p{margin:0;font-size:13px;color:var(--muted)}
+
+.phone{
+  width:340px;padding:11px;border-radius:38px;
+  background:linear-gradient(160deg,#3a4152,#161a22);box-shadow:var(--shadow);flex:none;
+}
+.device{
+  --d-bg:#0B1220;--d-surface:#12161F;--d-panel:#1A212E;
+  --d-fg:#E6EDF3;--d-muted:#9FB0C3;--d-border:#2A3441;
+  --d-brand:#44D62C;--d-ink:#080808;
+  --d-danger:#F85149;--d-warn:#E3A008;--d-info:#4AA3FF;--d-violet:#C084FC;
+  --d-svc:#FF7B54;--d-insp:#17B3A3;--d-gray:#888780;
+  width:318px;height:664px;border-radius:28px;overflow:hidden;
+  background:var(--d-bg);color:var(--d-fg);
+  font-family:"Roboto",system-ui,sans-serif;font-size:14px;line-height:1.4;
+  display:flex;flex-direction:column;position:relative;
+}
+.statusbar{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:8px 16px 2px;font-size:11px;color:var(--d-muted);
+  font-variant-numeric:tabular-nums;flex:none;
+}
+.topbar{display:flex;align-items:center;gap:6px;padding:6px 10px;flex:none}
+.iconbtn{
+  width:32px;height:32px;border-radius:50%;border:none;background:transparent;
+  color:var(--d-fg);display:grid;place-items:center;flex:none;position:relative;
+}
+.iconbtn svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.toptitle{font-size:16px;font-weight:500;flex:1;min-width:0}
+.screen{flex:1;overflow:hidden;padding:0 12px 8px;display:flex;flex-direction:column;gap:9px}
+
+/* przełącznik dziedziny: Przegląd | Serwis */
+.domseg{display:flex;background:var(--d-panel);border-radius:999px;padding:3px;gap:3px;flex:none}
+.domseg span{
+  flex:1;text-align:center;font-size:12px;padding:6px 4px;border-radius:999px;color:var(--d-muted);
+}
+.domseg span[data-on="p"]{background:color-mix(in srgb,var(--d-insp) 22%,var(--d-surface));color:var(--d-insp);font-weight:700}
+.domseg span[data-on="s"]{background:color-mix(in srgb,var(--d-svc) 22%,var(--d-surface));color:var(--d-svc);font-weight:700}
+
+/* pasek widoków */
+.viewtabs{display:flex;gap:6px;flex:none}
+.viewtab{
+  font-size:11.5px;padding:5px 11px;border-radius:999px;white-space:nowrap;
+  border:1px solid var(--d-border);color:var(--d-muted);
+}
+.viewtab[data-on]{background:var(--d-panel);border-color:var(--d-fg);color:var(--d-fg);font-weight:500}
+
+/* szukanie + filtr */
+.searchrow{display:flex;gap:7px;flex:none}
+.searchbox{
+  flex:1;min-width:0;display:flex;align-items:center;gap:7px;background:var(--d-surface);
+  border:1px solid var(--d-border);border-radius:11px;padding:7px 10px;font-size:12px;color:var(--d-muted);
+}
+.searchbox svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.8;flex:none}
+.filterbtn{
+  width:38px;border:1px solid var(--d-border);border-radius:11px;background:var(--d-surface);
+  display:grid;place-items:center;position:relative;flex:none;color:var(--d-fg);
+}
+.filterbtn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round}
+.filterbtn .cnt{
+  position:absolute;top:-6px;right:-6px;min-width:16px;height:16px;padding:0 4px;border-radius:999px;
+  background:var(--d-brand);color:var(--d-ink);font-size:9.5px;font-weight:700;
+  display:grid;place-items:center;border:2px solid var(--d-bg);
+}
+
+/* chipy źródła / grup klientów */
+.chips{display:flex;gap:6px;flex:none;overflow:hidden;-webkit-mask-image:linear-gradient(90deg,#000 90%,transparent);mask-image:linear-gradient(90deg,#000 90%,transparent)}
+.chip{
+  font-size:11px;padding:4px 9px;border-radius:999px;border:1px solid var(--d-border);
+  color:var(--d-muted);display:inline-flex;align-items:center;gap:5px;white-space:nowrap;
+}
+.chip b{font-weight:500;opacity:.75;font-variant-numeric:tabular-nums}
+.chip[data-on]{background:var(--d-panel);border-color:var(--d-fg);color:var(--d-fg);font-weight:500}
+
+/* ── Wiersze list ─────────────────────────────────────────────────── */
+.list{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden}
+.srow{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--d-border)}
+.srow .circ{
+  width:34px;height:34px;border-radius:50%;flex:none;display:grid;place-items:center;
+  font-size:12px;font-weight:700;background:var(--d-panel);color:var(--d-muted);
+  border:1px solid var(--d-border);
+}
+.srow .circ.av{background:#3B5B8C;color:#DBE7F7;border-color:transparent}
+.srow .circ.ring{box-shadow:0 0 0 2px var(--d-info)}
+.srow .circ.done{background:var(--d-brand);color:var(--d-ink);border-color:transparent}
+.srow .circ svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.srow .nm{flex:1;min-width:0;display:grid;gap:2px}
+.srow .nm b{font-size:12.8px;font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.srow .nm span{font-size:10.5px;color:var(--d-muted)}
+.srow.bad .nm b{color:var(--d-danger)}
+.srow.doner .nm b{color:var(--d-muted);text-decoration:line-through}
+.srow .star{color:var(--d-muted);flex:none;display:grid;place-items:center}
+.srow .star svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linejoin:round}
+.srow .star[data-on]{color:var(--d-warn)}
+.srow .star[data-on] svg{fill:currentColor}
+
+.sla{
+  font-size:10.5px;padding:2px 8px;border-radius:999px;white-space:nowrap;flex:none;
+  border:1px solid var(--d-border);color:var(--d-muted);
+}
+.sla.breach{color:#FF9A8F;border-color:color-mix(in srgb,var(--d-danger) 55%,transparent);background:color-mix(in srgb,var(--d-danger) 14%,transparent)}
+.sla.soon{color:var(--d-warn);border-color:color-mix(in srgb,var(--d-warn) 55%,transparent);background:color-mix(in srgb,var(--d-warn) 14%,transparent)}
+.sla.plain{border-color:transparent}
+
+/* wiersz gwarancyjny: pasek 5 świateł + belka pilności */
+.wrow{
+  display:flex;align-items:center;gap:10px;padding:9px 4px 9px 9px;border-bottom:1px solid var(--d-border);
+  border-left:3px solid transparent;
+}
+.wrow[data-urg="red"]{border-left-color:var(--d-danger);background:color-mix(in srgb,var(--d-danger) 9%,transparent)}
+.wrow[data-urg="gray"]{border-left-color:var(--d-gray);background:color-mix(in srgb,var(--d-gray) 10%,transparent)}
+.wrow[data-urg="green"]{border-left-color:var(--d-brand);background:color-mix(in srgb,var(--d-brand) 8%,transparent)}
+.wrow .nm{flex:1;min-width:0;display:grid;gap:2px}
+.wrow .nm b{font-size:12.8px;font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.wrow .nm span{font-size:10.5px;color:var(--d-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.gw{
+  font-size:9px;padding:1px 6px;border-radius:999px;
+  border:1px solid color-mix(in srgb,var(--d-insp) 50%,var(--d-border));
+  color:var(--d-insp);margin-left:5px;vertical-align:1px;
+}
+.strip{display:flex;gap:4px;flex:none}
+.strip i{width:9px;height:9px;border-radius:50%;display:block;font-style:normal}
+.strip i.green{background:var(--d-brand)}
+.strip i.red{background:var(--d-danger)}
+.strip i.gray{background:var(--d-gray)}
+.strip i.future{background:transparent;border:1.5px solid var(--d-border)}
+.wrow .st{font-size:9.5px;color:var(--d-muted);flex:none;text-align:right;width:66px;line-height:1.25}
+
+/* FAB + belka szybkiego dodawania */
+.fab{
+  position:absolute;right:16px;bottom:18px;width:52px;height:52px;border-radius:17px;
+  background:var(--d-insp);color:var(--d-ink);display:grid;place-items:center;
+  box-shadow:0 6px 18px rgba(0,0,0,.45);
+}
+.fab.svc{background:var(--d-svc)}
+.fab svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2.6;stroke-linecap:round}
+.quickbar{
+  display:flex;align-items:center;gap:8px;background:var(--d-surface);border:1px solid var(--d-border);
+  border-radius:14px;padding:8px 10px;flex:none;
+}
+.quickbar .qi{flex:1;min-width:0;font-size:12px;color:var(--d-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.quickbar .rb{width:28px;height:28px;border-radius:50%;background:var(--d-panel);display:grid;place-items:center;flex:none;color:var(--d-fg)}
+.quickbar .rb svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round}
+.quickbar .rb.send{background:var(--d-svc);color:var(--d-ink)}
+
+/* ── Arkusz / karta ───────────────────────────────────────────────── */
+.scrim{position:absolute;inset:0;background:rgba(4,8,15,.55)}
+.sheet{
+  position:absolute;left:0;right:0;bottom:0;background:var(--d-surface);
+  border-top:1px solid var(--d-border);border-radius:20px 20px 0 0;padding:10px 14px 16px;
+  display:flex;flex-direction:column;gap:9px;
+}
+.grab{width:34px;height:4px;border-radius:999px;background:var(--d-border);margin:0 auto 2px}
+.cardhead{display:flex;align-items:center;gap:8px;flex:none}
+.cardhead .sp{flex:1}
+.cardhead .ico{color:var(--d-muted);display:grid;place-items:center}
+.cardhead .ico svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linejoin:round}
+.cardhead .ico[data-on]{color:var(--d-warn)}
+.cardhead .ico[data-on] svg{fill:currentColor}
+.donecheck{
+  width:26px;height:26px;border-radius:50%;border:2px solid var(--d-border);flex:none;
+  display:grid;place-items:center;color:var(--d-ink);
+}
+.donecheck[data-on]{background:var(--d-brand);border-color:var(--d-brand)}
+.donecheck svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.cardtitle{font-size:17px;font-weight:500;line-height:1.25}
+.cardsub{font-size:11.5px;color:var(--d-muted)}
+.missing{
+  font-size:11px;color:var(--d-danger);background:color-mix(in srgb,var(--d-danger) 12%,transparent);
+  border:1px solid color-mix(in srgb,var(--d-danger) 40%,transparent);border-radius:9px;padding:6px 9px;
+}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.field{
+  background:var(--d-panel);border:1px solid var(--d-border);border-radius:11px;padding:7px 10px;
+  display:grid;gap:2px;min-width:0;
+}
+.field .k{font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--d-muted);font-weight:700}
+.field .v{font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.field .v.link{color:var(--d-info)}
+.field .v.warn{color:var(--d-danger)}
+.field.wide{grid-column:1 / -1}
+.actions{display:grid;gap:7px}
+.act{
+  display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:12px;
+  border:1px solid var(--d-border);background:var(--d-panel);font-size:12.5px;
+}
+.act svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.act.brandy{border-color:color-mix(in srgb,var(--d-brand) 50%,var(--d-border));color:var(--d-brand)}
+.act .chev{margin-left:auto;color:var(--d-muted)}
+.seclabel{
+  font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--d-muted);
+  font-weight:700;margin-top:2px;
+}
+
+/* harmonogram przeglądów w karcie gwarancyjnej */
+.insp{display:grid;gap:5px}
+.insprow{
+  display:flex;align-items:center;gap:9px;background:var(--d-panel);border:1px solid var(--d-border);
+  border-radius:11px;padding:6px 10px;
+}
+.insprow .ord{font-size:11px;color:var(--d-muted);width:16px;flex:none;font-variant-numeric:tabular-nums}
+.insprow .dt{flex:1;min-width:0;display:grid;gap:1px}
+.insprow .dt b{font-size:12px;font-weight:400}
+.insprow .dt span{font-size:10px;color:var(--d-muted)}
+.insprow .pr{font-size:11px;color:var(--d-muted);flex:none;font-variant-numeric:tabular-nums}
+.lg{width:10px;height:10px;border-radius:50%;flex:none}
+.lg.green{background:var(--d-brand)}
+.lg.red{background:var(--d-danger)}
+.lg.gray{background:var(--d-gray)}
+.lg.future{background:transparent;border:1.5px solid var(--d-border)}
+
+/* ── Kalendarz ────────────────────────────────────────────────────── */
+.calhead{display:flex;align-items:center;justify-content:space-between;font-size:13px;flex:none;padding:2px}
+.calhead b{font-weight:500}
+.calhead i{font-style:normal;color:var(--d-muted);font-size:16px;padding:0 6px}
+.calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;flex:1;min-height:0}
+.caldows{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;flex:none}
+.caldow{font-size:9px;color:var(--d-muted);text-align:center}
+.calcell{
+  border:1px solid var(--d-border);border-radius:7px;padding:2px 3px;display:flex;flex-direction:column;gap:2px;
+  overflow:hidden;background:var(--d-surface);
+}
+.calcell.other{opacity:.35}
+.calcell.today{border-color:var(--d-fg)}
+.calcell .dn{font-size:9.5px;color:var(--d-muted);font-variant-numeric:tabular-nums}
+.cc{height:5px;border-radius:2px;flex:none}
+.cc.new{background:#FFA657}
+.cc.prog{background:#4AA3FF}
+.cc.done{background:#17B3A3}
+.cc.breach{background:var(--d-danger)}
+.cc.wgreen{background:var(--d-brand)}
+.cc.wred{background:var(--d-danger)}
+.cc.wfuture{border:1px solid var(--d-border);background:transparent}
+
+/* ── Mapa ─────────────────────────────────────────────────────────── */
+.map{
+  position:relative;flex:1;min-height:0;border-radius:14px;overflow:hidden;
+  border:1px solid var(--d-border);background:#E9E5DC;
+}
+.map svg.plate{position:absolute;inset:0;width:100%;height:100%}
+.pin{
+  position:absolute;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;
+  font-size:11px;font-weight:800;color:#0B0B0B;background:var(--c);
+  border:1.5px solid rgba(255,255,255,.9);box-shadow:0 0 0 1px rgba(0,0,0,.45);
+  transform:translate(-50%,-50%);
+}
+.attrib{
+  position:absolute;right:0;bottom:0;font-size:8.5px;color:#3B4654;
+  background:rgba(255,255,255,.72);padding:1px 5px;border-radius:5px 0 0 0;
+}
+.nogeo{flex:none;border:1px solid var(--d-border);border-radius:12px;background:var(--d-surface);overflow:hidden}
+.nogeo .head{display:flex;align-items:center;gap:7px;padding:8px 11px;font-size:11.5px;color:var(--d-warn)}
+.nogeo .head b{font-weight:500;color:var(--d-fg)}
+.nogeo .row{display:flex;align-items:center;gap:8px;padding:7px 11px;border-top:1px solid var(--d-border);font-size:11.5px}
+.nogeo .row .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nogeo .row .go{color:var(--d-brand);font-size:10.5px;white-space:nowrap}
+
+/* ── Pulpit: kafelki ──────────────────────────────────────────────── */
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:9px;overflow:hidden;align-content:start}
+.tile{
+  background:var(--d-surface);border:1px solid var(--d-border);border-radius:14px;
+  padding:10px;display:grid;gap:5px;align-content:start;position:relative;
+}
+.tile .ic{
+  width:30px;height:30px;border-radius:9px;display:grid;place-items:center;
+  background:color-mix(in srgb,var(--c) 18%,transparent);color:var(--c);
+}
+.tile .ic svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.tile b{font-size:12.5px;font-weight:500}
+.tile span{font-size:9.5px;color:var(--d-muted);line-height:1.3}
+.tile.hot{border-color:var(--c);box-shadow:0 0 0 2px color-mix(in srgb,var(--c) 32%,transparent)}
+.tile .new{
+  position:absolute;top:-7px;right:8px;font-size:8.5px;font-weight:700;letter-spacing:.06em;
+  background:var(--c);color:#08110F;border-radius:999px;padding:1px 7px;text-transform:uppercase;
+}
+
+/* ── Etapy ────────────────────────────────────────────────────────── */
+.steps{display:grid;gap:12px}
+.step{
+  display:flex;gap:16px;background:var(--surface);border:1px solid var(--border);
+  border-radius:14px;padding:16px 18px;
+}
+.step .no{
+  font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:600;color:var(--brand);
+  border:1px solid color-mix(in srgb,var(--brand) 40%,var(--border));border-radius:8px;
+  padding:3px 8px;height:fit-content;flex:none;
+}
+.step h3{font-size:15px;font-weight:700;display:flex;flex-wrap:wrap;gap:9px;align-items:center}
+.step p{margin:6px 0 0;font-size:13.5px;color:var(--muted)}
+.files{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.files i{
+  font-style:normal;font-family:"IBM Plex Mono",monospace;font-size:11px;
+  padding:3px 8px;border-radius:6px;background:var(--bg-2);color:var(--muted);
+  border:1px solid var(--border);
+}
+
+/* ── Ustalenia ────────────────────────────────────────────────────── */
+.qs{display:grid;gap:12px}
+.qq{
+  background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--brand);
+  border-radius:14px;padding:16px 18px;display:grid;gap:7px;
+}
+.qq.open{border-left-color:var(--warn)}
+.qq h3{font-size:15.5px;font-weight:700;display:flex;flex-wrap:wrap;gap:9px;align-items:center}
+.qq p{margin:0;font-size:13.5px;color:var(--muted)}
+.qq .opts{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+.qq .opts i{
+  font-style:normal;font-size:12px;padding:4px 10px;border-radius:999px;
+  border:1px solid var(--border);color:var(--fg);background:var(--bg-2);
+}
+.qq .rec{color:var(--brand);font-weight:600;font-size:12.5px}
+
+/* legenda świateł */
+.palette{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-top:18px}
+.sw{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--muted)}
+.sw b{width:16px;height:16px;border-radius:50%;flex:none;box-shadow:0 0 0 1px rgba(0,0,0,.15)}
+.sw em{font-style:normal;color:var(--fg);font-weight:600}
+
+footer.end{
+  margin-top:56px;padding-top:22px;border-top:1px solid var(--border);
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--muted);
+  display:flex;flex-wrap:wrap;gap:10px 22px;
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="eyebrow">
+      <span>TeamTalk Android</span> · <b>moduł Serwis + kafelek Przeglądy</b> · <span>makieta 2026-09-02</span>
+    </div>
+    <h1>Serwis i Przeglądy w TeamTalku</h1>
+    <p class="lede">
+      Panel ma pod <code>/app/service</code> <b>dwie dziedziny w jednym module</b>: „Przegląd” (planowa
+      obsługa + karty gwarancyjne Panasonic) i „Serwis” (awarie z oknem SLA), a każdą z nich ogląda
+      się na trzy sposoby — Lista, Kalendarz, Mapa. Na telefonie kafelek „Serwis” prowadzi dziś
+      w zaślepkę. Ta makieta pokazuje przeniesienie <b>całego modułu 1:1</b> oraz drugie wejście:
+      osobny kafelek <b>Przeglądy</b>, który otwiera ten sam moduł od razu w dziedzinie „Przegląd”.
+    </p>
+  </header>
+
+  <section>
+    <div class="shead">
+      <div class="snum">01 — Punkt wyjścia</div>
+      <h2>Co panel już umie, a czego telefon nie ma</h2>
+      <p>
+        Serwis jest w panelu modułem dojrzałym — z własną maszyną statusów, liczeniem SLA po stronie
+        API i „sygnalizacją świetlną” przeglądów gwarancyjnych. Telefon ma z tego dziś tylko punkty
+        na mapie.
+      </p>
+    </div>
+    <div class="cards">
+      <div class="card">
+        <h3><i class="dot ok"></i> Panel: dwie dziedziny, trzy widoki</h3>
+        <p>
+          Przełącznik <b>Przegląd / Serwis</b> filtruje typy zleceń (<code>przeglad</code> +
+          <code>konserwacja</code> kontra <code>awaria</code>) i zmienia zestaw akcji. Nad nim
+          zakładki Lista / Kalendarz / Mapa.
+        </p>
+      </div>
+      <div class="card">
+        <h3><i class="dot ok"></i> Panel: awarie w układzie Zadań</h3>
+        <p>
+          Zakładka „Serwis” świadomie klonuje moduł Zadania: kółko z awatarem serwisanta, nazwa
+          wiersza „opis usterki — Klient (Miasto)”, chip SLA po prawej, gwiazdka priorytetu, belka
+          szybkiego dodawania pod przyciskiem „+”.
+        </p>
+      </div>
+      <div class="card">
+        <h3><i class="dot ok"></i> Panel: 5 świateł gwarancji</h3>
+        <p>
+          Karta Panasonic to pięć przeglądów w pięciu latach. Wiersz listy pokazuje pasek pięciu
+          kropek (wykonany / po terminie / przepadł / zaplanowany) i najpilniejszy stan całej
+          instalacji.
+        </p>
+      </div>
+      <div class="card">
+        <h3><i class="dot part"></i> Telefon: dane już płyną</h3>
+        <p>
+          Retrofit ma <code>getServiceJobs</code>, <code>getWarrantyCards</code>,
+          <code>getWarrantyCardsGeo</code> i <code>getTechnicians</code> — dołożone przy module Mapa.
+          Brakuje modeli domenowych, repozytoriów i zapisu.
+        </p>
+      </div>
+      <div class="card">
+        <h3><i class="dot no"></i> Telefon: kafelek to zaślepka</h3>
+        <p>
+          <code>HOME_MODULES</code> ma wpis <code>service</code>, ale nawigacja kieruje go do
+          <code>ModulePlaceholderScreen</code>. Kafelka „Przeglądy” nie ma w ogóle — w panelu to nie
+          osobny moduł, tylko dziedzina wewnątrz Serwisu.
+        </p>
+      </div>
+      <div class="card">
+        <h3><i class="dot no"></i> Telefon: brak zapisu serwisowego</h3>
+        <p>
+          Aplikacja nie umie dziś ani założyć zgłoszenia, ani odhaczyć zlecenia, ani wpisać daty
+          wykonania przeglądu. Wszystkie trasy zapisu (<code>POST</code>, <code>PATCH</code>,
+          <code>PUT</code>) trzeba dopisać do <code>TeamTalkApi</code>.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead">
+      <div class="snum">02 — Dwa wejścia, jeden moduł</div>
+      <h2>Kafelek „Przeglądy” obok kafelka „Serwis”</h2>
+      <p>
+        W panelu przeglądy siedzą pod przełącznikiem wewnątrz Serwisu — kto szuka gwarancji, musi
+        najpierw wejść w Serwis. Na telefonie serwisant otwiera moduł kciukiem w drodze do klienta,
+        więc dokładamy drugie wejście: <b>ten sam ekran, otwarty z góry w dziedzinie „Przegląd”</b>.
+        Żadnej osobnej listy, żadnego drugiego stanu — jeden moduł, dwa skróty.
+      </p>
+    </div>
+    <div class="screens">
+      <div class="screenblock">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>9:41</span><span>▾ ▮▮▮ 84%</span></div>
+          <div class="topbar">
+            <span class="toptitle" style="padding-left:6px">Pulpit</span>
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg></span>
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4"></path></svg></span>
+          </div>
+          <div class="screen">
+            <div class="tiles">
+              <div class="tile" style="--c:#4F8CFF">
+                <span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="11" rx="1.5"></rect><path d="M9 5v11M15 5v11M3 10.5h18M12 16v4M8.5 20h7"></path></svg></span>
+                <b>Montaże</b><span>Planowanie i realizacja instalacji</span>
+              </div>
+              <div class="tile hot" style="--c:#FF7B54">
+                <span class="ic"><svg viewBox="0 0 24 24"><path d="M15.4 4.4a4.5 4.5 0 0 0-5.9 5.5L4 15.4a2 2 0 0 0 2.8 2.8l5.5-5.5a4.5 4.5 0 0 0 5.5-5.9l-2.7 2.7-2.4-.6-.6-2.4z"></path></svg></span>
+                <b>Serwis</b><span>Zgłoszenia i przeglądy serwisowe</span>
+              </div>
+              <div class="tile hot" style="--c:#17B3A3">
+                <i class="new">nowy</i>
+                <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3.2l7 2.6v5.6c0 4.2-2.9 7.6-7 9.4-4.1-1.8-7-5.2-7-9.4V5.8z"></path><path d="M8.8 12.1l2.2 2.2 4.2-4.4"></path></svg></span>
+                <b>Przeglądy</b><span>Karty gwarancyjne i harmonogram 5 lat</span>
+              </div>
+              <div class="tile" style="--c:#EAB308">
+                <span class="ic"><svg viewBox="0 0 24 24"><path d="M20.5 15.6V8.4a1.5 1.5 0 0 0-.8-1.3l-6.9-3.8a1.5 1.5 0 0 0-1.6 0L4.3 7.1a1.5 1.5 0 0 0-.8 1.3v7.2a1.5 1.5 0 0 0 .8 1.3l6.9 3.8a1.5 1.5 0 0 0 1.6 0l6.9-3.8a1.5 1.5 0 0 0 .8-1.3z"></path><path d="M3.7 7.6 12 12.2l8.3-4.6M12 12.2V21"></path></svg></span>
+                <b>Magazyn</b><span>Stany magazynowe i ruchy materiałów</span>
+              </div>
+              <div class="tile" style="--c:#C084FC">
+                <span class="ic"><svg viewBox="0 0 24 24"><path d="M9 4.5H6.5A1.5 1.5 0 0 0 5 6v13a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 19V6a1.5 1.5 0 0 0-1.5-1.5H15"></path><rect x="9" y="2.8" width="6" height="3.4" rx="1"></rect><path d="M8.6 12l1.7 1.7 3.4-3.4M15.5 16.5h-7"></path></svg></span>
+                <b>Zadania</b><span>Twoje zadania i przypomnienia</span>
+              </div>
+              <div class="tile" style="--c:#FB7185">
+                <span class="ic"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="1.8"></rect><path d="M3.5 9.5h17M8 3.5v3M16 3.5v3"></path></svg></span>
+                <b>Kalendarz</b><span>Terminy, wizyty i wydarzenia zespołu</span>
+              </div>
+            </div>
+          </div>
+        </div></div>
+        <div class="caption">
+          <h3><i>00</i> Pulpit</h3>
+          <p>
+            „Serwis” otwiera moduł w ostatnio używanej dziedzinie, „Przeglądy” zawsze w dziedzinie
+            <b>Przegląd</b> — jak wejście z deep-linku <code>/app/service?card=…</code> w panelu.
+            Kafelek Przeglądy jest dodatkiem mobilnym; rejestr modułów panelu zostaje bez zmian.
+          </p>
+        </div>
+      </div>
+
+      <div class="screenblock">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>9:41</span><span>▾ ▮▮▮ 84%</span></div>
+          <div class="topbar">
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"></path></svg></span>
+            <span class="toptitle">Serwis</span>
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg></span>
+          </div>
+          <div class="screen">
+            <div class="domseg">
+              <span data-on="p">Przegląd</span>
+              <span>Serwis</span>
+            </div>
+            <div class="viewtabs">
+              <span class="viewtab" data-on>Lista</span>
+              <span class="viewtab">Kalendarz</span>
+              <span class="viewtab">Mapa</span>
+            </div>
+            <div class="searchrow">
+              <span class="searchbox">
+                <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+                klient, adres, model, nr seryjny…
+              </span>
+              <span class="filterbtn">
+                <svg viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"></path></svg>
+                <i class="cnt">1</i>
+              </span>
+            </div>
+            <div class="chips">
+              <span class="chip" data-on>Zwykłe <b>4</b></span>
+              <span class="chip" data-on>Gwarancyjne <b>17</b></span>
+              <span class="chip">Oczekujące</span>
+            </div>
+            <div class="list">
+              <div class="wrow" data-urg="red">
+                <span class="nm">
+                  <b>Kowalski Jan<i class="gw">gwarancja</i></b>
+                  <span>Kielce · Panasonic · uruch. 12.03.2022</span>
+                </span>
+                <span class="strip"><i class="green"></i><i class="green"></i><i class="red"></i><i class="future"></i><i class="future"></i></span>
+                <span class="st">Po terminie<br>2/5</span>
+              </div>
+              <div class="srow bad">
+                <span class="circ">?</span>
+                <span class="nm">
+                  <b>Przegląd roczny — Nowak (Busko)</b>
+                  <span>brak serwisanta</span>
+                </span>
+                <span class="sla plain">14.09.2026</span>
+                <span class="star"><svg viewBox="0 0 24 24"><polygon points="12 2.5 15.09 8.76 22 9.77 17 14.64 18.18 21.52 12 18.27 5.82 21.52 7 14.64 2 9.77 8.91 8.76"></polygon></svg></span>
+              </div>
+              <div class="wrow" data-urg="">
+                <span class="nm">
+                  <b>Wójcik Anna<i class="gw">gwarancja</i></b>
+                  <span>Chmielnik · Panasonic · uruch. 04.06.2024</span>
+                </span>
+                <span class="strip"><i class="green"></i><i class="future"></i><i class="future"></i><i class="future"></i><i class="future"></i></span>
+                <span class="st">W toku<br>1/5</span>
+              </div>
+              <div class="srow">
+                <span class="circ av">MK</span>
+                <span class="nm">
+                  <b>Konserwacja rekuperatora — Zielińscy (Kielce)</b>
+                  <span>Marcin Kot</span>
+                </span>
+                <span class="sla plain">18.09.2026</span>
+                <span class="star" data-on><svg viewBox="0 0 24 24"><polygon points="12 2.5 15.09 8.76 22 9.77 17 14.64 18.18 21.52 12 18.27 5.82 21.52 7 14.64 2 9.77 8.91 8.76"></polygon></svg></span>
+              </div>
+              <div class="wrow" data-urg="gray">
+                <span class="nm">
+                  <b>Lewandowski P.<i class="gw">gwarancja</i></b>
+                  <span>Pińczów · Panasonic · uruch. 20.01.2020</span>
+                </span>
+                <span class="strip"><i class="green"></i><i class="gray"></i><i class="gray"></i><i class="future"></i><i class="future"></i></span>
+                <span class="st">Przepadł<br>1/5</span>
+              </div>
+              <div class="wrow" data-urg="green">
+                <span class="nm">
+                  <b>Sikora Dom<i class="gw">gwarancja</i></b>
+                  <span>Jędrzejów · Panasonic · uruch. 09.09.2019</span>
+                </span>
+                <span class="strip"><i class="green"></i><i class="green"></i><i class="green"></i><i class="green"></i><i class="green"></i></span>
+                <span class="st">Zakończony<br>5/5</span>
+              </div>
+            </div>
+          </div>
+          <span class="fab"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"></path></svg></span>
+        </div></div>
+        <div class="caption">
+          <h3><i>01</i> Przegląd — lista scalona</h3>
+          <p>
+            Jedna lista z dwóch źródeł, tak jak w panelu: zwykłe zlecenia (przegląd, konserwacja)
+            i <b>karty gwarancyjne po jednym wierszu na urządzenie</b>. Chipy „Zwykłe / Gwarancyjne”
+            włączają źródła, sortowanie stawia zaległe na górze, zamknięte na dole. FAB rozwija
+            wybór: nowy przegląd albo nowa karta gwarancyjna.
+          </p>
+        </div>
+      </div>
+
+      <div class="screenblock">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>9:41</span><span>▾ ▮▮▮ 84%</span></div>
+          <div class="topbar">
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"></path></svg></span>
+            <span class="toptitle">Serwis</span>
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg></span>
+          </div>
+          <div class="screen">
+            <div class="domseg">
+              <span>Przegląd</span>
+              <span data-on="s">Serwis</span>
+            </div>
+            <div class="viewtabs">
+              <span class="viewtab" data-on>Lista</span>
+              <span class="viewtab">Kalendarz</span>
+              <span class="viewtab">Mapa</span>
+            </div>
+            <div class="quickbar">
+              <span class="qi">Opisz usterkę (np. nie grzeje CWU)…</span>
+              <span class="rb"><svg viewBox="0 0 24 24"><path d="M8 7h12M8 12h12M8 17h12"></path><circle cx="4" cy="7" r="1.1" fill="currentColor" stroke="none"></circle><circle cx="4" cy="12" r="1.1" fill="currentColor" stroke="none"></circle><circle cx="4" cy="17" r="1.1" fill="currentColor" stroke="none"></circle></svg></span>
+              <span class="rb send"><svg viewBox="0 0 24 24"><path d="M22 2L11 13"></path><polygon points="22 2 15 22 11 13 2 9 22 2" fill="currentColor" stroke="none"></polygon></svg></span>
+            </div>
+            <div class="chips">
+              <span class="chip" data-on>Wszyscy <b>9</b></span>
+              <span class="chip">Kowalski <b>3</b></span>
+              <span class="chip">Nowak <b>2</b></span>
+              <span class="chip">Bez klienta <b>2</b></span>
+            </div>
+            <div class="list">
+              <div class="srow">
+                <span class="circ av">MK</span>
+                <span class="nm"><b>Nie grzeje CWU — Kowalski (Kielce)</b><span>Marcin Kot</span></span>
+                <span class="sla breach">po SLA</span>
+                <span class="star" data-on><svg viewBox="0 0 24 24"><polygon points="12 2.5 15.09 8.76 22 9.77 17 14.64 18.18 21.52 12 18.27 5.82 21.52 7 14.64 2 9.77 8.91 8.76"></polygon></svg></span>
+              </div>
+              <div class="srow">
+                <span class="circ ring av">JW</span>
+                <span class="nm"><b>Błąd H76 na sterowniku — Nowak (Busko)</b><span>w toku · Jan Wilk</span></span>
+                <span class="sla soon">SLA 4 h</span>
+                <span class="star"><svg viewBox="0 0 24 24"><polygon points="12 2.5 15.09 8.76 22 9.77 17 14.64 18.18 21.52 12 18.27 5.82 21.52 7 14.64 2 9.77 8.91 8.76"></polygon></svg></span>
+              </div>
+              <div class="srow bad">
+                <span class="circ">?</span>
+                <span class="nm"><b>Cieknie zawór przy buforze</b><span>bez klienta, bez terminu</span></span>
+                <span class="sla soon">SLA 9 h</span>
+                <span class="star"><svg viewBox="0 0 24 24"><polygon points="12 2.5 15.09 8.76 22 9.77 17 14.64 18.18 21.52 12 18.27 5.82 21.52 7 14.64 2 9.77 8.91 8.76"></polygon></svg></span>
+              </div>
+              <div class="srow">
+                <span class="circ done"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>
+                <span class="nm"><b>Wymiana czujnika NTC — Zieliński (Kielce)</b><span>moje zlecenie</span></span>
+                <span class="sla plain">SLA 21 h</span>
+                <span class="star"><svg viewBox="0 0 24 24"><polygon points="12 2.5 15.09 8.76 22 9.77 17 14.64 18.18 21.52 12 18.27 5.82 21.52 7 14.64 2 9.77 8.91 8.76"></polygon></svg></span>
+              </div>
+              <div class="srow doner">
+                <span class="circ done"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>
+                <span class="nm"><b>Odpowietrzenie obiegu — Sikora (Jędrzejów)</b><span>wykonane 30.08.2026</span></span>
+                <span class="sla plain">30.08.2026</span>
+                <span class="star"><svg viewBox="0 0 24 24"><polygon points="12 2.5 15.09 8.76 22 9.77 17 14.64 18.18 21.52 12 18.27 5.82 21.52 7 14.64 2 9.77 8.91 8.76"></polygon></svg></span>
+              </div>
+            </div>
+          </div>
+          <span class="fab svc"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"></path></svg></span>
+        </div></div>
+        <div class="caption">
+          <h3><i>02</i> Serwis — awarie w układzie Zadań</h3>
+          <p>
+            Ten sam wiersz co w Zadaniach: kółko (awatar serwisanta, „?” gdy nieprzypisane, pierścień
+            = w toku, ptaszek = wykonane), nazwa, chip SLA, gwiazdka. Lewa kolumna klientów z panelu
+            nie mieści się na telefonie — zastępuje ją <b>poziomy pasek chipów z licznikami</b>.
+            Niedouzupełnione zgłoszenia świecą czerwienią, dokładnie jak w panelu.
+          </p>
+        </div>
+      </div>
+
+      <div class="screenblock">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>9:41</span><span>▾ ▮▮▮ 84%</span></div>
+          <div class="topbar">
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"></path></svg></span>
+            <span class="toptitle">Serwis</span>
+          </div>
+          <div class="screen" style="opacity:.4">
+            <div class="domseg"><span>Przegląd</span><span data-on="s">Serwis</span></div>
+            <div class="viewtabs"><span class="viewtab" data-on>Lista</span><span class="viewtab">Kalendarz</span><span class="viewtab">Mapa</span></div>
+          </div>
+          <div class="scrim"></div>
+          <div class="sheet" style="top:64px">
+            <div class="grab"></div>
+            <div class="cardhead">
+              <span class="ico" data-on><svg viewBox="0 0 24 24"><polygon points="12 2.5 15.09 8.76 22 9.77 17 14.64 18.18 21.52 12 18.27 5.82 21.52 7 14.64 2 9.77 8.91 8.76"></polygon></svg></span>
+              <span class="sp"></span>
+              <span class="sla breach">po SLA</span>
+            </div>
+            <div class="cardhead">
+              <span class="donecheck"></span>
+              <span class="cardtitle">Nie grzeje CWU</span>
+            </div>
+            <div class="missing">Do uzupełnienia: termin.</div>
+            <div class="grid2">
+              <div class="field"><span class="k">Klient</span><span class="v link">Kowalski Jan (Kielce)</span></div>
+              <div class="field"><span class="k">Status</span><span class="v">w toku</span></div>
+              <div class="field"><span class="k">Serwisant</span><span class="v">Marcin Kot</span></div>
+              <div class="field"><span class="k">Termin</span><span class="v warn">— wskaż datę —</span></div>
+              <div class="field"><span class="k">Okno SLA</span><span class="v">Domyślne (24 h)</span></div>
+              <div class="field"><span class="k">Koniec SLA</span><span class="v warn">01.09, 16:20</span></div>
+              <div class="field wide"><span class="k">Deal</span><span class="v link">Pompa ciepła 12 kW — karta deala</span></div>
+            </div>
+            <div class="seclabel">Skróty terenowe</div>
+            <div class="actions">
+              <span class="act brandy">
+                <svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.2a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"></path></svg>
+                Zadzwoń do klienta <span class="chev">›</span>
+              </span>
+              <span class="act">
+                <svg viewBox="0 0 24 24"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11z"></path><circle cx="12" cy="10" r="2.6"></circle></svg>
+                Nawiguj (geo:) <span class="chev">›</span>
+              </span>
+              <span class="act">
+                <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3 9h18M8 3v4M16 3v4"></path></svg>
+                Zaplanuj wizytę <span class="chev">›</span>
+              </span>
+            </div>
+          </div>
+        </div></div>
+        <div class="caption">
+          <h3><i>03</i> Karta zlecenia</h3>
+          <p>
+            Odpowiednik szuflady z panelu: gwiazdka i chip SLA w nagłówku, ptaszek „wykonane”
+            (ze statusu <code>new</code> idzie dwoma krokami — maszyna statusów nie zna przeskoku),
+            edytowalny opis usterki jako tytuł, czerwona lista braków, pola-chipy. Trzy skróty na dole
+            są dodatkiem mobilnym: telefon, nawigacja intentem <code>geo:</code>, wybór terminu.
+          </p>
+        </div>
+      </div>
+
+      <div class="screenblock">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>9:41</span><span>▾ ▮▮▮ 84%</span></div>
+          <div class="topbar">
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"></path></svg></span>
+            <span class="toptitle">Karta gwarancyjna</span>
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.4" fill="currentColor"></circle><circle cx="12" cy="12" r="1.4" fill="currentColor"></circle><circle cx="12" cy="19" r="1.4" fill="currentColor"></circle></svg></span>
+          </div>
+          <div class="screen">
+            <div>
+              <div class="cardtitle">Kowalski Jan</div>
+              <div class="cardsub">Kielce, ul. Sandomierska 14</div>
+            </div>
+            <div class="grid2">
+              <div class="field"><span class="k">Producent</span><span class="v">Panasonic</span></div>
+              <div class="field"><span class="k">Status karty</span><span class="v">Umówione</span></div>
+              <div class="field"><span class="k">Uruchomienie</span><span class="v">12.03.2022</span></div>
+              <div class="field"><span class="k">Przeglądy</span><span class="v">2/5 · 1 po terminie</span></div>
+              <div class="field wide"><span class="k">Jedn. zewnętrzna</span><span class="v">WH-MDC09J3E5 · 2201A00123</span></div>
+              <div class="field wide"><span class="k">Jedn. wewnętrzna</span><span class="v">WH-SDC0309J3E5 · 2201B00456</span></div>
+            </div>
+            <div class="seclabel">Harmonogram przeglądów</div>
+            <div class="insp">
+              <div class="insprow">
+                <span class="ord">#1</span><span class="lg green"></span>
+                <span class="dt"><b>Wykonano 15.03.2023</b><span>planowany 12.03.2023</span></span>
+                <span class="pr">0 zł</span>
+              </div>
+              <div class="insprow">
+                <span class="ord">#2</span><span class="lg green"></span>
+                <span class="dt"><b>Wykonano 20.03.2024</b><span>planowany 12.03.2024</span></span>
+                <span class="pr">0 zł</span>
+              </div>
+              <div class="insprow">
+                <span class="ord">#3</span><span class="lg red"></span>
+                <span class="dt"><b>Po terminie</b><span>planowany 12.03.2025</span></span>
+                <span class="pr">—</span>
+              </div>
+              <div class="insprow">
+                <span class="ord">#4</span><span class="lg future"></span>
+                <span class="dt"><b>Zaplanowany</b><span>planowany 12.03.2026</span></span>
+                <span class="pr">450 zł</span>
+              </div>
+              <div class="insprow">
+                <span class="ord">#5</span><span class="lg future"></span>
+                <span class="dt"><b>Bez terminu</b><span>—</span></span>
+                <span class="pr">—</span>
+              </div>
+            </div>
+            <div class="seclabel">Notatka</div>
+            <div class="field wide"><span class="v" style="white-space:normal">Klient prosi o kontakt po 16:00, pies na posesji.</span></div>
+          </div>
+        </div></div>
+        <div class="caption">
+          <h3><i>04</i> Karta gwarancyjna</h3>
+          <p>
+            Pełny ekran zamiast modala z panelu — pięć wierszy harmonogramu (stałe pozycje 1..5,
+            brak wpisu = puste kółko), producent i status karty edytowalne, nr seryjne obu jednostek,
+            notatka. Dotknięcie wiersza otwiera edycję: termin planowany, data wykonania, cena —
+            <code>PUT /warranty-cards/:id/inspections</code>.
+          </p>
+        </div>
+      </div>
+
+      <div class="screenblock">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>9:41</span><span>▾ ▮▮▮ 84%</span></div>
+          <div class="topbar">
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"></path></svg></span>
+            <span class="toptitle">Serwis</span>
+          </div>
+          <div class="screen">
+            <div class="domseg"><span data-on="p">Przegląd</span><span>Serwis</span></div>
+            <div class="viewtabs">
+              <span class="viewtab">Lista</span>
+              <span class="viewtab" data-on>Kalendarz</span>
+              <span class="viewtab">Mapa</span>
+            </div>
+            <div class="calhead"><i>‹</i><b>wrzesień 2026</b><i>›</i><span class="chip">Dziś</span></div>
+            <div class="caldows">
+              <span class="caldow">pon</span><span class="caldow">wt</span><span class="caldow">śr</span>
+              <span class="caldow">czw</span><span class="caldow">pt</span><span class="caldow">sob</span><span class="caldow">niedz</span>
+            </div>
+            <div class="calgrid">
+              <span class="calcell other"><i class="dn">31</i></span>
+              <span class="calcell today"><i class="dn">1</i><i class="cc breach"></i><i class="cc prog"></i></span>
+              <span class="calcell"><i class="dn">2</i><i class="cc new"></i></span>
+              <span class="calcell"><i class="dn">3</i></span>
+              <span class="calcell"><i class="dn">4</i><i class="cc wred"></i></span>
+              <span class="calcell"><i class="dn">5</i></span>
+              <span class="calcell"><i class="dn">6</i></span>
+              <span class="calcell"><i class="dn">7</i><i class="cc wfuture"></i></span>
+              <span class="calcell"><i class="dn">8</i></span>
+              <span class="calcell"><i class="dn">9</i><i class="cc new"></i><i class="cc wgreen"></i></span>
+              <span class="calcell"><i class="dn">10</i></span>
+              <span class="calcell"><i class="dn">11</i><i class="cc done"></i></span>
+              <span class="calcell"><i class="dn">12</i></span>
+              <span class="calcell"><i class="dn">13</i></span>
+              <span class="calcell"><i class="dn">14</i><i class="cc new"></i></span>
+              <span class="calcell"><i class="dn">15</i></span>
+              <span class="calcell"><i class="dn">16</i><i class="cc wfuture"></i></span>
+              <span class="calcell"><i class="dn">17</i></span>
+              <span class="calcell"><i class="dn">18</i><i class="cc prog"></i></span>
+              <span class="calcell"><i class="dn">19</i></span>
+              <span class="calcell"><i class="dn">20</i></span>
+              <span class="calcell"><i class="dn">21</i></span>
+              <span class="calcell"><i class="dn">22</i><i class="cc wgreen"></i></span>
+              <span class="calcell"><i class="dn">23</i></span>
+              <span class="calcell"><i class="dn">24</i></span>
+              <span class="calcell"><i class="dn">25</i><i class="cc new"></i></span>
+              <span class="calcell"><i class="dn">26</i></span>
+              <span class="calcell"><i class="dn">27</i></span>
+              <span class="calcell"><i class="dn">28</i><i class="cc wfuture"></i></span>
+              <span class="calcell"><i class="dn">29</i></span>
+              <span class="calcell"><i class="dn">30</i><i class="cc prog"></i></span>
+              <span class="calcell other"><i class="dn">1</i></span>
+              <span class="calcell other"><i class="dn">2</i></span>
+              <span class="calcell other"><i class="dn">3</i></span>
+              <span class="calcell other"><i class="dn">4</i></span>
+            </div>
+            <div class="nogeo">
+              <div class="head"><b>4 września</b> · 1 pozycja</div>
+              <div class="row">
+                <span class="lg red"></span>
+                <span class="nm">Kowalski Jan · przegląd #3</span>
+                <span class="go">Otwórz</span>
+              </div>
+            </div>
+          </div>
+          <span class="fab"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"></path></svg></span>
+        </div></div>
+        <div class="caption">
+          <h3><i>05</i> Kalendarz miesiąca</h3>
+          <p>
+            Siatka miesiąca z panelu, tylko chipy zastąpione paskami koloru — na 318 px nie zmieści
+            się nazwa klienta w komórce. Dotknięcie dnia rozwija listę pod siatką (zlecenia + przeglądy
+            gwarancyjne), przytrzymanie planuje nowe zlecenie na ten dzień, jak klik w komórkę w panelu.
+          </p>
+        </div>
+      </div>
+
+      <div class="screenblock">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>9:41</span><span>▾ ▮▮▮ 84%</span></div>
+          <div class="topbar">
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"></path></svg></span>
+            <span class="toptitle">Serwis</span>
+          </div>
+          <div class="screen">
+            <div class="domseg"><span data-on="p">Przegląd</span><span>Serwis</span></div>
+            <div class="viewtabs">
+              <span class="viewtab">Lista</span>
+              <span class="viewtab">Kalendarz</span>
+              <span class="viewtab" data-on>Mapa</span>
+            </div>
+            <div class="chips">
+              <span class="chip" data-on>Wszystkie <b>17</b></span>
+              <span class="chip"><i class="cdot" style="background:#FFA657"></i>Oczekujące <b>6</b></span>
+              <span class="chip"><i class="cdot" style="background:#4AA3FF"></i>Umówione <b>4</b></span>
+            </div>
+            <div class="map">
+              <svg class="plate" viewBox="0 0 300 400" preserveAspectRatio="none" aria-hidden="true">
+                <rect width="300" height="400" fill="#E9E5DC"></rect>
+                <path d="M0 250 L90 210 L150 240 L230 190 L300 220" fill="none" stroke="#CFC8B8" stroke-width="7"></path>
+                <path d="M60 400 L100 280 L140 200 L120 90 L160 0" fill="none" stroke="#D8D2C2" stroke-width="5"></path>
+                <path d="M0 120 L80 140 L170 100 L300 130" fill="none" stroke="#D8D2C2" stroke-width="5"></path>
+                <circle cx="150" cy="230" r="46" fill="#DCE6D2"></circle>
+                <circle cx="60" cy="120" r="28" fill="#DCE6D2"></circle>
+                <rect x="185" y="280" width="70" height="52" fill="#E3DCCB"></rect>
+              </svg>
+              <span class="pin" style="--c:#FFA657;left:32%;top:28%">P</span>
+              <span class="pin" style="--c:#4AA3FF;left:52%;top:41%">P</span>
+              <span class="pin" style="--c:#17B3A3;left:66%;top:33%">P</span>
+              <span class="pin" style="--c:#FFA657;left:44%;top:62%">P</span>
+              <span class="pin" style="--c:#F85149;left:73%;top:69%">P</span>
+              <span class="pin" style="--c:#A371F7;left:24%;top:74%">P</span>
+              <span class="attrib">© OpenStreetMap</span>
+            </div>
+            <div class="nogeo">
+              <div class="head">
+                <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.8"><path d="M12 8v5M12 16.5v.5"></path><circle cx="12" cy="12" r="9"></circle></svg>
+                <b>3 karty</b> bez lokalizacji
+              </div>
+              <div class="row"><span class="nm">Malinowski R. · Morawica</span><span class="go">Otwórz</span></div>
+            </div>
+          </div>
+        </div></div>
+        <div class="caption">
+          <h3><i>06</i> Mapa</h3>
+          <p>
+            Silnik osmdroid jest już w aplikacji (moduł Mapa). Tutaj wchodzi jako trzecia zakładka
+            z jednym rodzajem punktów, sterowanym dziedziną: <b>Przegląd → „inspection”</b>
+            (litera P, kolor wg statusu karty), <b>Serwis → „service”</b> (litera A, kolor wg statusu,
+            czerwień po SLA). Filtry i lista „bez lokalizacji” jak w panelu.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="palette">
+      <div class="sw"><b style="background:#44D62C"></b><span><em>Wykonany</em> — jest data wykonania</span></div>
+      <div class="sw"><b style="background:#F85149"></b><span><em>Po terminie</em> — do odrobienia (≤ 12 mies.)</span></div>
+      <div class="sw"><b style="background:#888780"></b><span><em>Przepadł</em> — termin minął &gt; 12 mies.</span></div>
+      <div class="sw"><b style="background:transparent;border:2px solid var(--border)"></b><span><em>Zaplanowany</em> lub bez terminu</span></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead">
+      <div class="snum">03 — Zakres</div>
+      <h2>Co z panelu wchodzi na telefon</h2>
+      <p>
+        Kolumna „mobile” mówi, w jakiej postaci funkcja panelu ląduje na 318 px szerokości.
+        Wszystko z listy poniżej jest w zakresie 1:1 — różnice dotyczą wyłącznie formy podania.
+      </p>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>Funkcja panelu</th><th>Postać na telefonie</th><th>Uwaga</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Przełącznik dziedziny Przegląd / Serwis</td>
+            <td>Segment u góry ekranu; kafelek „Przeglądy” wchodzi od razu w Przegląd</td>
+            <td><span class="tag jest">1:1</span></td>
+          </tr>
+          <tr>
+            <td>Zakładki Lista / Kalendarz / Mapa</td>
+            <td>Pigułki pod segmentem, stan zapamiętywany per dziedzina</td>
+            <td><span class="tag jest">1:1</span></td>
+          </tr>
+          <tr>
+            <td>Przegląd: lista scalona (zwykłe + gwarancyjne)</td>
+            <td>Jedna lista, karta gwarancyjna = jeden wiersz z paskiem 5 świateł</td>
+            <td><span class="tag jest">1:1</span></td>
+          </tr>
+          <tr>
+            <td>Filtry: źródło, wyszukiwarka, status karty</td>
+            <td>Chipy źródła + pole szukania; status karty w arkuszu filtrów</td>
+            <td><span class="tag jest">1:1</span></td>
+          </tr>
+          <tr>
+            <td>Serwis: lewa kolumna klientów z licznikami</td>
+            <td>Poziomy pasek chipów „Klient <b>3</b>”, „Bez klienta <b>2</b>”</td>
+            <td><span class="tag mock">forma</span></td>
+          </tr>
+          <tr>
+            <td>Wiersz awarii: kółko, nazwa, SLA, gwiazdka</td>
+            <td>Bez zmian — te same cztery komórki</td>
+            <td><span class="tag jest">1:1</span></td>
+          </tr>
+          <tr>
+            <td>Czerwień niedouzupełnionych zleceń + podpowiedź braków</td>
+            <td>Czerwona nazwa w wierszu, lista braków w karcie</td>
+            <td><span class="tag jest">1:1</span></td>
+          </tr>
+          <tr>
+            <td>Belka szybkiego dodawania pod „+”</td>
+            <td>FAB rozwija belkę: opis usterki + rozwinięcie (klient, serwisant, termin)</td>
+            <td><span class="tag jest">1:1</span></td>
+          </tr>
+          <tr>
+            <td>Karta zlecenia (szuflada)</td>
+            <td>Arkusz pełnoekranowy; te same pola + skróty telefon / nawigacja</td>
+            <td><span class="tag jest">1:1</span></td>
+          </tr>
+          <tr>
+            <td>Okno SLA (24 h / 7 dni / 30 dni) i „do …”</td>
+            <td>Pole wyboru w karcie, chip w nagłówku odlicza pozostały czas</td>
+            <td><span class="tag jest">1:1</span></td>
+          </tr>
+          <tr>
+            <td>Karta gwarancyjna: harmonogram 5/5, nr seryjne, notatka</td>
+            <td>Osobny ekran z listą pięciu przeglądów i edycją wiersza</td>
+            <td><span class="tag jest">1:1</span></td>
+          </tr>
+          <tr>
+            <td>Nowa karta gwarancyjna (modal)</td>
+            <td>Formularz na osobnym ekranie (9 pól nie mieści się w arkuszu)</td>
+            <td><span class="tag mock">forma</span></td>
+          </tr>
+          <tr>
+            <td>Kalendarz miesiąca z chipami</td>
+            <td>Siatka z paskami koloru, lista dnia pod siatką</td>
+            <td><span class="tag mock">forma</span></td>
+          </tr>
+          <tr>
+            <td>Mapa: piny/heatmapa, promień, filtr serwisanta, „bez lokalizacji”</td>
+            <td>osmdroid z modułu Mapa, rodzaj punktów sterowany dziedziną</td>
+            <td><span class="tag jest">1:1</span></td>
+          </tr>
+          <tr>
+            <td>—</td>
+            <td>Praca bez zasięgu: Room jako źródło prawdy + kolejka zmian</td>
+            <td><span class="tag nowe">dodatek mobilny</span></td>
+          </tr>
+          <tr>
+            <td>—</td>
+            <td>Zadzwoń / nawiguj <code>geo:</code> z karty zlecenia</td>
+            <td><span class="tag nowe">dodatek mobilny</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead">
+      <div class="snum">04 — API</div>
+      <h2>Backend był kompletny, reszta dopisana</h2>
+      <p>
+        Inaczej niż przy Zadaniach i Mapie — <b>board360 nie wymagał tu ani jednego nowego endpointu</b>.
+        Wszystkie trasy istniały i są objęte uprawnieniami <code>service.view</code> / <code>service.manage</code>.
+        Braki były po stronie klienta Retrofit i atrapy; <b>oba uzupełnione 2026-09-02</b> —
+        <code>TeamTalkApi</code> ma komplet tras zapisu, a <code>board360-mock</code> dostał
+        <code>src/routes/service.js</code> z seedem sześciu zleceń i pięciu kart Panasonic.
+      </p>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>Trasa</th><th>Do czego</th><th>board360</th><th>TeamTalkApi</th><th>board360-mock</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="mono">GET /api/service-jobs</td><td>lista zleceń obu dziedzin</td><td><span class="tag jest">jest</span></td><td><span class="tag jest">jest</span></td><td><span class="tag jest">jest</span></td></tr>
+          <tr><td class="mono">POST /api/service-jobs</td><td>nowe zgłoszenie / przegląd</td><td><span class="tag jest">jest</span></td><td><span class="tag jest">jest</span></td><td><span class="tag jest">jest</span></td></tr>
+          <tr><td class="mono">GET /api/service-jobs/:id</td><td>karta zlecenia z powiadomienia</td><td><span class="tag jest">jest</span></td><td><span class="tag jest">jest</span></td><td><span class="tag jest">jest</span></td></tr>
+          <tr><td class="mono">PATCH /api/service-jobs/:id</td><td>status, serwisant, termin, SLA, priorytet, opis</td><td><span class="tag jest">jest</span></td><td><span class="tag jest">jest</span></td><td><span class="tag jest">jest</span></td></tr>
+          <tr><td class="mono">GET /api/warranty-cards</td><td>karty gwarancyjne z licznikami</td><td><span class="tag jest">jest</span></td><td><span class="tag jest">jest</span></td><td><span class="tag jest">jest</span></td></tr>
+          <tr><td class="mono">POST /api/warranty-cards</td><td>nowa karta</td><td><span class="tag jest">jest</span></td><td><span class="tag jest">jest</span></td><td><span class="tag jest">jest</span></td></tr>
+          <tr><td class="mono">PATCH /api/warranty-cards/:id</td><td>producent, status, notatka, nr seryjne</td><td><span class="tag jest">jest</span></td><td><span class="tag jest">jest</span></td><td><span class="tag jest">jest</span></td></tr>
+          <tr><td class="mono">PUT /api/warranty-cards/:id/inspections</td><td>termin, data wykonania, cena przeglądu 1..5</td><td><span class="tag jest">jest</span></td><td><span class="tag jest">jest</span></td><td><span class="tag jest">jest</span></td></tr>
+          <tr><td class="mono">GET /api/warranty-cards/geo</td><td>współrzędne kart (wspólne z panelem)</td><td><span class="tag jest">jest</span></td><td><span class="tag jest">jest</span></td><td><span class="tag jest">jest</span></td></tr>
+          <tr><td class="mono">GET /api/technicians</td><td>serwisanci do przypisania i filtra</td><td><span class="tag jest">jest</span></td><td><span class="tag jest">jest</span></td><td><span class="tag jest">jest</span></td></tr>
+          <tr><td class="mono">GET /api/clients</td><td>etykiety i miasta w nazwie wiersza</td><td><span class="tag jest">jest</span></td><td><span class="tag jest">jest</span></td><td><span class="tag jest">jest</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="cards" style="margin-top:16px">
+      <div class="card">
+        <h3><i class="dot part"></i> Atrapa nie zna serwisu</h3>
+        <p>
+          <code>board360-mock</code> ma trasy auth, klientów, deali, zadań i katalogu — serwisu nie ma
+          w ogóle. Dopóki nie dojdzie <code>src/routes/service.js</code> z seedem kart Panasonic,
+          modułu nie da się przeklikać bez produkcyjnego API.
+        </p>
+      </div>
+      <div class="card">
+        <h3><i class="dot no"></i> Kontroler za guardem wymaga IamModule</h3>
+        <p>
+          Gdyby jednak doszedł nowy kontroler po stronie board360 — bez <code>imports: [IamModule]</code>
+          guard nie rozwiąże sesji i <b>cały start API pada</b> w pętli restartów. Ta pułapka kosztowała
+          już jeden wieczór przy module Mapa.
+        </p>
+      </div>
+      <div class="card">
+        <h3><i class="dot ok"></i> SLA liczy serwer</h3>
+        <p>
+          <code>slaDueAt</code> i <code>slaBreached</code> przychodzą policzone. Telefon dolicza tylko
+          „ile zostało” lokalnie, minutowym tykaniem — tak jak panel po hydracji.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead">
+      <div class="snum">05 — Realizacja</div>
+      <h2>Cztery etapy — wykonane 2026-09-02</h2>
+      <p>
+        Kolejność wynikała z tego, co daje serwisantowi wartość najszybciej: najpierw zobaczyć, potem
+        odhaczyć, potem zaplanować. <b>Wszystkie cztery etapy weszły za jednym razem</b>; poniżej to,
+        co faktycznie stoi w kodzie.
+      </p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <span class="no">S1</span>
+        <div>
+          <h3>Szkielet modułu i obie listy <span class="tag jest">zrobione</span></h3>
+          <p>
+            Modele domenowe (<code>ServiceJob</code>, <code>WarrantyCard</code>, <code>WarrantyInspection</code>),
+            repozytoria, obie listy z filtrami, przełącznik dziedziny, oba kafelki pulpitu i trasy nawigacji.
+            Reguły wiersza (nazwa, braki, SLA, sortowanie, światła) przenoszone 1:1 z <code>service-jobs.ts</code>
+            i <code>warranty.ts</code> — najlepiej z testami jednostkowymi, bo to czysta logika.
+          </p>
+          <div class="files">
+            <i>domain/model/ServiceJob.kt</i><i>domain/model/WarrantyCard.kt</i>
+            <i>data/repository/ServiceRepositoryImpl.kt</i><i>presentation/service/ServiceListScreen.kt</i>
+            <i>presentation/home/HomeModules.kt</i>
+          </div>
+        </div>
+      </div>
+      <div class="step">
+        <span class="no">S2</span>
+        <div>
+          <h3>Karty i zapis <span class="tag jest">zrobione</span></h3>
+          <p>
+            Karta zlecenia (arkusz) i karta gwarancyjna (ekran) z pełną edycją, belka szybkiego dodawania,
+            formularz nowej karty. Dochodzą trasy <code>POST</code> / <code>PATCH</code> / <code>PUT</code>
+            w <code>TeamTalkApi</code> oraz dwukrokowe „wykonane” ze statusu <code>new</code>.
+          </p>
+          <div class="files">
+            <i>ServiceJobSheet.kt</i><i>WarrantyCardScreen.kt</i><i>ServiceQuickAddBar.kt</i><i>TeamTalkApi.kt</i>
+          </div>
+        </div>
+      </div>
+      <div class="step">
+        <span class="no">S3</span>
+        <div>
+          <h3>Kalendarz, mapa i praca bez zasięgu <span class="tag jest">zrobione</span></h3>
+          <p>
+            Siatka miesiąca z listą dnia, trzecia zakładka na osmdroid (rodzaj punktów z dziedziny),
+            Room jako źródło prawdy dla obu list i kolejka zmian wzorem Zadań: jeden wiersz = jedno pole
+            jednego zlecenia, znacznik „czeka na wysyłkę” w wierszu. Kolejka obejmuje też <b>tworzenie</b>
+            — nowe zgłoszenie dostaje lokalne id, podmieniane po synchronizacji.
+          </p>
+          <div class="files">
+            <i>ServiceCalendarScreen.kt</i><i>ServiceMapScreen.kt</i><i>ServiceJobEntity.kt</i>
+            <i>WarrantyCardEntity.kt</i><i>ServiceMutationEntity.kt</i><i>ServiceSyncWorker.kt</i>
+          </div>
+        </div>
+      </div>
+      <div class="step">
+        <span class="no">S4</span>
+        <div>
+          <h3>Powiadomienia i atrapa <span class="tag jest">zrobione</span></h3>
+          <p>
+            <code>WorkManager</code> co 15 min: przypomnienie o dzisiejszej wizycie oraz dwa alarmy SLA
+            dla własnych zleceń — „kończy się za 2 h” i „po SLA” — wzorem <code>TaskReminderWorker</code>,
+            każdy wysyłany raz (znacznik w Room). Równolegle
+            <code>src/routes/service.js</code> w atrapie z seedem kart Panasonic, żeby dało się testować
+            offline bez produkcyjnego API.
+          </p>
+          <div class="files"><i>ServiceReminderWorker.kt</i><i>board360-mock/src/routes/service.js</i></div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section>
+    <div class="shead">
+      <div class="snum">06 — Ustalenia</div>
+      <h2>Cztery decyzje zamawiającego</h2>
+      <p>Zapadły 2026-09-02, przed rozpoczęciem kodowania. Każda zmienia zakres, więc zapisujemy je tutaj — makieta jest umową o zakresie.</p>
+    </div>
+    <div class="qs">
+      <div class="qq">
+        <h3>Kafelek „Przeglądy” pokazuje oba źródła <span class="tag jest">ustalone</span></h3>
+        <p>
+          Wejście z kafelka otwiera dziedzinę Przegląd z włączonymi chipami „Zwykłe” i „Gwarancyjne” —
+          dokładnie ten sam zbiór co panel. Kafelek jest skrótem nawigacyjnym, nie osobnym widokiem:
+          oba wejścia prowadzą do jednego stanu ekranu.
+        </p>
+      </div>
+      <div class="qq">
+        <h3>Kolejka offline obejmuje także tworzenie <span class="tag jest">ustalone</span></h3>
+        <p>
+          Awarię spisaną w kotłowni bez zasięgu da się zapisać: wiersz dostaje lokalne id
+          (<code>local:&lt;uuid&gt;</code>) i znacznik „czeka na wysyłkę”, a po synchronizacji id zostaje
+          podmienione na serwerowe wraz z odwołaniami w kolejce zmian. Wariant droższy niż sam cache —
+          wybrany świadomie, tak jak przy module Zadania.
+        </p>
+      </div>
+      <div class="qq">
+        <h3>Zamykanie jak w panelu, ptaszek tylko przy swoich <span class="tag jest">ustalone</span></h3>
+        <p>
+          Uprawnienia zostają bez zmian (<code>service.manage</code> ma każdy poza obserwatorem), więc
+          cudze zlecenie da się zamknąć — ale z karty, nie jednym dotknięciem na liście. Ptaszek
+          „na skróty” w wierszu pojawia się wyłącznie przy własnych zleceniach; przy cudzych stoi awatar
+          serwisanta.
+        </p>
+      </div>
+      <div class="qq">
+        <h3>Dwa powiadomienia SLA: 2 h przed i po przekroczeniu <span class="tag jest">ustalone</span></h3>
+        <p>
+          <code>WorkManager</code> co 15 min przegląda własne zlecenia awaryjne i wysyła lokalne
+          powiadomienie na dwie godziny przed końcem okna, a drugie w chwili przekroczenia. Każde raz —
+          znacznik wysłania siedzi przy zleceniu w Room, żeby kolejny przebieg robotnika nie powtórzył
+          alarmu.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <footer class="end">
+    <span>TeamTalk Android · moduł Serwis</span>
+    <span>panel: web/src/app/app/service</span>
+    <span>API: api/src/modules/service</span>
+    <span>makieta: design/mockups/modul-serwis.html</span>
+    <span>2026-09-02</span>
+  </footer>
+</div>

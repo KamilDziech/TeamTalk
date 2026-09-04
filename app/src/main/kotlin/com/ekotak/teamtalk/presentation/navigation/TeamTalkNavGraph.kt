@@ -41,6 +41,10 @@ import com.ekotak.teamtalk.presentation.home.homeModule
 import com.ekotak.teamtalk.presentation.postcallnote.PostCallNoteScreen
 import com.ekotak.teamtalk.presentation.calendar.CalendarScreen
 import com.ekotak.teamtalk.presentation.calendar.FindTimeScreen
+import com.ekotak.teamtalk.domain.model.ServiceDomain
+import com.ekotak.teamtalk.presentation.service.ServiceJobScreen
+import com.ekotak.teamtalk.presentation.service.ServiceScreen
+import com.ekotak.teamtalk.presentation.service.WarrantyCardScreen
 import com.ekotak.teamtalk.presentation.settings.SettingsScreen
 import com.ekotak.teamtalk.presentation.task.CreateTaskScreen
 import com.ekotak.teamtalk.presentation.task.CreateTaskViewModel
@@ -69,6 +73,7 @@ fun TeamTalkNavGraph(
     deepLinkCallLogId: String? = null,
     deepLinkPostCallPhone: String? = null,
     deepLinkTaskId: String? = null,
+    deepLinkServiceJobId: String? = null,
     deepLinkCalendarEventId: String? = null,
 ) {
     val navController = rememberNavController()
@@ -109,6 +114,7 @@ fun TeamTalkNavGraph(
                 deepLinkCallLogId = deepLinkCallLogId,
                 deepLinkPostCallPhone = deepLinkPostCallPhone,
                 deepLinkTaskId = deepLinkTaskId,
+                deepLinkServiceJobId = deepLinkServiceJobId,
                 deepLinkCalendarEventId = deepLinkCalendarEventId,
             )
         }
@@ -120,6 +126,7 @@ private fun MainScreen(
     deepLinkCallLogId: String? = null,
     deepLinkPostCallPhone: String? = null,
     deepLinkTaskId: String? = null,
+    deepLinkServiceJobId: String? = null,
     deepLinkCalendarEventId: String? = null,
 ) {
     val navController = rememberNavController()
@@ -146,6 +153,14 @@ private fun MainScreen(
     LaunchedEffect(deepLinkTaskId) {
         if (deepLinkTaskId != null) {
             navController.navigate("task/$deepLinkTaskId") { launchSingleTop = true }
+        }
+    }
+
+    // Alarm okna SLA prowadzi wprost w kartę zlecenia — z listy trzeba by je
+    // jeszcze odszukać, a alarm z definicji dotyczy jednego konkretnego.
+    LaunchedEffect(deepLinkServiceJobId) {
+        if (deepLinkServiceJobId != null) {
+            navController.navigate("service/job/$deepLinkServiceJobId") { launchSingleTop = true }
         }
     }
 
@@ -192,6 +207,10 @@ private fun MainScreen(
                             "tasks" -> "tasks"
                             "communication" -> "discussions"
                             "map" -> "map"
+                            "service" -> "service"
+                            // Drugie wejście do TEGO SAMEGO ekranu, otwarte od razu
+                            // w dziedzinie „Przegląd" (ustalenie 2026-09-02).
+                            "inspections" -> "service?inspections=1"
                             "calendar" -> "calendar"
                             else -> "module/${module.key}"
                         }
@@ -240,6 +259,48 @@ private fun MainScreen(
                     onOpenClient = { clientId -> navController.navigate("client/$clientId") },
                     onNavigateBack = { navController.popBackStack() },
                 )
+            }
+
+            // ── Serwis i przeglądy (kafelki „Serwis" i „Przeglądy") ───────────
+            // Jeden ekran, dwa wejścia: parametr `inspections` ustala dziedzinę
+            // na stałe. Ekran nie ma już przełącznika Przegląd/Serwis, więc
+            // „Przeglądy" pokazują wyłącznie przeglądy, a „Serwis" wyłącznie
+            // awarie (ustalenie 2026-09-03).
+            composable(
+                route = "service?inspections={inspections}",
+                arguments = listOf(
+                    navArgument("inspections") { type = NavType.StringType; defaultValue = "" },
+                ),
+            ) { backStackEntry ->
+                ServiceScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onOpenJob = { jobId -> navController.navigate("service/job/$jobId") },
+                    onOpenCard = { cardId -> navController.navigate("service/card/$cardId") },
+                    onOpenDeal = { dealId -> navController.navigate("deal/$dealId") },
+                    onOpenClient = { clientId -> navController.navigate("client/$clientId") },
+                    domain = if (backStackEntry.arguments?.getString("inspections") == "1") {
+                        ServiceDomain.PRZEGLAD
+                    } else {
+                        ServiceDomain.SERWIS
+                    },
+                )
+            }
+
+            composable(
+                route = "service/job/{jobId}",
+                arguments = listOf(navArgument("jobId") { type = NavType.StringType }),
+            ) {
+                ServiceJobScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onOpenDeal = { dealId -> navController.navigate("deal/$dealId") },
+                )
+            }
+
+            composable(
+                route = "service/card/{cardId}",
+                arguments = listOf(navArgument("cardId") { type = NavType.StringType }),
+            ) {
+                WarrantyCardScreen(onNavigateBack = { navController.popBackStack() })
             }
 
             // ── Kalendarz (kafelek pulpitu) ───────────────────────────────────

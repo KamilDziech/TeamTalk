@@ -30,6 +30,9 @@ const db = {
   dealInstallations: {},   // dealId -> { [stage]: [categoryId] } (wybor per etap)
   activities: [],          // ActivityLog (append-only)
   leads: [],               // zgloszenia z leadowni, po jednym na deal
+  // ── Serwis (modul Serwis + kafelek Przeglady) ──────────────────────────────
+  serviceJobs: [],         // zlecenia: awaria / przeglad / konserwacja
+  warrantyCards: [],       // karty gwarancyjne Panasonic (5 przegladow kazda)
   // ── Kalendarz (modul Kalendarz) ────────────────────────────────────────────
   // Kalendarz niesie granty w polu `shares` — poziom dostepu liczymy przy
   // odczycie, tak jak board360 (`effectiveLevel`).

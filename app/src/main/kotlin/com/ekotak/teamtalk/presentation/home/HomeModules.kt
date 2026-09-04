@@ -134,6 +134,22 @@ val HOME_MODULES: List<HomeModule> = listOf(
             "M15.4 4.4a4.5 4.5 0 0 0-5.9 5.5L4 15.4a2 2 0 0 0 2.8 2.8l5.5-5.5a4.5 4.5 0 0 0 5.5-5.9l-2.7 2.7-2.4-.6-.6-2.4z",
         ),
     ),
+    // Kafelek spoza rejestru board360: w panelu przeglądy są DZIEDZINĄ wewnątrz
+    // Serwisu, nie osobnym modułem. Na telefonie serwisant wchodzi w nie kciukiem
+    // w drodze do klienta, więc dokładamy drugie wejście do tego samego ekranu —
+    // ustalenie z 2026-09-02, patrz design/mockups/modul-serwis.html.
+    // Od 2026-09-03 te dwa kafelki SĄ przełącznikiem dziedziny: ekran otwiera się
+    // na stałe w swojej dziedzinie i nie ma już segmentów Przegląd / Serwis.
+    HomeModule(
+        key = "inspections",
+        label = "Przeglądy",
+        desc = "Karty gwarancyjne i harmonogram 5 lat",
+        color = Color(0xFF17B3A3),
+        icon = moduleIcon(
+            "M12 3.2l7 2.6v5.6c0 4.2-2.9 7.6-7 9.4-4.1-1.8-7-5.2-7-9.4V5.8z",
+            "M8.8 12.1l2.2 2.2 4.2-4.4",
+        ),
+    ),
     HomeModule(
         key = "inventory",
         label = "Magazyn",

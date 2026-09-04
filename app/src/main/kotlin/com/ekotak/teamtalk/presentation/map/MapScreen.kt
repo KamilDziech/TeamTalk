@@ -88,11 +88,22 @@ fun MapScreen(
     onOpenDeal: (String) -> Unit,
     onOpenClient: (String) -> Unit,
     onNavigateBack: (() -> Unit)? = null,
+    /**
+     * Widok wymuszony przez moduł nadrzędny. Moduł Serwis osadza tę samą mapę
+     * jako swoją trzecią zakładkę i pokazuje w niej JEDEN rodzaj punktów, wg
+     * dziedziny — dokładnie jak panel, który klonuje mapę bez zakładek Flota
+     * i Klienci. `null` = pełna mapa z własnym przełącznikiem widoków.
+     */
+    lockedView: MapViewTab? = null,
     viewModel: MapViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     var showFilters by remember { mutableStateOf(false) }
+
+    LaunchedEffect(lockedView) {
+        if (lockedView != null) viewModel.selectView(lockedView)
+    }
 
     // Zgoda na lokalizację pytana dopiero przy „moja lokalizacja" — mapa działa
     // bez niej, więc nie ma powodu pytać na wejściu.
@@ -111,7 +122,11 @@ fun MapScreen(
         topBar = {
             // Przełącznik piny/heatmapa siedzi przy pasku szukania, nie w belce:
             // wordmark „ekotak · Mapa zleceń" i tak zjada całą jej szerokość.
-            AppTopBar(title = "Mapa zleceń", onNavigateBack = onNavigateBack)
+            // Osadzona w module Serwis mapa nie rysuje własnej belki — ekran ma
+            // już swoją, z tytułem dziedziny.
+            if (lockedView == null) {
+                AppTopBar(title = "Mapa zleceń", onNavigateBack = onNavigateBack)
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
@@ -122,7 +137,9 @@ fun MapScreen(
                 .padding(horizontal = 12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            ViewTabs(state = state, onSelect = viewModel::selectView)
+            if (lockedView == null) {
+                ViewTabs(state = state, onSelect = viewModel::selectView)
+            }
 
             if (state.isFleet) {
                 FleetPlaceholder(modifier = Modifier.weight(1f))

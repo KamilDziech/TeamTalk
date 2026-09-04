@@ -29,6 +29,9 @@ class SessionPreferences @Inject constructor(
         private val KEY_MENTIONS_SEEN_AT = longPreferencesKey("mentions_seen_at")
         private val KEY_SYNC_PROBLEM   = stringPreferencesKey("task_sync_problem")
         private val KEY_REMINDERS_DAY  = longPreferencesKey("task_reminders_day")
+
+        /** Wysłane alarmy SLA jako `jobId:faza` — każdy ma zatrąbić raz. */
+        private val KEY_SLA_ALERTS     = stringSetPreferencesKey("service_sla_alerts")
         private val KEY_CALENDAR_VIEW  = stringPreferencesKey("calendar_view")
         private val KEY_CALENDAR_LAYERS_OFF = stringSetPreferencesKey("calendar_layers_off")
         private val KEY_CALENDAR_OVERLAYS   = stringSetPreferencesKey("calendar_overlays_on")
@@ -113,6 +116,29 @@ class SessionPreferences @Inject constructor(
 
     suspend fun saveRemindersShownOn(epochDay: Long) {
         dataStore.edit { it[KEY_REMINDERS_DAY] = epochDay }
+    }
+
+    /**
+     * Znaczniki wysłanych alarmów SLA (`jobId:soon`, `jobId:breach`). Trzymamy
+     * je zamiast przeliczać: robotnik chodzi co 15 minut, a alarm ma zabrzmieć
+     * raz — bez tego serwisant dostałby to samo powiadomienie cztery razy na
+     * godzinę i przestałby je czytać.
+     */
+    val slaAlertsSent: Flow<Set<String>> = dataStore.data.map { it[KEY_SLA_ALERTS] ?: emptySet() }
+
+    suspend fun markSlaAlertSent(marker: String) {
+        dataStore.edit { prefs ->
+            prefs[KEY_SLA_ALERTS] = (prefs[KEY_SLA_ALERTS] ?: emptySet()) + marker
+        }
+    }
+
+    /** Sprzątanie znaczników zleceń, których już nie ma na liście otwartych. */
+    suspend fun retainSlaAlerts(markers: Set<String>) {
+        dataStore.edit { prefs ->
+            val current = prefs[KEY_SLA_ALERTS] ?: return@edit
+            val kept = current intersect markers
+            if (kept.size != current.size) prefs[KEY_SLA_ALERTS] = kept
+        }
     }
 
     /**

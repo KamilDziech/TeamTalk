@@ -734,6 +734,7 @@ function seed(db) {
     daysAgo(0.3),
   );
 
+  seedService(db, users, clients);
   seedCalendar(db, users);
 
   return { users, clients, missedNowak };
@@ -954,4 +955,194 @@ function seedCalendar(db, users) {
  *  - piec kart gwarancyjnych: po terminie, w toku, przepadla (> 12 miesiecy),
  *    zakonczona 5/5 i taka bez wspolrzednych (lista "bez lokalizacji" na mapie).
  */
+function seedService(db, users, clients) {
+  const orgId = db.organization.id;
+  const [nowak, , kowalska, wisniewski, wojcik, kaminski] = clients;
+
+  const job = (fields) => {
+    const row = {
+      id: uuid(),
+      organizationId: orgId,
+      clientId: null,
+      dealId: null,
+      type: 'awaria',
+      status: 'new',
+      priority: 'normal',
+      technicianId: null,
+      scheduledAt: null,
+      note: null,
+      slaHours: null,
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+      ...fields,
+    };
+    db.serviceJobs.push(row);
+    return row;
+  };
+
+  // Awaria po SLA — okno 24 h ruszylo trzy dni temu.
+  job({
+    clientId: nowak.id,
+    technicianId: users.serwisant.id,
+    status: 'in_progress',
+    priority: 'high',
+    note: 'Nie grzeje CWU',
+    createdAt: daysAgo(3),
+    scheduledAt: daysAgo(1),
+  });
+  // Awaria z oknem konczacym sie dzis — chip SLA na pomaranczowo.
+  job({
+    clientId: kowalska.id,
+    technicianId: users.serwisant.id,
+    note: 'Blad H76 na sterowniku',
+    createdAt: daysAgo(0.85),
+    scheduledAt: daysAhead(1),
+  });
+  // Zgloszenie "na szybko": bez klienta, bez terminu, bez serwisanta.
+  job({ note: 'Cieknie zawor przy buforze', createdAt: daysAgo(0.4) });
+  // Zamkniete — wiersz przekreslony na dole listy.
+  job({
+    clientId: wisniewski.id,
+    technicianId: users.serwisant.id,
+    status: 'done',
+    note: 'Odpowietrzenie obiegu',
+    createdAt: daysAgo(9),
+    scheduledAt: daysAgo(8),
+  });
+  // Dziedzina "Przeglad" — zwykle zlecenia planowe.
+  job({
+    clientId: wojcik.id,
+    type: 'przeglad',
+    note: 'Przeglad roczny pompy ciepla',
+    scheduledAt: daysAhead(12),
+    createdAt: daysAgo(5),
+  });
+  job({
+    clientId: kaminski.id,
+    type: 'konserwacja',
+    technicianId: users.serwisant.id,
+    note: 'Konserwacja rekuperatora',
+    scheduledAt: daysAhead(16),
+    createdAt: daysAgo(4),
+  });
+
+  const card = (name, fields, inspections) => {
+    const row = {
+      id: uuid(),
+      organizationId: orgId,
+      brand: 'Panasonic',
+      name,
+      location: null,
+      commissionedAt: null,
+      status: 'oczekujace',
+      outdoorModel: 'WH-MDC09J3E5',
+      outdoorSerial: null,
+      indoorModel: 'WH-SDC0309J3E5',
+      indoorSerial: null,
+      note: null,
+      geo: null,
+      createdAt: daysAgo(200),
+      updatedAt: daysAgo(10),
+      ...fields,
+      inspections: inspections.map((i, idx) => ({
+        id: uuid(),
+        cardId: null,
+        ordinal: idx + 1,
+        plannedAt: i.planned || null,
+        doneAt: i.done || null,
+        price: i.price != null ? i.price : null,
+        technicianId: i.technicianId || null,
+        note: null,
+      })),
+    };
+    row.inspections.forEach((i) => {
+      i.cardId = row.id;
+    });
+    db.warrantyCards.push(row);
+    return row;
+  };
+
+  const YEAR = 365;
+  // 2/5 wykonane, trzeci po terminie — wiersz na czerwono, belka alarmowa.
+  card(
+    'Kowalski Jan',
+    {
+      location: 'Kielce, ul. Sandomierska 14',
+      commissionedAt: daysAgo(4 * YEAR),
+      status: 'umowione',
+      outdoorSerial: '2201A00123',
+      indoorSerial: '2201B00456',
+      note: 'Klient prosi o kontakt po 16:00, pies na posesji.',
+      geo: { lat: 50.87, lng: 20.63, city: 'Kielce' },
+    },
+    [
+      { planned: daysAgo(3 * YEAR), done: daysAgo(3 * YEAR - 3), price: 0 },
+      { planned: daysAgo(2 * YEAR), done: daysAgo(2 * YEAR - 8), price: 0 },
+      { planned: daysAgo(Math.round(0.5 * YEAR)) },
+      { planned: daysAhead(Math.round(0.5 * YEAR)), price: 450 },
+      {},
+    ],
+  );
+  // Swieza instalacja, jeden przeglad za soba — "W toku".
+  card(
+    'Wojcik Anna',
+    {
+      location: 'Chmielnik, ul. Polna 3',
+      commissionedAt: daysAgo(Math.round(1.2 * YEAR)),
+      status: 'oczekujace',
+      outdoorSerial: '2404A00887',
+      geo: { lat: 50.61, lng: 20.72, city: 'Chmielnik' },
+    },
+    [
+      { planned: daysAgo(Math.round(0.2 * YEAR)), done: daysAgo(Math.round(0.18 * YEAR)), price: 0 },
+      { planned: daysAhead(Math.round(0.8 * YEAR)) },
+      {},
+      {},
+      {},
+    ],
+  );
+  // Dwa terminy minely ponad rok temu — "Przepadl" (szare kropki).
+  card(
+    'Lewandowski Piotr',
+    {
+      location: 'Pinczow, ul. Nadrzeczna 8',
+      commissionedAt: daysAgo(6 * YEAR),
+      status: 'brak_kontaktu',
+      geo: { lat: 50.52, lng: 20.53, city: 'Pinczow' },
+    },
+    [
+      { planned: daysAgo(5 * YEAR), done: daysAgo(5 * YEAR - 5), price: 0 },
+      { planned: daysAgo(4 * YEAR) },
+      { planned: daysAgo(3 * YEAR) },
+      {},
+      {},
+    ],
+  );
+  // Komplet 5/5 — wiersz "Zakonczony", zielona belka.
+  card(
+    'Sikora Dom',
+    {
+      location: 'Jedrzejow, ul. Klonowa 21',
+      commissionedAt: daysAgo(7 * YEAR),
+      status: 'wykonane',
+      geo: { lat: 50.64, lng: 20.3, city: 'Jedrzejow' },
+    },
+    [1, 2, 3, 4, 5].map((n) => ({
+      planned: daysAgo((7 - n) * YEAR),
+      done: daysAgo((7 - n) * YEAR - 4),
+      price: n === 5 ? 450 : 0,
+    })),
+  );
+  // Bez wspolrzednych — trafia na liste "bez lokalizacji" pod mapa.
+  card(
+    'Malinowski Robert',
+    {
+      location: 'Morawica, dzialka bez numeru',
+      commissionedAt: daysAgo(2 * YEAR),
+      status: 'czekamy_na_kontakt',
+    },
+    [{ planned: daysAgo(YEAR), done: daysAgo(YEAR - 6), price: 0 }, { planned: daysAhead(20) }, {}, {}, {}],
+  );
+}
+
 module.exports = { seed, daysAgo, daysAhead, nowIso };
