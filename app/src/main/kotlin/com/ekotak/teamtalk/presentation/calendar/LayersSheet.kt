@@ -47,7 +47,8 @@ import com.ekotak.teamtalk.domain.model.Calendar
 import com.ekotak.teamtalk.domain.model.CalendarType
 import com.ekotak.teamtalk.domain.model.OverlaySource
 import com.ekotak.teamtalk.domain.model.TaskMember
-import com.ekotak.teamtalk.presentation.service.SelectField
+import com.ekotak.teamtalk.presentation.components.PersonScope
+import com.ekotak.teamtalk.presentation.components.PersonTree
 import com.ekotak.teamtalk.presentation.service.sheetBottomPadding
 
 /**
@@ -65,12 +66,13 @@ fun LayersSheet(
     hiddenLayers: Set<String>,
     overlaysOn: Set<OverlaySource>,
     members: List<TaskMember>,
-    assigneeFilter: String?,
+    person: PersonScope,
+    currentUserId: String?,
     onToggleLayer: (String) -> Unit,
     onToggleOverlay: (OverlaySource) -> Unit,
     busyOn: Boolean,
     onToggleBusy: () -> Unit,
-    onSetAssignee: (String?) -> Unit,
+    onSetPerson: (PersonScope) -> Unit,
     onCreateCalendar: (String, CalendarType, String) -> Unit,
     onRenameCalendar: (String, String, String) -> Unit,
     onArchiveCalendar: (String, Boolean) -> Unit,
@@ -90,12 +92,15 @@ fun LayersSheet(
         ) {
             Text("Warstwy i filtr", style = MaterialTheme.typography.titleMedium)
 
-            SelectField(
-                label = "Osoba",
-                value = members.firstOrNull { it.id == assigneeFilter }?.displayName ?: "Wszyscy",
-                options = listOf<TaskMember?>(null) + members,
-                optionLabel = { it?.displayName ?: "Wszyscy" },
-                onSelect = { onSetAssignee(it?.id) },
+            // Osoba: Moje / Wszyscy, a niżej działy (Biuro, Serwis, Montaż,
+            // Pozostali) rozwijane w miejscu. Ten sam komponent co w Zadaniach
+            // i na Mapie — filtr osoby ma wyglądać wszędzie tak samo.
+            Label("Osoba")
+            PersonTree(
+                members = members,
+                selected = person,
+                onSelect = onSetPerson,
+                me = members.firstOrNull { it.id == currentUserId },
             )
 
             Label("Kalendarze")
@@ -157,7 +162,7 @@ fun LayersSheet(
             LayerRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 label = "Szare pola „Zajęte”",
-                note = "Zajętość osoby z filtra (bez filtra — Twoja)",
+                note = "Zajętość wybranej osoby (bez wyboru — Twoja)",
                 checked = busyOn,
                 onCheckedChange = { onToggleBusy() },
             )

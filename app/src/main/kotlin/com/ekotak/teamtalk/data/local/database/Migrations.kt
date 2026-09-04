@@ -240,3 +240,43 @@ val MIGRATION_9_10 = object : Migration(9, 10) {
         )
     }
 }
+
+/**
+ * 10 → 11: `calendar_members` → `team_members`, z rolą i funkcjami.
+ *
+ * Filtr osoby dostał drzewo działów (Biuro / Serwis / Montaż / Pozostali,
+ * ustalenie 2026-09-04). Dział liczy się z ROLI i FUNKCJI, a tych w cache nie
+ * było — bez zasięgu cały zespół wpadałby do „Pozostali". Przy okazji książka
+ * przestała należeć do kalendarza: to samo drzewo rysuje Mapa, więc tabela
+ * dostała nazwę bez modułu w środku.
+ *
+ * Wiersze przepisujemy, żeby po aktualizacji nazwiska były na miejscu od razu;
+ * rola i funkcje dojdą przy najbliższej synchronizacji (do tego czasu osoba
+ * siedzi w „Pozostali"). Listy idą tekstem po przecinku — jak każde
+ * `List<String>` w tej bazie (patrz `Converters`).
+ */
+val MIGRATION_10_11 = object : Migration(10, 11) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `team_members` (
+                `id` TEXT NOT NULL,
+                `email` TEXT NOT NULL,
+                `firstName` TEXT,
+                `lastName` TEXT,
+                `role` TEXT,
+                `additionalRoles` TEXT NOT NULL DEFAULT '',
+                `functions` TEXT NOT NULL DEFAULT '',
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            INSERT OR REPLACE INTO `team_members` (`id`, `email`, `firstName`, `lastName`, `role`, `additionalRoles`, `functions`)
+            SELECT `id`, `email`, `firstName`, `lastName`, NULL, '', '' FROM `calendar_members`
+            """.trimIndent(),
+        )
+        db.execSQL("DROP TABLE IF EXISTS `calendar_members`")
+    }
+}

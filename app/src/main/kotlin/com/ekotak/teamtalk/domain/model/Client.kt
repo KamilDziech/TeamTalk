@@ -4,7 +4,13 @@ package com.ekotak.teamtalk.domain.model
 enum class ClientCategory(val wire: String, val tabLabel: String, val oneLabel: String) {
     KLIENT("klient", "Klienci", "klient"),
     KONTRAHENT("kontrahent", "Kontrahenci", "kontrahent"),
-    AFILIANT("afiliant", "Afilianci", "afiliant");
+    AFILIANT("afiliant", "Afilianci", "afiliant"),
+
+    /** Kubełek na resztę kartoteki — jak w panelu nie ma nazwy jednostkowej. */
+    INNE("inne", "Inne", "wpis");
+
+    /** Wartość wiersza „Kategoria" na karcie: „wpis" mówiłby tam za mało. */
+    val detailLabel: String get() = if (this == INNE) "inne" else oneLabel
 
     companion object {
         fun fromWire(value: String?): ClientCategory =
@@ -77,6 +83,7 @@ data class Client(
                 if (type == ClientType.PARTNERA) "Klient partnera" else "Klient własny"
             ClientCategory.KONTRAHENT -> "Kontrahent"
             ClientCategory.AFILIANT -> "Afiliant"
+            ClientCategory.INNE -> "Inne"
         }
 
     /** Inicjały do awatara na karcie (jedna–dwie litery). */

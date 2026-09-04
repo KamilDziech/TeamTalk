@@ -3,7 +3,6 @@ package com.ekotak.teamtalk.data.mapper
 import com.ekotak.teamtalk.data.local.entity.CalendarBusyEntity
 import com.ekotak.teamtalk.data.local.entity.CalendarEntity
 import com.ekotak.teamtalk.data.local.entity.CalendarEventEntity
-import com.ekotak.teamtalk.data.local.entity.CalendarMemberEntity
 import com.ekotak.teamtalk.data.remote.dto.CalendarAttendeeDto
 import com.ekotak.teamtalk.data.remote.dto.CalendarDto
 import com.ekotak.teamtalk.data.remote.dto.CalendarEventCreateDto
@@ -12,7 +11,6 @@ import com.ekotak.teamtalk.data.remote.dto.CalendarOverlayDto
 import com.ekotak.teamtalk.data.remote.dto.FreeBusyUserDto
 import com.ekotak.teamtalk.data.remote.dto.PrivateBusyDto
 import com.ekotak.teamtalk.data.remote.dto.RecurrenceDto
-import com.ekotak.teamtalk.data.remote.dto.TaskMemberDto
 import com.ekotak.teamtalk.domain.model.BusySlot
 import com.ekotak.teamtalk.domain.model.Calendar
 import com.ekotak.teamtalk.domain.model.CalendarEvent
@@ -27,7 +25,6 @@ import com.ekotak.teamtalk.domain.model.PrivateBusy
 import com.ekotak.teamtalk.domain.model.Recurrence
 import com.ekotak.teamtalk.domain.model.RsvpStatus
 import com.ekotak.teamtalk.domain.model.ShareLevel
-import com.ekotak.teamtalk.domain.model.TaskMember
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
@@ -229,21 +226,6 @@ fun CalendarOverlayDto.toDomain(): CalendarOverlay? {
 fun FreeBusyUserDto.toDomain(): FreeBusy = FreeBusy(
     userId = userId,
     busy = busy.map { BusySlot(startAt = it.startAt, endAt = it.endAt) },
-)
-
-fun TaskMemberDto.toCalendarMemberEntity(): CalendarMemberEntity = CalendarMemberEntity(
-    id = id,
-    email = email,
-    firstName = firstName,
-    lastName = lastName,
-)
-
-fun CalendarMemberEntity.toDomain(): TaskMember = TaskMember(
-    id = id,
-    email = email,
-    firstName = firstName,
-    lastName = lastName,
-    role = null,
 )
 
 // ── Prywatna zajętość ────────────────────────────────────────────────────────

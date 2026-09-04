@@ -45,7 +45,12 @@ object NetworkModule {
         .apply {
             if (BuildConfig.DEBUG) {
                 addInterceptor(
-                    HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BODY }
+                    HttpLoggingInterceptor().apply {
+                        // NIE Level.BODY — wypisywało do logcata ciało logowania razem z hasłem.
+                        level = HttpLoggingInterceptor.Level.HEADERS
+                        redactHeader("Authorization")
+                        redactHeader("Cookie")
+                    }
                 )
             }
         }

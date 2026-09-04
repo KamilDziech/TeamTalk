@@ -80,6 +80,8 @@ import com.ekotak.teamtalk.domain.model.TaskMember
 import com.ekotak.teamtalk.domain.model.TaskPriority
 import com.ekotak.teamtalk.domain.model.TaskTeam
 import com.ekotak.teamtalk.presentation.components.AppTopBar
+import com.ekotak.teamtalk.presentation.components.PersonScope
+import com.ekotak.teamtalk.presentation.components.PersonTree
 import com.ekotak.teamtalk.presentation.theme.Green600
 import com.ekotak.teamtalk.presentation.theme.Orange600
 import com.ekotak.teamtalk.presentation.theme.Red600
@@ -92,6 +94,13 @@ private const val LISTENING_HINT = "Słucham… mów teraz, mikrofon wyłączy s
 
 /** Od tylu pozycji lista dostaje własną wyszukiwarkę; krótsza mieści się na ekranie. */
 private const val SEARCHABLE_LIST_SIZE = 5
+
+/**
+ * Ile trafień na rodzaj pokazujemy przy szukaniu po wszystkim. Trzy grupy na
+ * jednym ekranie telefonu — dłuższe listy zepchnęłyby „wewnętrzne" poza zasięg
+ * kciuka.
+ */
+private const val MAX_CROSS_RESULTS = 5
 
 /**
  * Kreator nowego zadania — siedem plansz plus podsumowanie. Zamiast jednego
@@ -406,13 +415,94 @@ private fun StepSubject(
         }
     }
 
-    when (state.subjectMode) {
-        SubjectMode.CLIENT -> ClientPicker(state, vm, onVoice)
-        SubjectMode.PROJECT -> ProjectPicker(state, vm, onVoice)
-        SubjectMode.INTERNAL -> Hint(
+    when {
+        // Podyktowane hasło przeszukuje wszystkie rodzaje naraz, więc zamiast
+        // listy z jednej zakładki pokazujemy wspólne wyniki.
+        state.crossSearch -> CrossPicker(state, vm, onVoice)
+        state.subjectMode == SubjectMode.CLIENT -> ClientPicker(state, vm, onVoice)
+        state.subjectMode == SubjectMode.PROJECT -> ProjectPicker(state, vm, onVoice)
+        else -> Hint(
             "Zadanie bez powiązania — na przykład porządki w magazynie albo zamówienie materiałów."
         )
     }
+}
+
+/**
+ * Wyniki dyktowanego hasła — klienci, projekty i „wewnętrzne" na jednej liście.
+ * „Wewnętrzne" stoi na końcu zawsze, bo tego rodzaju nie ma czego przeszukiwać,
+ * a musi być dokąd pójść, gdy zadanie nie dotyczy ani klienta, ani projektu.
+ */
+@Composable
+private fun CrossPicker(
+    state: CreateTaskViewModel.UiState,
+    vm: CreateTaskViewModel,
+    onVoice: (VoiceField) -> Unit,
+) {
+    VoiceSearchField(
+        value = state.clientQuery,
+        onValueChange = vm::onClientQueryChange,
+        placeholder = "Szukaj wszędzie",
+        listening = state.isListening(VoiceField.CLIENT) || state.isListening(VoiceField.PROJECT),
+        voiceHint = "Powiedz nazwisko, firmę albo nazwę projektu",
+        // Mikrofon zapalony z zakładki projektów gasi się swoim własnym polem —
+        // `toggleVoice` kończy sesję tylko wtedy, gdy trafi w to samo pole.
+        onVoice = {
+            onVoice(if (state.isListening(VoiceField.PROJECT)) VoiceField.PROJECT else VoiceField.CLIENT)
+        },
+    )
+
+    if (state.clientQuery.isBlank()) return
+
+    Hint("Szukam „${state.clientQuery}” w klientach, projektach i zadaniach wewnętrznych.")
+
+    val clients = state.clients.take(MAX_CROSS_RESULTS)
+    val projects = state.crossProjects.take(MAX_CROSS_RESULTS)
+
+    if (clients.isNotEmpty()) {
+        Label("Klienci")
+        clients.forEach { client ->
+            ChoiceRow(
+                title = client.displayName,
+                subtitle = listOfNotNull(client.primaryPhone, client.city).joinToString(" · "),
+                initials = initialsOf(client.displayName),
+                selected = false,
+                onClick = { vm.onCrossClientSelect(client) },
+            )
+        }
+    }
+
+    if (projects.isNotEmpty()) {
+        Label("Projekty")
+        projects.forEach { project ->
+            ChoiceRow(
+                title = project.name,
+                subtitle = project.taskCount?.let { "$it zadań" } ?: "",
+                initials = "▸",
+                selected = false,
+                onClick = { vm.onCrossProjectSelect(project.id) },
+            )
+        }
+    }
+
+    if (clients.isEmpty() && projects.isEmpty() && state.similarClients.isEmpty()) {
+        Hint(
+            "Ani w kartotece, ani wśród projektów nic takiego nie ma. Popraw hasło, " +
+                "załóż nowy kontakt w zakładce „Klient” albo zostaw zadanie jako wewnętrzne."
+        )
+    }
+
+    SimilarClients(state, vm)
+    // Projektów mogło nie być, bo się nie wczytały — to co innego niż brak trafień.
+    state.projectsError?.let { Hint(it) }
+
+    Label("Wewnętrzne")
+    ChoiceRow(
+        title = "Zadanie wewnętrzne",
+        subtitle = "bez powiązania z klientem ani projektem",
+        initials = "—",
+        selected = false,
+        onClick = { vm.onCrossInternalSelect() },
+    )
 }
 
 /**
@@ -643,14 +733,53 @@ private fun StepPerson(
     vm: CreateTaskViewModel,
     onVoice: (VoiceField) -> Unit,
 ) {
+    // Druga droga do wykonawcy: kafelki funkcji zostają ścieżką główną, a tu
+    // dochodzi drzewo działów (Biuro / Serwis / Montaż / Pozostali) — dla
+    // sytuacji „wiem kto, nie wiem z jakiej funkcji" (ustalenie 2026-09-04).
+    var browseAll by remember(state.team) { mutableStateOf(false) }
+
     Question(
         "Kto się tym zajmie?",
-        state.team?.let { "Zespół: ${it.label}" } ?: "Najpierw wybierz zespół",
+        when {
+            browseAll -> "Cały zespół — działami"
+            else -> state.team?.let { "Zespół: ${it.label}" } ?: "Najpierw wybierz zespół"
+        },
     )
     if (state.isLoadingMembers) {
         Hint("Wczytuję listę osób…")
         return
     }
+
+    TextButton(onClick = { browseAll = !browseAll }) {
+        Text(
+            if (browseAll) {
+                "‹ Wróć do zespołu ${state.team?.label.orEmpty()}".trim()
+            } else {
+                "Przeglądaj cały zespół (działy) →"
+            },
+        )
+    }
+
+    if (browseAll) {
+        PersonTree(
+            members = state.members,
+            selected = state.assigneeId?.let { PersonScope.Person(it) } ?: PersonScope.All,
+            // Wybór działu nie przypisuje zadania działowi — zadanie dostaje
+            // człowieka. Nagłówek tylko rozwija, resztę zakresów pomijamy.
+            onSelect = { scope -> (scope as? PersonScope.Person)?.let { vm.onAssigneeChange(it.id) } },
+            mineLabel = null,
+            allLabel = "Wszyscy",
+        )
+        ChoiceRow(
+            title = "Bez przypisania",
+            subtitle = "ktoś z zespołu odbierze",
+            initials = "—",
+            selected = state.assigneeCleared,
+            onClick = { vm.onAssigneeChange(null) },
+        )
+        return
+    }
+
     if (state.teamMembers.isEmpty()) {
         Hint("Nikt nie ma przypisanej tej funkcji w module Zespół.")
     }

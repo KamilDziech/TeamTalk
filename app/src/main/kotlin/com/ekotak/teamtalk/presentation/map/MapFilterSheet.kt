@@ -38,6 +38,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.ekotak.teamtalk.presentation.components.PersonScope
+import com.ekotak.teamtalk.presentation.components.PersonTree
 
 /** Progi promienia „od lokalizacji" — ten sam zestaw co w panelu. */
 private val RADII = listOf(0, 5, 10, 15, 30, 50, 75, 100)
@@ -54,7 +56,7 @@ private val RADII = listOf(0, 5, 10, 15, 30, 50, 75, 100)
 fun MapFilterSheet(
     state: MapViewModel.UiState,
     onOwnerMode: (OwnerMode) -> Unit,
-    onPerson: (String?) -> Unit,
+    onPerson: (PersonScope) -> Unit,
     onInstall: (String?) -> Unit,
     onLocationQuery: (String) -> Unit,
     onSelectPlace: (com.ekotak.teamtalk.domain.model.PlaceSuggestion) -> Unit,
@@ -95,20 +97,19 @@ fun MapFilterSheet(
 
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 SectionLabel(if (state.view.isServiceView) "Serwisant" else "Osoba")
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    FilterChip(
-                        selected = state.personFilter == null,
-                        onClick = { onPerson(null) },
-                        label = { Text(allPeopleLabel(state)) },
-                    )
-                    state.people.forEach { (id, count) ->
-                        FilterChip(
-                            selected = state.personFilter == id,
-                            onClick = { onPerson(if (state.personFilter == id) null else id) },
-                            label = { Text("${state.peopleLabels[id] ?: id} ($count)") },
-                        )
-                    }
-                }
+                // Drzewo działów zamiast płaskich chipów — ten sam komponent co
+                // w Zadaniach i Kalendarzu. Liczniki przy nazwiskach i przy
+                // działach liczą PUNKTY, nie ludzi. „Moje" tu nie ma: mapa nie
+                // zna zalogowanego użytkownika, a filtr po sobie robi się
+                // wybraniem siebie z listy.
+                PersonTree(
+                    members = state.people,
+                    selected = state.person,
+                    onSelect = onPerson,
+                    mineLabel = null,
+                    allLabel = allPeopleLabel(state),
+                    counts = state.peopleCounts,
+                )
             }
 
             if (state.installs.isNotEmpty()) {

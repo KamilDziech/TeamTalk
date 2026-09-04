@@ -382,7 +382,7 @@ private fun DataTab(
                 )
                 if (legs.isNotEmpty()) InfoRow("Dojazd z bazy", legs.joinToString("\n"))
             }
-            InfoRow("Kategoria", client.category.oneLabel)
+            InfoRow("Kategoria", client.category.detailLabel)
             if (client.category == ClientCategory.KLIENT) {
                 InfoRow("Typ", client.type.label)
             }

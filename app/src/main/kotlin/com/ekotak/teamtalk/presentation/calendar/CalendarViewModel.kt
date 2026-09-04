@@ -21,8 +21,10 @@ import com.ekotak.teamtalk.domain.model.Recurrence
 import com.ekotak.teamtalk.domain.model.RecurrenceScope
 import com.ekotak.teamtalk.domain.model.RsvpStatus
 import com.ekotak.teamtalk.domain.model.TaskMember
+import com.ekotak.teamtalk.domain.model.departmentOf
 import com.ekotak.teamtalk.domain.repository.CalendarRepository
 import com.ekotak.teamtalk.domain.repository.CalendarSnapshot
+import com.ekotak.teamtalk.presentation.components.PersonScope
 import com.ekotak.teamtalk.presentation.crm.crmErrorMessage
 import com.ekotak.teamtalk.presentation.crm.parseIsoMillis
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -99,7 +101,8 @@ class CalendarViewModel @Inject constructor(
         val overlaysOn: Set<OverlaySource> = emptySet(),
         val overlays: List<CalendarOverlay> = emptyList(),
         val members: List<TaskMember> = emptyList(),
-        val assigneeFilter: String? = null,
+        /** Filtr osoby: Wszyscy / Moje / cały dział / konkretna osoba. */
+        val person: PersonScope = PersonScope.All,
         val events: List<CalendarEvent> = emptyList(),
         val currentUserId: String? = null,
         /** Szare pola „Zajęte" z prywatnych kalendarzy zespołu (bez treści wpisów). */
@@ -131,21 +134,42 @@ class CalendarViewModel @Inject constructor(
 
         val visibleLayerCount: Int get() = activeCalendars.count { it.id !in hiddenLayers }
 
+        /** Id osób objętych filtrem; `null` = bez zawężenia (Wszyscy). */
+        private val personIds: Set<String>?
+            get() = when (val scope = person) {
+                PersonScope.All -> null
+                // „Nieprzypisane" w kalendarzu nie występuje — wydarzenie zawsze
+                // ma właściciela; traktujemy je jak brak zawężenia.
+                PersonScope.Unassigned -> null
+                PersonScope.Mine -> currentUserId?.let { setOf(it) }
+                is PersonScope.Person -> setOf(scope.id)
+                is PersonScope.Dept -> members
+                    .filter { departmentOf(it) == scope.department }
+                    .map { it.id }
+                    .toSet()
+            }
+
         /** Wydarzenia po filtrach warstw i osoby — to, co rysuje widok. */
         val visibleEvents: List<CalendarEvent>
-            get() = events.filter { event ->
-                event.calendarId !in hiddenLayers &&
-                    (assigneeFilter == null || event.assigneeId == assigneeFilter)
+            get() {
+                val ids = personIds
+                return events.filter { event ->
+                    event.calendarId !in hiddenLayers &&
+                        (ids == null || event.assigneeId in ids)
+                }
             }
 
         /**
          * Zajętość rysowana na ekranie. Bez filtra osoby pokazujemy WŁASNĄ —
          * inaczej dzień zamieniłby się w szary mur zajętości całej firmy.
          * Kto planuje komuś, wybiera go filtrem i widzi jego szare pola.
+         *
+         * Filtr działu też zostawia własną: szare pola całego Montażu to ta sama
+         * ściana, przed którą chroni reguła wyżej.
          */
         val visibleBusy: List<PrivateBusy>
             get() = if (!busyOn) emptyList() else {
-                val who = assigneeFilter ?: currentUserId
+                val who = (person as? PersonScope.Person)?.id ?: currentUserId
                 busy.filter { it.userId == who }
             }
 
@@ -344,8 +368,8 @@ class CalendarViewModel @Inject constructor(
         _uiState.update { it.copy(busyOn = !it.busyOn) }
     }
 
-    fun setAssigneeFilter(userId: String?) {
-        _uiState.update { it.copy(assigneeFilter = userId) }
+    fun setPersonFilter(scope: PersonScope) {
+        _uiState.update { it.copy(person = scope) }
     }
 
     // ── Arkusz wydarzenia ────────────────────────────────────────────────────

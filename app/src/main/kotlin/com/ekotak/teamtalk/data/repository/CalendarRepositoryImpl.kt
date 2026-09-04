@@ -2,9 +2,10 @@ package com.ekotak.teamtalk.data.repository
 
 import com.ekotak.teamtalk.data.local.dao.CalendarDao
 import com.ekotak.teamtalk.data.local.dao.CalendarMutationDao
+import com.ekotak.teamtalk.data.local.dao.MemberDao
 import com.ekotak.teamtalk.data.local.entity.CalendarEntity
 import com.ekotak.teamtalk.data.local.entity.CalendarEventEntity
-import com.ekotak.teamtalk.data.local.entity.CalendarMemberEntity
+import com.ekotak.teamtalk.data.local.entity.TeamMemberEntity
 import com.ekotak.teamtalk.data.local.entity.CalendarMutationEntity
 import com.ekotak.teamtalk.data.local.entity.CalendarMutationEntity.Companion.FIELD_CREATE
 import com.ekotak.teamtalk.data.local.entity.CalendarMutationEntity.Companion.FIELD_DELETE
@@ -13,7 +14,7 @@ import com.ekotak.teamtalk.data.local.entity.CalendarMutationEntity.Companion.FI
 import com.ekotak.teamtalk.data.local.entity.CalendarMutationEntity.Companion.LOCAL_ID_PREFIX
 import com.ekotak.teamtalk.data.mapper.applyPatch
 import com.ekotak.teamtalk.data.mapper.applyRsvp
-import com.ekotak.teamtalk.data.mapper.toCalendarMemberEntity
+import com.ekotak.teamtalk.data.mapper.toTeamMemberEntity
 import com.ekotak.teamtalk.data.mapper.toDomain
 import com.ekotak.teamtalk.data.mapper.toDto
 import com.ekotak.teamtalk.data.mapper.toEntity
@@ -82,6 +83,7 @@ class CalendarRepositoryImpl @Inject constructor(
     private val api: TeamTalkApi,
     private val dao: CalendarDao,
     private val mutationDao: CalendarMutationDao,
+    private val memberDao: MemberDao,
     private val syncScheduler: CalendarSyncScheduler,
 ) : CalendarRepository {
 
@@ -96,7 +98,7 @@ class CalendarRepositoryImpl @Inject constructor(
         combine(
             dao.observeCalendars(),
             dao.observeEvents(),
-            dao.observeMembers(),
+            memberDao.observeMembers(),
             mutationDao.observePendingEventIds(),
             mutationDao.observeDeletedEventIds(),
             ::snapshotOf,
@@ -110,7 +112,7 @@ class CalendarRepositoryImpl @Inject constructor(
     private fun snapshotOf(
         calendars: List<CalendarEntity>,
         events: List<CalendarEventEntity>,
-        members: List<CalendarMemberEntity>,
+        members: List<TeamMemberEntity>,
         pendingIds: List<String>,
         deletedIds: List<String>,
     ): CalendarSnapshot = run {
@@ -145,7 +147,7 @@ class CalendarRepositoryImpl @Inject constructor(
 
         dao.replaceCalendars(calendars.map { it.toEntity(now) })
         dao.replaceRange(fromIso, toIso, events.map { it.toEntity(now) })
-        dao.replaceMembers(membersAsync.await().map { it.toCalendarMemberEntity() })
+        memberDao.replaceMembers(membersAsync.await().map { it.toTeamMemberEntity() })
         dao.replaceBusyRange(fromIso, toIso, busyAsync.await().map { it.toEntity(now) })
         canOverrideBusy.value = overrideAsync.await()
     }

@@ -52,18 +52,8 @@ data class CalendarEventEntity(
     val syncedAt: Long,
 )
 
-/**
- * Osoba z `GET /api/tasks/members` w kształcie potrzebnym kalendarzowi.
- * Bez tego arkusz wydarzenia bez zasięgu pokazywałby uczestników jako
- * identyfikatory.
- */
-@Entity(tableName = "calendar_members")
-data class CalendarMemberEntity(
-    @PrimaryKey val id: String,
-    val email: String,
-    val firstName: String?,
-    val lastName: String?,
-)
+// Osoby zespołu mieszkają w `TeamMemberEntity` (tabela `team_members`) — cache
+// dzielony z Mapą, patrz migracja 10 → 11.
 
 /**
  * Kolejka zmian zapisanych bez zasięgu — jedyna kopia decyzji podjętej w aucie,

@@ -181,8 +181,8 @@ class ClientFormViewModel @Inject constructor(
                             email = state.email.trim().ifBlank { null },
                             phone = state.phone.trim().ifBlank { null },
                             address = state.address.trim().ifBlank { null },
-                            // Typ rozróżnia tylko klientów — kontrahent i afiliant
-                            // dostają go z domyślnej wartości schematu API.
+                            // Typ rozróżnia tylko klientów — kontrahent, afiliant
+                            // i „inne" dostają go z domyślnej wartości schematu API.
                             type = if (state.category == ClientCategory.KLIENT) state.type else null,
                             category = state.category,
                         ),

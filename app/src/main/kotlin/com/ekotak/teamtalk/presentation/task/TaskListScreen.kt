@@ -77,6 +77,7 @@ import com.ekotak.teamtalk.domain.model.TaskPriority
 import com.ekotak.teamtalk.domain.model.TaskSource
 import com.ekotak.teamtalk.domain.model.TaskStatus
 import com.ekotak.teamtalk.presentation.components.AppTopBar
+import com.ekotak.teamtalk.presentation.components.PersonScope
 import com.ekotak.teamtalk.presentation.theme.EkotakGreen
 import com.ekotak.teamtalk.presentation.theme.Orange600
 import com.ekotak.teamtalk.presentation.theme.Red600

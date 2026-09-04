@@ -119,6 +119,12 @@ class CreateTaskViewModel @Inject constructor(
         val recordingSeconds: Int = 0,
         // ── Krok 3 ────────────────────────────────────────────────────────────
         val subjectMode: SubjectMode = SubjectMode.CLIENT,
+        /**
+         * Szukanie „po wszystkim" — włącza je mikrofon przy wyszukiwarce.
+         * Mówiący nie wie, czy to, czego szuka, siedzi w kartotece, czy wśród
+         * projektów, więc podyktowane hasło leci w oba rodzaje naraz.
+         */
+        val crossSearch: Boolean = false,
         val clientQuery: String = "",
         val clients: List<Client> = emptyList(),
         /** Cała kartoteka z pamięci telefonu — po niej szukamy podobnych nazwisk. */
@@ -200,6 +206,14 @@ class CreateTaskViewModel @Inject constructor(
             get() = projects.filter {
                 it.id == selectedProjectId || it.name.matchesQuery(projectQuery)
             }
+
+        /**
+         * Projekty pasujące do dyktowanego hasła. Bez wyjątku dla wybranego —
+         * to lista wyników szukania, a nie lista do wyboru.
+         */
+        val crossProjects: List<TaskProject>
+            get() = if (clientQuery.isBlank()) emptyList()
+            else projects.filter { it.name.matchesQuery(clientQuery) }
 
         /** Osoby z kafelka po zawężeniu wyszukiwarką (wybrana zawsze widoczna). */
         val visibleMembers: List<TaskMember>
@@ -313,6 +327,7 @@ class CreateTaskViewModel @Inject constructor(
                     selectedProjectId = null,
                     projectQuery = "",
                     subjectMode = SubjectMode.INTERNAL,
+                    crossSearch = false,
                 )
             }
         }
@@ -363,6 +378,12 @@ class CreateTaskViewModel @Inject constructor(
         // Opis dopisuje się do tego, co już jest; krótkie pola nadpisujemy w całości.
         val prefix =
             if (field == VoiceField.DESCRIPTION) _uiState.value.description.trim() else ""
+        // Mikrofon przy wyszukiwarce szuka od razu we wszystkich rodzajach —
+        // stare hasło znika, żeby wyniki nie mieszały się z poprzednią próbą.
+        if (field == VoiceField.CLIENT || field == VoiceField.PROJECT) {
+            _uiState.update { it.copy(crossSearch = true, clientQuery = "", projectQuery = "") }
+            if (_uiState.value.projects.isEmpty()) loadProjects()
+        }
         speechToText.onText = { text -> applyVoiceText(field, prefix, text) }
         speechToText.onError = { message ->
             stopTimer()
@@ -398,8 +419,8 @@ class CreateTaskViewModel @Inject constructor(
                 _uiState.update { it.copy(description = merged) }
             }
             VoiceField.TITLE -> onTitleChange(asSentence(text))
-            VoiceField.CLIENT -> onClientQueryChange(asQuery(text))
-            VoiceField.PROJECT -> onProjectQueryChange(asQuery(text))
+            // Obie wyszukiwarki dyktuje się tak samo — hasło idzie w oba rodzaje.
+            VoiceField.CLIENT, VoiceField.PROJECT -> onClientQueryChange(asQuery(text))
             VoiceField.PERSON -> onPersonQueryChange(asQuery(text))
             VoiceField.CONTACT_FIRST_NAME ->
                 onNewContactChange(_uiState.value.newContact.copy(firstName = asName(text)))
@@ -441,12 +462,24 @@ class CreateTaskViewModel @Inject constructor(
     fun onSubjectModeChange(mode: SubjectMode) {
         // Zakładka zmienia pole, do którego szło dyktowanie — mikrofon gasimy.
         stopVoice()
-        _uiState.update { it.copy(subjectMode = mode, error = null) }
+        // Ręczny wybór zakładki kończy szukanie po wszystkim: użytkownik właśnie
+        // powiedział, w którym rodzaju to siedzi.
+        _uiState.update { it.copy(subjectMode = mode, crossSearch = false, error = null) }
         if (mode == SubjectMode.PROJECT && _uiState.value.projects.isEmpty()) loadProjects()
     }
 
+    /**
+     * Fraza wyszukiwarki. W trybie „po wszystkim" jedno pole obsługuje oba
+     * rodzaje, więc trzymamy je zgodne; wyczyszczenie pola kończy ten tryb.
+     */
     fun onClientQueryChange(query: String) {
-        _uiState.update { it.copy(clientQuery = query) }
+        _uiState.update {
+            it.copy(
+                clientQuery = query,
+                projectQuery = if (it.crossSearch) query else it.projectQuery,
+                crossSearch = it.crossSearch && query.isNotBlank(),
+            )
+        }
         observeClients(query)
     }
 
@@ -490,6 +523,7 @@ class CreateTaskViewModel @Inject constructor(
     fun onSuggestionAccept(client: Client) {
         _uiState.update {
             it.copy(
+                crossSearch = false,
                 subjectMode = SubjectMode.CLIENT,
                 selectedProjectId = null,
                 clientQuery = client.displayName,
@@ -549,6 +583,41 @@ class CreateTaskViewModel @Inject constructor(
 
     fun onProjectSelect(projectId: String?) = _uiState.update {
         it.copy(selectedProjectId = if (it.selectedProjectId == projectId) null else projectId)
+    }
+
+    // ── Wyniki szukania po wszystkich rodzajach ──────────────────────────────
+    // Kliknięcie w wynik samo przestawia zakładkę: użytkownik powiedział, czego
+    // szuka, a nie gdzie to leży.
+
+    fun onCrossClientSelect(client: Client) {
+        _uiState.update {
+            it.copy(crossSearch = false, subjectMode = SubjectMode.CLIENT, selectedProjectId = null)
+        }
+        onClientSelect(client)
+    }
+
+    fun onCrossProjectSelect(projectId: String) = _uiState.update {
+        it.copy(
+            crossSearch = false,
+            subjectMode = SubjectMode.PROJECT,
+            selectedProjectId = projectId,
+            selectedClient = null,
+            clientDeals = emptyList(),
+            selectedDealId = null,
+            newContact = NewContact(),
+        )
+    }
+
+    fun onCrossInternalSelect() = _uiState.update {
+        it.copy(
+            crossSearch = false,
+            subjectMode = SubjectMode.INTERNAL,
+            selectedProjectId = null,
+            selectedClient = null,
+            clientDeals = emptyList(),
+            selectedDealId = null,
+            newContact = NewContact(),
+        )
     }
 
     private fun loadProjects() {

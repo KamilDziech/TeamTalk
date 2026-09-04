@@ -10,12 +10,14 @@ import com.ekotak.teamtalk.domain.model.TaskPriority
 import com.ekotak.teamtalk.domain.model.TaskSection
 import com.ekotak.teamtalk.domain.model.TaskSource
 import com.ekotak.teamtalk.domain.model.TaskStatus
+import com.ekotak.teamtalk.domain.model.departmentOf
 import com.ekotak.teamtalk.domain.usecase.task.GetTaskMembersUseCase
 import com.ekotak.teamtalk.domain.usecase.task.ObservePendingTaskIdsUseCase
 import com.ekotak.teamtalk.domain.usecase.task.ObserveTasksUseCase
 import com.ekotak.teamtalk.domain.usecase.task.RefreshTasksUseCase
 import com.ekotak.teamtalk.domain.usecase.task.SetTaskDoneUseCase
 import com.ekotak.teamtalk.domain.usecase.task.ToggleTaskPriorityUseCase
+import com.ekotak.teamtalk.presentation.components.PersonScope
 import com.ekotak.teamtalk.presentation.crm.crmErrorMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,15 +38,6 @@ enum class RoleScope(val label: String) {
 
     /** Wykonawca LUB zlecający. */
     ANY("Wszystkie"),
-}
-
-/** Kogo dotyczy filtr osoby. */
-sealed interface PersonScope {
-    data object Mine : PersonScope
-    data object All : PersonScope
-    data object Unassigned : PersonScope
-    data class Group(val group: MemberGroup) : PersonScope
-    data class Person(val id: String) : PersonScope
 }
 
 enum class DueScope(val label: String) { ALL("Wszystkie"), TODAY("Dziś"), OVERDUE("Zaległe") }
@@ -101,6 +94,8 @@ class TaskListViewModel @Inject constructor(
         val sections: List<Section> = emptyList(),
         val members: List<TaskMember> = emptyList(),
         val membersById: Map<String, TaskMember> = emptyMap(),
+        /** Zalogowany użytkownik — awatar przy „Moje" w filtrze osoby. */
+        val currentUserId: String? = null,
         /** Zadania z trwającym zapisem — wiersz pokazuje kręciołek zamiast kółka. */
         val pendingIds: Set<String> = emptySet(),
         /** Zadania ze zmianą zrobioną bez zasięgu, czekającą w kolejce (E3). */
@@ -165,6 +160,7 @@ class TaskListViewModel @Inject constructor(
     private fun observe() {
         viewModelScope.launch {
             currentUserId = sessionPreferences.session.first()?.userId
+            _uiState.update { it.copy(currentUserId = currentUserId) }
             observeTasks().collect { list ->
                 tasks = list
                 _uiState.update { it.copy(totalCount = list.size) }
@@ -350,8 +346,8 @@ class TaskListViewModel @Inject constructor(
             PersonScope.Unassigned -> assignee == null
             PersonScope.Mine -> currentUserId?.let(::matches) ?: true
             is PersonScope.Person -> matches(person.id)
-            is PersonScope.Group -> state.members
-                .filter { memberGroupOf(it) == person.group }
+            is PersonScope.Dept -> state.members
+                .filter { departmentOf(it) == person.department }
                 .any { matches(it.id) }
         }
     }

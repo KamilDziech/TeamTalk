@@ -250,6 +250,20 @@ h2{font-size:clamp(21px,2.6vw,27px);font-weight:700;letter-spacing:-.015em}
 }
 @keyframes pulse{0%{transform:scale(.9);opacity:.85}100%{transform:scale(1.22);opacity:0}}
 @media(prefers-reduced-motion:reduce){.micbtn.live::after{animation:none;opacity:.4}}
+/* mikrofon przy wyszukiwarce — kwadratowy, równy wysokości pola */
+.searchrow{display:flex;gap:7px;align-items:stretch}
+.searchrow .field{flex:1;min-width:0}
+.qmic{
+  flex:0 0 46px;border-radius:12px;border:1px solid var(--d-border);cursor:pointer;
+  background:var(--d-surface);color:var(--d-fg);display:grid;place-items:center;position:relative;
+}
+.qmic svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.qmic.live{background:var(--d-danger);border-color:var(--d-danger);color:#fff}
+.qmic.live::after{
+  content:"";position:absolute;inset:-4px;border-radius:14px;
+  border:2px solid var(--d-danger);animation:pulse 1.5s ease-out infinite;
+}
+@media(prefers-reduced-motion:reduce){.qmic.live::after{animation:none;opacity:.4}}
 .mictext{font-size:12px;color:var(--d-muted);text-align:center}
 .mictext b{color:var(--d-danger);font-variant-numeric:tabular-nums}
 .wave{display:flex;align-items:center;gap:3px;height:22px}
@@ -469,6 +483,7 @@ footer.end{
         <li><code>CreateTaskScreen</code> rozbić na kroki; w <code>UiState</code> dochodzi <code>step</code> i walidacja per krok.</li>
         <li>Nowe wywołania: lista klientów, lista deali/projektów, <code>POST /clients</code> dla ręcznego kontaktu.</li>
         <li><code>CreateTaskRequest</code> nie ma dziś <code>section</code> ani <code>slaHours</code> — do rozważenia osobno.</li>
+        <li>Mikrofon w wyszukiwarce (<code>VoiceField.CLIENT</code> i <code>VoiceField.PROJECT</code>) wpada w jeden tryb: hasło idzie w oba rodzaje, wyniki składa wspólna lista.</li>
       </ul>
     </div>
     <div class="card">
@@ -489,6 +504,7 @@ footer.end{
         <li><b>Kreator obok paska</b>, nie zamiast niego.</li>
         <li><b>Klient przez deal</b> — jeden bierzemy sami, przy kilku pytamy.</li>
         <li><b>Głos też na webie</b> (Chrome, Edge).</li>
+        <li><b>Mikrofon w wyszukiwarce kroku 3</b> — podyktowane hasło szuka w klientach, projektach i wewnętrznych naraz; kliknięcie w wynik przestawia zakładkę.</li>
       </ul>
     </div>
   </div>
@@ -586,7 +602,7 @@ footer.end{
   var NOTES = {
     1:"<p><b>Punkt wejścia.</b> Nazwa zadania zostaje tam, gdzie jest dziś — pole <code>title</code>, wymagane. Wejście z połączenia nadal podstawia „Kontakt: <i>numer</i>”.</p><p>Dopiero <b>Dalej</b> otwiera kreator, więc szybkie zadanie nadal da się wpisać w dwa dotknięcia.</p>",
     2:"<p><b>Opisz szerzej zadanie.</b> Duży przycisk mikrofonu uruchamia istniejący <code>SpeechToText</code> — ten sam, co w notatkach głosowych, dyktowanie ciągłe pl-PL.</p><p>Tekst pojawia się na żywo w polu i zostaje edytowalny, więc rozpoznanie można poprawić. Krok wolno pominąć.</p>",
-    3:"<p><b>Kogo dotyczy.</b> Ten krok wybiera endpoint zapisu — patrz pole <code>endpoint</code> obok.</p><p>Zadanie wiąże się z klientem wyłącznie przez deal, więc po wybraniu klienta: jeden deal bierzemy sami, przy kilku pytamy którego dotyczy, przy zerze zadanie idzie bez powiązania. Ręcznie wpisany kontakt <b>zakłada klienta</b> (<code>POST /clients</code>, stąd osobne imię i nazwisko).</p><p>Kliknij <b>Jan Kowalski</b> — ma dwa deale, więc dojdzie pytanie.</p>",
+    3:"<p><b>Kogo dotyczy.</b> Ten krok wybiera endpoint zapisu — patrz pole <code>endpoint</code> obok.</p><p>Zadanie wiąże się z klientem wyłącznie przez deal, więc po wybraniu klienta: jeden deal bierzemy sami, przy kilku pytamy którego dotyczy, przy zerze zadanie idzie bez powiązania. Ręcznie wpisany kontakt <b>zakłada klienta</b> (<code>POST /clients</code>, stąd osobne imię i nazwisko).</p><p>Kliknij <b>Jan Kowalski</b> — ma dwa deale, więc dojdzie pytanie.</p><p><b>Mikrofon obok pola</b> szuka <b>we wszystkich trzech rodzajach naraz</b> — mówiący nie wie, czy „Kowalski” jest klientem, czy nazwą projektu. Wyniki idą w grupach, a kliknięcie samo przestawia zakładkę. „Wewnętrzne” stoi na końcu zawsze: tego rodzaju nie ma czego przeszukiwać, ale musi być dokąd pójść. Ręczne kliknięcie zakładki albo puste pole kończy ten tryb.</p><p>Porównanie jest odporne na ogonki — <code>kowalski</code> znajdzie <b>Kowalskiego</b>, <code>sloneczne</code> znajdzie <b>Słoneczne</b>.</p>",
     4:"<p><b>Jaki zespół.</b> Kafelki to słownik <code>USER_FUNCTIONS</code> z ADR-0013 plus „Moje” (ja) i „Monter” — montaż jest rolą, nie funkcją.</p><p>Wybór wyłącznie jednego, zachowanie przycisku radio. Zawęża listę osób w następnym kroku.</p>",
     5:"<p><b>Osoba.</b> Sama lista osób pełniących wybraną funkcję — <b>nic nie jest zaznaczone z góry</b>, bo „osoba domyślna działu” nie istnieje dziś w danych.</p><p>Jedna osoba może pełnić kilka funkcji, więc te same nazwiska wracają w kilku kafelkach — i tak ma być.</p>",
     6:"<p><b>Priorytet.</b> Trzy wartości zgodne z modelem: <code>low</code> / <code>normal</code> / <code>high</code>. Kolor niesie znaczenie, nie dekoruje.</p>",
@@ -624,6 +640,57 @@ footer.end{
     return (p[0]||"?").charAt(0).toUpperCase() + (p[1]? p[1].charAt(0).toUpperCase() : "");
   }
 
+  /* Porównanie odporne na ogonki — rozpoznawanie mowy pisze „Słoneczne", a
+     z klawiatury równie często przyjdzie „sloneczne". NFD rozkłada ą, ć, ę, ń,
+     ó, ś, ź i ż, ale „ł" jest osobną literą i trzeba je podmienić ręcznie. */
+  function fold(s){
+    return String(s).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/ł/g,"l");
+  }
+  function hits(list, q){
+    var f = fold(String(q||"").trim());
+    if(!f) return list;
+    return list.filter(function(x){ return fold(x.n).indexOf(f) >= 0; });
+  }
+
+  /* Wyniki dyktowanego hasła — trzy rodzaje na jednej liście. „Wewnętrzne" stoi
+     na końcu zawsze: tego rodzaju nie ma czego przeszukiwać, a musi być dokąd
+     pójść, gdy zadanie nie dotyczy ani klienta, ani projektu. */
+  function crossResults(st){
+    var q = st.q.trim();
+    var cs = hits(CLIENTS, q), ps = hits(PROJECTS, q);
+    var h = '<div class="note">Szukam „'+esc(q)+'” w klientach, projektach i zadaniach wewnętrznych.</div>';
+    if(cs.length){
+      h += '<div class="lbl">Klienci</div><div class="rows">';
+      for(var i=0;i<cs.length;i++){
+        h += '<button class="row" data-act="xclient" data-v="'+cs[i].id+'">'
+          +  '<span class="avatar">'+initials(cs[i].n)+'</span>'
+          +  '<span class="rowmain"><span class="rowtitle">'+esc(cs[i].n)+'</span>'
+          +  '<span class="rowsub">'+esc(cs[i].s)+'</span></span></button>';
+      }
+      h += '</div>';
+    }
+    if(ps.length){
+      h += '<div class="lbl">Projekty</div><div class="rows">';
+      for(var j=0;j<ps.length;j++){
+        h += '<button class="row" data-act="xproject" data-v="'+ps[j].id+'">'
+          +  '<span class="avatar">▸</span>'
+          +  '<span class="rowmain"><span class="rowtitle">'+esc(ps[j].n)+'</span>'
+          +  '<span class="rowsub">'+esc(ps[j].s)+'</span></span></button>';
+      }
+      h += '</div>';
+    }
+    if(!cs.length && !ps.length){
+      h += '<div class="note">Ani w kartotece, ani wśród projektów nic takiego nie ma. '
+        +  'Popraw hasło, załóż nowy kontakt w zakładce „Klient” albo zostaw zadanie jako wewnętrzne.</div>';
+    }
+    h += '<div class="lbl">Wewnętrzne</div><div class="rows">'
+      +  '<button class="row" data-act="xinternal">'
+      +  '<span class="avatar">—</span>'
+      +  '<span class="rowmain"><span class="rowtitle">Zadanie wewnętrzne</span>'
+      +  '<span class="rowsub">bez powiązania z klientem ani projektem</span></span></button></div>';
+    return h;
+  }
+
   /* ── Stan ─────────────────────────────────────────────────────── */
   function freshState(){
     return {
@@ -634,6 +701,11 @@ footer.end{
       recording:false,
       recSec:0,
       subject:"client",
+      /* Wyszukiwarka kroku 3. `cross` włącza mikrofon: podyktowane hasło leci
+         w oba rodzaje naraz, bo mówiący nie wie, w której zakładce to siedzi. */
+      q:"",
+      cross:false,
+      qrec:false,
       clientId:null,
       dealId:null,
       newClient:{imie:"",nazwisko:"",tel:"",mail:""},
@@ -725,11 +797,32 @@ footer.end{
         +  '<button data-act="subject" data-v="project"  aria-pressed="'+(st.subject==="project")+'">Projekt</button>'
         +  '<button data-act="subject" data-v="internal" aria-pressed="'+(st.subject==="internal")+'">Wewnętrzne</button>'
         +  '</div>';
-      if(st.subject==="client"){
+
+      // Wyszukiwarka z mikrofonem. „Wewnętrzne" nie ma czego przeszukiwać, więc
+      // pole tam nie stoi — chyba że to właśnie wyniki dyktowania.
+      if(st.subject!=="internal" || st.cross){
+        var ph = st.cross ? "Szukaj wszędzie"
+               : (st.subject==="project" ? "Szukaj projektu" : "Szukaj w kartotece");
+        h += '<div class="searchrow">';
+        h += '<input class="field" data-in="q" value="'+esc(st.q)+'" placeholder="'+ph+'">';
+        h += '<button class="qmic'+(st.qrec?" live":"")+'" data-act="qmic" aria-label="'
+          +  (st.qrec ? "Zakończ dyktowanie" : "Podyktuj — szukam w każdym rodzaju")+'">'
+          +  svg(st.qrec?"stop":"mic")+'</button>';
+        h += '</div>';
+        if(st.qrec){ h += '<div class="mictext">Słucham… mów po polsku</div>'; }
+      }
+
+      if(st.cross && st.q.trim()){
+        h += crossResults(st);
+      } else if(st.subject==="client"){
+        var found = hits(CLIENTS, st.q);
         h += '<div class="lbl">Wybierz z kartoteki</div>';
+        if(found.length===0 && st.q.trim()){
+          h += '<div class="note">Nikogo takiego nie ma w kartotece — załóż go poniżej jako nowy kontakt.</div>';
+        }
         h += '<div class="rows">';
-        for(var c=0;c<CLIENTS.length;c++){
-          var cl = CLIENTS[c];
+        for(var c=0;c<found.length;c++){
+          var cl = found[c];
           h += '<button class="row" data-act="client" data-v="'+cl.id+'" aria-pressed="'+(st.clientId===cl.id)+'">'
             +  '<span class="avatar">'+initials(cl.n)+'</span>'
             +  '<span class="rowmain"><span class="rowtitle">'+esc(cl.n)+'</span><span class="rowsub">'+esc(cl.s)+'</span></span>'
@@ -769,10 +862,14 @@ footer.end{
         h += '<input class="field" data-in="cmail" value="'+esc(st.newClient.mail)+'" placeholder="E-mail (opcjonalnie)">';
         h += '<div class="note">Nowy kontakt zakłada klienta w kartotece (<b>POST /clients</b>) — dlatego imię i nazwisko są osobno i wymagane.</div>';
       } else if(st.subject==="project"){
+        var foundP = hits(PROJECTS, st.q);
         h += '<div class="lbl">Projekt z CRM</div>';
+        if(foundP.length===0 && st.q.trim()){
+          h += '<div class="note">Żaden projekt nie pasuje do „'+esc(st.q)+'”.</div>';
+        }
         h += '<div class="rows">';
-        for(var p=0;p<PROJECTS.length;p++){
-          var pr = PROJECTS[p];
+        for(var p=0;p<foundP.length;p++){
+          var pr = foundP[p];
           h += '<button class="row" data-act="project" data-v="'+pr.id+'" aria-pressed="'+(st.projectId===pr.id)+'">'
             +  '<span class="avatar">'+initials(pr.n)+'</span>'
             +  '<span class="rowmain"><span class="rowtitle">'+esc(pr.n)+'</span><span class="rowsub">'+esc(pr.s)+'</span></span>'
@@ -969,6 +1066,28 @@ footer.end{
     paint();
   }
 
+  /* Dyktowanie do wyszukiwarki. Przy szukaniu jedna wypowiedź kończy sesję —
+     mikrofon nie ma prawa zostać włączony po nazwisku klienta — więc makieta
+     odtwarza jedno hasło i gasi się sama, bez trybu ciągłego z kroku 2. */
+  var qrecTimer = null;
+  function startQRec(){
+    stopRec();                       // rozpoznawanie ma jedną sesję naraz
+    state.qrec = true;
+    state.q = "";                    // druga próba zastępuje pierwszą
+    state.cross = true;              // hasło leci w oba rodzaje naraz
+    paint();
+    qrecTimer = setTimeout(function(){
+      qrecTimer = null;
+      state.qrec = false;
+      state.q = "kowalski";          // celowo z małej i bez ogonków — tak bywa z rozpoznania
+      paint();
+    }, 1300);
+  }
+  function stopQRec(){
+    if(qrecTimer){ clearTimeout(qrecTimer); qrecTimer = null; }
+    state.qrec = false;
+  }
+
   // Osoby domyślnej celowo nie ma — krok 5 pokazuje samą listę, nic nie jest
   // zaznaczone z góry (decyzja z 2026-09-01).
 
@@ -978,11 +1097,29 @@ footer.end{
     var act = b.getAttribute("data-act");
     var v = b.getAttribute("data-v");
 
-    if(act==="next"){ stopRec(); state.step = Math.min(8, state.step+1); }
-    else if(act==="back"){ stopRec(); state.step = Math.max(1, state.step-1); }
-    else if(act==="reset"){ state = freshState(); }
+    if(act==="next"){ stopRec(); stopQRec(); state.step = Math.min(8, state.step+1); }
+    else if(act==="back"){ stopRec(); stopQRec(); state.step = Math.max(1, state.step-1); }
+    else if(act==="reset"){ stopQRec(); state = freshState(); }
     else if(act==="mic"){ if(state.recording) stopRec(); else { startRec(); return; } }
-    else if(act==="subject"){ state.subject = v; }
+    else if(act==="qmic"){ if(state.qrec) stopQRec(); else { startQRec(); return; } }
+    // Ręczny wybór zakładki kończy szukanie po wszystkim — użytkownik właśnie
+    // powiedział, w którym rodzaju to siedzi.
+    else if(act==="subject"){ state.subject = v; state.cross = false; }
+    // Wyniki dyktowania: kliknięcie samo przestawia zakładkę.
+    else if(act==="xclient"){
+      state.cross = false; state.subject = "client"; state.projectId = null;
+      state.clientId = v;
+      var xd = CLIENT_DEALS[v] || [];
+      state.dealId = xd.length === 1 ? xd[0].id : null;
+    }
+    else if(act==="xproject"){
+      state.cross = false; state.subject = "project"; state.projectId = v;
+      state.clientId = null; state.dealId = null;
+    }
+    else if(act==="xinternal"){
+      state.cross = false; state.subject = "internal";
+      state.projectId = null; state.clientId = null; state.dealId = null;
+    }
     else if(act==="client"){
       state.clientId = (state.clientId===v? null : v);
       var ds = CLIENT_DEALS[state.clientId] || [];
@@ -1002,6 +1139,17 @@ footer.end{
     var f = ev.target.closest("[data-in]");
     if(!f) return;
     var key = f.getAttribute("data-in");
+    if(key==="q"){
+      // Wyszukiwarka jako jedyna zmienia listę pod sobą, więc musi przerysować
+      // całą planszę — fokus i karetkę wstawiamy z powrotem po odmalowaniu.
+      var caret = f.selectionStart;
+      state.q = f.value;
+      if(!f.value.trim()) state.cross = false;
+      paint();
+      var again = live.querySelector('[data-in="q"]');
+      if(again){ again.focus(); try{ again.setSelectionRange(caret, caret); }catch(e){} }
+      return;
+    }
     if(key==="title"){ state.title = f.value; }
     else if(key==="desc"){ state.desc = f.value; if(state.descSource!=="voice") state.descSource = "text"; }
     else if(key==="cimie"){ state.newClient.imie = f.value; }
@@ -1036,6 +1184,8 @@ footer.end{
      patch:{title:"Brak c.w.u. — pompa ciepła", subject:"client", clientId:"c1", dealId:"cd2"}},
     {step:3, cap:["…albo projekt","Ta sama plansza, druga zakładka — deal z CRM."],
      patch:{title:"Brak c.w.u. — pompa ciepła", subject:"project", projectId:"d1"}},
+    {step:3, cap:["Szukanie głosem","Mikrofon obok pola przeszukuje wszystkie trzy rodzaje naraz; kliknięcie w wynik przestawia zakładkę."],
+     patch:{title:"Brak c.w.u. — pompa ciepła", subject:"client", q:"kowalski", cross:true}},
     {step:4, cap:["Zespół","Dwanaście kafelków — słownik funkcji, wybór jednego."],
      patch:{title:"Brak c.w.u. — pompa ciepła", team:"serwis"}},
     {step:5, cap:["Osoba","Osoby pełniące wybraną funkcję. Nic nie jest zaznaczone z góry."],

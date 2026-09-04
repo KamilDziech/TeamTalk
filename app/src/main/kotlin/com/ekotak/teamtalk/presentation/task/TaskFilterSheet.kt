@@ -26,6 +26,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.ekotak.teamtalk.domain.model.TaskPriority
 import com.ekotak.teamtalk.domain.model.TaskStatus
+import com.ekotak.teamtalk.presentation.components.PersonScope
+import com.ekotak.teamtalk.presentation.components.PersonTree
 
 /**
  * Filtry i sortowanie w arkuszu od dołu. Pasek filtrów z panelu board360 ma
@@ -62,30 +64,22 @@ fun TaskFilterSheet(
             )
 
             // ── Osoba ────────────────────────────────────────────────────────
-            // Grupy (Biuro / Montażyści / Pozostali) biorą się z ról zespołu,
-            // dokładnie jak lista osób w filtrze panelu.
-            Group(label = "Osoba") {
-                Chip("Moje", state.person == PersonScope.Mine) { onPersonChange(PersonScope.Mine) }
-                Chip("Wszyscy", state.person == PersonScope.All) { onPersonChange(PersonScope.All) }
-                MemberGroup.entries.forEach { group ->
-                    Chip(group.label, state.person == PersonScope.Group(group)) {
-                        onPersonChange(PersonScope.Group(group))
-                    }
-                }
-                Chip("Nieprzypisane", state.person == PersonScope.Unassigned) {
-                    onPersonChange(PersonScope.Unassigned)
-                }
-            }
-
-            if (state.members.isNotEmpty()) {
-                Group(label = "Konkretna osoba") {
-                    state.members.forEach { member ->
-                        Chip(member.displayName, state.person == PersonScope.Person(member.id)) {
-                            onPersonChange(PersonScope.Person(member.id))
-                        }
-                    }
-                }
-            }
+            // Moje / Wszyscy / Nieprzypisane, a niżej drzewo działów (Biuro,
+            // Serwis, Montaż, Pozostali) — ten sam komponent co w Kalendarzu
+            // i na Mapie. Płaska lista „konkretna osoba" zniknęła: przy
+            // kilkunastu ludziach chipy zajmowały pół arkusza.
+            Text(
+                text = "OSOBA",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            PersonTree(
+                members = state.members,
+                selected = state.person,
+                onSelect = onPersonChange,
+                me = state.members.firstOrNull { it.id == state.currentUserId },
+                unassignedLabel = "Nieprzypisane",
+            )
 
             Group(label = "Status") {
                 Chip("Wszystkie", state.statuses == TaskListViewModel.ALL_STATUSES) {

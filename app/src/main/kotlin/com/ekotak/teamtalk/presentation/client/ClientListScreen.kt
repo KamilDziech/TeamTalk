@@ -41,9 +41,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -76,8 +73,9 @@ import com.ekotak.teamtalk.presentation.crm.stageColor
 /**
  * Kartoteka klientów. Panel ma na to szeroką tabelę z dwoma selectami i
  * przełącznikiem kategorii; na telefonie te same wymiary rozkładamy inaczej:
- * kategoria zostaje przełącznikiem (trzy pozycje mieszczą się w segmentach),
- * a filtry etapu i instalacji chowamy w arkuszach — chip pokazuje wybór, więc
+ * kategoria zostaje rzędem chipów z licznikami (cztery pozycje nie zmieściłyby
+ * się w segmentach), a filtry etapu i instalacji chowamy w arkuszach — chip
+ * pokazuje wybór, więc
  * lista nie traci wysokości na kontrolki, których zwykle się nie rusza.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -263,26 +261,30 @@ fun ClientListScreen(
 /** Który arkusz filtra jest otwarty (żaden = `null`). */
 enum class FilterSheet { STAGE, INSTALL }
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * Zakładki kategorii z licznikami — te same cztery co w panelu. Segmenty dzielą
+ * szerokość po równo, więc przy czterech pozycjach „Kontrahenci" obcinałoby się
+ * do wielokropka; kategoria jedzie przewijanym rzędem chipów, jak filtry niżej.
+ */
 @Composable
 private fun CategorySwitch(
     selected: ClientCategory,
     counts: Map<ClientCategory, Int>,
     onSelect: (ClientCategory) -> Unit,
 ) {
-    val categories = ClientCategory.entries
-    SingleChoiceSegmentedButtonRow(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxWidth(),
     ) {
-        categories.forEachIndexed { index, category ->
-            SegmentedButton(
+        items(ClientCategory.entries.toList(), key = { it.name }) { category ->
+            FilterChip(
                 selected = selected == category,
                 onClick = { onSelect(category) },
-                shape = SegmentedButtonDefaults.itemShape(index = index, count = categories.size),
                 label = {
                     Text(
                         text = "${category.tabLabel} ${counts[category] ?: 0}",
-                        style = MaterialTheme.typography.labelMedium,
+                        style = MaterialTheme.typography.labelLarge,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )

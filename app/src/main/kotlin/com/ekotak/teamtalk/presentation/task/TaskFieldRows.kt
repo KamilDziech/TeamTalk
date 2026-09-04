@@ -42,6 +42,7 @@ import com.ekotak.teamtalk.domain.model.Task
 import com.ekotak.teamtalk.domain.model.TaskMember
 import com.ekotak.teamtalk.domain.model.TaskSection
 import com.ekotak.teamtalk.domain.model.TaskStatus
+import com.ekotak.teamtalk.domain.model.departmentOf
 import com.ekotak.teamtalk.domain.model.slaLabel
 import com.ekotak.teamtalk.presentation.crm.formatDate
 
@@ -136,7 +137,7 @@ fun TaskFieldRows(
         )
         TaskField.ASSIGNEE -> ChoiceSheet(
             title = "Wykonawca",
-            subtitle = "Osoby z zespołu — Biuro, Montażyści, potem reszta",
+            subtitle = "Osoby z zespołu — Biuro, Serwis, Montaż, potem reszta",
             options = buildList {
                 add(Choice("Nieprzypisane", task.assigneeId == null) { viewModel.setAssignee(null) })
                 members.forEach { member ->
@@ -144,7 +145,7 @@ fun TaskFieldRows(
                         Choice(
                             label = member.displayName,
                             selected = member.id == task.assigneeId,
-                            hint = memberGroupOf(member).label,
+                            hint = departmentOf(member).label,
                         ) { viewModel.setAssignee(member.id) },
                     )
                 }

@@ -6,10 +6,15 @@ import com.ekotak.teamtalk.data.location.LocationProvider
 import com.ekotak.teamtalk.domain.model.MapKind
 import com.ekotak.teamtalk.domain.model.MapPoint
 import com.ekotak.teamtalk.domain.model.PlaceSuggestion
+import com.ekotak.teamtalk.domain.model.TaskMember
+import com.ekotak.teamtalk.domain.model.departmentOf
 import com.ekotak.teamtalk.domain.model.haversineKm
+import com.ekotak.teamtalk.domain.model.sortMembersByDepartment
+import com.ekotak.teamtalk.domain.repository.MemberRepository
 import com.ekotak.teamtalk.domain.usecase.map.ObserveMapPointsUseCase
 import com.ekotak.teamtalk.domain.usecase.map.RefreshMapUseCase
 import com.ekotak.teamtalk.domain.usecase.map.SuggestPlacesUseCase
+import com.ekotak.teamtalk.presentation.components.PersonScope
 import com.ekotak.teamtalk.presentation.crm.crmErrorMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -73,6 +78,7 @@ class MapViewModel @Inject constructor(
     private val refreshMap: RefreshMapUseCase,
     private val suggestPlaces: SuggestPlacesUseCase,
     private val locationProvider: LocationProvider,
+    private val memberRepository: MemberRepository,
 ) : ViewModel() {
 
     data class UiState(
@@ -88,7 +94,8 @@ class MapViewModel @Inject constructor(
         val keyword: String = "",
         /** `null` = wszystkie statusy (chip „Wszystkie"). */
         val chip: String? = null,
-        val personFilter: String? = null,
+        /** Filtr osoby: Wszyscy / cały dział / konkretna osoba. */
+        val person: PersonScope = PersonScope.All,
         val installFilter: String? = null,
         val locationQuery: String = "",
         val suggestions: List<PlaceSuggestion> = emptyList(),
@@ -104,8 +111,15 @@ class MapViewModel @Inject constructor(
         val shown: List<MapPoint> = emptyList(),
         val noGeo: List<MapPoint> = emptyList(),
         val chips: List<MapChip> = emptyList(),
-        val people: List<Pair<String, Int>> = emptyList(),
-        val peopleLabels: Map<String, String> = emptyMap(),
+        /**
+         * Osoby obecne w bieżącym widoku — do drzewa działów w filtrze.
+         * Kto jest w książce zespołu, ma rolę i funkcje (a więc dział); kto
+         * został tylko na punkcie (konto usunięte, ekipa zewnętrzna), dostaje
+         * wpis z samą etykietą i ląduje w „Pozostali".
+         */
+        val people: List<TaskMember> = emptyList(),
+        /** Liczba punktów na osobę — licznik przy nazwisku i sumy działów. */
+        val peopleCounts: Map<String, Int> = emptyMap(),
         val installs: List<Pair<String, Int>> = emptyList(),
         /** Punkt otwarty w dymku (arkusz karty punktu). */
         val selected: MapPoint? = null,
@@ -117,7 +131,7 @@ class MapViewModel @Inject constructor(
         /** Liczba filtrów odbiegających od domyślnych — plakietka przy ikonie. */
         val activeFilterCount: Int
             get() = listOf(
-                personFilter != null,
+                person != PersonScope.All,
                 installFilter != null,
                 center != null && radiusKm > 0,
                 ownerMode != OwnerMode.MAIN,
@@ -129,6 +143,13 @@ class MapViewModel @Inject constructor(
 
     /** Surowa migawka z cache — filtrowana lokalnie przy każdej zmianie stanu. */
     private var allPoints: List<MapPoint> = emptyList()
+
+    /**
+     * Książka zespołu z cache — po niej filtr osoby wie, kto siedzi w jakim
+     * dziale. Punkt niesie tylko id i etykietę osoby, więc bez tego drzewo
+     * miałoby same „Pozostali".
+     */
+    private var directory: Map<String, TaskMember> = emptyMap()
     private var suggestJob: Job? = null
 
     init {
@@ -145,6 +166,15 @@ class MapViewModel @Inject constructor(
                 }
             }
         }
+        viewModelScope.launch {
+            memberRepository.observe().collect { members ->
+                directory = members.associateBy { it.id }
+                _uiState.update { recompute(it) }
+            }
+        }
+        // Odświeżenie książki jest miękkie (patrz MemberRepository) — mapa
+        // otwiera się i bez niego, po prostu z osobami sprzed ostatniej zmiany.
+        viewModelScope.launch { memberRepository.refresh() }
         refresh()
     }
 
@@ -176,7 +206,7 @@ class MapViewModel @Inject constructor(
                 it.copy(
                     view = view,
                     chip = null,
-                    personFilter = null,
+                    person = PersonScope.All,
                     installFilter = null,
                     selected = null,
                     fitRequest = it.fitRequest + 1,
@@ -190,9 +220,9 @@ class MapViewModel @Inject constructor(
     fun setChip(key: String?) = _uiState.update { recompute(it.copy(chip = key)) }
 
     fun setOwnerMode(mode: OwnerMode) =
-        _uiState.update { recompute(it.copy(ownerMode = mode, personFilter = null)) }
+        _uiState.update { recompute(it.copy(ownerMode = mode, person = PersonScope.All)) }
 
-    fun setPerson(id: String?) = _uiState.update { recompute(it.copy(personFilter = id)) }
+    fun setPerson(scope: PersonScope) = _uiState.update { recompute(it.copy(person = scope)) }
 
     fun setInstall(name: String?) = _uiState.update { recompute(it.copy(installFilter = name)) }
 
@@ -206,7 +236,7 @@ class MapViewModel @Inject constructor(
             recompute(
                 it.copy(
                     chip = null,
-                    personFilter = null,
+                    person = PersonScope.All,
                     installFilter = null,
                     ownerMode = OwnerMode.MAIN,
                     center = null,
@@ -317,6 +347,47 @@ class MapViewModel @Inject constructor(
         val kind = state.view.kind
         val viewPoints = if (kind == null) emptyList() else allPoints.filter { it.kind == kind }
 
+        // Osoby widoku liczymy PRZED filtrami: lista w arkuszu ma być stała,
+        // a nie kurczyć się do jednego nazwiska po każdym wyborze.
+        val personCounts = viewPoints.mapNotNull { state.personIdOf(it) }
+            .groupingBy { it }
+            .eachCount()
+        val labels = buildMap {
+            for (p in viewPoints) {
+                p.ownerId?.let { id -> p.ownerLabel?.let { put(id, it) } }
+                p.stageOwnerId?.let { id -> p.stageOwnerLabel?.let { put(id, it) } }
+                p.technicianId?.let { id -> p.technicianLabel?.let { put(id, it) } }
+            }
+        }
+        // Osoba z książki zespołu ma rolę i funkcje, czyli dział. Kto został
+        // tylko na punkcie (konto skasowane, ekipa z zewnątrz) dostaje wpis
+        // z samą etykietą i ląduje w „Pozostali" — zniknąć z filtra nie może,
+        // bo jego punkty wciąż są na mapie.
+        val people = sortMembersByDepartment(
+            personCounts.keys.map { id ->
+                directory[id] ?: TaskMember(
+                    id = id,
+                    email = labels[id] ?: id,
+                    firstName = null,
+                    lastName = null,
+                    role = null,
+                )
+            },
+        )
+
+        // Id osób objętych filtrem; null = bez zawężenia. Dział rozwijamy do
+        // zbioru osób, żeby dalej filtrować jednym porównaniem.
+        val personIds: Set<String>? = when (val scope = state.person) {
+            // Mapa nie ma „Moje" ani „Nieprzypisane" — punkt bez osoby i tak
+            // przechodzi, a te zakresy nie trafiają tu z UI.
+            PersonScope.All, PersonScope.Mine, PersonScope.Unassigned -> null
+            is PersonScope.Person -> setOf(scope.id)
+            is PersonScope.Dept -> people
+                .filter { departmentOf(it) == scope.department }
+                .map { it.id }
+                .toSet()
+        }
+
         val keyword = state.keyword.trim().lowercase()
         val base = viewPoints.filter { p ->
             if (keyword.isNotEmpty()) {
@@ -328,7 +399,7 @@ class MapViewModel @Inject constructor(
                 if (!hay.contains(keyword)) return@filter false
             }
             val personId = state.personIdOf(p)
-            if (state.personFilter != null && personId != state.personFilter) return@filter false
+            if (personIds != null && personId !in personIds) return@filter false
             if (state.installFilter != null && !p.installs.contains(state.installFilter)) {
                 return@filter false
             }
@@ -356,17 +427,6 @@ class MapViewModel @Inject constructor(
         val chip = state.chip?.takeIf { key -> chips.any { it.key == key } }
         val shown = withGeo.filter { chip == null || it.badge.key == chip }
 
-        val people = viewPoints.mapNotNull { state.personIdOf(it) }
-            .groupingBy { it }
-            .eachCount()
-            .toList()
-        val labels = buildMap {
-            for (p in viewPoints) {
-                p.ownerId?.let { id -> p.ownerLabel?.let { put(id, it) } }
-                p.stageOwnerId?.let { id -> p.stageOwnerLabel?.let { put(id, it) } }
-                p.technicianId?.let { id -> p.technicianLabel?.let { put(id, it) } }
-            }
-        }
         val installs = viewPoints.flatMap { it.installs }
             .groupingBy { it }
             .eachCount()
@@ -380,8 +440,8 @@ class MapViewModel @Inject constructor(
             noGeo = base.filterNot { it.hasGeo },
             chips = chips,
             chip = chip,
-            people = people.sortedBy { (labels[it.first] ?: it.first).lowercase() },
-            peopleLabels = labels,
+            people = people,
+            peopleCounts = personCounts,
             installs = installs,
         )
     }

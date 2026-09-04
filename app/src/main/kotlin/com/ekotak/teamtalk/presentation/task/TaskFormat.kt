@@ -1,6 +1,7 @@
 package com.ekotak.teamtalk.presentation.task
 
 import com.ekotak.teamtalk.domain.model.TaskMember
+import com.ekotak.teamtalk.domain.model.sortMembersByDepartment
 import com.ekotak.teamtalk.presentation.crm.parseIsoMillis
 import java.text.SimpleDateFormat
 import java.time.Instant
@@ -104,25 +105,9 @@ fun slaState(
 }
 
 /**
- * Grupy filtra „Przypisany" — lustro `web/src/app/app/tasks/members.ts`.
- * Osoba z rolą biuro i montaż naraz trafia do Biura (wyższy priorytet), rola
- * dodatkowa liczy się na równi z główną.
+ * Podział osób na działy mieszka w domenie ([Department], [departmentOf]) — ten
+ * sam zestaw obsługuje Zadania, Kalendarz i Mapę. Tu został wyłącznie skrót
+ * używany przez ekrany zadań.
  */
-enum class MemberGroup(val label: String) {
-    BIURO("Biuro"),
-    MONTAZ("Montażyści"),
-    POZOSTALI("Pozostali"),
-}
-
-fun memberGroupOf(member: TaskMember): MemberGroup {
-    val roles = (listOf(member.role) + member.additionalRoles).filterNotNull()
-    return when {
-        "biuro" in roles -> MemberGroup.BIURO
-        "montaz" in roles -> MemberGroup.MONTAZ
-        else -> MemberGroup.POZOSTALI
-    }
-}
-
-/** Osoby posortowane jak w panelu: Biuro → Montaż → Pozostali, w grupie alfabetycznie. */
 fun sortMembersForTasks(members: List<TaskMember>): List<TaskMember> =
-    members.sortedWith(compareBy({ memberGroupOf(it).ordinal }, { it.displayName.lowercase() }))
+    sortMembersByDepartment(members)

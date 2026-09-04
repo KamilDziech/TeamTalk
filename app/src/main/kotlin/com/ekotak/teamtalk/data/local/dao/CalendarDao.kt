@@ -8,11 +8,11 @@ import androidx.room.Transaction
 import com.ekotak.teamtalk.data.local.entity.CalendarBusyEntity
 import com.ekotak.teamtalk.data.local.entity.CalendarEntity
 import com.ekotak.teamtalk.data.local.entity.CalendarEventEntity
-import com.ekotak.teamtalk.data.local.entity.CalendarMemberEntity
 import com.ekotak.teamtalk.data.local.entity.CalendarMutationEntity
 import kotlinx.coroutines.flow.Flow
 
-/** Cache modułu Kalendarz: kalendarze (warstwy), wydarzenia i osoby. */
+/** Cache modułu Kalendarz: kalendarze (warstwy), wydarzenia i zajętość. Osoby
+ *  zespołu trzyma wspólny [MemberDao]. */
 @Dao
 interface CalendarDao {
 
@@ -21,9 +21,6 @@ interface CalendarDao {
 
     @Query("SELECT * FROM calendar_events")
     fun observeEvents(): Flow<List<CalendarEventEntity>>
-
-    @Query("SELECT * FROM calendar_members ORDER BY firstName COLLATE NOCASE, email COLLATE NOCASE")
-    fun observeMembers(): Flow<List<CalendarMemberEntity>>
 
     @Query("SELECT * FROM calendar_events WHERE id = :id")
     suspend fun getEvent(id: String): CalendarEventEntity?
@@ -43,17 +40,11 @@ interface CalendarDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertEvent(event: CalendarEventEntity)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsertMembers(members: List<CalendarMemberEntity>)
-
     @Query("DELETE FROM calendar_events WHERE id = :id")
     suspend fun deleteEvent(id: String)
 
     @Query("DELETE FROM calendars")
     suspend fun deleteCalendars()
-
-    @Query("DELETE FROM calendar_members")
-    suspend fun deleteMembers()
 
     /**
      * Podmiana wydarzeń pobranego zakresu. Kasujemy tylko to, co serwer mógł
@@ -76,13 +67,6 @@ interface CalendarDao {
     suspend fun replaceCalendars(calendars: List<CalendarEntity>) {
         deleteCalendars()
         upsertCalendars(calendars)
-    }
-
-    @Transaction
-    suspend fun replaceMembers(members: List<CalendarMemberEntity>) {
-        if (members.isEmpty()) return
-        deleteMembers()
-        upsertMembers(members)
     }
 
     // ── Prywatna zajętość (szare pola) ────────────────────────────────────

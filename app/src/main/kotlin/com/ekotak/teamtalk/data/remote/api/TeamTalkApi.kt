@@ -243,6 +243,15 @@ interface TeamTalkApi {
     suspend fun getTaskMembers(): List<TaskMemberDto>
 
     /**
+     * Zdjęcie profilowe członka zespołu — to samo źródło, z którego korzysta
+     * panel (`/api/users/:id/avatar`, kontroler `TeamAvatarController`).
+     * Odczyt wymaga tylko zalogowania. Brak zdjęcia = 404, nie pusta odpowiedź.
+     */
+    @GET("api/users/{id}/avatar")
+    @Streaming
+    suspend fun getUserAvatar(@Path("id") id: String): ResponseBody
+
+    /**
      * Zadania zespołu. Filtry wykonawcy i statusu robimy lokalnie na pobranej
      * liście (przełączanie chipów bez okrążenia po sieci), więc bez parametrów
      * — z serwera bierzemy całość raz i trzymamy w cache Room.
