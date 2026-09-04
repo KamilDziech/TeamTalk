@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import com.ekotak.teamtalk.presentation.settings.ThemeMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -28,6 +29,10 @@ class SessionPreferences @Inject constructor(
         private val KEY_MENTIONS_SEEN_AT = longPreferencesKey("mentions_seen_at")
         private val KEY_SYNC_PROBLEM   = stringPreferencesKey("task_sync_problem")
         private val KEY_REMINDERS_DAY  = longPreferencesKey("task_reminders_day")
+        private val KEY_CALENDAR_VIEW  = stringPreferencesKey("calendar_view")
+        private val KEY_CALENDAR_LAYERS_OFF = stringSetPreferencesKey("calendar_layers_off")
+        private val KEY_CALENDAR_OVERLAYS   = stringSetPreferencesKey("calendar_overlays_on")
+        private val KEY_CALENDAR_ALERTS = stringSetPreferencesKey("calendar_event_alerts")
     }
 
     /** Token sesji board360 (wysyłany jako cookie `b360_session`). */
@@ -108,6 +113,59 @@ class SessionPreferences @Inject constructor(
 
     suspend fun saveRemindersShownOn(epochDay: Long) {
         dataStore.edit { it[KEY_REMINDERS_DAY] = epochDay }
+    }
+
+    /**
+     * Ostatnio wybrany widok kalendarza (`month` / `week` / `day` / `agenda`).
+     * Panel trzyma go w bazie (`/me/preferences/calendar.view`), telefon —
+     * lokalnie: okrążenie po sieci przy każdym przełączeniu zakładki kosztuje
+     * więcej, niż daje, a wybór na telefonie i tak bywa inny niż na monitorze
+     * (ustalenie z `design/mockups/modul-kalendarz.html`).
+     */
+    val calendarView: Flow<String?> = dataStore.data.map { it[KEY_CALENDAR_VIEW] }
+
+    suspend fun saveCalendarView(view: String) {
+        dataStore.edit { it[KEY_CALENDAR_VIEW] = view }
+    }
+
+    /** Wyłączone warstwy kalendarza — domyślnie widać wszystkie, więc trzymamy wyjątki. */
+    val calendarHiddenLayers: Flow<Set<String>> =
+        dataStore.data.map { it[KEY_CALENDAR_LAYERS_OFF] ?: emptySet() }
+
+    suspend fun saveCalendarHiddenLayers(ids: Set<String>) {
+        dataStore.edit { it[KEY_CALENDAR_LAYERS_OFF] = ids }
+    }
+
+    /** Włączone nakładki operacyjne — domyślnie żadna, jak w panelu. */
+    val calendarOverlaysOn: Flow<Set<String>> =
+        dataStore.data.map { it[KEY_CALENDAR_OVERLAYS] ?: emptySet() }
+
+    suspend fun saveCalendarOverlaysOn(sources: Set<String>) {
+        dataStore.edit { it[KEY_CALENDAR_OVERLAYS] = sources }
+    }
+
+    /**
+     * Znaczniki wysłanych przypomnień o wydarzeniach (`eventId:startAt`).
+     * W kluczu jest godzina rozpoczęcia, więc przesunięty termin przypomni
+     * o sobie ponownie, a nieruszony — tylko raz, mimo że robotnik chodzi
+     * co 15 minut.
+     */
+    val calendarAlertsSent: Flow<Set<String>> =
+        dataStore.data.map { it[KEY_CALENDAR_ALERTS] ?: emptySet() }
+
+    suspend fun markCalendarAlertSent(marker: String) {
+        dataStore.edit { prefs ->
+            prefs[KEY_CALENDAR_ALERTS] = (prefs[KEY_CALENDAR_ALERTS] ?: emptySet()) + marker
+        }
+    }
+
+    /** Sprzątanie znaczników wydarzeń, które już się odbyły. */
+    suspend fun retainCalendarAlerts(markers: Set<String>) {
+        dataStore.edit { prefs ->
+            val current = prefs[KEY_CALENDAR_ALERTS] ?: return@edit
+            val kept = current intersect markers
+            if (kept.size != current.size) prefs[KEY_CALENDAR_ALERTS] = kept
+        }
     }
 
     suspend fun clear() {

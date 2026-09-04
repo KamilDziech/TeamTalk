@@ -30,6 +30,17 @@ const db = {
   dealInstallations: {},   // dealId -> { [stage]: [categoryId] } (wybor per etap)
   activities: [],          // ActivityLog (append-only)
   leads: [],               // zgloszenia z leadowni, po jednym na deal
+  // ── Kalendarz (modul Kalendarz) ────────────────────────────────────────────
+  // Kalendarz niesie granty w polu `shares` — poziom dostepu liczymy przy
+  // odczycie, tak jak board360 (`effectiveLevel`).
+  calendars: [],           // {id, organizationId, name, type, color, ownerId, shares[]}
+  calendarEvents: [],      // wystapienia; seria = wspolny `recurrenceGroupId`
+  // Prywatny kalendarz (sekretny iCal) → zajetosc widoczna dla zespolu.
+  // Atrapa NIE pobiera niczego z sieci: przy podpieciu generuje syntetyczne
+  // bloki (patrz `generateBusy` w routes/calendar.js), zeby dalo sie przetestowac
+  // szare pola i kolizje 409 bez konta Google i bez internetu.
+  privateCalendarLinks: [], // {userId, organizationId, urlHint, status, lastSyncedAt, blockCount}
+  privateBusy: [],          // {id, organizationId, userId, startAt, endAt}
 };
 
 const normalizePhone = (p) => String(p || '').replace(/[^0-9]/g, '').replace(/^0+/, '');

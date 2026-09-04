@@ -39,6 +39,8 @@ import com.ekotak.teamtalk.presentation.home.HomeScreen
 import com.ekotak.teamtalk.presentation.home.ModulePlaceholderScreen
 import com.ekotak.teamtalk.presentation.home.homeModule
 import com.ekotak.teamtalk.presentation.postcallnote.PostCallNoteScreen
+import com.ekotak.teamtalk.presentation.calendar.CalendarScreen
+import com.ekotak.teamtalk.presentation.calendar.FindTimeScreen
 import com.ekotak.teamtalk.presentation.settings.SettingsScreen
 import com.ekotak.teamtalk.presentation.task.CreateTaskScreen
 import com.ekotak.teamtalk.presentation.task.CreateTaskViewModel
@@ -57,12 +59,17 @@ private const val CLIENT_MESSAGE_KEY = "clientMessage"
  */
 private const val NEW_CLIENT_ID_KEY = "newClientId"
 
+/** Slot wybrany w „Znajdź termin", oddawany kalendarzowi przez `savedStateHandle`. */
+private const val PICKED_SLOT_KEY = "calendarPickedSlot"
+private const val PICKED_SLOT_PEOPLE_KEY = "calendarPickedSlotPeople"
+
 @Composable
 fun TeamTalkNavGraph(
     viewModel: MainViewModel = hiltViewModel(),
     deepLinkCallLogId: String? = null,
     deepLinkPostCallPhone: String? = null,
     deepLinkTaskId: String? = null,
+    deepLinkCalendarEventId: String? = null,
 ) {
     val navController = rememberNavController()
     val sessionState by viewModel.sessionState.collectAsState()
@@ -102,6 +109,7 @@ fun TeamTalkNavGraph(
                 deepLinkCallLogId = deepLinkCallLogId,
                 deepLinkPostCallPhone = deepLinkPostCallPhone,
                 deepLinkTaskId = deepLinkTaskId,
+                deepLinkCalendarEventId = deepLinkCalendarEventId,
             )
         }
     }
@@ -112,6 +120,7 @@ private fun MainScreen(
     deepLinkCallLogId: String? = null,
     deepLinkPostCallPhone: String? = null,
     deepLinkTaskId: String? = null,
+    deepLinkCalendarEventId: String? = null,
 ) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -137,6 +146,16 @@ private fun MainScreen(
     LaunchedEffect(deepLinkTaskId) {
         if (deepLinkTaskId != null) {
             navController.navigate("task/$deepLinkTaskId") { launchSingleTop = true }
+        }
+    }
+
+    // Przypomnienie o wydarzeniu prowadzi w kalendarz z otwartą kartą tego
+    // terminu — samo otwarcie modułu kazałoby go jeszcze odszukać.
+    LaunchedEffect(deepLinkCalendarEventId) {
+        if (deepLinkCalendarEventId != null) {
+            navController.navigate("calendar?event=$deepLinkCalendarEventId") {
+                launchSingleTop = true
+            }
         }
     }
 
@@ -173,6 +192,7 @@ private fun MainScreen(
                             "tasks" -> "tasks"
                             "communication" -> "discussions"
                             "map" -> "map"
+                            "calendar" -> "calendar"
                             else -> "module/${module.key}"
                         }
                         navController.navigate(route)
@@ -219,6 +239,47 @@ private fun MainScreen(
                     onOpenDeal = { dealId -> navController.navigate("deal/$dealId") },
                     onOpenClient = { clientId -> navController.navigate("client/$clientId") },
                     onNavigateBack = { navController.popBackStack() },
+                )
+            }
+
+            // ── Kalendarz (kafelek pulpitu) ───────────────────────────────────
+            // `event` = wejście z przypomnienia: ten sam ekran z otwartą kartą
+            // terminu. Slot wybrany w „Znajdź termin" wraca tą samą trasą przez
+            // `savedStateHandle`, bo cofnięcie się po stosie nie niesie argumentów.
+            composable(
+                route = "calendar?event={event}",
+                arguments = listOf(
+                    navArgument("event") { type = NavType.StringType; defaultValue = "" },
+                ),
+            ) { backStackEntry ->
+                val handle = backStackEntry.savedStateHandle
+                val slot = handle.get<LongArray>(PICKED_SLOT_KEY)
+                val slotAttendees = handle.get<Array<String>>(PICKED_SLOT_PEOPLE_KEY)
+                CalendarScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onOpenFindTime = { navController.navigate("calendar/find-time") },
+                    deepLinkEventId = backStackEntry.arguments?.getString("event")
+                        ?.takeIf { it.isNotBlank() },
+                    pickedSlot = slot?.takeIf { it.size == 2 }?.let { times ->
+                        Triple(times[0], times[1], slotAttendees?.toList().orEmpty())
+                    },
+                    onSlotConsumed = {
+                        handle.remove<LongArray>(PICKED_SLOT_KEY)
+                        handle.remove<Array<String>>(PICKED_SLOT_PEOPLE_KEY)
+                    },
+                )
+            }
+
+            composable("calendar/find-time") {
+                FindTimeScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onPickSlot = { start, end, people ->
+                        navController.previousBackStackEntry?.savedStateHandle?.apply {
+                            set(PICKED_SLOT_KEY, longArrayOf(start, end))
+                            set(PICKED_SLOT_PEOPLE_KEY, people.toTypedArray())
+                        }
+                        navController.popBackStack()
+                    },
                 )
             }
 

@@ -74,7 +74,7 @@ Trzy konta zamiast jednego, bo tylko tak da się na telefonie sprawdzić, że pr
 
 ## Co jest w seedzie
 
-- **9 klientów** — z geokodowaniem i dojazdem z obu baz, jeden bez adresu, kontrahent i afiliant (zakładki kategorii), oraz **para duplikatów „Marek Nowak"** do przetestowania scalania.
+- **10 klientów** — z geokodowaniem i dojazdem z obu baz, jeden bez adresu, kontrahent, afiliant i wpis „inne" (zakładki kategorii), oraz **para duplikatów „Marek Nowak"** do przetestowania scalania.
 - **8 deali** — po jednym w kluczowych etapach lejka, jeden **zaległy** (filtr „Zaległe"), jeden **stracony**, jeden klient z dwoma dealami.
 - **3 zgłoszenia z leadowni** (kanały `targi` / `www` / `tel`) — pozostałe deale celowo bez zgłoszenia, żeby dało się zobaczyć komunikat „deal spoza leadowni".
 - **Katalog technologii** (5 kategorii głównych + podkategorie), wartości ofert, „deale wspólne", historia zmian, kolejka nieodebranych połączeń i notatka z transkrypcją.
@@ -153,6 +153,30 @@ nieprzeczytane wywołanie od koordynatora.
 
 **Czego jeszcze nie ma:** załączników zadań — wchodzą z etapem E5, patrz `design/mockups/modul-zadania.html`.
 Nie ma też wątków deal-level z panelu (`/api/discussions/deal/:id`): mobilka ich nie woła.
+
+### Kalendarz — prywatna zajętość (szare pola „Zajęte”)
+
+Pracownik podpina w **panelu** sekretny adres iCal swojego prywatnego kalendarza, a board360
+wyciąga z niego WYŁĄCZNIE godziny. Zespół widzi szare pola „Zajęte” — bez tytułów, opisów
+i miejsc, bo tych rzeczy backend w ogóle nie zapisuje.
+
+- `GET /api/calendar/private-link` → `{link, canOverrideBusy}` — moje podpięcie (link tylko jako maska)
+- `PUT /api/calendar/private-link` `{url}` → podpina; **400** przy adresie bez `https`, bez `.ics` albo wewnętrznym
+- `POST /api/calendar/private-link/refresh` → ręczne odświeżenie
+- `DELETE /api/calendar/private-link` → **204**; kasuje link i całą zajętość
+- `GET /api/calendar/events/private-busy?from&to[&userIds]` → `[{userId, startAt, endAt}]`
+- `GET /api/calendar/events/freebusy` **dokłada** prywatną zajętość do firmowej
+
+**Twarda kolizja 409.** `POST`/`PATCH` wydarzenia z `assigneeId`, którego prywatna zajętość zachodzi
+na termin, wraca kodem **409** z `code: "private_busy"`, `userId`, `occurrences` i `slots[]`.
+Samo `allowConflict=true` NIE wystarcza — przebija tylko rola z uprawnieniem `calendar.override_busy`
+(w atrapie: admin, zarząd, koordynator, biuro; **nie** serwisant i nie montaż). Na tym da się na
+telefonie sprawdzić obie ścieżki: monter dostaje ścianę, koordynator przycisk „mimo to”.
+
+**Czym atrapa różni się od board360:** nie pobiera niczego z sieci. `PUT` sprawdza kształt adresu,
+a zajętość GENERUJE syntetycznie (dni robocze, 12:00–13:00 i 17:30–19:00, −3…+21 dni), żeby dało się
+testować bez konta Google i bez internetu. Seed daje takie bloki **serwisantowi** — po zalogowaniu
+jako koordynator od razu widać cudze szare pola i można wywołać kolizję.
 
 ### Zdrowie
 - `GET /api/health` → `{ok, service, time, counts}` (używane też przez `HEALTHCHECK` w obrazie)

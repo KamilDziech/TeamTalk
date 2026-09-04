@@ -92,11 +92,13 @@ function seedClients(db) {
       null, null, 'wlasny', 'klient'],
     ['Agnieszka', 'Nowak', '+48506789012', 'a.nowak@example.com', 'Zywiec', 'ul. Sloneczna 21', '34-300',
       [49.6853, 19.1922], { kobiernice: [11.3, 15], gliwice: [88.0, 70] }, 'wlasny', 'klient'],
-    // Kontrahent i afiliant — zakladki kategorii w kartotece maja co pokazac.
+    // Kontrahent, afiliant i „inne" — zakladki kategorii w kartotece maja co pokazac.
     ['Instal', 'Serwis Sp. z o.o.', '+48338123456', 'biuro@instal-serwis.example', 'Bielsko-Biala',
       'ul. Przemyslowa 40', '43-300', null, null, 'obcy', 'kontrahent'],
     ['Rafal', 'Zielinski', '+48507890123', 'rafal@partner.example', 'Czechowice-Dziedzice',
       'ul. Legionow 2', '43-502', null, null, 'obcy', 'afiliant'],
+    ['Urzad', 'Gminy Porabka', '+48338272800', 'sekretariat@porabka.example', 'Porabka',
+      'ul. Krakowska 3', '43-353', null, null, 'obcy', 'inne'],
   ];
 
   return rows.map(([firstName, lastName, phone, email, city, street, postalCode, geo, travel, type, category], i) => {
@@ -732,7 +734,224 @@ function seed(db) {
     daysAgo(0.3),
   );
 
+  seedCalendar(db, users);
+
   return { users, clients, missedNowak };
 }
 
+/**
+ * Kalendarze i wydarzenia biezacego tygodnia. Zestaw dobrany tak, zeby
+ * telefon mial co pokazac w kazdym z czterech widokow i w kazdym stanie:
+ *  - trzy warstwy: osobista (tylko wlasciciel), zespolowa (wszyscy pisza)
+ *    i zasob (bus — na nim sprawdza sie kolizje 409),
+ *  - seria „odprawa poranna" co tydzien (zakres this / following / all),
+ *  - wydarzenie z uczestnikami i rozna odpowiedzia RSVP,
+ *  - wydarzenie caloddniowe (urlop) i wielodniowy montaz.
+ */
+function seedCalendar(db, users) {
+  const orgId = db.organization.id;
+
+  const calendar = (fields) => {
+    const row = {
+      id: uuid(),
+      organizationId: orgId,
+      description: null,
+      isArchived: false,
+      shares: [],
+      createdAt: nowIso(),
+      ...fields,
+    };
+    db.calendars.push(row);
+    return row;
+  };
+
+  const personal = calendar({
+    name: 'Mój kalendarz',
+    type: 'personal',
+    color: '#2a78d6',
+    ownerId: users.serwisant.id,
+  });
+  // Kalendarz osobisty koordynatora — serwisant widzi z niego tylko zajetosc,
+  // wiec „Znajdz termin" ma na czym pokazac zajete pasy.
+  const personalCoordinator = calendar({
+    name: 'Kalendarz Piotra',
+    type: 'personal',
+    color: '#8a6df0',
+    ownerId: users.koordynator.id,
+    shares: [{ id: uuid(), principalType: 'everyone', principalId: null, level: 'freebusy' }],
+  });
+  const team = calendar({
+    name: 'Montaże — zespół',
+    type: 'team',
+    color: '#1baf7a',
+    ownerId: users.koordynator.id,
+    shares: [{ id: uuid(), principalType: 'everyone', principalId: null, level: 'writer' }],
+  });
+  const readOnly = calendar({
+    name: 'Serwis — dyżury',
+    type: 'team',
+    color: '#eb6834',
+    ownerId: users.admin.id,
+    shares: [{ id: uuid(), principalType: 'everyone', principalId: null, level: 'reader' }],
+  });
+  const resource = calendar({
+    name: 'Bus Ducato RZ 4821K',
+    type: 'resource',
+    color: '#d55181',
+    ownerId: users.koordynator.id,
+    shares: [{ id: uuid(), principalType: 'everyone', principalId: null, level: 'writer' }],
+  });
+
+  /** Dzien wzgledem dzisiaj o podanej godzinie (czas lokalny serwera). */
+  const at = (dayOffset, hour, minute = 0) => {
+    const d = new Date();
+    d.setDate(d.getDate() + dayOffset);
+    d.setHours(hour, minute, 0, 0);
+    return d.toISOString();
+  };
+
+  const event = (fields) => {
+    const row = {
+      id: uuid(),
+      organizationId: orgId,
+      description: null,
+      location: null,
+      color: null,
+      endAt: null,
+      allDay: false,
+      assigneeId: null,
+      attendees: [],
+      recurrenceGroupId: null,
+      recurrenceRule: null,
+      createdBy: users.koordynator.id,
+      createdAt: nowIso(),
+      ...fields,
+    };
+    db.calendarEvents.push(row);
+    return row;
+  };
+
+  // Seria: odprawa poranna w każdy dzień roboczy tego i przyszłego tygodnia.
+  const briefingGroup = uuid();
+  for (let day = -2; day <= 10; day += 1) {
+    const weekday = new Date(Date.now() + day * DAY).getDay();
+    if (weekday === 0 || weekday === 6) continue;
+    event({
+      calendarId: personal.id,
+      title: 'Odprawa poranna',
+      location: 'Sala duża',
+      startAt: at(day, 8, 30),
+      endAt: at(day, 9, 15),
+      assigneeId: users.serwisant.id,
+      attendees: [
+        { id: users.serwisant.id, response: 'accepted' },
+        { id: users.koordynator.id, response: 'needs_action' },
+      ],
+      recurrenceGroupId: briefingGroup,
+      recurrenceRule: 'FREQ=WEEKLY;INTERVAL=1',
+    });
+  }
+
+  event({
+    calendarId: team.id,
+    title: 'Montaż — Krosno, ul. Polna 4',
+    location: 'Krosno, ul. Polna 4',
+    startAt: at(0, 10, 0),
+    endAt: at(0, 14, 0),
+    assigneeId: users.serwisant.id,
+    attendees: [
+      { id: users.serwisant.id, response: 'accepted' },
+      { id: users.admin.id, response: 'tentative' },
+    ],
+  });
+
+  event({
+    calendarId: team.id,
+    title: 'Montaż Sanok (2 dni)',
+    location: 'Sanok, ul. Lipowa 8',
+    startAt: at(1, 0, 0),
+    endAt: at(2, 23, 59),
+    allDay: true,
+    assigneeId: users.serwisant.id,
+  });
+
+  event({
+    calendarId: personalCoordinator.id,
+    title: 'Wycena — Kowalscy, Trzebownisko',
+    startAt: at(1, 11, 0),
+    endAt: at(1, 12, 0),
+    assigneeId: users.koordynator.id,
+    attendees: [{ id: users.koordynator.id, response: 'accepted' }],
+  });
+
+  event({
+    calendarId: readOnly.id,
+    title: 'Dyżur serwisowy — Jan',
+    startAt: at(2, 7, 0),
+    endAt: at(2, 19, 0),
+    assigneeId: users.serwisant.id,
+  });
+
+  event({
+    calendarId: personal.id,
+    title: 'Urlop',
+    startAt: at(5, 0, 0),
+    endAt: at(6, 23, 59),
+    allDay: true,
+    color: '#79c0ff',
+    assigneeId: users.serwisant.id,
+  });
+
+  // Rezerwacja zasobu — na niej sprawdza sie kolizja 409 przy drugim wpisie
+  // w tych samych godzinach.
+  event({
+    calendarId: resource.id,
+    title: 'Bus zajęty: wyjazd Sanok',
+    startAt: at(1, 7, 0),
+    endAt: at(1, 16, 0),
+    assigneeId: users.serwisant.id,
+  });
+
+  // ── Prywatna zajetosc (podpiety kalendarz iCal) ─────────────────────────
+  // Serwisant ma podpiety prywatny kalendarz — dzieki temu w aplikacji od razu
+  // widac szare pola u KOGOS INNEGO niz zalogowany, a proba przypisania mu
+  // zadania na 12:00 konczy sie kolizja 409 (`code: private_busy`). Tresci tych
+  // wpisow nie ma nigdzie: przechowujemy wylacznie przedzialy czasu.
+  const busy = (dayOffset, h1, m1, h2, m2) => {
+    db.privateBusy.push({
+      id: uuid(),
+      organizationId: orgId,
+      userId: users.serwisant.id,
+      startAt: at(dayOffset, h1, m1),
+      endAt: at(dayOffset, h2, m2),
+    });
+  };
+  for (let d = -3; d <= 21; d += 1) {
+    const weekday = new Date(Date.now() + d * DAY).getDay();
+    if (weekday === 0 || weekday === 6) continue;
+    busy(d, 12, 0, 13, 0); // przerwa poludniowa
+    busy(d, 17, 30, 19, 0); // sprawy prywatne po godzinach
+  }
+  db.privateCalendarLinks.push({
+    userId: users.serwisant.id,
+    organizationId: orgId,
+    urlHint: 'calendar.google.com/…/priv…/basic.ics',
+    status: 'ok',
+    lastError: null,
+    lastSyncedAt: nowIso(),
+    blockCount: db.privateBusy.length,
+  });
+}
+
+/**
+ * Modul Serwis: zlecenia obu dziedzin i karty gwarancyjne Panasonic.
+ *
+ * Dobrane tak, zeby na telefonie dalo sie przeklikac KAZDY stan z makiety
+ * `design/mockups/modul-serwis.html`:
+ *  - awaria po SLA, awaria z oknem konczacym sie za kilka godzin, awaria
+ *    niedouzupelniona (bez klienta i terminu — czerwony wiersz) i wykonana,
+ *  - przeglad zwykly i konserwacja w dziedzinie "Przeglad",
+ *  - piec kart gwarancyjnych: po terminie, w toku, przepadla (> 12 miesiecy),
+ *    zakonczona 5/5 i taka bez wspolrzednych (lista "bez lokalizacji" na mapie).
+ */
 module.exports = { seed, daysAgo, daysAhead, nowIso };

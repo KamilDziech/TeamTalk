@@ -12,8 +12,10 @@ import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.ekotak.teamtalk.data.notification.NotificationHelper
+import com.ekotak.teamtalk.data.sync.CalendarSyncScheduler
 import com.ekotak.teamtalk.data.sync.TaskSyncScheduler
 import com.ekotak.teamtalk.service.CallMonitorService
+import com.ekotak.teamtalk.worker.CalendarReminderWorker
 import com.ekotak.teamtalk.worker.MentionsWorker
 import com.ekotak.teamtalk.worker.TaskReminderWorker
 import dagger.hilt.android.HiltAndroidApp
@@ -27,6 +29,8 @@ class TeamTalkApp : Application(), Configuration.Provider {
 
     @Inject lateinit var taskSyncScheduler: TaskSyncScheduler
 
+    @Inject lateinit var calendarSyncScheduler: CalendarSyncScheduler
+
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)
@@ -37,9 +41,11 @@ class TeamTalkApp : Application(), Configuration.Provider {
         createNotificationChannel()
         scheduleMentionsPolling()
         scheduleTaskReminders()
+        scheduleCalendarReminders()
         // Proces mógł zginąć z pełną kolejką zmian — przy starcie prosimy
         // o jej opróżnienie. Pusta kolejka kończy robotnika od razu.
         taskSyncScheduler.scheduleSync()
+        calendarSyncScheduler.scheduleSync()
     }
 
     /**
@@ -73,6 +79,21 @@ class TeamTalkApp : Application(), Configuration.Provider {
         val request = PeriodicWorkRequestBuilder<TaskReminderWorker>(6, TimeUnit.HOURS).build()
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             TaskReminderWorker.UNIQUE_NAME,
+            ExistingPeriodicWorkPolicy.KEEP,
+            request,
+        )
+    }
+
+    /**
+     * Przypomnienia o wydarzeniach kalendarza. Co 15 minut — krócej WorkManager
+     * nie pozwala, a przypominamy na 30 minut przed, więc kwadrans rozdzielczości
+     * mieści się w tym oknie. Bez warunku sieci: robotnik liczy z cache, więc
+     * przypomni także w aucie bez zasięgu.
+     */
+    private fun scheduleCalendarReminders() {
+        val request = PeriodicWorkRequestBuilder<CalendarReminderWorker>(15, TimeUnit.MINUTES).build()
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            CalendarReminderWorker.UNIQUE_NAME,
             ExistingPeriodicWorkPolicy.KEEP,
             request,
         )
@@ -115,6 +136,15 @@ class TeamTalkApp : Application(), Configuration.Provider {
                     NotificationManager.IMPORTANCE_DEFAULT,
                 ).apply {
                     description = "Zadania z terminem na dziś albo po terminie"
+                }
+            )
+            nm.createNotificationChannel(
+                NotificationChannel(
+                    NotificationHelper.CALENDAR_CHANNEL_ID,
+                    "Przypomnienia o wydarzeniach",
+                    NotificationManager.IMPORTANCE_DEFAULT,
+                ).apply {
+                    description = "Wydarzenie z Twojego kalendarza zaczyna się za pół godziny"
                 }
             )
             nm.createNotificationChannel(

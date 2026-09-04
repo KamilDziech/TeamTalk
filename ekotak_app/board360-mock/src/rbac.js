@@ -16,6 +16,13 @@ const ALL_PERMS = [
   'tasks.manage',
   'projects.view',
   'projects.manage',
+  // Modul Kalendarz — jedno uprawnienie na odczyt i zapis; o prawie pisania
+  // decyduje poziom dostepu do kalendarza, nie rola (jak w board360).
+  'calendar.view',
+  // Przebicie twardej blokady 409 od PRYWATNEJ zajetosci wykonawcy
+  // ("Zaplanuj mimo to"). Celowo NIE dla serwisanta i montera — tak samo
+  // jak w board360, gdzie to prawo maja planisci: admin/koordynator/biuro.
+  'calendar.override_busy',
 ];
 
 const ROLE_PERMS = {
@@ -24,12 +31,19 @@ const ROLE_PERMS = {
   koordynator: [
     'crm.view', 'deal.manage', 'telephony.use', 'reports.view',
     'tasks.view', 'tasks.manage', 'projects.view', 'projects.manage',
+    'calendar.view', 'calendar.override_busy',
   ],
   // Serwisant widzi projekty, ale nie zaklada w nich zadan — na tym koncie da sie
   // na telefonie sprawdzic, ze krok "projekt" w kreatorze konczy sie kodem 403.
-  serwisant: ['crm.view', 'telephony.use', 'tasks.view', 'tasks.manage', 'projects.view'],
-  biuro: ['crm.view', 'deal.manage', 'tasks.view', 'tasks.manage', 'projects.view'],
-  montaz: ['crm.view', 'tasks.view', 'tasks.manage', 'projects.view'],
+  serwisant: [
+    'crm.view', 'telephony.use', 'tasks.view', 'tasks.manage', 'projects.view',
+    'calendar.view',
+  ],
+  biuro: ['crm.view', 'deal.manage', 'tasks.view', 'tasks.manage', 'projects.view', 'calendar.view', 'calendar.override_busy'],
+  montaz: [
+    'crm.view', 'tasks.view', 'tasks.manage', 'projects.view',
+    'calendar.view',
+  ],
   stazysta: [],
 };
 

@@ -368,6 +368,104 @@ interface TeamTalkApi {
     @GET("api/geo/suggest")
     suspend fun suggestPlaces(@Query("q") query: String): List<PlaceSuggestionDto>
 
+    // ── Kalendarz ─────────────────────────────────────────────────────────────
+    // Odczyt i zapis pod jednym uprawnieniem `calendar.view` — o tym, czy wolno
+    // pisać, decyduje poziom dostępu do KALENDARZA (`effectiveLevel`), a nie rola.
+    // Serie rozwija serwer: lista zwraca gotowe wystąpienia z `recurrenceGroupId`.
+
+    @GET("api/calendars")
+    suspend fun getCalendars(): List<CalendarDto>
+
+    @POST("api/calendars")
+    suspend fun createCalendar(@Body body: CalendarCreateDto): CalendarDto
+
+    /** Nazwa, kolor, opis. Ciało jako `JsonObject` — API rozróżnia brak pola od `null`. */
+    @PATCH("api/calendars/{id}")
+    suspend fun updateCalendar(
+        @Path("id") id: String,
+        @Body patch: JsonObject,
+    ): CalendarDto
+
+    /** 204 — bez ciała odpowiedzi. */
+    @POST("api/calendars/{id}/archive")
+    suspend fun archiveCalendar(@Path("id") id: String)
+
+    @POST("api/calendars/{id}/restore")
+    suspend fun restoreCalendar(@Path("id") id: String)
+
+    /**
+     * Wydarzenia zakresu. Filtry (warstwy, osoba) robimy lokalnie na cache —
+     * z serwera bierzemy komplet zakresu raz, żeby przełączanie warstw
+     * nie kosztowało okrążenia po sieci.
+     */
+    @GET("api/calendar/events")
+    suspend fun getCalendarEvents(
+        @Query("from") from: String,
+        @Query("to") to: String,
+        @Query("assignee") assignee: String? = null,
+        @Query("calendarIds") calendarIds: String? = null,
+    ): List<CalendarEventDto>
+
+    /** `allowConflict=true` wymusza zapis mimo zajętego zasobu (odpowiedź 409). */
+    @POST("api/calendar/events")
+    suspend fun createCalendarEvent(
+        @Body body: CalendarEventCreateDto,
+        @Query("allowConflict") allowConflict: String? = null,
+    ): CalendarEventDto
+
+    @PATCH("api/calendar/events/{id}")
+    suspend fun updateCalendarEvent(
+        @Path("id") id: String,
+        @Body patch: JsonObject,
+        @Query("scope") scope: String = "this",
+        @Query("allowConflict") allowConflict: String? = null,
+    ): CalendarEventDto
+
+    /** 204 — bez ciała odpowiedzi. */
+    @DELETE("api/calendar/events/{id}")
+    suspend fun deleteCalendarEvent(
+        @Path("id") id: String,
+        @Query("scope") scope: String = "this",
+    )
+
+    /** Odpowiedź uczestnika. 204 — stan wydarzenia dokładamy w cache sami. */
+    @POST("api/calendar/events/{id}/rsvp")
+    suspend fun setCalendarRsvp(
+        @Path("id") id: String,
+        @Body body: RsvpRequest,
+    )
+
+    /** Zajętość osób (bez treści wydarzeń) — ekran „Znajdź termin". */
+    @GET("api/calendar/events/freebusy")
+    suspend fun getFreeBusy(
+        @Query("userIds") userIds: String,
+        @Query("from") from: String,
+        @Query("to") to: String,
+    ): List<FreeBusyUserDto>
+
+    /** Czy mogę zaplanować MIMO prywatnej zajętości (`calendar.override_busy`). */
+    @GET("api/calendar/private-link")
+    suspend fun getPrivateLinkState(): PrivateLinkStateDto
+
+    /**
+     * Szare pola „Zajęte" z PRYWATNYCH kalendarzy zespołu (podpięty adres iCal).
+     * Z serwera przychodzi wyłącznie osoba i przedział czasu — żadnych tytułów
+     * ani opisów, bo board360 w ogóle ich nie zapisuje. Podpina się w panelu;
+     * telefon tylko pokazuje zajętość i respektuje jej blokadę (409).
+     */
+    @GET("api/calendar/events/private-busy")
+    suspend fun getPrivateBusy(
+        @Query("from") from: String,
+        @Query("to") to: String,
+    ): List<PrivateBusyDto>
+
+    /** Nakładki operacyjne: montaże, serwis, flota, urlopy… Tylko do podglądu. */
+    @GET("api/calendar/events/overlays")
+    suspend fun getCalendarOverlays(
+        @Query("from") from: String,
+        @Query("to") to: String,
+    ): List<CalendarOverlayDto>
+
     /** Skrzynka: dyskusje, w których bierzemy udział (wywołani albo pisaliśmy). */
     @GET("api/discussions")
     suspend fun getDiscussions(): List<DiscussionSummaryDto>

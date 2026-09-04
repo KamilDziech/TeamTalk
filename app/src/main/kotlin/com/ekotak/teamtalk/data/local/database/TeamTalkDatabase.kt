@@ -16,8 +16,13 @@ import com.ekotak.teamtalk.data.local.entity.*
         TaskEntity::class,
         TaskMutationEntity::class,
         MapPointEntity::class,
+        CalendarEntity::class,
+        CalendarEventEntity::class,
+        CalendarMemberEntity::class,
+        CalendarMutationEntity::class,
+        CalendarBusyEntity::class,
     ],
-    version = 7,
+    version = 10,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -31,4 +36,6 @@ abstract class TeamTalkDatabase : RoomDatabase() {
     abstract fun taskDao(): TaskDao
     abstract fun taskMutationDao(): TaskMutationDao
     abstract fun mapPointDao(): MapPointDao
+    abstract fun calendarDao(): CalendarDao
+    abstract fun calendarMutationDao(): CalendarMutationDao
 }

@@ -1,0 +1,1281 @@
+<title>Kalendarz w TeamTalku</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Roboto:wght@400;500;700&display=swap">
+
+<style>
+/* ── Tokeny strony (te same co modul-serwis.html / modul-mapa.html) ───── */
+:root{
+  --bg:#EEF3F9; --bg-2:#DBE6F2; --surface:#FFFFFF;
+  --fg:#0F1720; --muted:#5A6B7C; --border:#C3CBD4;
+  --brand:#2FA84F; --brand-loud:#44D62C; --ink:#080808;
+  --warn:#B4680A; --danger:#C5343A; --info:#2563EB;
+  --shadow:0 1px 2px rgba(15,23,32,.06), 0 10px 30px rgba(15,23,32,.08);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0B1220; --bg-2:#12161F; --surface:#12161F;
+    --fg:#E6EDF3; --muted:#9FB0C3; --border:#2A3441;
+    --brand:#44D62C; --brand-loud:#44D62C; --ink:#080808;
+    --warn:#F59E0B; --danger:#E5484D; --info:#5B8DEF;
+    --shadow:0 1px 2px rgba(0,0,0,.5), 0 14px 40px rgba(0,0,0,.45);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0B1220; --bg-2:#12161F; --surface:#12161F;
+  --fg:#E6EDF3; --muted:#9FB0C3; --border:#2A3441;
+  --brand:#44D62C; --brand-loud:#44D62C; --ink:#080808;
+  --warn:#F59E0B; --danger:#E5484D; --info:#5B8DEF;
+  --shadow:0 1px 2px rgba(0,0,0,.5), 0 14px 40px rgba(0,0,0,.45);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--fg);
+  font-family:"Archivo","Segoe UI",system-ui,sans-serif;
+  font-size:16px; line-height:1.55; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px 96px}
+h1,h2,h3{text-wrap:balance;margin:0}
+a{color:inherit}
+code{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.88em;
+  background:var(--bg-2);border:1px solid var(--border);border-radius:5px;padding:1px 5px;
+}
+
+/* ── Nagłówek ─────────────────────────────────────────────────────── */
+.masthead{padding:52px 0 32px;border-bottom:1px solid var(--border);display:grid;gap:18px}
+.eyebrow{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
+  display:flex;flex-wrap:wrap;align-items:center;gap:10px;
+}
+.eyebrow b{color:var(--brand);font-weight:600}
+.masthead h1{font-size:clamp(34px,5.4vw,58px);font-weight:800;letter-spacing:-.025em;line-height:1.02}
+.lede{font-size:17px;color:var(--muted);max-width:62ch;margin:0}
+.lede b{color:var(--fg);font-weight:600}
+
+/* ── Sekcje ───────────────────────────────────────────────────────── */
+section{padding:52px 0 0}
+.shead{display:grid;gap:8px;margin-bottom:26px;max-width:70ch}
+.shead h2{font-size:clamp(22px,2.6vw,30px);font-weight:700;letter-spacing:-.015em}
+.shead p{margin:0;color:var(--muted);font-size:15px}
+.snum{
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--brand);font-weight:600;
+}
+
+.cards{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(268px,1fr))}
+.card{
+  background:var(--surface);border:1px solid var(--border);border-radius:14px;
+  padding:15px 17px;display:grid;gap:7px;align-content:start;
+}
+.card h3{font-size:14.5px;font-weight:700;display:flex;align-items:center;gap:8px}
+.card p{margin:0;font-size:13.5px;color:var(--muted)}
+.dot{width:9px;height:9px;border-radius:50%;flex:none;display:inline-block}
+.dot.ok{background:var(--brand)}
+.dot.part{background:var(--warn)}
+.dot.no{background:var(--danger)}
+
+.tablewrap{overflow-x:auto;border:1px solid var(--border);border-radius:14px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:760px;font-size:13.5px}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:top}
+th{
+  font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--muted);font-weight:600;white-space:nowrap;
+}
+tbody tr:last-child td{border-bottom:none}
+td.mono{font-family:"IBM Plex Mono",monospace;font-size:12px;white-space:nowrap}
+.tag{
+  font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--border);
+  color:var(--muted);white-space:nowrap;display:inline-block;
+}
+.tag.jest{color:var(--brand);border-color:color-mix(in srgb,var(--brand) 45%,var(--border))}
+.tag.brak{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 45%,var(--border))}
+.tag.mock{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 45%,var(--border))}
+.tag.nowe{color:var(--info);border-color:color-mix(in srgb,var(--info) 45%,var(--border))}
+
+/* ── Makiety: telefon ─────────────────────────────────────────────── */
+.screens{display:grid;gap:34px 26px;grid-template-columns:repeat(auto-fit,minmax(330px,1fr))}
+.screenblock{display:grid;gap:16px;justify-items:center}
+.caption{max-width:34ch;display:grid;gap:6px}
+.caption h3{font-size:15.5px;font-weight:700;display:flex;gap:9px;align-items:baseline}
+.caption h3 i{font-style:normal;font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--brand)}
+.caption p{margin:0;font-size:13px;color:var(--muted)}
+
+.phone{
+  width:340px;padding:11px;border-radius:38px;
+  background:linear-gradient(160deg,#3a4152,#161a22);box-shadow:var(--shadow);flex:none;
+}
+.device{
+  --d-bg:#0B1220;--d-surface:#12161F;--d-panel:#1A212E;
+  --d-fg:#E6EDF3;--d-muted:#9FB0C3;--d-border:#2A3441;
+  --d-brand:#44D62C;--d-ink:#080808;
+  --d-danger:#F85149;--d-warn:#E3A008;--d-info:#4AA3FF;--d-violet:#C084FC;
+  /* kolory kalendarzy = CHIP_COLORS z panelu */
+  --c-osob:#2a78d6;--c-monter:#1baf7a;--c-serwis:#eb6834;--c-zarzad:#8a6df0;--c-auto:#d55181;
+  /* nakładki operacyjne = OVERLAY_META z panelu */
+  --o-inst:#44d62c;--o-svc:#e0a500;--o-fleet:#d55181;--o-res:#14b8a6;
+  --o-deal:#59c1c9;--o-proj:#8a2cd6;--o-leave:#79c0ff;
+  --d-cal:#FB7185;
+  width:318px;height:664px;border-radius:28px;overflow:hidden;
+  background:var(--d-bg);color:var(--d-fg);
+  font-family:"Roboto",system-ui,sans-serif;font-size:14px;line-height:1.4;
+  display:flex;flex-direction:column;position:relative;
+}
+.statusbar{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:8px 16px 2px;font-size:11px;color:var(--d-muted);
+  font-variant-numeric:tabular-nums;flex:none;
+}
+.topbar{display:flex;align-items:center;gap:6px;padding:6px 10px;flex:none}
+.iconbtn{
+  width:32px;height:32px;border-radius:50%;border:none;background:transparent;
+  color:var(--d-fg);display:grid;place-items:center;flex:none;position:relative;
+}
+.iconbtn svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.iconbtn .cnt{
+  position:absolute;top:0;right:0;min-width:15px;height:15px;padding:0 4px;border-radius:999px;
+  background:var(--d-cal);color:var(--d-ink);font-size:9px;font-weight:700;
+  display:grid;place-items:center;border:2px solid var(--d-bg);
+}
+.toptitle{font-size:16px;font-weight:500;flex:1;min-width:0}
+.toptitle span{display:block;font-size:10.5px;color:var(--d-muted);font-weight:400}
+.screen{flex:1;overflow:hidden;padding:0 12px 8px;display:flex;flex-direction:column;gap:8px}
+
+/* pasek widoków: Miesiąc | Tydzień | Dzień | Agenda */
+.viewtabs{display:flex;gap:5px;flex:none}
+.viewtab{
+  font-size:11.5px;padding:5px 10px;border-radius:999px;white-space:nowrap;
+  border:1px solid var(--d-border);color:var(--d-muted);
+}
+.viewtab[data-on]{background:var(--d-panel);border-color:var(--d-cal);color:var(--d-cal);font-weight:600}
+
+/* belka nawigacji zakresu: ‹ luty 2026 › + Dziś */
+.rangebar{display:flex;align-items:center;gap:2px;flex:none}
+.rangebar .nav{
+  width:26px;height:26px;border-radius:8px;display:grid;place-items:center;color:var(--d-muted);
+  border:1px solid var(--d-border);flex:none;
+}
+.rangebar .nav svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.rangebar b{flex:1;text-align:center;font-size:13px;font-weight:500;text-transform:capitalize}
+.rangebar .today{
+  font-size:11px;padding:4px 10px;border-radius:999px;border:1px solid var(--d-border);
+  color:var(--d-fg);flex:none;
+}
+
+/* ── Widok miesiąca ───────────────────────────────────────────────── */
+.dow{display:grid;grid-template-columns:repeat(7,1fr);flex:none}
+.dow span{font-size:9.5px;color:var(--d-muted);text-align:center;letter-spacing:.03em}
+.mgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;flex:none}
+.mday{
+  aspect-ratio:.85;border:1px solid var(--d-border);border-radius:8px;background:var(--d-surface);
+  padding:2px 3px;display:flex;flex-direction:column;gap:2px;overflow:hidden;
+}
+.mday em{font-style:normal;font-size:10px;color:var(--d-muted);font-variant-numeric:tabular-nums}
+.mday.out em{opacity:.35}
+.mday.today{border-color:var(--d-fg);border-width:1.5px}
+.mday.sel{background:color-mix(in srgb,var(--d-cal) 22%,var(--d-surface));border-color:var(--d-cal)}
+.mday i{display:block;height:4px;border-radius:2px;flex:none}
+.mday i.ghost{background:transparent;border:1px solid var(--d-border)}
+.mday u{
+  text-decoration:none;font-size:8px;color:var(--d-muted);margin-top:auto;text-align:right;
+}
+
+/* lista wybranego dnia pod siatką */
+.daylabel{
+  font-size:11px;font-weight:700;color:var(--d-fg);display:flex;align-items:center;gap:6px;flex:none;
+  padding-top:2px;
+}
+.daylabel span{font-weight:400;color:var(--d-muted);font-size:10.5px}
+.daylist{display:flex;flex-direction:column;gap:6px;flex:1;min-height:0;overflow:hidden}
+.erow{
+  display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:11px;
+  border:1px solid var(--d-border);background:var(--d-surface);border-left-width:3px;
+}
+.erow .tm{
+  font-size:10px;color:var(--d-muted);width:34px;flex:none;font-variant-numeric:tabular-nums;
+  line-height:1.25;text-align:right;
+}
+.erow .nm{flex:1;min-width:0;display:grid;gap:1px}
+.erow .nm b{font-size:12.5px;font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.erow .nm span{font-size:10px;color:var(--d-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.erow .rs{
+  font-size:9.5px;padding:1px 6px;border-radius:999px;border:1px solid var(--d-border);
+  color:var(--d-muted);flex:none;
+}
+.erow .rs.yes{color:#7EE787;border-color:color-mix(in srgb,#7EE787 50%,transparent)}
+.erow .rs.maybe{color:var(--d-warn);border-color:color-mix(in srgb,var(--d-warn) 50%,transparent)}
+.erow .rs.wait{color:var(--d-info);border-color:color-mix(in srgb,var(--d-info) 50%,transparent)}
+.erow.overlay{background:transparent;border-style:dashed}
+.erow.overlay .nm b{color:var(--d-muted)}
+.erow .queue{color:var(--d-warn);flex:none;display:grid;place-items:center}
+.erow .queue svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round}
+
+/* ── Siatka godzinowa: tydzień i dzień ────────────────────────────── */
+.hourwrap{flex:1;min-height:0;display:flex;overflow:hidden;position:relative}
+.gutter{width:26px;flex:none;display:flex;flex-direction:column;padding-top:14px}
+.gutter span{
+  height:38px;font-size:8.5px;color:var(--d-muted);text-align:right;padding-right:3px;
+  font-variant-numeric:tabular-nums;
+}
+.cols{flex:1;min-width:0;display:grid;position:relative}
+.cols.w7{grid-template-columns:repeat(7,1fr)}
+.cols.w1{grid-template-columns:1fr 1fr}
+.colhead{
+  position:sticky;top:0;font-size:8.5px;color:var(--d-muted);text-align:center;height:14px;
+}
+.colhead b{display:block;font-size:10px;color:var(--d-fg);font-weight:600}
+.colhead.now b{color:var(--d-cal)}
+.col{
+  border-left:1px solid var(--d-border);position:relative;
+  background:repeating-linear-gradient(
+    to bottom,
+    transparent 0 37px,
+    color-mix(in srgb,var(--d-border) 60%,transparent) 37px 38px
+  );
+}
+.col:first-of-type{border-left:none}
+.ev{
+  position:absolute;left:1px;right:1px;border-radius:5px;padding:2px 3px;overflow:hidden;
+  font-size:8.5px;line-height:1.15;color:#08110F;font-weight:600;
+}
+.ev.tall{font-size:9.5px;padding:3px 5px}
+.ev em{font-style:normal;display:block;font-weight:400;opacity:.85;font-size:8px}
+/* Wydarzenie z uzbrojonymi kropkami — rozciąganie godzin palcem. */
+.ev.armed{outline:2px solid var(--d-fg);outline-offset:-2px}
+.evgrab{
+  position:absolute;width:12px;height:12px;border-radius:50%;z-index:4;
+  background:var(--d-fg);border:2px solid var(--d-surface);
+}
+.resizebar{
+  display:flex;align-items:center;gap:6px;flex:none;font-size:9px;font-weight:600;
+  padding:3px 4px 3px 8px;background:var(--d-panel);color:var(--d-fg);
+  border-bottom:1px solid var(--d-border);
+}
+.resizebar b{margin-left:auto;color:var(--d-brand);font-weight:700;padding:0 6px}
+.nowline{position:absolute;left:0;right:0;height:1.5px;background:var(--d-cal);z-index:3}
+.nowline::before{
+  content:"";position:absolute;left:-3px;top:-2.5px;width:6px;height:6px;border-radius:50%;
+  background:var(--d-cal);
+}
+.allday{
+  display:flex;gap:4px;align-items:center;flex:none;padding:3px 0;border-bottom:1px solid var(--d-border);
+}
+.allday i{
+  font-style:normal;font-size:8.5px;padding:2px 6px;border-radius:4px;color:#08110F;font-weight:600;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.allday u{text-decoration:none;font-size:8.5px;color:var(--d-muted);flex:none}
+
+/* ── Agenda ───────────────────────────────────────────────────────── */
+.agenda{display:flex;flex-direction:column;gap:4px;flex:1;min-height:0;overflow:hidden}
+.aday{
+  display:flex;gap:9px;padding-top:6px;
+}
+.aday .dt{
+  width:34px;flex:none;text-align:center;line-height:1.1;padding-top:2px;
+}
+.aday .dt b{display:block;font-size:16px;font-weight:600;font-variant-numeric:tabular-nums}
+.aday .dt span{font-size:8.5px;color:var(--d-muted);text-transform:uppercase;letter-spacing:.04em}
+.aday.now .dt b{color:var(--d-cal)}
+.aday .items{flex:1;min-width:0;display:grid;gap:5px}
+
+/* ── Arkusz / warstwy ─────────────────────────────────────────────── */
+.scrim{position:absolute;inset:0;background:rgba(4,8,15,.55)}
+.sheet{
+  position:absolute;left:0;right:0;bottom:0;background:var(--d-surface);
+  border-top:1px solid var(--d-border);border-radius:20px 20px 0 0;padding:10px 14px 16px;
+  display:flex;flex-direction:column;gap:8px;
+}
+.grab{width:34px;height:4px;border-radius:999px;background:var(--d-border);margin:0 auto 2px}
+.sheethead{display:flex;align-items:center;gap:8px;flex:none}
+.sheethead b{font-size:15px;font-weight:500;flex:1;min-width:0}
+.sheethead .ico{color:var(--d-muted);display:grid;place-items:center}
+.sheethead .ico svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linejoin:round}
+.seclabel{
+  font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--d-muted);
+  font-weight:700;margin-top:2px;
+}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.field{
+  background:var(--d-panel);border:1px solid var(--d-border);border-radius:11px;padding:6px 10px;
+  display:grid;gap:2px;min-width:0;
+}
+.field .k{font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--d-muted);font-weight:700}
+.field .v{font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.field .v.link{color:var(--d-info)}
+.field .v.dim{color:var(--d-muted)}
+.field.wide{grid-column:1 / -1}
+.field .sw{width:11px;height:11px;border-radius:3px;display:inline-block;vertical-align:-1px;margin-right:5px}
+.switchrow{
+  display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:11px;
+  border:1px solid var(--d-border);background:var(--d-panel);font-size:12.5px;
+}
+.switchrow .sw{width:11px;height:11px;border-radius:3px;flex:none}
+.switchrow .lbl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.switchrow .ro{font-size:9.5px;color:var(--d-muted);flex:none}
+.tgl{width:30px;height:17px;border-radius:999px;background:var(--d-border);position:relative;flex:none}
+.tgl::after{content:"";position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:#8A94A6}
+.tgl[data-on]{background:color-mix(in srgb,var(--d-cal) 55%,transparent)}
+.tgl[data-on]::after{left:15px;background:var(--d-cal)}
+.act{
+  display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:12px;
+  border:1px solid var(--d-border);background:var(--d-panel);font-size:12.5px;
+}
+.act svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.act.brandy{border-color:color-mix(in srgb,var(--d-cal) 55%,var(--d-border));color:var(--d-cal)}
+.act.warnish{border-color:color-mix(in srgb,var(--d-danger) 45%,var(--d-border));color:var(--d-danger)}
+.act .chev{margin-left:auto;color:var(--d-muted)}
+.primary{
+  display:block;text-align:center;padding:11px;border-radius:13px;background:var(--d-cal);
+  color:var(--d-ink);font-size:13.5px;font-weight:700;flex:none;
+}
+.segrow{display:flex;background:var(--d-panel);border-radius:999px;padding:3px;gap:3px;flex:none}
+.segrow span{flex:1;text-align:center;font-size:11px;padding:5px 4px;border-radius:999px;color:var(--d-muted)}
+.segrow span[data-on]{background:color-mix(in srgb,var(--d-cal) 24%,var(--d-surface));color:var(--d-cal);font-weight:700}
+.warnbox{
+  font-size:11px;color:var(--d-warn);background:color-mix(in srgb,var(--d-warn) 12%,transparent);
+  border:1px solid color-mix(in srgb,var(--d-warn) 40%,transparent);border-radius:9px;padding:6px 9px;
+}
+.people{display:flex;gap:6px;flex-wrap:wrap}
+.pchip{
+  display:flex;align-items:center;gap:5px;border:1px solid var(--d-border);border-radius:999px;
+  padding:3px 8px 3px 3px;font-size:11px;background:var(--d-panel);
+}
+.pchip i{
+  font-style:normal;width:18px;height:18px;border-radius:50%;background:#3B5B8C;color:#DBE7F7;
+  display:grid;place-items:center;font-size:8.5px;font-weight:700;flex:none;
+}
+.pchip u{text-decoration:none;font-size:9.5px;color:var(--d-muted)}
+.pchip u.yes{color:#7EE787}
+.pchip u.no{color:#FF9A8F}
+
+/* siatka „Znajdź termin” */
+.fbwrap{display:grid;gap:5px;flex:none}
+.fbrow{display:flex;align-items:center;gap:6px}
+.fbrow .who{width:58px;flex:none;font-size:10px;color:var(--d-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fbrow .track{
+  flex:1;height:16px;border-radius:5px;background:var(--d-panel);border:1px solid var(--d-border);
+  position:relative;overflow:hidden;
+}
+.fbrow .busy{position:absolute;top:0;bottom:0;background:color-mix(in srgb,var(--d-danger) 45%,transparent)}
+.fbrow .track.free{background:color-mix(in srgb,var(--d-brand) 16%,var(--d-panel))}
+.fbscale{display:flex;gap:6px;padding-left:64px;font-size:8.5px;color:var(--d-muted);justify-content:space-between}
+.slot{
+  display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:11px;
+  border:1px solid color-mix(in srgb,var(--d-brand) 40%,var(--d-border));
+  background:color-mix(in srgb,var(--d-brand) 10%,transparent);font-size:12px;
+}
+.slot b{font-weight:500}
+.slot span{margin-left:auto;font-size:10px;color:var(--d-muted)}
+
+/* FAB */
+.fab{
+  position:absolute;right:16px;bottom:18px;width:52px;height:52px;border-radius:17px;
+  background:var(--d-cal);color:var(--d-ink);display:grid;place-items:center;
+  box-shadow:0 6px 18px rgba(0,0,0,.45);
+}
+.fab svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2.6;stroke-linecap:round}
+
+/* ── Etapy ────────────────────────────────────────────────────────── */
+.steps{display:grid;gap:12px}
+.step{
+  display:flex;gap:16px;background:var(--surface);border:1px solid var(--border);
+  border-radius:14px;padding:16px 18px;
+}
+.step .no{
+  font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:600;color:var(--brand);
+  border:1px solid color-mix(in srgb,var(--brand) 40%,var(--border));border-radius:8px;
+  padding:3px 8px;height:fit-content;flex:none;
+}
+.step h3{font-size:15px;font-weight:700;display:flex;flex-wrap:wrap;gap:9px;align-items:center}
+.step p{margin:6px 0 0;font-size:13.5px;color:var(--muted)}
+.files{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.files i{
+  font-style:normal;font-family:"IBM Plex Mono",monospace;font-size:11px;
+  padding:3px 8px;border-radius:6px;background:var(--bg-2);color:var(--muted);
+  border:1px solid var(--border);
+}
+
+/* ── Ustalenia ────────────────────────────────────────────────────── */
+.qs{display:grid;gap:12px}
+.qq{
+  background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--brand);
+  border-radius:14px;padding:16px 18px;display:grid;gap:7px;
+}
+.qq.open{border-left-color:var(--warn)}
+.qq h3{font-size:15.5px;font-weight:700;display:flex;flex-wrap:wrap;gap:9px;align-items:center}
+.qq p{margin:0;font-size:13.5px;color:var(--muted)}
+.qq .opts{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+.qq .opts i{
+  font-style:normal;font-size:12px;padding:4px 10px;border-radius:999px;
+  border:1px solid var(--border);color:var(--fg);background:var(--bg-2);
+}
+
+/* legenda kolorów */
+.palette{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));margin-top:18px}
+.sw2{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--muted)}
+.sw2 b{width:16px;height:16px;border-radius:5px;flex:none;box-shadow:0 0 0 1px rgba(0,0,0,.15)}
+.sw2 em{font-style:normal;color:var(--fg);font-weight:600}
+
+footer.end{
+  margin-top:56px;padding-top:22px;border-top:1px solid var(--border);
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--muted);
+  display:flex;flex-wrap:wrap;gap:10px 22px;
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="eyebrow">
+      <span>TeamTalk Android</span> · <b>moduł Kalendarz</b> · <span>makieta 2026-09-03</span>
+    </div>
+    <h1>Kalendarz w TeamTalku</h1>
+    <p class="lede">
+      Panel ma pod <code>/app/calendar</code> <b>kalendarze współdzielone</b> — osobiste, zespołowe
+      i zasobowe — oglądane na cztery sposoby (miesiąc, tydzień, dzień, agenda), z cyklami, RSVP,
+      wykrywaniem kolizji zasobów, asystentem „Znajdź termin” i siedmioma nakładkami operacyjnymi
+      z innych modułów. Na telefonie kafelek <b>Kalendarz</b> prowadzi dziś w zaślepkę. Ta makieta
+      pokazuje przeniesienie modułu na 360 dp — z <b>pracą bez zasięgu</b> i przypomnieniami,
+      których panel mieć nie może.
+    </p>
+  </header>
+
+  <section>
+    <div class="shead">
+      <div class="snum">01 — Punkt wyjścia</div>
+      <h2>Co panel już umie, a czego telefon nie ma</h2>
+      <p>
+        Backend kalendarza jest kompletny i przetestowany (<code>api/src/modules/calendar</code> +
+        <code>api/test/calendar</code>). Cała robota jest po stronie mobilnej.
+      </p>
+    </div>
+    <div class="cards">
+      <div class="card">
+        <h3><i class="dot ok"></i> Panel: cztery widoki</h3>
+        <p>
+          Miesiąc (siatka 6×7), tydzień i dzień (siatka godzinowa z rozkładaniem nakładających się
+          wydarzeń na kolumny, jak w Google) oraz agenda na 30 dni. Wybrany widok siedzi w bazie
+          (<code>/me/preferences/calendar.view</code>), więc wraca po zalogowaniu na innym urządzeniu.
+        </p>
+      </div>
+      <div class="card">
+        <h3><i class="dot ok"></i> Panel: kalendarze jako warstwy</h3>
+        <p>
+          Trzy typy — osobisty, zespołowy, zasób — z grantami <code>freebusy</code> / <code>reader</code> /
+          <code>writer</code> / <code>owner</code> dla osoby, roli albo wszystkich. Kolor kalendarza
+          dziedziczy wydarzenie, które nie ma własnego.
+        </p>
+      </div>
+      <div class="card">
+        <h3><i class="dot ok"></i> Panel: siedem nakładek</h3>
+        <p>
+          Montaże, serwis, zasoby, rezerwacje aut, kontakt z dealami, zadania z projektów i urlopy —
+          tylko do podglądu, każde źródło filtrowane uprawnieniami. Klik otwiera rekord w macierzystym
+          module.
+        </p>
+      </div>
+      <div class="card">
+        <h3><i class="dot ok"></i> Panel: cykle, RSVP, kolizje</h3>
+        <p>
+          Seria dzienna/tygodniowa/miesięczna z <code>until</code> albo <code>count</code>, edycja
+          w zakresie <code>this / following / all</code>, odpowiedzi uczestników i <code>409</code>
+          przy podwójnej rezerwacji zasobu — z możliwością wymuszenia.
+        </p>
+      </div>
+      <div class="card">
+        <h3><i class="dot part"></i> Telefon: pół drogi już jest</h3>
+        <p>
+          Sesja, lista członków zespołu (<code>/api/tasks/members</code>), kalendarz miesiąca z modułu
+          Serwis, arkusze i wzorzec kolejki offline z Zadań — wszystko to działa i nadaje się do
+          ponownego użycia.
+        </p>
+      </div>
+      <div class="card">
+        <h3><i class="dot no"></i> Telefon: kafelek to zaślepka</h3>
+        <p>
+          <code>HOME_MODULES</code> ma pozycję <code>calendar</code>, ale trasa prowadzi do
+          <code>ModulePlaceholderScreen</code>. Ani jednego wywołania kalendarza w
+          <code>TeamTalkApi</code>, ani jednej tabeli w Room.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead">
+      <div class="snum">02 — Makiety</div>
+      <h2>Siedem ekranów na 360 dp</h2>
+      <p>
+        Panel rozkłada się na trzy kolumny: mini-kalendarz i warstwy po lewej, siatka pośrodku,
+        modal po prawej. Na telefonie lewa kolumna zjeżdża do arkusza „Warstwy”, a treść dnia —
+        której nie da się wpisać w komórkę szeroką na 44 dp — ląduje pod siatką.
+      </p>
+    </div>
+
+    <div class="screens">
+
+      <!-- 00 — Miesiąc -->
+      <div class="screenblock">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>9:41</span><span>◍ ▲ ▮</span></div>
+          <div class="topbar">
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span>
+            <div class="toptitle">Kalendarz<span>4 warstwy · zsynchronizowano 9:38</span></div>
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></span>
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="2" fill="currentColor" stroke="none"/><circle cx="7" cy="18" r="2" fill="currentColor" stroke="none"/></svg><i class="cnt">4</i></span>
+          </div>
+          <div class="screen">
+            <div class="viewtabs">
+              <span class="viewtab" data-on>Miesiąc</span>
+              <span class="viewtab">Tydzień</span>
+              <span class="viewtab">Dzień</span>
+              <span class="viewtab">Agenda</span>
+            </div>
+            <div class="rangebar">
+              <span class="nav"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span>
+              <b>marzec 2026</b>
+              <span class="nav"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></span>
+              <span class="today">Dziś</span>
+            </div>
+            <div class="dow"><span>pon</span><span>wt</span><span>śr</span><span>czw</span><span>pt</span><span>sob</span><span>niedz</span></div>
+            <div class="mgrid">
+              <div class="mday out"><em>23</em></div>
+              <div class="mday out"><em>24</em><i style="background:var(--c-monter)"></i></div>
+              <div class="mday out"><em>25</em></div>
+              <div class="mday out"><em>26</em><i style="background:var(--c-osob)"></i></div>
+              <div class="mday out"><em>27</em></div>
+              <div class="mday out"><em>28</em></div>
+              <div class="mday out"><em>1</em></div>
+
+              <div class="mday"><em>2</em><i style="background:var(--c-osob)"></i><i style="background:var(--c-monter)"></i></div>
+              <div class="mday"><em>3</em><i style="background:var(--c-serwis)"></i></div>
+              <div class="mday today"><em>4</em><i style="background:var(--c-osob)"></i><i style="background:var(--c-monter)"></i><i style="background:var(--o-inst)"></i></div>
+              <div class="mday sel"><em>5</em><i style="background:var(--c-osob)"></i><i style="background:var(--c-zarzad)"></i><i style="background:var(--o-svc)"></i><u>+2</u></div>
+              <div class="mday"><em>6</em><i style="background:var(--c-monter)"></i></div>
+              <div class="mday"><em>7</em></div>
+              <div class="mday"><em>8</em></div>
+
+              <div class="mday"><em>9</em><i style="background:var(--c-osob)"></i></div>
+              <div class="mday"><em>10</em><i style="background:var(--c-serwis)"></i><i style="background:var(--c-monter)"></i></div>
+              <div class="mday"><em>11</em></div>
+              <div class="mday"><em>12</em><i style="background:var(--c-zarzad)"></i></div>
+              <div class="mday"><em>13</em><i style="background:var(--c-osob)"></i><i class="ghost"></i></div>
+              <div class="mday"><em>14</em></div>
+              <div class="mday"><em>15</em></div>
+
+              <div class="mday"><em>16</em><i style="background:var(--c-monter)"></i></div>
+              <div class="mday"><em>17</em></div>
+              <div class="mday"><em>18</em><i style="background:var(--c-osob)"></i></div>
+              <div class="mday"><em>19</em><i style="background:var(--c-serwis)"></i></div>
+              <div class="mday"><em>20</em></div>
+              <div class="mday"><em>21</em></div>
+              <div class="mday"><em>22</em></div>
+            </div>
+            <div class="daylabel">5 marca, czwartek <span>· 4 pozycje</span></div>
+            <div class="daylist">
+              <div class="erow" style="border-left-color:var(--c-osob)">
+                <span class="tm">08:30<br>09:15</span>
+                <span class="nm"><b>Odprawa poranna</b><span>Sala duża · 6 osób</span></span>
+                <span class="rs yes">idę</span>
+              </div>
+              <div class="erow" style="border-left-color:var(--c-zarzad)">
+                <span class="tm">11:00<br>12:00</span>
+                <span class="nm"><b>Wycena — Kowalscy, Trzebownisko</b><span>Marek W. · 3 osoby</span></span>
+                <span class="rs wait">?</span>
+              </div>
+              <div class="erow" style="border-left-color:var(--c-osob)">
+                <span class="tm">15:00<br>16:30</span>
+                <span class="nm"><b>Szkolenie PV — moduł 2</b><span>czeka na wysyłkę</span></span>
+                <span class="queue"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4.5l3 1.7"/></svg></span>
+              </div>
+              <div class="erow overlay" style="border-left-color:var(--o-svc)">
+                <span class="tm">13:00</span>
+                <span class="nm"><b>Serwis: Nowak — brak ciepła</b><span>nakładka · otwórz w module</span></span>
+              </div>
+            </div>
+          </div>
+          <div class="fab"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div>
+        </div></div>
+        <div class="caption">
+          <h3><i>00</i> Miesiąc</h3>
+          <p>
+            Domyślny widok. W komórce mieszczą się tylko paski kolorów kalendarzy (całodniowe —
+            obwódką), treść dnia idzie pod siatkę. Wiersz nakładki jest przerywany i nieedytowalny,
+            wiersz czekający w kolejce dostaje zegarek zamiast RSVP.
+          </p>
+        </div>
+      </div>
+
+      <!-- 01 — Tydzień -->
+      <div class="screenblock">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>9:41</span><span>◍ ▲ ▮</span></div>
+          <div class="topbar">
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span>
+            <div class="toptitle">Kalendarz<span>Marek W. · 4 warstwy</span></div>
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></span>
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="2" fill="currentColor" stroke="none"/><circle cx="7" cy="18" r="2" fill="currentColor" stroke="none"/></svg><i class="cnt">4</i></span>
+          </div>
+          <div class="screen">
+            <div class="viewtabs">
+              <span class="viewtab">Miesiąc</span>
+              <span class="viewtab" data-on>Tydzień</span>
+              <span class="viewtab">Dzień</span>
+              <span class="viewtab">Agenda</span>
+            </div>
+            <div class="rangebar">
+              <span class="nav"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span>
+              <b>2 – 8 mar 2026</b>
+              <span class="nav"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></span>
+              <span class="today">Dziś</span>
+            </div>
+            <div class="allday">
+              <i style="background:var(--o-leave);max-width:96px">Urlop: Ania</i>
+              <i style="background:var(--c-monter);max-width:110px">Montaż Sanok (2 dni)</i>
+              <u>+1</u>
+            </div>
+            <div class="hourwrap">
+              <div class="gutter">
+                <span>7</span><span>8</span><span>9</span><span>10</span><span>11</span>
+                <span>12</span><span>13</span><span>14</span><span>15</span><span>16</span>
+              </div>
+              <div class="cols w7">
+                <div class="col">
+                  <div class="colhead">pon<b>2</b></div>
+                  <div class="ev" style="top:52px;height:36px;background:var(--c-osob)">Odprawa</div>
+                  <div class="ev" style="top:166px;height:52px;background:var(--c-monter)">Sanok</div>
+                </div>
+                <div class="col">
+                  <div class="colhead">wt<b>3</b></div>
+                  <div class="ev" style="top:90px;height:70px;background:var(--c-serwis)">Serwis PW</div>
+                </div>
+                <div class="col">
+                  <div class="colhead now">śr<b>4</b></div>
+                  <div class="ev" style="top:52px;height:30px;background:var(--c-osob)">Odpr.</div>
+                  <div class="ev" style="top:128px;height:60px;background:var(--c-monter)">Krosno</div>
+                  <div class="nowline" style="top:120px"></div>
+                </div>
+                <div class="col">
+                  <div class="colhead">czw<b>5</b></div>
+                  <div class="ev" style="top:52px;height:30px;background:var(--c-osob)">Odpr.</div>
+                  <div class="ev" style="top:148px;height:38px;background:var(--c-zarzad)">Wycena</div>
+                  <div class="ev" style="top:300px;height:56px;background:var(--c-osob)">Szkol.</div>
+                </div>
+                <div class="col">
+                  <div class="colhead">pt<b>6</b></div>
+                  <div class="ev" style="top:52px;height:30px;background:var(--c-osob)">Odpr.</div>
+                  <div class="ev" style="top:204px;height:76px;background:var(--c-monter)">Rzeszów</div>
+                </div>
+                <div class="col">
+                  <div class="colhead">sob<b>7</b></div>
+                </div>
+                <div class="col">
+                  <div class="colhead">niedz<b>8</b></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="fab"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div>
+        </div></div>
+        <div class="caption">
+          <h3><i>01</i> Tydzień</h3>
+          <p>
+            Siedem kolumn po ~40 dp — tyle, ile zostaje po rynience godzin. Blok pokazuje sam skrót
+            tytułu; szczegóły otwiera dotknięcie. Całodniowe siedzą w pasku nad siatką, jak w panelu.
+            Czerwona linia „teraz” tylko w kolumnie dzisiejszej.
+          </p>
+        </div>
+      </div>
+
+      <!-- 02 — Dzień -->
+      <div class="screenblock">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>9:41</span><span>◍ ▲ ▮</span></div>
+          <div class="topbar">
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span>
+            <div class="toptitle">Kalendarz<span>środa, 4 marca</span></div>
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></span>
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="2" fill="currentColor" stroke="none"/><circle cx="7" cy="18" r="2" fill="currentColor" stroke="none"/></svg><i class="cnt">4</i></span>
+          </div>
+          <div class="screen">
+            <div class="viewtabs">
+              <span class="viewtab">Miesiąc</span>
+              <span class="viewtab">Tydzień</span>
+              <span class="viewtab" data-on>Dzień</span>
+              <span class="viewtab">Agenda</span>
+            </div>
+            <div class="rangebar">
+              <span class="nav"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span>
+              <b>środa, 4 marca 2026</b>
+              <span class="nav"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></span>
+            </div>
+            <div class="allday">
+              <i style="background:var(--o-leave);max-width:120px">Urlop: Ania Kot</i>
+              <i style="background:var(--c-monter);max-width:130px">Montaż Sanok (2 dni)</i>
+            </div>
+            <div class="resizebar">15:00 – 16:00 · 1 godz.<b>Gotowe</b></div>
+            <div class="hourwrap">
+              <div class="gutter">
+                <span>7</span><span>8</span><span>9</span><span>10</span><span>11</span>
+                <span>12</span><span>13</span><span>14</span><span>15</span><span>16</span>
+              </div>
+              <div class="cols w1">
+                <div class="col" style="grid-column:1 / -1">
+                  <div class="colhead"></div>
+                  <div class="ev tall" style="top:52px;height:36px;background:var(--c-osob);right:50%">
+                    Odprawa poranna<em>8:30 – 9:15</em>
+                  </div>
+                  <div class="ev tall" style="top:60px;height:44px;background:var(--c-serwis);left:50%">
+                    Telefon: Panasonic<em>8:45 – 9:30</em>
+                  </div>
+                  <div class="ev tall" style="top:128px;height:74px;background:var(--c-monter)">
+                    Montaż — Krosno, ul. Polna 4<em>10:00 – 12:00 · Marek W., Tomek S.</em>
+                  </div>
+                  <div class="ev tall" style="top:236px;height:56px;background:var(--o-svc);opacity:.55">
+                    Serwis: Nowak — brak ciepła<em>nakładka · 13:00</em>
+                  </div>
+                  <div class="ev tall armed" style="top:320px;height:60px;background:var(--c-zarzad)">
+                    Rada techniczna<em>15:00 – 16:00 · zespołowy</em>
+                  </div>
+                  <div class="evgrab" style="top:314px;left:-5px"></div>
+                  <div class="evgrab" style="top:374px;right:-5px"></div>
+                  <div class="nowline" style="top:120px"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="fab"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div>
+        </div></div>
+        <div class="caption">
+          <h3><i>02</i> Dzień</h3>
+          <p>
+            Ten sam algorytm rozkładu kolumn co w panelu (<code>layoutDay</code>): nakładające się
+            wydarzenia dzielą szerokość. Nakładki operacyjne są przygaszone — nie da się ich tu
+            edytować. Siatka startuje przewinięta na 7:00.
+          </p>
+          <p>
+            Przytrzymanie kafelka (albo dodanie terminu) uzbraja <b>dwie kropki</b> na rogach:
+            górna przesuwa początek, dolna koniec, krok 15 minut, najkrócej 15 minut. Kafelka jako
+            całości nie przeciągamy — na dotyku kłóciłoby się to z przewijaniem siatki. Puszczenie
+            kropki od razu zapisuje godziny (bez zasięgu wchodzą do kolejki), pasek nad siatką
+            pokazuje zakres i długość spotkania, a „Gotowe" albo dotknięcie obok chowa uchwyty.
+            Wydarzenia całodniowe i wielodniowe zostają przy karcie.
+          </p>
+        </div>
+      </div>
+
+      <!-- 03 — Agenda -->
+      <div class="screenblock">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>9:41</span><span>◍ ▲ ▮</span></div>
+          <div class="topbar">
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span>
+            <div class="toptitle">Kalendarz<span>4 mar – 2 kwi</span></div>
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></span>
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="2" fill="currentColor" stroke="none"/><circle cx="7" cy="18" r="2" fill="currentColor" stroke="none"/></svg><i class="cnt">4</i></span>
+          </div>
+          <div class="screen">
+            <div class="viewtabs">
+              <span class="viewtab">Miesiąc</span>
+              <span class="viewtab">Tydzień</span>
+              <span class="viewtab">Dzień</span>
+              <span class="viewtab" data-on>Agenda</span>
+            </div>
+            <div class="agenda">
+              <div class="aday now">
+                <div class="dt"><b>4</b><span>śr</span></div>
+                <div class="items">
+                  <div class="erow" style="border-left-color:var(--c-osob)">
+                    <span class="tm">08:30</span>
+                    <span class="nm"><b>Odprawa poranna</b><span>Sala duża</span></span>
+                    <span class="rs yes">idę</span>
+                  </div>
+                  <div class="erow" style="border-left-color:var(--c-monter)">
+                    <span class="tm">10:00</span>
+                    <span class="nm"><b>Montaż — Krosno, Polna 4</b><span>Marek W., Tomek S.</span></span>
+                  </div>
+                </div>
+              </div>
+              <div class="aday">
+                <div class="dt"><b>5</b><span>czw</span></div>
+                <div class="items">
+                  <div class="erow" style="border-left-color:var(--c-zarzad)">
+                    <span class="tm">11:00</span>
+                    <span class="nm"><b>Wycena — Kowalscy</b><span>Trzebownisko</span></span>
+                    <span class="rs wait">?</span>
+                  </div>
+                  <div class="erow" style="border-left-color:var(--c-osob)">
+                    <span class="tm">15:00</span>
+                    <span class="nm"><b>Szkolenie PV — moduł 2</b><span>czeka na wysyłkę</span></span>
+                    <span class="queue"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4.5l3 1.7"/></svg></span>
+                  </div>
+                </div>
+              </div>
+              <div class="aday">
+                <div class="dt"><b>6</b><span>pt</span></div>
+                <div class="items">
+                  <div class="erow" style="border-left-color:var(--c-monter)">
+                    <span class="tm">13:00</span>
+                    <span class="nm"><b>Montaż — Rzeszów, Lipowa 8</b><span>cały zespół</span></span>
+                    <span class="rs maybe">może</span>
+                  </div>
+                  <div class="erow overlay" style="border-left-color:var(--o-inst)">
+                    <span class="tm">—</span>
+                    <span class="nm"><b>Montaż: Zubrzycki (deal #2417)</b><span>nakładka</span></span>
+                  </div>
+                </div>
+              </div>
+              <div class="aday">
+                <div class="dt"><b>9</b><span>pon</span></div>
+                <div class="items">
+                  <div class="erow" style="border-left-color:var(--c-osob)">
+                    <span class="tm">08:30</span>
+                    <span class="nm"><b>Odprawa poranna</b><span>🔁 co tydzień</span></span>
+                    <span class="rs yes">idę</span>
+                  </div>
+                </div>
+              </div>
+              <div class="aday">
+                <div class="dt"><b>10</b><span>wt</span></div>
+                <div class="items">
+                  <div class="erow" style="border-left-color:var(--c-serwis)">
+                    <span class="tm">09:00</span>
+                    <span class="nm"><b>Przegląd roczny — Sanok</b><span>Karta gwarancyjna #118</span></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="fab"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div>
+        </div></div>
+        <div class="caption">
+          <h3><i>03</i> Agenda</h3>
+          <p>
+            30 dni od kotwicy, dni bez wydarzeń wypadają. To widok, który w terenie zastępuje panel:
+            jedno przewinięcie kciukiem i wiadomo, co jest do końca miesiąca. Cykl znaczy 🔁 przy
+            podtytule.
+          </p>
+        </div>
+      </div>
+
+      <!-- 04 — Arkusz wydarzenia -->
+      <div class="screenblock">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>9:41</span><span>◍ ▲ ▮</span></div>
+          <div class="topbar">
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span>
+            <div class="toptitle">Kalendarz<span>marzec 2026</span></div>
+          </div>
+          <div class="screen" style="opacity:.35">
+            <div class="viewtabs">
+              <span class="viewtab" data-on>Miesiąc</span><span class="viewtab">Tydzień</span>
+              <span class="viewtab">Dzień</span><span class="viewtab">Agenda</span>
+            </div>
+            <div class="dow"><span>pon</span><span>wt</span><span>śr</span><span>czw</span><span>pt</span><span>sob</span><span>niedz</span></div>
+            <div class="mgrid">
+              <div class="mday"><em>2</em></div><div class="mday"><em>3</em></div>
+              <div class="mday today"><em>4</em></div><div class="mday sel"><em>5</em></div>
+              <div class="mday"><em>6</em></div><div class="mday"><em>7</em></div><div class="mday"><em>8</em></div>
+            </div>
+          </div>
+          <div class="scrim"></div>
+          <div class="sheet" style="top:52px">
+            <div class="grab"></div>
+            <div class="sheethead">
+              <b>Wycena — Kowalscy, Trzebownisko</b>
+              <span class="ico"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5h6v2M7 7l1 13h8l1-13"/></svg></span>
+            </div>
+            <div class="warnbox">
+              Zasób „Bus Ducato RZ 4821K” jest już zajęty 11:00–12:00. Zapisz mimo kolizji?
+            </div>
+            <div class="grid2">
+              <div class="field wide"><span class="k">Kalendarz</span><span class="v"><i class="sw" style="background:var(--c-zarzad)"></i>Zespołowy — handel</span></div>
+              <div class="field"><span class="k">Od</span><span class="v">5 mar · 11:00</span></div>
+              <div class="field"><span class="k">Do</span><span class="v">5 mar · 12:00</span></div>
+              <div class="field wide"><span class="k">Miejsce</span><span class="v link">Trzebownisko 214 · Nawiguj</span></div>
+              <div class="field"><span class="k">Właściciel</span><span class="v">Marek W.</span></div>
+              <div class="field"><span class="k">Powtarzanie</span><span class="v dim">Nie powtarzaj</span></div>
+            </div>
+            <div class="seclabel">Uczestnicy · 3</div>
+            <div class="people">
+              <span class="pchip"><i>MW</i>Marek W. <u class="yes">✓</u></span>
+              <span class="pchip"><i>AK</i>Ania K. <u>·</u></span>
+              <span class="pchip"><i>TS</i>Tomek S. <u class="no">✗</u></span>
+            </div>
+            <div class="seclabel">Twoja odpowiedź</div>
+            <div class="segrow"><span data-on>Idę</span><span>Może</span><span>Nie idę</span></div>
+            <div class="seclabel">Zastosuj do</div>
+            <div class="segrow"><span data-on>Tego wystąpienia</span><span>Tego i dalszych</span><span>Całej serii</span></div>
+            <div class="primary">Zapisz mimo kolizji</div>
+          </div>
+        </div></div>
+        <div class="caption">
+          <h3><i>04</i> Karta wydarzenia</h3>
+          <p>
+            Jeden arkusz na podgląd i edycję. Trzy rzeczy wchodzą tu z panelu bez zmian: kolizja
+            zasobu (<code>409</code> → przycisk wymuszający), RSVP i zakres edycji serii. Jedna jest
+            nowa: „Nawiguj” obok miejsca, intentem <code>geo:</code>, tak jak w module Mapa.
+          </p>
+        </div>
+      </div>
+
+      <!-- 05 — Warstwy -->
+      <div class="screenblock">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>9:41</span><span>◍ ▲ ▮</span></div>
+          <div class="topbar">
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span>
+            <div class="toptitle">Kalendarz<span>marzec 2026</span></div>
+          </div>
+          <div class="screen" style="opacity:.35">
+            <div class="viewtabs">
+              <span class="viewtab" data-on>Miesiąc</span><span class="viewtab">Tydzień</span>
+              <span class="viewtab">Dzień</span><span class="viewtab">Agenda</span>
+            </div>
+            <div class="dow"><span>pon</span><span>wt</span><span>śr</span><span>czw</span><span>pt</span><span>sob</span><span>niedz</span></div>
+          </div>
+          <div class="scrim"></div>
+          <div class="sheet" style="top:74px">
+            <div class="grab"></div>
+            <div class="sheethead"><b>Warstwy i filtr</b></div>
+            <div class="field wide"><span class="k">Osoba</span><span class="v">Wszyscy</span></div>
+            <div class="seclabel">Kalendarze</div>
+            <div class="switchrow"><i class="sw" style="background:var(--c-osob)"></i><span class="lbl">Mój kalendarz</span><span class="tgl" data-on></span></div>
+            <div class="switchrow"><i class="sw" style="background:var(--c-monter)"></i><span class="lbl">Montaże — zespół</span><span class="tgl" data-on></span></div>
+            <div class="switchrow"><i class="sw" style="background:var(--c-serwis)"></i><span class="lbl">Serwis — dyżury</span><span class="ro">tylko odczyt</span><span class="tgl" data-on></span></div>
+            <div class="switchrow"><i class="sw" style="background:var(--c-auto)"></i><span class="lbl">Bus Ducato RZ 4821K</span><span class="ro">zasób</span><span class="tgl"></span></div>
+            <div class="seclabel">Nakładki operacyjne · podgląd</div>
+            <div class="switchrow"><i class="sw" style="background:var(--o-inst)"></i><span class="lbl">Montaże</span><span class="tgl" data-on></span></div>
+            <div class="switchrow"><i class="sw" style="background:var(--o-svc)"></i><span class="lbl">Serwis</span><span class="tgl" data-on></span></div>
+            <div class="switchrow"><i class="sw" style="background:var(--o-leave)"></i><span class="lbl">Urlopy</span><span class="tgl" data-on></span></div>
+            <div class="switchrow"><i class="sw" style="background:var(--o-res)"></i><span class="lbl">Rezerwacje aut</span><span class="tgl"></span></div>
+            <div class="act brandy"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Nowy kalendarz<span class="chev">›</span></div>
+          </div>
+        </div></div>
+        <div class="caption">
+          <h3><i>05</i> Warstwy</h3>
+          <p>
+            Lewa kolumna panelu w całości: filtr osoby, kalendarze z kolorem i poziomem dostępu,
+            siedem nakładek. Kalendarz bez prawa zapisu ma etykietę „tylko odczyt” i nie da się
+            w nim nic dodać — tak samo jak w panelu.
+          </p>
+        </div>
+      </div>
+
+      <!-- 06 — Znajdź termin -->
+      <div class="screenblock">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>9:41</span><span>◍ ▲ ▮</span></div>
+          <div class="topbar">
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span>
+            <div class="toptitle">Znajdź termin<span>5 marca · 3 osoby</span></div>
+          </div>
+          <div class="screen">
+            <div class="seclabel">Kogo szukamy</div>
+            <div class="people">
+              <span class="pchip"><i>MW</i>Marek W.</span>
+              <span class="pchip"><i>AK</i>Ania K.</span>
+              <span class="pchip"><i>TS</i>Tomek S.</span>
+              <span class="pchip"><i>+</i>Dodaj</span>
+            </div>
+            <div class="seclabel">Zajętość · czw 5 marca</div>
+            <div class="fbwrap">
+              <div class="fbrow">
+                <span class="who">Marek W.</span>
+                <span class="track"><i class="busy" style="left:6%;width:16%"></i><i class="busy" style="left:38%;width:12%"></i></span>
+              </div>
+              <div class="fbrow">
+                <span class="who">Ania K.</span>
+                <span class="track"><i class="busy" style="left:0;width:10%"></i><i class="busy" style="left:60%;width:22%"></i></span>
+              </div>
+              <div class="fbrow">
+                <span class="who">Tomek S.</span>
+                <span class="track"><i class="busy" style="left:30%;width:20%"></i></span>
+              </div>
+              <div class="fbrow">
+                <span class="who">Wolne dla wszystkich</span>
+                <span class="track free"></span>
+              </div>
+              <div class="fbscale"><span>8:00</span><span>12:00</span><span>16:00</span><span>18:00</span></div>
+            </div>
+            <div class="seclabel">Propozycje · 60 min</div>
+            <div class="slot"><b>czw 5 mar · 13:00 – 14:00</b><span>wszyscy wolni</span></div>
+            <div class="slot"><b>czw 5 mar · 16:30 – 17:30</b><span>wszyscy wolni</span></div>
+            <div class="slot"><b>pt 6 mar · 09:00 – 10:00</b><span>wszyscy wolni</span></div>
+            <div style="flex:1"></div>
+            <div class="primary">Utwórz wydarzenie 13:00</div>
+          </div>
+        </div></div>
+        <div class="caption">
+          <h3><i>06</i> Znajdź termin</h3>
+          <p>
+            <code>GET /calendar/events/freebusy</code> zwraca same przedziały zajętości, bez treści
+            wydarzeń — więc widać, kiedy ktoś jest wolny, ale nie na czym siedzi. Wybór slotu otwiera
+            arkusz wydarzenia z wpisanymi uczestnikami i godziną.
+          </p>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="palette">
+      <div class="sw2"><b style="background:#2a78d6"></b><em>Kalendarz osobisty</em></div>
+      <div class="sw2"><b style="background:#1baf7a"></b><em>Zespołowy</em></div>
+      <div class="sw2"><b style="background:#8a6df0"></b><em>Zespołowy #2</em></div>
+      <div class="sw2"><b style="background:#d55181"></b><em>Zasób (auto, sala)</em></div>
+      <div class="sw2"><b style="background:#44d62c"></b><em>Nakładka: montaże</em></div>
+      <div class="sw2"><b style="background:#e0a500"></b><em>Nakładka: serwis</em></div>
+      <div class="sw2"><b style="background:#79c0ff"></b><em>Nakładka: urlopy</em></div>
+      <div class="sw2"><b style="background:#FB7185"></b><em>Akcent modułu (kafelek)</em></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead">
+      <div class="snum">03 — Zakres</div>
+      <h2>Co z panelu wchodzi na telefon</h2>
+      <p>
+        Reguła jak przy poprzednich modułach: wszystko, co robi się w terenie — 1:1. Co jest pracą
+        biurową (matryca grantów) — zostaje w panelu. Do tego trzy rzeczy, których panel mieć nie może.
+      </p>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>Funkcja</th><th>Panel</th><th>Telefon</th><th>Uwaga</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Widok miesiąca</td><td>siatka 6×7 z chipami</td><td><span class="tag jest">1:1</span></td><td>chipy → paski koloru + lista dnia pod siatką</td></tr>
+          <tr><td>Widok tygodnia</td><td>siatka godzinowa</td><td><span class="tag jest">1:1</span></td><td>kolumny ~40 dp, blok bez podtytułu</td></tr>
+          <tr><td>Widok dnia</td><td>siatka godzinowa</td><td><span class="tag jest">1:1</span></td><td>ten sam rozkład kolumn (<code>layoutDay</code>)</td></tr>
+          <tr><td>Agenda 30 dni</td><td>lista</td><td><span class="tag jest">1:1</span></td><td>główny widok terenowy</td></tr>
+          <tr><td>Kalendarze jako warstwy</td><td>lewa kolumna</td><td><span class="tag jest">1:1</span></td><td>arkusz „Warstwy”, stan zapamiętany lokalnie</td></tr>
+          <tr><td>Nakładki operacyjne (7 źródeł)</td><td>lewa kolumna</td><td><span class="tag jest">1:1</span></td><td>podgląd; klik → moduł w aplikacji, gdzie jest</td></tr>
+          <tr><td>Filtr osoby</td><td><code>EmployeeSelect</code></td><td><span class="tag jest">1:1</span></td><td>lista z <code>/api/tasks/members</code></td></tr>
+          <tr><td>Tworzenie i edycja wydarzenia</td><td>modal</td><td><span class="tag jest">1:1</span></td><td>arkusz; wszystkie pola panelu</td></tr>
+          <tr><td>Cykle + zakres <code>this/following/all</code></td><td>tak</td><td><span class="tag jest">1:1</span></td><td>segment „Zastosuj do” w arkuszu</td></tr>
+          <tr><td>RSVP uczestnika</td><td>tak</td><td><span class="tag jest">1:1</span></td><td>trzy przyciski + znaczniki przy awatarach</td></tr>
+          <tr><td>Kolizja zasobu (409)</td><td>wymuszenie</td><td><span class="tag jest">1:1</span></td><td>„Zapisz mimo kolizji”</td></tr>
+          <tr><td>Znajdź termin (free/busy)</td><td>modal</td><td><span class="tag jest">1:1</span></td><td>osobny ekran + propozycje slotów</td></tr>
+          <tr><td>Nowy kalendarz, nazwa, kolor, archiwum</td><td>modal ustawień</td><td><span class="tag jest">1:1</span></td><td>arkusz z listy warstw</td></tr>
+          <tr><td>Matryca udostępnień (granty)</td><td>modal ustawień</td><td><span class="tag brak">poza zakresem</span></td><td>widać poziom dostępu, nadaje się w panelu</td></tr>
+          <tr><td>Przeciąganie wydarzeń po siatce</td><td>drag &amp; drop</td><td><span class="tag brak">poza zakresem</span></td><td>na dotyku kłóci się z przewijaniem — godzinę zmienia się w arkuszu</td></tr>
+          <tr><td>Praca bez zasięgu</td><td>—</td><td><span class="tag nowe">nowe</span></td><td>cache w Room + kolejka zmian, jak w Zadaniach i Serwisie</td></tr>
+          <tr><td>Przypomnienia lokalne</td><td>—</td><td><span class="tag nowe">nowe</span></td><td>30 min przed; całodniowe — o 7:00 tego dnia</td></tr>
+          <tr><td>Nawigacja do miejsca wydarzenia</td><td>—</td><td><span class="tag nowe">nowe</span></td><td>intent <code>geo:</code>, jak w module Mapa</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead">
+      <div class="snum">04 — API</div>
+      <h2>Backend jest kompletny — dopisujemy tylko klienta</h2>
+      <p>
+        Wszystkie trasy istnieją i mają testy. Żadnej zmiany w <code>api/</code> ten moduł nie wymaga —
+        po raz pierwszy od Zadań.
+      </p>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Trasa</th><th>Po co</th><th>Stan</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">GET /api/calendars</td><td>warstwy z poziomem dostępu</td><td><span class="tag jest">jest</span></td></tr>
+          <tr><td class="mono">POST · PATCH /api/calendars<br>POST /api/calendars/:id/archive · /restore</td><td>nowy kalendarz, nazwa, kolor, archiwum</td><td><span class="tag jest">jest</span></td></tr>
+          <tr><td class="mono">GET · PUT /api/calendars/:id/shares</td><td>granty (zostają w panelu)</td><td><span class="tag jest">jest</span></td></tr>
+          <tr><td class="mono">GET /api/calendar/events?from&amp;to&amp;assignee&amp;calendarIds</td><td>wydarzenia zakresu</td><td><span class="tag jest">jest</span></td></tr>
+          <tr><td class="mono">POST /api/calendar/events?allowConflict</td><td>nowe wydarzenie, wymuszenie kolizji</td><td><span class="tag jest">jest</span></td></tr>
+          <tr><td class="mono">PATCH /api/calendar/events/:id?scope&amp;allowConflict</td><td>edycja z zakresem serii</td><td><span class="tag jest">jest</span></td></tr>
+          <tr><td class="mono">DELETE /api/calendar/events/:id?scope</td><td>usunięcie wystąpienia albo serii</td><td><span class="tag jest">jest</span></td></tr>
+          <tr><td class="mono">POST /api/calendar/events/:id/rsvp</td><td>odpowiedź uczestnika</td><td><span class="tag jest">jest</span></td></tr>
+          <tr><td class="mono">GET /api/calendar/events/freebusy</td><td>„Znajdź termin”</td><td><span class="tag jest">jest</span></td></tr>
+          <tr><td class="mono">GET /api/calendar/events/overlays</td><td>siedem nakładek operacyjnych</td><td><span class="tag jest">jest</span></td></tr>
+          <tr><td class="mono">GET /api/tasks/members</td><td>osoby do filtra i uczestników</td><td><span class="tag jest">jest w kliencie</span></td></tr>
+          <tr><td class="mono">GET · PUT /api/me/preferences/calendar.view</td><td>zapamiętany widok</td><td><span class="tag mock">na telefonie lokalnie</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="cards" style="margin-top:16px">
+      <div class="card">
+        <h3><i class="dot ok"></i> Atrapa dostała trasy kalendarza</h3>
+        <p>
+          <code>board360-mock</code> nie miał tras kalendarza — dopisany <code>src/routes/calendar.js</code>
+          (komplet kontraktu, z rozwijaniem serii i kolizją zasobu 409) plus seed: pięć kalendarzy
+          (osobisty, cudzy osobisty tylko na zajętość, zespołowy, dyżury tylko do odczytu, bus jako
+          zasób) i piętnaście wydarzeń bieżącego tygodnia.
+        </p>
+      </div>
+      <div class="card">
+        <h3><i class="dot part"></i> Widok pamiętamy lokalnie</h3>
+        <p>
+          Panel trzyma wybrany widok w bazie. Na telefonie to jedno pole w <code>DataStore</code> —
+          okrążenie po sieci przy każdym przełączeniu zakładki kosztuje więcej, niż daje.
+          Sam wybór i tak jest inny na telefonie niż na monitorze.
+        </p>
+      </div>
+      <div class="card">
+        <h3><i class="dot ok"></i> Cykle rozwija serwer</h3>
+        <p>
+          <code>GET /calendar/events</code> zwraca gotowe wystąpienia z <code>recurrenceGroupId</code>,
+          więc telefon nie liczy reguł powtarzania — kolejka offline też nie musi ich rozwijać.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead">
+      <div class="snum">05 — Realizacja</div>
+      <h2>Cztery etapy — wykonane 2026-09-03</h2>
+      <p>Ta sama kolejność co przy Serwisie: najpierw odczyt i widoki, potem zapis, potem brak zasięgu, na końcu powiadomienia i atrapa. Wszystkie cztery zrobione za jednym razem, <code>assembleDebug</code> zielony; NIE wdrożone jeszcze na telefon ani na prod.</p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="no">K1</div>
+        <div>
+          <h3>Szkielet, warstwy i cztery widoki <span class="tag jest">zrobione</span></h3>
+          <p>
+            Trasa <code>calendar</code> zamiast zaślepki, DTO i mapper, repozytorium na Room, pobranie
+            kalendarzy i wydarzeń zakresu, cztery widoki, arkusz warstw, filtr osoby.
+          </p>
+          <div class="files">
+            <i>data/remote/dto/CalendarDto.kt</i><i>data/local/entity/CalendarEntities.kt</i>
+            <i>data/local/dao/CalendarDao.kt</i><i>data/repository/CalendarRepositoryImpl.kt</i>
+            <i>presentation/calendar/CalendarScreen.kt</i>
+          </div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="no">K2</div>
+        <div>
+          <h3>Karta wydarzenia i zapis <span class="tag jest">zrobione</span></h3>
+          <p>
+            Arkusz podglądu i edycji ze wszystkimi polami panelu, tworzenie, cykle, zakres serii,
+            RSVP, usuwanie, obsługa kolizji <code>409</code>, „Nawiguj” do miejsca.
+          </p>
+          <div class="files"><i>presentation/calendar/EventSheet.kt</i><i>data/remote/dto/CalendarPatch.kt</i></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="no">K3</div>
+        <div>
+          <h3>Bez zasięgu i nakładki <span class="tag jest">zrobione</span></h3>
+          <p>
+            Kolejka zmian (tworzenie z <code>local:&lt;uuid&gt;</code>, edycja, usunięcie, RSVP),
+            <code>CalendarSyncWorker</code>, migracja bazy 8→9, siedem nakładek operacyjnych
+            i przejścia do modułów źródłowych.
+          </p>
+          <div class="files"><i>worker/CalendarSyncWorker.kt</i><i>data/local/database/Migrations.kt</i></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="no">K4</div>
+        <div>
+          <h3>Przypomnienia, „Znajdź termin”, atrapa <span class="tag jest">zrobione</span></h3>
+          <p>
+            Powiadomienie 30 min przed wydarzeniem (całodniowe o 7:00), ekran „Znajdź termin”
+            na free/busy z propozycjami slotów, trasy kalendarza w <code>board360-mock</code>.
+          </p>
+          <div class="files"><i>worker/CalendarReminderWorker.kt</i><i>presentation/calendar/FindTimeScreen.kt</i><i>board360-mock/src/routes/calendar.js</i></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="cards" style="margin-top:20px">
+      <div class="card">
+        <h3><i class="dot ok"></i> Migracja bazy 8 → 9</h3>
+        <p>
+          Cztery nowe tabele: <code>calendars</code>, <code>calendar_events</code>,
+          <code>calendar_members</code> i kolejka <code>calendar_mutations</code>. Od tej wersji baza
+          trzyma TRZY kolejki decyzji podjętych bez zasięgu (zadania, serwis, kalendarz), więc
+          kasowanie jej przy podnoszeniu wersji jest wykluczone.
+        </p>
+      </div>
+      <div class="card">
+        <h3><i class="dot ok"></i> Zero zmian w API</h3>
+        <p>
+          Cały moduł powstał na istniejących trasach board360 — pierwszy raz od Zadań. Dopisane
+          zostały wyłącznie wywołania w <code>TeamTalkApi</code> i trasy w atrapie.
+        </p>
+      </div>
+      <div class="card">
+        <h3><i class="dot part"></i> Czego jeszcze nie ma</h3>
+        <p>
+          Nakładki operacyjne wymagają zasięgu (nie trzymamy ich w cache), a serię cykliczną zakłada
+          się tylko z zasięgiem — offline działa tworzenie, edycja, usunięcie i RSVP pojedynczych
+          terminów.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead">
+      <div class="snum">06 — Ustalenia</div>
+      <h2>Pięć decyzji przyjętych do realizacji</h2>
+      <p>
+        Przyjęte tak, jak wynikało z poprzednich modułów. Każda zmienia zakres, więc stoi tutaj —
+        makieta jest umową o zakresie. Jeśli któraś jest nie po myśli, zmieniamy ją tu, nie w kodzie.
+      </p>
+    </div>
+    <div class="qs">
+      <div class="qq">
+        <h3>Wszystkie cztery widoki panelu <span class="tag jest">przyjęte</span></h3>
+        <p>
+          Kusiło, żeby na telefonie zostawić miesiąc i agendę. Ale tydzień jest widokiem, w którym
+          koordynator układa robotę, a dzień — tym, w którym monter sprawdza, co go czeka. Oba wchodzą,
+          z kolumnami zwężonymi do ~40 dp.
+        </p>
+      </div>
+      <div class="qq">
+        <h3>Kolejka offline obejmuje tworzenie, edycję, usunięcie i RSVP <span class="tag jest">przyjęte</span></h3>
+        <p>
+          Tak samo jak w Zadaniach i Serwisie: wydarzenie zapisane bez zasięgu dostaje
+          <code>local:&lt;uuid&gt;</code>, widać przy nim zegarek, a po synchronizacji identyfikator
+          podmienia się na serwerowy razem z odwołaniami w kolejce. Cykli offline nie zakładamy —
+          serię tworzy się z zasięgiem, bo to serwer rozwija wystąpienia.
+        </p>
+      </div>
+      <div class="qq">
+        <h3>Granty zostają w panelu <span class="tag jest">przyjęte</span></h3>
+        <p>
+          Na telefonie da się założyć kalendarz, zmienić mu nazwę, kolor i zarchiwizować go —
+          to czynności, które robi się w biegu. Matryca „osoba / rola / wszyscy × cztery poziomy”
+          to praca przy biurku i zostaje w panelu; telefon pokazuje tylko wyliczony poziom dostępu
+          i etykietę „tylko odczyt”.
+        </p>
+      </div>
+      <div class="qq">
+        <h3>Bez przeciągania wydarzeń <span class="tag jest">przyjęte</span></h3>
+        <p>
+          Panel pozwala przeciągnąć wydarzenie po siatce i złapać je za dół, żeby wydłużyć. Na dotyku
+          ten gest kłóci się z przewijaniem siatki i kończy przypadkowymi przesunięciami cudzych
+          terminów. Godzinę zmienia się w arkuszu — dwa dotknięcia zamiast jednego przeciągnięcia,
+          za to bez pomyłek.
+        </p>
+      </div>
+      <div class="qq">
+        <h3>Przypomnienie 30 min przed, raz na wydarzenie <span class="tag jest">przyjęte</span></h3>
+        <p>
+          Kalendarz w telefonie bez przypomnień jest kalendarzem do oglądania. <code>WorkManager</code>
+          co 15 minut przegląda wydarzenia, w których jesteśmy właścicielem albo uczestnikiem
+          (bez odpowiedzi „nie idę”), i wysyła powiadomienie na 30 minut przed — a przy całodniowych
+          o 7:00 tego dnia. Znacznik wysłania siedzi w Room, więc alarm nie powtórzy się przy
+          następnym przebiegu.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <footer class="end">
+    <span>TeamTalk Android · moduł Kalendarz</span>
+    <span>panel: web/src/app/app/calendar</span>
+    <span>API: api/src/modules/calendar</span>
+    <span>makieta: design/mockups/modul-kalendarz.html</span>
+    <span>2026-09-03</span>
+  </footer>
+</div>

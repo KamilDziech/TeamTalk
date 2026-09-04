@@ -8,6 +8,9 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.room.Room
 import com.ekotak.teamtalk.data.local.dao.*
 import com.ekotak.teamtalk.data.local.database.MIGRATION_6_7
+import com.ekotak.teamtalk.data.local.database.MIGRATION_7_8
+import com.ekotak.teamtalk.data.local.database.MIGRATION_8_9
+import com.ekotak.teamtalk.data.local.database.MIGRATION_9_10
 import com.ekotak.teamtalk.data.local.database.TeamTalkDatabase
 import dagger.Module
 import dagger.Provides
@@ -32,7 +35,7 @@ object DatabaseModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): TeamTalkDatabase =
         Room.databaseBuilder(context, TeamTalkDatabase::class.java, "teamtalk.db")
-            .addMigrations(MIGRATION_6_7)
+            .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
             .fallbackToDestructiveMigration()
             .build()
 
@@ -52,4 +55,6 @@ object DatabaseModule {
     @Provides fun provideTaskDao(db: TeamTalkDatabase): TaskDao                   = db.taskDao()
     @Provides fun provideTaskMutationDao(db: TeamTalkDatabase): TaskMutationDao   = db.taskMutationDao()
     @Provides fun provideMapPointDao(db: TeamTalkDatabase): MapPointDao           = db.mapPointDao()
+    @Provides fun provideCalendarDao(db: TeamTalkDatabase): CalendarDao               = db.calendarDao()
+    @Provides fun provideCalendarMutationDao(db: TeamTalkDatabase): CalendarMutationDao = db.calendarMutationDao()
 }

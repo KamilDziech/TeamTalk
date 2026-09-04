@@ -26,6 +26,9 @@ class NotificationHelper @Inject constructor(
         const val MENTIONS_CHANNEL_ID = "mentions"
         const val REMINDERS_CHANNEL_ID = "task_reminders"
 
+        /** Przypomnienia o wydarzeniach kalendarza (30 min przed). */
+        const val CALENDAR_CHANNEL_ID = "calendar_reminders"
+
         /** Jedno powiadomienie na przypomnienia — kolejne podmienia poprzednie. */
         private const val REMINDER_NOTIFICATION_ID = 4200
         private val idCounter = AtomicInteger(1000)
@@ -107,6 +110,43 @@ class NotificationHelper @Inject constructor(
             .build()
 
         NotificationManagerCompat.from(context).notify(REMINDER_NOTIFICATION_ID, notification)
+    }
+
+    /**
+     * Przypomnienie o wydarzeniu kalendarza — 30 minut przed początkiem, przy
+     * całodniowych o 7:00 (ustalenie 2026-09-03). Id liczymy z wydarzenia, więc
+     * kolejne przypomnienie o tym samym terminie podmienia poprzednie zamiast
+     * piętrzyć się w szufladzie. Dotknięcie otwiera kalendarz na tym dniu.
+     */
+    fun showCalendarReminder(title: String, text: String, eventId: String) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED
+        ) return
+
+        val contentIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra(MainActivity.EXTRA_CALENDAR_EVENT_ID, eventId)
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            eventId.hashCode(),
+            contentIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+        val notification = NotificationCompat.Builder(context, CALENDAR_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_ekotak)
+            .setColor(ContextCompat.getColor(context, R.color.ekotak_green))
+            .setContentTitle(title)
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .build()
+
+        NotificationManagerCompat.from(context).notify(eventId.hashCode(), notification)
     }
 
     fun showMissedCallNotification(callerLabel: String, callLogId: String? = null) {

@@ -111,4 +111,5 @@ dependencies {
     // WorkManager + Hilt integration
     implementation(libs.work.runtime.ktx)
     implementation(libs.hilt.work)
+    ksp(libs.hilt.androidx.compiler)
 }
