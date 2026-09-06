@@ -568,15 +568,44 @@ val MIGRATION_14_15 = object : Migration(14, 15) {
             )
             """.trimIndent(),
         )
-        db.execSQL("ALTER TABLE `inventory_orders` ADD COLUMN `reservationId` TEXT")
+        db.addColumnIfMissing("inventory_orders", "reservationId", "TEXT")
         // Migawka instalacji deala dostaje etap „sold" — z niego zakładka
         // „Zamówienie" rysuje zakres kupiony przez klienta. Pusty domyślnie:
         // dopisze go pierwszy udany odczyt karty.
-        db.execSQL(
-            "ALTER TABLE `audit_installations` " +
-                "ADD COLUMN `soldStageCategoryIds` TEXT NOT NULL DEFAULT ''",
+        db.addColumnIfMissing(
+            table = "audit_installations",
+            column = "soldStageCategoryIds",
+            type = "TEXT NOT NULL DEFAULT ''",
         )
     }
+}
+
+/**
+ * `ALTER TABLE … ADD COLUMN`, które przeżywa telefon deweloperski.
+ *
+ * Zwykłe `ADD COLUMN` wywraca migrację na „duplicate column name", gdy kolumna
+ * już jest — a na telefonach zespołu JEST, i to bez żadnej winy użytkownika:
+ * `fallbackToDestructiveMigration` przy COFNIĘCIU wersji (starszy build wgrany
+ * po nowszym) kasuje tabele, które zna JEGO schemat, a te z nowszej wersji
+ * zostawia w pliku nietknięte — razem z dopisanymi już kolumnami. Potem numer
+ * wersji mówi „11", a `inventory_orders` ma komplet kolumn z piętnastki.
+ *
+ * Wyjątek z `migrate()` jest śmiertelny (destrukcyjny fallback dotyczy braku
+ * ŚCIEŻKI migracji, nie jej awarii), więc taka baza blokuje otwarcie Rooma na
+ * zawsze — aż do wyczyszczenia danych aplikacji. Sprawdzenie `PRAGMA table_info`
+ * kosztuje jedno zapytanie i zdejmuje całą tę klasę awarii.
+ */
+private fun SupportSQLiteDatabase.addColumnIfMissing(
+    table: String,
+    column: String,
+    type: String,
+) {
+    val exists = query("PRAGMA table_info(`$table`)").use { cursor ->
+        val nameIndex = cursor.getColumnIndex("name")
+        generateSequence { if (cursor.moveToNext()) cursor.getString(nameIndex) else null }
+            .any { it == column }
+    }
+    if (!exists) execSQL("ALTER TABLE `$table` ADD COLUMN `$column` $type")
 }
 
 /**
