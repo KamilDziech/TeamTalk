@@ -866,6 +866,7 @@ function seed(db) {
 
   seedService(db, users, clients);
   seedCalendar(db, users);
+  seedHr(db, users);
   seedSales(db, { dOffer, dSold, kontrahent, wojcik });
 
   return { users, clients, missedNowak };
@@ -1457,6 +1458,200 @@ function seedService(db, users, clients) {
     },
     [{ planned: daysAgo(YEAR), done: daysAgo(YEAR - 6), price: 0 }, { planned: daysAhead(20) }, {}, {}, {}],
   );
+}
+
+/**
+ * Kadry i urlopy (modul Urlop).
+ *
+ * Seed jest napisany POD SCENARIUSZE z makiety `design/mockups/modul-urlop.html`,
+ * a nie „dla objetosci":
+ *  - koordynator (konto testowe) ma komplet stanow wlasnych wnioskow: miniony,
+ *    zaplanowany, oczekujacy, odrzucony z notatka i anulowany,
+ *  - jest zwierzchnikiem montazu i serwisu, wiec jego skrzynka ma co pokazac,
+ *    MIMO ze nie ma `hr.manage` — to jest test nowej trasy `/hr/leave/inbox`,
+ *  - Anna Wilk jest DZIS na urlopie i ma koordynatora jako backup decyzyjny,
+ *    wiec jej podwladna trafia do jego skrzynki jako „backup",
+ *  - Ewa Szot podlega Zarzadowi — jej wniosek widac, ale rozstrzyga go kto inny,
+ *  - Tomasz Rak ma umowe „Wspolnik", czyli tryb BEZ wymiaru (6 dni bezplatnego:
+ *    4 minione + 2 zaplanowane) — wariant ekranu bez puli i bez paska,
+ *  - Kasia Duda nie ma wpisanego rodzaju umowy: pusty rodzaj zostaje przy
+ *    wymiarze, tak jak w board360.
+ */
+function seedHr(db, users) {
+  const orgId = db.organization.id;
+  const { countWorkingDays } = require('./hr-domain');
+
+  // Poniedzialek tygodnia oddalonego o `n` tygodni — dzieki temu zakresy nie
+  // wypadaja na weekend niezaleznie od dnia, w ktorym atrapa wstaje.
+  const mondayIn = (n) => {
+    const now = new Date();
+    const base = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const shift = (base.getUTCDay() + 6) % 7; // 0 = poniedzialek
+    base.setUTCDate(base.getUTCDate() - shift + n * 7);
+    return base;
+  };
+  const plusDays = (d, n) =>
+    new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + n));
+  const iso = (d) => d.toISOString();
+  const todayUtc = () => {
+    const n = new Date();
+    return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate()));
+  };
+
+  // ── Ludzie ────────────────────────────────────────────────────────────────
+  // Pracownicy bez konta nie mieliby sensu (mobilka pobiera liste czlonkow
+  // zespolu tym samym endpointem co kreator zadania), wiec zakladamy pelnych
+  // uzytkownikow z haslem — wystarczy przelogowac sie w aplikacji, zeby
+  // zobaczyc inny wariant ekranu.
+  const worker = (email, role, firstName, lastName, opts = {}) => {
+    const user = {
+      id: uuid(),
+      organizationId: orgId,
+      email,
+      passwordHash: hashPassword(opts.password || 'test1234'),
+      role,
+      firstName,
+      lastName,
+      clientVisibility: 'all',
+      functions: opts.functions || [],
+      additionalRoles: opts.additionalRoles || [],
+    };
+    db.users.push(user);
+    return user;
+  };
+
+  const annaWilk = worker('anna.wilk@ekotak.pl', 'biuro', 'Anna', 'Wilk', { functions: ['kadry'] });
+  const marek = worker('marek.kubiak@ekotak.pl', 'montaz', 'Marek', 'Kubiak', { functions: ['montaz'] });
+  const kasia = worker('kasia.duda@ekotak.pl', 'montaz', 'Kasia', 'Duda', { functions: ['montaz'] });
+  const grzegorz = worker('grzegorz.lis@ekotak.pl', 'serwisant', 'Grzegorz', 'Lis', { functions: ['serwis'] });
+  const ola = worker('ola.zajac@ekotak.pl', 'biuro', 'Ola', 'Zajac');
+  const ewa = worker('ewa.szot@ekotak.pl', 'biuro', 'Ewa', 'Szot');
+  const tomasz = worker('tomasz.rak@ekotak.pl', 'zarzad', 'Tomasz', 'Rak');
+
+  // ── Kartoteki kadrowe ─────────────────────────────────────────────────────
+  const profile = (user, opts = {}) => {
+    const row = {
+      id: uuid(),
+      organizationId: orgId,
+      userId: user.id,
+      managerId: opts.managerId === undefined ? null : opts.managerId,
+      backupDecisionId: opts.backupDecisionId === undefined ? null : opts.backupDecisionId,
+      annualLeaveDays: opts.annualLeaveDays === undefined ? 26 : opts.annualLeaveDays,
+      onDemandDays: opts.onDemandDays === undefined ? 4 : opts.onDemandDays,
+      carriedOverDays: opts.carriedOverDays === undefined ? 0 : opts.carriedOverDays,
+      unpaidLeaveDays: opts.unpaidLeaveDays === undefined ? 0 : opts.unpaidLeaveDays,
+      // Brak klucza znaczy „nie podano" i wpada w domyslna umowe o prace;
+      // `null` przekazany WPROST zostawia rodzaj pusty (test trybu domyslnego).
+      employmentType: 'employmentType' in opts ? opts.employmentType : 'Umowa o pracę',
+      employmentStart: opts.employmentStart || daysAgo(900),
+      position: opts.position || null,
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+    };
+    db.hrProfiles.push(row);
+    return row;
+  };
+
+  profile(users.admin, { position: 'Zarzad' });
+  // 26 + 4 przeniesione = 30 dni wymiaru — liczby jak na makiecie.
+  profile(users.koordynator, {
+    managerId: users.admin.id,
+    carriedOverDays: 4,
+    position: 'Koordynator montazu',
+  });
+  profile(users.serwisant, {
+    managerId: users.koordynator.id,
+    employmentType: 'Umowa o pracę (na okres próbny)',
+    position: 'Serwisant',
+  });
+  profile(annaWilk, {
+    managerId: users.admin.id,
+    // Gdy Anna jest na urlopie, jej decyzje przejmuje koordynator.
+    backupDecisionId: users.koordynator.id,
+    position: 'Kadry',
+  });
+  profile(marek, { managerId: users.koordynator.id, position: 'Monter' });
+  // Bez wpisanego rodzaju umowy — kartoteka zalozona automatycznie z konta.
+  profile(kasia, { managerId: users.koordynator.id, employmentType: null, position: 'Monter' });
+  profile(grzegorz, { managerId: users.koordynator.id, position: 'Serwisant' });
+  profile(ola, { managerId: annaWilk.id, position: 'Biuro' });
+  profile(ewa, { managerId: users.admin.id, position: 'Biuro' });
+  // Wspolnik — bez wymiaru urlopu, same dni bezplatnego.
+  profile(tomasz, { employmentType: 'Wspólnik', position: 'Zarzad' });
+
+  // ── Wnioski ───────────────────────────────────────────────────────────────
+  const decided = (status) => status === 'zatwierdzony' || status === 'odrzucony';
+  const leave = (user, type, start, end, status, opts = {}) => {
+    const row = {
+      id: uuid(),
+      organizationId: orgId,
+      userId: user.id,
+      type,
+      startDate: iso(start),
+      endDate: iso(end),
+      workingDays: countWorkingDays(start, end),
+      status,
+      reason: opts.reason || null,
+      decidedById: decided(status) ? opts.decidedById || users.admin.id : null,
+      decidedAt: decided(status) ? daysAgo(opts.decidedDaysAgo === undefined ? 5 : opts.decidedDaysAgo) : null,
+      decisionNote: opts.decisionNote || null,
+      createdAt: daysAgo(opts.createdDaysAgo === undefined ? 20 : opts.createdDaysAgo),
+      updatedAt: nowIso(),
+    };
+    db.leaveRequests.push(row);
+    return row;
+  };
+
+  // Koordynator — komplet stanow na ekranie „Moje wnioski".
+  leave(users.koordynator, 'wypoczynkowy', mondayIn(-26), plusDays(mondayIn(-26), 15), 'zatwierdzony', {
+    createdDaysAgo: 200, decidedDaysAgo: 190,
+  });
+  leave(users.koordynator, 'wypoczynkowy', mondayIn(2), plusDays(mondayIn(2), 4), 'zatwierdzony', {
+    createdDaysAgo: 12, decidedDaysAgo: 10,
+  });
+  leave(users.koordynator, 'na_zadanie', plusDays(mondayIn(1), 1), plusDays(mondayIn(1), 1), 'oczekuje', {
+    createdDaysAgo: 1,
+  });
+  leave(users.koordynator, 'wypoczynkowy', mondayIn(-13), plusDays(mondayIn(-13), 11), 'odrzucony', {
+    createdDaysAgo: 100,
+    decidedDaysAgo: 96,
+    decisionNote: 'Kolizja z montazem w Opolu — prosze o inny termin.',
+  });
+  leave(users.koordynator, 'bezplatny', mondayIn(-30), plusDays(mondayIn(-30), 1), 'anulowany', {
+    createdDaysAgo: 230,
+  });
+
+  // Skrzynka koordynatora: dwoje monterow i serwisant.
+  leave(marek, 'na_zadanie', plusDays(mondayIn(1), 1), plusDays(mondayIn(1), 1), 'oczekuje', { createdDaysAgo: 1 });
+  leave(marek, 'wypoczynkowy', mondayIn(2), plusDays(mondayIn(2), 11), 'zatwierdzony', {
+    createdDaysAgo: 30, decidedDaysAgo: 28, decidedById: users.koordynator.id,
+  });
+  leave(kasia, 'wypoczynkowy', mondayIn(2), plusDays(mondayIn(2), 4), 'zatwierdzony', {
+    createdDaysAgo: 25, decidedDaysAgo: 24, decidedById: users.koordynator.id,
+  });
+  leave(users.serwisant, 'wypoczynkowy', mondayIn(3), plusDays(mondayIn(3), 11), 'oczekuje', { createdDaysAgo: 2 });
+  leave(grzegorz, 'wypoczynkowy', mondayIn(5), plusDays(mondayIn(5), 1), 'zatwierdzony', {
+    createdDaysAgo: 15, decidedDaysAgo: 14, decidedById: users.koordynator.id,
+  });
+
+  // Anna Wilk jest DZIS na urlopie — stad jej decyzje przejmuje backup.
+  leave(annaWilk, 'wypoczynkowy', plusDays(todayUtc(), -2), plusDays(todayUtc(), 2), 'zatwierdzony', {
+    createdDaysAgo: 20, decidedDaysAgo: 18,
+  });
+  // Podwladna Anny — do skrzynki koordynatora wpada jako „backup".
+  leave(ola, 'bezplatny', mondayIn(4), plusDays(mondayIn(4), 1), 'oczekuje', { createdDaysAgo: 1 });
+  // Ewa podlega Zarzadowi — koordynator jej wniosku NIE rozstrzyga.
+  leave(ewa, 'okolicznosciowy', plusDays(mondayIn(3), 2), plusDays(mondayIn(3), 2), 'oczekuje', { createdDaysAgo: 3 });
+
+  // Wspolnik: 4 dni minione + 2 zaplanowane = 6 dni bezplatnego, bez limitu.
+  leave(tomasz, 'bezplatny', mondayIn(-4), plusDays(mondayIn(-4), 3), 'zatwierdzony', {
+    createdDaysAgo: 40, decidedDaysAgo: 38,
+  });
+  leave(tomasz, 'bezplatny', mondayIn(6), plusDays(mondayIn(6), 1), 'zatwierdzony', {
+    createdDaysAgo: 5, decidedDaysAgo: 4,
+  });
+
+  return { annaWilk, marek, kasia, grzegorz, ola, ewa, tomasz };
 }
 
 module.exports = { seed, daysAgo, daysAhead, nowIso };

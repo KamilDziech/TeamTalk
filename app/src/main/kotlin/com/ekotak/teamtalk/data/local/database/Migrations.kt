@@ -578,3 +578,87 @@ val MIGRATION_14_15 = object : Migration(14, 15) {
         )
     }
 }
+
+/**
+ * Moduł Urlop (zakładka „Urlop" modułu HR panelu). Trzy tabele: własne wnioski
+ * i skrzynka zwierzchnika, cudze nieobecności jako tło kalendarza oraz kolejka
+ * zapisów czekających na zasięg.
+ */
+val MIGRATION_15_16 = object : Migration(15, 16) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `leave_requests` (
+                `id` TEXT NOT NULL,
+                `userId` TEXT NOT NULL,
+                `mine` INTEGER NOT NULL,
+                `employeeName` TEXT,
+                `employeeEmail` TEXT,
+                `employeeRole` TEXT,
+                `type` TEXT NOT NULL,
+                `startDate` TEXT NOT NULL,
+                `endDate` TEXT NOT NULL,
+                `workingDays` INTEGER NOT NULL,
+                `status` TEXT NOT NULL,
+                `reason` TEXT,
+                `decisionNote` TEXT,
+                `decidedAt` TEXT,
+                `canDecide` INTEGER NOT NULL,
+                `awaitingName` TEXT,
+                `awaitingIsBackup` INTEGER NOT NULL,
+                `syncedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `leave_absences` (
+                `id` TEXT NOT NULL,
+                `userId` TEXT NOT NULL,
+                `employeeName` TEXT,
+                `employeeRole` TEXT,
+                `startDate` TEXT NOT NULL,
+                `endDate` TEXT NOT NULL,
+                `status` TEXT NOT NULL,
+                `syncedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `leave_balance` (
+                `year` INTEGER NOT NULL,
+                `mode` TEXT NOT NULL,
+                `entitled` INTEGER NOT NULL,
+                `used` INTEGER NOT NULL,
+                `planned` INTEGER NOT NULL,
+                `pending` INTEGER NOT NULL,
+                `remaining` INTEGER NOT NULL,
+                `onDemandUsed` INTEGER NOT NULL,
+                `onDemandTotal` INTEGER NOT NULL,
+                `specialDays` INTEGER NOT NULL,
+                `unpaidDays` INTEGER NOT NULL,
+                `unpaidTotal` INTEGER NOT NULL,
+                `employmentType` TEXT,
+                `managerId` TEXT,
+                `backupDecisionId` TEXT,
+                `syncedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`year`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `leave_mutations` (
+                `targetId` TEXT NOT NULL,
+                `kind` TEXT NOT NULL,
+                `payload` TEXT NOT NULL,
+                `createdAt` INTEGER NOT NULL,
+                PRIMARY KEY(`targetId`, `kind`)
+            )
+            """.trimIndent(),
+        )
+    }
+}

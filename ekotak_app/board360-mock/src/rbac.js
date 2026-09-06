@@ -33,6 +33,15 @@ const ALL_PERMS = [
   'order.manage',
   'inventory.view',
   'inventory.manage',
+  // Modul HR — wlasny urlop widzi i planuje KAZDY pracownik (`hr.view`).
+  // `hr.manage` to kadry: kartoteki, limity i podglad calego zespolu.
+  //
+  // UWAGA, to jest sedno testu modulu Urlop: koordynator — zwierzchnik montazu
+  // i serwisu — celowo NIE ma `hr.manage`, tak jak w board360. Wnioski
+  // podwladnych zatwierdza przez `GET /api/hr/leave/inbox`, ktore chodzi pod
+  // `hr.view`; `GET /api/hr/overview` musi mu oddac 403.
+  'hr.view',
+  'hr.manage',
 ];
 
 const ROLE_PERMS = {
@@ -43,12 +52,13 @@ const ROLE_PERMS = {
     'tasks.view', 'tasks.manage', 'projects.view', 'projects.manage',
     'service.view', 'service.manage', 'calendar.view', 'calendar.override_busy',
     'offer.manage', 'order.manage', 'inventory.view', 'inventory.manage',
+    'hr.view',
   ],
   // Serwisant widzi projekty, ale nie zaklada w nich zadan — na tym koncie da sie
   // na telefonie sprawdzic, ze krok "projekt" w kreatorze konczy sie kodem 403.
   serwisant: [
     'crm.view', 'telephony.use', 'tasks.view', 'tasks.manage', 'projects.view',
-    'service.view', 'service.manage', 'calendar.view',
+    'service.view', 'service.manage', 'calendar.view', 'hr.view',
   ],
   // Biuro celowo BEZ serwisu — tak samo jak w board360, gdzie modul Serwis ma
   // role admin / koordynator / serwisant / montaz. Konta biurowego seed nie
@@ -57,14 +67,16 @@ const ROLE_PERMS = {
     'crm.view', 'deal.manage', 'tasks.view', 'tasks.manage', 'projects.view',
     'calendar.view', 'calendar.override_busy',
     'offer.manage', 'order.manage', 'inventory.view', 'inventory.manage',
+    'hr.view', 'hr.manage',
   ],
   // Montaz widzi magazyn, ale nie zaklada zamowien — na tym koncie sprawdza sie
   // zakladka „Zamowienie" w wariancie „rezerwacja jest, zamowien nie widac".
   montaz: [
     'crm.view', 'tasks.view', 'tasks.manage', 'projects.view',
     'service.view', 'service.manage', 'calendar.view', 'inventory.view',
+    'hr.view',
   ],
-  stazysta: [],
+  stazysta: ['hr.view'],
 };
 
 const permsFor = (role) => ROLE_PERMS[role] || [];

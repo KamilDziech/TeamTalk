@@ -1,0 +1,1610 @@
+<title>Urlop w TeamTalku</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Roboto:wght@400;500;700&display=swap">
+
+<style>
+/* ── Tokeny strony (te same co modul-kalendarz.html / modul-serwis.html) ─ */
+:root{
+  --bg:#EEF3F9; --bg-2:#DBE6F2; --surface:#FFFFFF;
+  --fg:#0F1720; --muted:#5A6B7C; --border:#C3CBD4;
+  --brand:#2FA84F; --brand-loud:#44D62C; --ink:#080808;
+  --warn:#B4680A; --danger:#C5343A; --info:#2563EB;
+  --shadow:0 1px 2px rgba(15,23,32,.06), 0 10px 30px rgba(15,23,32,.08);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0B1220; --bg-2:#12161F; --surface:#12161F;
+    --fg:#E6EDF3; --muted:#9FB0C3; --border:#2A3441;
+    --brand:#44D62C; --brand-loud:#44D62C; --ink:#080808;
+    --warn:#F59E0B; --danger:#E5484D; --info:#5B8DEF;
+    --shadow:0 1px 2px rgba(0,0,0,.5), 0 14px 40px rgba(0,0,0,.45);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0B1220; --bg-2:#12161F; --surface:#12161F;
+  --fg:#E6EDF3; --muted:#9FB0C3; --border:#2A3441;
+  --brand:#44D62C; --brand-loud:#44D62C; --ink:#080808;
+  --warn:#F59E0B; --danger:#E5484D; --info:#5B8DEF;
+  --shadow:0 1px 2px rgba(0,0,0,.5), 0 14px 40px rgba(0,0,0,.45);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--fg);
+  font-family:"Archivo","Segoe UI",system-ui,sans-serif;
+  font-size:16px; line-height:1.55; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px 96px}
+h1,h2,h3{text-wrap:balance;margin:0}
+a{color:inherit}
+code{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.88em;
+  background:var(--bg-2);border:1px solid var(--border);border-radius:5px;padding:1px 5px;
+}
+
+/* ── Nagłówek ─────────────────────────────────────────────────────── */
+.masthead{padding:52px 0 32px;border-bottom:1px solid var(--border);display:grid;gap:18px}
+.eyebrow{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
+  display:flex;flex-wrap:wrap;align-items:center;gap:10px;
+}
+.eyebrow b{color:var(--brand);font-weight:600}
+.masthead h1{font-size:clamp(34px,5.4vw,58px);font-weight:800;letter-spacing:-.025em;line-height:1.02}
+.lede{font-size:17px;color:var(--muted);max-width:62ch;margin:0}
+.lede b{color:var(--fg);font-weight:600}
+
+/* ── Sekcje ───────────────────────────────────────────────────────── */
+section{padding:52px 0 0}
+.shead{display:grid;gap:8px;margin-bottom:26px;max-width:70ch}
+.shead h2{font-size:clamp(22px,2.6vw,30px);font-weight:700;letter-spacing:-.015em}
+.shead p{margin:0;color:var(--muted);font-size:15px}
+.snum{
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--brand);font-weight:600;
+}
+
+.cards{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(268px,1fr))}
+.card{
+  background:var(--surface);border:1px solid var(--border);border-radius:14px;
+  padding:15px 17px;display:grid;gap:7px;align-content:start;
+}
+.card h3{font-size:14.5px;font-weight:700;display:flex;align-items:center;gap:8px}
+.card p{margin:0;font-size:13.5px;color:var(--muted)}
+.dot{width:9px;height:9px;border-radius:50%;flex:none;display:inline-block}
+.dot.ok{background:var(--brand)}
+.dot.part{background:var(--warn)}
+.dot.no{background:var(--danger)}
+
+.tablewrap{overflow-x:auto;border:1px solid var(--border);border-radius:14px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:780px;font-size:13.5px}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:top}
+th{
+  font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--muted);font-weight:600;white-space:nowrap;
+}
+tbody tr:last-child td{border-bottom:none}
+td.mono{font-family:"IBM Plex Mono",monospace;font-size:12px;white-space:nowrap}
+.tag{
+  font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--border);
+  color:var(--muted);white-space:nowrap;display:inline-block;
+}
+.tag.new{color:var(--brand);border-color:color-mix(in srgb,var(--brand) 45%,var(--border))}
+.tag.mod{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 45%,var(--border))}
+
+/* ── Ekrany telefonu ──────────────────────────────────────────────── */
+.screens{display:grid;gap:44px}
+.shot{display:flex;gap:28px;align-items:flex-start;flex-wrap:wrap}
+.caption{max-width:34ch;display:grid;gap:6px}
+.caption h3{font-size:15.5px;font-weight:700;display:flex;gap:9px;align-items:baseline}
+.caption h3 i{font-style:normal;font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--brand)}
+.caption p{margin:0;font-size:13px;color:var(--muted)}
+.caption p + p{margin-top:2px}
+
+.phone{
+  width:340px;padding:11px;border-radius:38px;
+  background:linear-gradient(160deg,#3a4152,#161a22);box-shadow:var(--shadow);flex:none;
+}
+.device{
+  --d-bg:#0B1220;--d-surface:#12161F;--d-panel:#1A212E;
+  --d-fg:#E6EDF3;--d-muted:#9FB0C3;--d-border:#2A3441;
+  --d-brand:#44D62C;--d-ink:#080808;
+  --d-danger:#F85149;--d-warn:#E3A008;--d-info:#4AA3FF;
+  /* kolory urlopu = hr.module.css z panelu, przeniesione 1:1 */
+  --u-mine:#44D62C;      /* mój urlop zatwierdzony  (.dayMine = accent) */
+  --u-pending:#FFCF8F;   /* mój wniosek oczekujący  (.dayMinePending)   */
+  --u-team:#79C0FF;      /* urlop kogoś z zespołu   (.dayTeam)          */
+  --u-used:#FFCF8F;      /* pasek: wykorzystane     (.barUsed)          */
+  --u-plan:#79C0FF;      /* pasek: zaplanowane      (.barPlanned)       */
+  --d-hr:#F0A742;        /* akcent kafelka „Urlop” na pulpicie          */
+  width:318px;height:664px;border-radius:28px;overflow:hidden;
+  background:var(--d-bg);color:var(--d-fg);
+  font-family:"Roboto",system-ui,sans-serif;font-size:14px;line-height:1.4;
+  display:flex;flex-direction:column;position:relative;
+}
+.statusbar{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:8px 16px 2px;font-size:11px;color:var(--d-muted);
+  font-variant-numeric:tabular-nums;flex:none;
+}
+.topbar{display:flex;align-items:center;gap:6px;padding:6px 10px;flex:none}
+.iconbtn{
+  width:32px;height:32px;border-radius:50%;border:none;background:transparent;
+  color:var(--d-fg);display:grid;place-items:center;flex:none;position:relative;
+}
+.iconbtn svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.iconbtn .cnt{
+  position:absolute;top:0;right:0;min-width:15px;height:15px;padding:0 4px;border-radius:999px;
+  background:var(--d-hr);color:var(--d-ink);font-size:9px;font-weight:700;
+  display:grid;place-items:center;border:2px solid var(--d-bg);
+}
+.toptitle{font-size:16px;font-weight:500;flex:1;min-width:0}
+.toptitle span{display:block;font-size:10.5px;color:var(--d-muted);font-weight:400}
+.screen{flex:1;overflow:hidden;padding:0 12px 8px;display:flex;flex-direction:column;gap:8px}
+
+/* liczniki wymiaru */
+.counters{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;flex:none}
+.counters.c3{grid-template-columns:repeat(3,1fr)}
+.ctr{
+  background:var(--d-surface);border:1px solid var(--d-border);border-radius:10px;
+  padding:6px 7px;display:grid;gap:1px;min-width:0;
+}
+.ctr .k{font-size:8.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--d-muted);font-weight:700;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ctr .v{font-size:19px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
+.ctr .v u{text-decoration:none;font-size:11px;font-weight:400;color:var(--d-muted)}
+.ctr.hi{border-color:color-mix(in srgb,var(--u-mine) 55%,var(--d-border));
+  background:color-mix(in srgb,var(--u-mine) 10%,var(--d-surface))}
+.ctr.hi .v{color:var(--u-mine)}
+.ctr .v.used{color:var(--u-used)}
+.ctr .v.plan{color:var(--u-plan)}
+
+/* pasek zużycia wymiaru */
+.usebar{display:flex;height:8px;border-radius:999px;overflow:hidden;background:var(--d-panel);flex:none}
+.usebar i{display:block;height:100%}
+.uselegend{display:flex;gap:10px;font-size:9px;color:var(--d-muted);flex:none;flex-wrap:wrap}
+.uselegend span{display:flex;align-items:center;gap:4px}
+.uselegend b{width:8px;height:8px;border-radius:2px;display:inline-block}
+
+/* pasek widoków: Tydzień | Miesiąc | Kwartał | Rok */
+.viewtabs{display:flex;gap:5px;flex:none}
+.viewtab{
+  font-size:11.5px;padding:5px 10px;border-radius:999px;white-space:nowrap;
+  border:1px solid var(--d-border);color:var(--d-muted);
+}
+.viewtab[data-on]{background:var(--d-panel);border-color:var(--d-hr);color:var(--d-hr);font-weight:600}
+
+/* belka nawigacji zakresu */
+.rangebar{display:flex;align-items:center;gap:2px;flex:none}
+.rangebar .nav{
+  width:26px;height:26px;border-radius:8px;display:grid;place-items:center;color:var(--d-muted);
+  border:1px solid var(--d-border);flex:none;
+}
+.rangebar .nav svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.rangebar b{flex:1;text-align:center;font-size:13px;font-weight:500;text-transform:capitalize}
+.rangebar .today{
+  font-size:11px;padding:4px 10px;border-radius:999px;border:1px solid var(--d-border);
+  color:var(--d-fg);flex:none;
+}
+
+/* ── Widok miesiąca ───────────────────────────────────────────────── */
+.dow{display:grid;grid-template-columns:repeat(7,1fr);flex:none}
+.dow span{font-size:9.5px;color:var(--d-muted);text-align:center;letter-spacing:.03em}
+.mgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;flex:none}
+.mday{
+  aspect-ratio:1;border:1px solid var(--d-border);border-radius:8px;background:var(--d-surface);
+  display:grid;place-items:center;font-size:12px;font-variant-numeric:tabular-nums;position:relative;
+}
+.mday.out{opacity:.32}
+.mday.off{color:var(--d-muted);background:color-mix(in srgb,var(--d-muted) 10%,var(--d-surface))}
+.mday.holi{color:var(--d-danger)}
+.mday.today{border-color:var(--d-fg);border-width:1.5px}
+/* mój urlop zatwierdzony */
+.mday.mine{background:color-mix(in srgb,var(--u-mine) 32%,var(--d-surface));border-color:transparent}
+/* mój wniosek oczekujący — ukośne paski, jak w panelu */
+.mday.pend{
+  border-color:transparent;
+  background:repeating-linear-gradient(45deg,
+    color-mix(in srgb,var(--u-pending) 34%,transparent),
+    color-mix(in srgb,var(--u-pending) 34%,transparent) 4px,
+    transparent 4px, transparent 8px);
+}
+/* ktoś z zespołu na urlopie — podkreślenie */
+.mday.team::after{
+  content:"";position:absolute;left:5px;right:5px;bottom:3px;height:2.5px;border-radius:2px;
+  background:var(--u-team);
+}
+.mday.team.two::after{background:linear-gradient(90deg,var(--u-team) 50%,color-mix(in srgb,var(--u-team) 45%,transparent) 50%)}
+/* zaznaczenie zakresu palcem */
+.mday.sel{background:var(--u-mine);color:var(--d-ink);font-weight:700;border-color:transparent}
+.mday.sel.edge{box-shadow:0 0 0 2px color-mix(in srgb,var(--u-mine) 45%,transparent)}
+
+/* pasek podsumowania zaznaczenia */
+.selbar{
+  display:flex;align-items:center;gap:8px;flex:none;padding:8px 10px;border-radius:12px;
+  background:color-mix(in srgb,var(--u-mine) 14%,var(--d-surface));
+  border:1px solid color-mix(in srgb,var(--u-mine) 45%,var(--d-border));
+}
+.selbar .txt{flex:1;min-width:0;display:grid;gap:1px}
+.selbar .txt b{font-size:12.5px;font-weight:600}
+.selbar .txt span{font-size:10px;color:var(--d-muted)}
+.selbar .go{
+  font-size:11.5px;font-weight:700;padding:6px 12px;border-radius:999px;flex:none;
+  background:var(--u-mine);color:var(--d-ink);
+}
+
+/* legenda kalendarza w stopce ekranu */
+.callegend{display:flex;gap:9px;flex-wrap:wrap;font-size:9px;color:var(--d-muted);flex:none}
+.callegend span{display:flex;align-items:center;gap:4px}
+.callegend i{width:10px;height:10px;border-radius:3px;flex:none;display:inline-block}
+.callegend i.mine{background:color-mix(in srgb,var(--u-mine) 45%,var(--d-surface))}
+.callegend i.pend{background:repeating-linear-gradient(45deg,
+  color-mix(in srgb,var(--u-pending) 55%,transparent),
+  color-mix(in srgb,var(--u-pending) 55%,transparent) 3px, transparent 3px, transparent 6px);
+  border:1px solid var(--d-border)}
+.callegend i.team{background:transparent;border:1px solid var(--d-border);box-shadow:inset 0 -3px 0 -1px var(--u-team)}
+
+/* ── Kwartał / Rok — mini-miesiące ────────────────────────────────── */
+.minis{display:grid;gap:9px;flex:1;min-height:0;overflow:hidden}
+.minis.q{grid-template-columns:1fr}
+.minis.y{grid-template-columns:repeat(3,1fr);gap:7px}
+.mini{display:grid;gap:3px;min-width:0}
+.mini > b{font-size:10.5px;font-weight:600;text-transform:capitalize;color:var(--d-fg)}
+.mini > b u{text-decoration:none;font-size:9px;color:var(--d-muted);font-weight:400;margin-left:4px}
+.mcells{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.mc{aspect-ratio:1;border-radius:2px;background:var(--d-panel);border:1px solid transparent}
+.mc.out{background:transparent}
+.mc.off{background:color-mix(in srgb,var(--d-muted) 12%,transparent)}
+.mc.mine{background:var(--u-mine)}
+.mc.pend{background:var(--u-pending)}
+.mc.team{background:transparent;box-shadow:inset 0 -2px 0 -.5px var(--u-team)}
+.mc.holi{background:color-mix(in srgb,var(--d-danger) 45%,transparent)}
+.mc.today{border-color:var(--d-fg)}
+/* Kwartał: trzy miesiące pod sobą. Komórki spłaszczone — na 318 px trzy
+   kwadratowe siatki nie mieszczą się w ramce, a wysokość wiersza i tak nic
+   nie znaczy; szerokość (44 dp) zostaje, bo w nią trafia palec. */
+.minis.q{gap:7px;align-content:start}
+.minis.q .mc{aspect-ratio:auto;height:23px;border-radius:4px}
+.minis.q .mini > b{font-size:12px}
+.minis.q .dow span{font-size:8.5px}
+
+/* ── Widok tygodnia — pasek 7 kafli ───────────────────────────────── */
+.weekstrip{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;flex:none}
+.wcell{
+  border:1px solid var(--d-border);border-radius:9px;background:var(--d-surface);
+  padding:6px 2px;display:grid;gap:2px;justify-items:center;min-width:0;
+}
+.wcell u{text-decoration:none;font-size:8.5px;color:var(--d-muted);text-transform:uppercase;letter-spacing:.04em}
+.wcell b{font-size:15px;font-weight:600;font-variant-numeric:tabular-nums}
+.wcell i{width:100%;height:4px;border-radius:2px;background:transparent;display:block}
+.wcell i.mine{background:var(--u-mine)}
+.wcell i.pend{background:repeating-linear-gradient(45deg,var(--u-pending),var(--u-pending) 3px,transparent 3px,transparent 6px)}
+.wcell i.team{background:var(--u-team);opacity:.65}
+.wcell.off{background:color-mix(in srgb,var(--d-muted) 10%,var(--d-surface));color:var(--d-muted)}
+.wcell.today{border-color:var(--d-fg);border-width:1.5px}
+.wcell.sel{background:color-mix(in srgb,var(--u-mine) 26%,var(--d-surface));border-color:var(--u-mine)}
+
+/* ── Wiersze wniosków ─────────────────────────────────────────────── */
+.seclabel{
+  font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--d-muted);
+  font-weight:700;margin-top:2px;flex:none;
+}
+.reqlist{display:flex;flex-direction:column;gap:6px;flex:1;min-height:0;overflow:hidden}
+.req{
+  display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:11px;
+  border:1px solid var(--d-border);background:var(--d-surface);border-left-width:3px;
+}
+.req.mine{border-left-color:var(--u-mine)}
+.req.pend{border-left-color:var(--u-pending)}
+.req.rej{border-left-color:var(--d-danger)}
+.req.canc{border-left-color:var(--d-muted);opacity:.7}
+.req .nm{flex:1;min-width:0;display:grid;gap:1px}
+.req .nm b{font-size:12.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.req .nm span{font-size:10px;color:var(--d-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.req .nm span.note{color:var(--d-warn)}
+.pill{
+  font-size:9.5px;padding:2px 7px;border-radius:999px;border:1px solid var(--d-border);
+  color:var(--d-muted);flex:none;white-space:nowrap;
+}
+.pill.ok{color:#7EE787;border-color:color-mix(in srgb,#7EE787 50%,transparent)}
+.pill.wait{color:var(--d-warn);border-color:color-mix(in srgb,var(--d-warn) 50%,transparent)}
+.pill.no{color:var(--d-danger);border-color:color-mix(in srgb,var(--d-danger) 50%,transparent)}
+.pill.queue{color:var(--d-info);border-color:color-mix(in srgb,var(--d-info) 50%,transparent)}
+.req .kebab{color:var(--d-muted);flex:none;display:grid;place-items:center}
+.req .kebab svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+.decide{display:flex;gap:5px;flex:none}
+.decide span{
+  font-size:10.5px;font-weight:700;padding:5px 9px;border-radius:8px;white-space:nowrap;
+}
+.decide span.yes{background:var(--u-mine);color:var(--d-ink)}
+.decide span.no{border:1px solid color-mix(in srgb,var(--d-danger) 55%,var(--d-border));color:var(--d-danger)}
+
+/* ── Oś czasu zespołu ─────────────────────────────────────────────── */
+.tlscale{display:flex;justify-content:space-between;font-size:8.5px;color:var(--d-muted);padding-left:62px;flex:none}
+.tlrow{display:flex;align-items:center;gap:6px;flex:none}
+.tlrow .who{width:56px;flex:none;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tlrow .who u{text-decoration:none;display:block;font-size:8.5px;color:var(--d-muted)}
+.tlrow .track{
+  flex:1;height:18px;border-radius:5px;background:var(--d-panel);border:1px solid var(--d-border);
+  position:relative;overflow:hidden;
+}
+.tlrow .bar{position:absolute;top:2px;bottom:2px;border-radius:3px;background:color-mix(in srgb,var(--u-team) 70%,transparent)}
+.tlrow .bar.pend{background:repeating-linear-gradient(45deg,
+  color-mix(in srgb,var(--u-pending) 60%,transparent),
+  color-mix(in srgb,var(--u-pending) 60%,transparent) 4px,transparent 4px,transparent 8px)}
+.tlrow .bar.me{background:color-mix(in srgb,var(--u-mine) 70%,transparent)}
+.tlrow .now{position:absolute;top:0;bottom:0;width:1.5px;background:var(--d-fg);opacity:.75}
+
+/* ── Arkusz / scrim ───────────────────────────────────────────────── */
+.scrim{position:absolute;inset:0;background:rgba(4,8,15,.55)}
+.sheet{
+  position:absolute;left:0;right:0;bottom:0;background:var(--d-surface);
+  border-top:1px solid var(--d-border);border-radius:20px 20px 0 0;padding:10px 14px 16px;
+  display:flex;flex-direction:column;gap:8px;
+}
+.grab{width:34px;height:4px;border-radius:999px;background:var(--d-border);margin:0 auto 2px}
+.sheethead{display:flex;align-items:center;gap:8px;flex:none}
+.sheethead b{font-size:15px;font-weight:500;flex:1;min-width:0}
+.sheethead .ico{color:var(--d-muted);display:grid;place-items:center}
+.sheethead .ico svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linejoin:round}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.field{
+  background:var(--d-panel);border:1px solid var(--d-border);border-radius:11px;padding:6px 10px;
+  display:grid;gap:2px;min-width:0;
+}
+.field .k{font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--d-muted);font-weight:700}
+.field .v{font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.field .v.dim{color:var(--d-muted)}
+.field.wide{grid-column:1 / -1}
+.field.focus{border-color:var(--u-mine)}
+.typerow{display:flex;gap:5px;flex-wrap:wrap;flex:none}
+.typerow span{
+  font-size:11px;padding:5px 10px;border-radius:999px;border:1px solid var(--d-border);color:var(--d-muted);
+}
+.typerow span[data-on]{background:color-mix(in srgb,var(--u-mine) 20%,var(--d-surface));border-color:var(--u-mine);color:var(--u-mine);font-weight:700}
+.typerow span[data-off]{opacity:.4;text-decoration:line-through}
+.infobox{
+  font-size:11px;color:var(--d-muted);background:var(--d-panel);border:1px solid var(--d-border);
+  border-radius:9px;padding:7px 9px;
+}
+.infobox b{color:var(--d-fg);font-weight:600}
+.warnbox{
+  font-size:11px;color:var(--d-warn);background:color-mix(in srgb,var(--d-warn) 12%,transparent);
+  border:1px solid color-mix(in srgb,var(--d-warn) 40%,transparent);border-radius:9px;padding:7px 9px;
+}
+.warnbox b{color:var(--d-warn);font-weight:700}
+.okbox{
+  font-size:11px;color:#7EE787;background:color-mix(in srgb,#7EE787 12%,transparent);
+  border:1px solid color-mix(in srgb,#7EE787 35%,transparent);border-radius:9px;padding:7px 9px;
+}
+.primary{
+  display:block;text-align:center;padding:11px;border-radius:13px;background:var(--u-mine);
+  color:var(--d-ink);font-size:13.5px;font-weight:700;flex:none;
+}
+.ghostbtn{
+  display:block;text-align:center;padding:10px;border-radius:13px;border:1px solid var(--d-border);
+  color:var(--d-fg);font-size:12.5px;flex:none;
+}
+.ghostbtn.danger{border-color:color-mix(in srgb,var(--d-danger) 45%,var(--d-border));color:var(--d-danger)}
+.segrow{display:flex;background:var(--d-panel);border-radius:999px;padding:3px;gap:3px;flex:none}
+.segrow span{flex:1;text-align:center;font-size:11px;padding:5px 4px;border-radius:999px;color:var(--d-muted)}
+.segrow span[data-on]{background:color-mix(in srgb,var(--d-hr) 24%,var(--d-surface));color:var(--d-hr);font-weight:700}
+
+/* pasek trybu offline */
+.offbar{
+  display:flex;align-items:center;gap:7px;font-size:10.5px;color:var(--d-info);flex:none;
+  background:color-mix(in srgb,var(--d-info) 12%,transparent);
+  border:1px solid color-mix(in srgb,var(--d-info) 35%,transparent);border-radius:9px;padding:5px 9px;
+}
+.offbar svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+/* powiadomienie na ekranie blokady */
+.notif{
+  position:absolute;left:10px;right:10px;top:34px;background:rgba(24,30,42,.96);
+  border:1px solid var(--d-border);border-radius:16px;padding:10px 12px;display:flex;gap:9px;align-items:flex-start;
+  box-shadow:0 12px 30px rgba(0,0,0,.5);
+}
+.notif .ic{
+  width:26px;height:26px;border-radius:8px;background:var(--d-hr);color:var(--d-ink);flex:none;
+  display:grid;place-items:center;font-size:13px;font-weight:800;
+}
+.notif .tx{flex:1;min-width:0;display:grid;gap:2px}
+.notif .tx b{font-size:12px;font-weight:700}
+.notif .tx span{font-size:11px;color:var(--d-muted);line-height:1.35}
+.notif .tm{font-size:9.5px;color:var(--d-muted);flex:none}
+.lockclock{
+  position:absolute;left:0;right:0;top:150px;text-align:center;color:var(--d-fg);
+}
+.lockclock b{display:block;font-size:56px;font-weight:300;letter-spacing:-.02em;line-height:1}
+.lockclock span{font-size:13px;color:var(--d-muted)}
+
+/* FAB */
+.fab{
+  position:absolute;right:16px;bottom:18px;width:52px;height:52px;border-radius:17px;
+  background:var(--u-mine);color:var(--d-ink);display:grid;place-items:center;
+  box-shadow:0 6px 18px rgba(0,0,0,.45);
+}
+.fab svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2.6;stroke-linecap:round}
+
+/* ── Etapy ────────────────────────────────────────────────────────── */
+.steps{display:grid;gap:12px}
+.step{
+  display:flex;gap:16px;background:var(--surface);border:1px solid var(--border);
+  border-radius:14px;padding:16px 18px;
+}
+.step .no{
+  font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:600;color:var(--brand);
+  border:1px solid color-mix(in srgb,var(--brand) 40%,var(--border));border-radius:8px;
+  padding:3px 8px;height:fit-content;flex:none;
+}
+.step h3{font-size:15px;font-weight:700;display:flex;flex-wrap:wrap;gap:9px;align-items:center}
+.step p{margin:6px 0 0;font-size:13.5px;color:var(--muted)}
+.files{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.files i{
+  font-style:normal;font-family:"IBM Plex Mono",monospace;font-size:11px;
+  padding:3px 8px;border-radius:6px;background:var(--bg-2);color:var(--muted);
+  border:1px solid var(--border);
+}
+
+/* ── Ustalenia ────────────────────────────────────────────────────── */
+.qs{display:grid;gap:12px}
+.qq{
+  background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--brand);
+  border-radius:14px;padding:16px 18px;display:grid;gap:7px;
+}
+.qq.open{border-left-color:var(--warn)}
+.qq h3{font-size:15.5px;font-weight:700;display:flex;flex-wrap:wrap;gap:9px;align-items:center}
+.qq p{margin:0;font-size:13.5px;color:var(--muted)}
+.qq .opts{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+.qq .opts i{
+  font-style:normal;font-size:12px;padding:4px 10px;border-radius:999px;
+  border:1px solid var(--border);color:var(--fg);background:var(--bg-2);
+}
+.qq .opts i.on{border-color:var(--brand);color:var(--brand);font-weight:600;background:transparent}
+.qq .opts i.off{opacity:.55;text-decoration:line-through}
+
+/* legenda kolorów */
+.palette{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));margin-top:18px}
+.sw2{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--muted)}
+.sw2 b{width:16px;height:16px;border-radius:5px;flex:none;box-shadow:0 0 0 1px rgba(0,0,0,.15)}
+.sw2 em{font-style:normal;color:var(--fg);font-weight:600}
+
+footer.end{
+  margin-top:56px;padding-top:22px;border-top:1px solid var(--border);
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--muted);
+  display:flex;flex-wrap:wrap;gap:10px 22px;
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="eyebrow">
+      <span>TeamTalk Android</span> · <b>moduł Urlop</b> · <span>makieta 2026-09-06</span>
+    </div>
+    <h1>Urlop w TeamTalku</h1>
+    <p class="lede">
+      Panel ma pod <code>/app/hr</code> zakładkę <b>Urlop</b>: liczniki wymiaru, kalendarz urlopowy
+      w czterech przybliżeniach, składanie i modyfikację wniosku, a dla kadr i zwierzchnika —
+      wnioski zespołu z decyzją oraz oś czasu nieobecności. Na telefonie tego modułu nie ma
+      w ogóle: w <code>HOME_MODULES</code> nie istnieje nawet kafelek. Ta makieta przenosi
+      zakładkę Urlop na 360 dp — z <b>pracą bez zasięgu</b> i powiadomieniami, których panel
+      mieć nie może.
+    </p>
+  </header>
+
+  <section>
+    <div class="shead">
+      <div class="snum">Punkt wyjścia</div>
+      <h2>Co panel już umie, a czego telefon nie ma</h2>
+      <p>
+        Backend urlopów jest kompletny (<code>api/src/modules/hr</code>) — poza jedną luką
+        w uprawnieniach, opisaną niżej. Cała reszta roboty jest po stronie mobilnej.
+      </p>
+    </div>
+    <div class="cards">
+      <div class="card">
+        <h3><i class="dot ok"></i> Panel: dwa tryby liczników</h3>
+        <p>
+          Rodzaj umowy z kartoteki decyduje o trybie. <b>Umowa o pracę</b> → wymiar: przysługuje,
+          wykorzystane, zaplanowane, pozostało, na żądanie. <b>Każda inna</b> (Wspólnik, B2B,
+          zlecenie, dzieło, staż) → bez limitu, liczymy samą liczbę dni bezpłatnego.
+        </p>
+      </div>
+      <div class="card">
+        <h3><i class="dot ok"></i> Panel: kalendarz w czterech skalach</h3>
+        <p>
+          Tydzień, miesiąc, kwartał i rok. Zaznaczasz zakres przeciągnięciem, kalendarz zna polskie
+          święta, pokazuje własne urlopy, własne wnioski w toku i — na drugim planie — urlopy zespołu.
+          Wybrana skala siedzi w preferencjach użytkownika.
+        </p>
+      </div>
+      <div class="card">
+        <h3><i class="dot ok"></i> Panel: decyzja zwierzchnika</h3>
+        <p>
+          Zatwierdza <b>zwierzchnik</b> z karty Zespołu. Gdy jest na urlopie — jego
+          <b>backup decyzyjny</b>. Gdy pracownik podlega Zarządowi — dowolny <code>admin</code>
+          lub <code>zarzad</code>. Wniosek nachodzący na inny wraca jako <code>409</code>.
+        </p>
+      </div>
+      <div class="card">
+        <h3><i class="dot part"></i> API: jedna luka w uprawnieniach</h3>
+        <p>
+          <code>GET /hr/overview</code> i decyzja są za <code>hr.manage</code>, które ma admin,
+          zarząd, biuro i inżynier. <b>Koordynator</b> — typowy zwierzchnik montażu i serwisu —
+          ma samo <code>hr.view</code>, więc dostaje 403 zanim zadziała reguła zwierzchnika.
+        </p>
+      </div>
+      <div class="card">
+        <h3><i class="dot no"></i> Telefon: modułu nie ma</h3>
+        <p>
+          Trzynaście kafelków pulpitu, żadnego HR. Ani jednego wywołania <code>/hr</code>
+          w <code>TeamTalkApi</code>, ani jednej tabeli w Room, ani wiersza w atrapie
+          <code>board360-mock</code>.
+        </p>
+      </div>
+      <div class="card">
+        <h3><i class="dot part"></i> Telefon: fundament gotowy</h3>
+        <p>
+          Sesja z uprawnieniami, siatka miesiąca i arkusze z Kalendarza, kolejka mutacji offline
+          z Zadań, kanały powiadomień i <code>WorkManager</code> — wszystko do ponownego użycia.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead">
+      <div class="snum">Makiety</div>
+      <h2>Dziesięć ekranów na 360 dp</h2>
+      <p>
+        Panel rozkłada urlop na dwie kolumny i tabelę kadr. Na telefonie zostaje jedna kolumna:
+        liczniki na górze, kalendarz pośrodku, wnioski pod spodem, a wszystko, co w panelu jest
+        formularzem — w arkuszu wysuwanym od dołu.
+      </p>
+    </div>
+
+    <div class="screens">
+
+      <!-- 00 — Miesiąc -->
+      <div class="shot">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>9:41</span><span>▮▮▮ ▲ 84%</span></div>
+          <div class="topbar">
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span>
+            <div class="toptitle">Urlop<span>Piotr Nowak · wymiar 2026</span></div>
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M17 20v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9.5" cy="7" r="3.2"/><path d="M22 20v-2a4 4 0 0 0-3-3.8"/></svg><i class="cnt">3</i></span>
+          </div>
+          <div class="screen">
+            <div class="counters">
+              <div class="ctr"><div class="k">Wymiar</div><div class="v">30</div></div>
+              <div class="ctr"><div class="k">Użyte</div><div class="v used">12</div></div>
+              <div class="ctr"><div class="k">Plan</div><div class="v plan">5</div></div>
+              <div class="ctr hi"><div class="k">Zostało</div><div class="v">13</div></div>
+            </div>
+            <div class="usebar">
+              <i style="width:40%;background:var(--u-used)"></i>
+              <i style="width:17%;background:var(--u-plan)"></i>
+              <i style="width:43%;background:var(--u-mine)"></i>
+            </div>
+            <div class="uselegend">
+              <span><b style="background:var(--u-used)"></b>Wykorzystane 12</span>
+              <span><b style="background:var(--u-plan)"></b>Zaplanowane 5</span>
+              <span><b style="background:var(--u-mine)"></b>Wolne 13</span>
+              <span>· na żądanie 1/4</span>
+            </div>
+            <div class="viewtabs">
+              <span class="viewtab">Tydzień</span>
+              <span class="viewtab" data-on>Miesiąc</span>
+              <span class="viewtab">Kwartał</span>
+              <span class="viewtab">Rok</span>
+            </div>
+            <div class="rangebar">
+              <span class="nav"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span>
+              <b>lipiec 2026</b>
+              <span class="nav"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></span>
+              <span class="today">Dziś</span>
+            </div>
+            <div class="dow"><span>Pn</span><span>Wt</span><span>Śr</span><span>Cz</span><span>Pt</span><span>So</span><span>Nd</span></div>
+            <div class="mgrid">
+              <div class="mday out">29</div><div class="mday out">30</div>
+              <div class="mday today">1</div><div class="mday">2</div><div class="mday">3</div>
+              <div class="mday off">4</div><div class="mday off">5</div>
+
+              <div class="mday team">6</div><div class="mday team two">7</div><div class="mday team two">8</div>
+              <div class="mday">9</div><div class="mday">10</div>
+              <div class="mday off">11</div><div class="mday off">12</div>
+
+              <div class="mday sel edge">13</div><div class="mday sel">14</div><div class="mday sel">15</div>
+              <div class="mday sel">16</div><div class="mday sel edge">17</div>
+              <div class="mday off">18</div><div class="mday off">19</div>
+
+              <div class="mday mine">20</div><div class="mday mine">21</div><div class="mday mine">22</div>
+              <div class="mday mine">23</div><div class="mday mine">24</div>
+              <div class="mday off">25</div><div class="mday off">26</div>
+
+              <div class="mday team">27</div><div class="mday team">28</div><div class="mday team">29</div>
+              <div class="mday">30</div><div class="mday">31</div>
+              <div class="mday out off">1</div><div class="mday out off">2</div>
+            </div>
+            <div class="selbar">
+              <div class="txt">
+                <b>13 – 17 lipca</b>
+                <span>5 dni roboczych · zostanie 8</span>
+              </div>
+              <span class="go">Złóż wniosek</span>
+            </div>
+            <div class="callegend">
+              <span><i class="mine"></i>mój urlop</span>
+              <span><i class="pend"></i>mój wniosek</span>
+              <span><i class="team"></i>zespół</span>
+            </div>
+          </div>
+        </div></div>
+        <div class="caption">
+          <h3><i>00</i> Miesiąc — ekran startowy</h3>
+          <p>
+            Liczniki i pasek zużycia u góry, dokładnie w kolejności z panelu. Zakres zaznacza się
+            dotknięciem pierwszego i ostatniego dnia — bez przeciągania, bo to gryzie się
+            z przewijaniem (ta sama decyzja co przy siatce Kalendarza).
+          </p>
+          <p>
+            Pasek pod siatką liczy dni robocze <b>po polsku</b>: weekendy i święta wypadają, tak jak
+            liczy je <code>countWorkingDays</code> w API. Zaraz obok — ile zostanie po zatwierdzeniu.
+          </p>
+        </div>
+      </div>
+
+      <!-- 01 — Arkusz wniosku -->
+      <div class="shot">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>9:41</span><span>▮▮▮ ▲ 84%</span></div>
+          <div class="topbar">
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span>
+            <div class="toptitle">Urlop<span>Piotr Nowak · wymiar 2026</span></div>
+          </div>
+          <div class="screen">
+            <div class="counters">
+              <div class="ctr"><div class="k">Wymiar</div><div class="v">30</div></div>
+              <div class="ctr"><div class="k">Użyte</div><div class="v used">12</div></div>
+              <div class="ctr"><div class="k">Plan</div><div class="v plan">5</div></div>
+              <div class="ctr hi"><div class="k">Zostało</div><div class="v">13</div></div>
+            </div>
+            <div class="usebar">
+              <i style="width:40%;background:var(--u-used)"></i>
+              <i style="width:17%;background:var(--u-plan)"></i>
+              <i style="width:43%;background:var(--u-mine)"></i>
+            </div>
+          </div>
+          <div class="scrim"></div>
+          <div class="sheet">
+            <div class="grab"></div>
+            <div class="sheethead">
+              <b>Nowy wniosek</b>
+              <span class="ico"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></span>
+            </div>
+            <div class="grid2">
+              <div class="field focus"><div class="k">Od</div><div class="v">pon. 13 lipca</div></div>
+              <div class="field focus"><div class="k">Do</div><div class="v">pt. 17 lipca</div></div>
+            </div>
+            <div class="seclabel">Rodzaj</div>
+            <div class="typerow">
+              <span data-on>Wypoczynkowy</span>
+              <span>Na żądanie</span>
+              <span>Okolicznościowy</span>
+              <span>Bezpłatny</span>
+            </div>
+            <div class="infobox">
+              <b>5 dni roboczych</b> — weekendy i święta pominięte. Po zatwierdzeniu zostanie
+              <b>8 z 30</b> dni wymiaru.
+            </div>
+            <div class="field wide"><div class="k">Powód (opcjonalnie)</div><div class="v dim">Wyjazd rodzinny</div></div>
+            <div class="infobox">
+              Decyzję podejmie <b>Anna Wilk</b> — Twój zwierzchnik.
+            </div>
+            <span class="primary">Złóż wniosek</span>
+          </div>
+        </div></div>
+        <div class="caption">
+          <h3><i>01</i> Arkusz — nowy wniosek</h3>
+          <p>
+            Daty przychodzą z zaznaczenia na siatce, ale da się je poprawić stukając w pole.
+            Rodzaj jako cztery chipy zamiast <code>&lt;select&gt;</code> — jedno dotknięcie zamiast
+            dwóch.
+          </p>
+          <p>
+            Dwie informacje, których panel nie pokazuje przed wysłaniem: <b>ile zostanie</b> po
+            zatwierdzeniu i <b>kto to zatwierdzi</b>. Obie liczymy lokalnie z danych, które
+            i tak są w cache.
+          </p>
+        </div>
+      </div>
+
+      <!-- 02 — Kolizja 409 -->
+      <div class="shot">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>9:42</span><span>▮▮▮ ▲ 84%</span></div>
+          <div class="topbar">
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span>
+            <div class="toptitle">Urlop<span>Piotr Nowak · wymiar 2026</span></div>
+          </div>
+          <div class="screen">
+            <div class="counters">
+              <div class="ctr"><div class="k">Wymiar</div><div class="v">30</div></div>
+              <div class="ctr"><div class="k">Użyte</div><div class="v used">12</div></div>
+              <div class="ctr"><div class="k">Plan</div><div class="v plan">5</div></div>
+              <div class="ctr hi"><div class="k">Zostało</div><div class="v">13</div></div>
+            </div>
+          </div>
+          <div class="scrim"></div>
+          <div class="sheet">
+            <div class="grab"></div>
+            <div class="sheethead">
+              <b>Okres się nakłada</b>
+              <span class="ico"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></span>
+            </div>
+            <div class="warnbox">
+              Masz już wniosek na <b>20 – 24 lipca</b> (wypoczynkowy, zatwierdzony). Zmień
+              istniejący zamiast składać drugi — zapis cofa go do akceptacji.
+            </div>
+            <div class="grid2">
+              <div class="field focus"><div class="k">Od</div><div class="v">pon. 20 lipca</div></div>
+              <div class="field focus"><div class="k">Do</div><div class="v">śr. 29 lipca</div></div>
+            </div>
+            <div class="seclabel">Rodzaj</div>
+            <div class="typerow">
+              <span data-on>Wypoczynkowy</span>
+              <span>Na żądanie</span>
+              <span>Okolicznościowy</span>
+              <span>Bezpłatny</span>
+            </div>
+            <div class="infobox">
+              Po zmianie: <b>8 dni roboczych</b> zamiast 5. Wymiar zejdzie do <b>10 z 30</b>.
+            </div>
+            <span class="primary">Zapisz zmianę</span>
+            <span class="ghostbtn danger">Anuluj tamten wniosek</span>
+          </div>
+        </div></div>
+        <div class="caption">
+          <h3><i>02</i> Nakładanie się urlopów (409)</h3>
+          <p>
+            API odrzuca wniosek nachodzący na inny. Panel po takim błędzie otwiera modyfikację
+            istniejącego wniosku — robimy tak samo, tyle że arkuszem i z wyliczoną z góry
+            różnicą w dniach.
+          </p>
+          <p>
+            Bez zasięgu nakładanie wykrywamy lokalnie, z cache — ten sam warunek co w API.
+            Jeśli mimo to serwer odbije wniosek przy synchronizacji, wraca on do listy
+            z etykietą <b>„Odrzucony przy wysyłce”</b> i można go poprawić.
+          </p>
+        </div>
+      </div>
+
+      <!-- 03 — Moje wnioski -->
+      <div class="shot">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>9:43</span><span>▮▮▯ ▲ 83%</span></div>
+          <div class="topbar">
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span>
+            <div class="toptitle">Urlop<span>Moje wnioski · 2026</span></div>
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 8v4.5l3 2"/></svg></span>
+          </div>
+          <div class="screen">
+            <div class="offbar">
+              <svg viewBox="0 0 24 24"><path d="M5.6 18h11.6a3.9 3.9 0 0 0 .5-7.8 5.6 5.6 0 0 0-10.7-1.6A4.2 4.2 0 0 0 5.6 18z"/><path d="M3 3l18 18"/></svg>
+              Brak zasięgu — 1 wniosek czeka na wysyłkę
+            </div>
+            <div class="segrow"><span data-on>Moje</span><span>Zespół (3)</span></div>
+            <div class="reqlist">
+              <div class="req pend">
+                <div class="nm"><b>Wypoczynkowy · 5 dni</b><span>13 – 17 lipca 2026</span></div>
+                <span class="pill queue">W kolejce</span>
+                <span class="kebab"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></span>
+              </div>
+              <div class="req mine">
+                <div class="nm"><b>Wypoczynkowy · 5 dni</b><span>20 – 24 lipca 2026</span></div>
+                <span class="pill ok">Zatwierdzony</span>
+                <span class="kebab"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></span>
+              </div>
+              <div class="req pend">
+                <div class="nm"><b>Na żądanie · 1 dzień</b><span>2 czerwca 2026</span></div>
+                <span class="pill wait">Oczekuje</span>
+                <span class="kebab"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></span>
+              </div>
+              <div class="req rej">
+                <div class="nm"><b>Wypoczynkowy · 10 dni</b><span>4 – 15 maja 2026</span><span class="note">„Kolizja z montażem w Opolu — proszę o inny termin”</span></div>
+                <span class="pill no">Odrzucony</span>
+              </div>
+              <div class="req mine">
+                <div class="nm"><b>Wypoczynkowy · 12 dni</b><span>2 – 20 lutego 2026</span></div>
+                <span class="pill">Wykorzystany</span>
+              </div>
+              <div class="req canc">
+                <div class="nm"><b>Bezpłatny · 2 dni</b><span>9 – 10 stycznia 2026</span></div>
+                <span class="pill">Anulowany</span>
+              </div>
+            </div>
+          </div>
+          <div class="fab"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div>
+        </div></div>
+        <div class="caption">
+          <h3><i>03</i> Moje wnioski</h3>
+          <p>
+            Ta sama lista co w panelu, w kolejności od najbliższego. Trzy kropki dają Edytuj
+            i Anuluj — tylko dla wniosków, które da się jeszcze ruszyć (oczekujący i zatwierdzony,
+            zgodnie z regułą API).
+          </p>
+          <p>
+            Notatka decyzji odrzucającej wchodzi do wiersza, a nie chowa się w szczegółach:
+            to zwykle jedyna informacja, co dalej robić.
+          </p>
+        </div>
+      </div>
+
+      <!-- 04 — Rok -->
+      <div class="shot">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>9:44</span><span>▮▮▯ ▲ 83%</span></div>
+          <div class="topbar">
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span>
+            <div class="toptitle">Urlop<span>Piotr Nowak · wymiar 2026</span></div>
+          </div>
+          <div class="screen">
+            <div class="counters c3">
+              <div class="ctr"><div class="k">Wykorzystane</div><div class="v used">12</div></div>
+              <div class="ctr"><div class="k">Zaplanowane</div><div class="v plan">5</div></div>
+              <div class="ctr hi"><div class="k">Zostało</div><div class="v">13 <u>/30</u></div></div>
+            </div>
+            <div class="viewtabs">
+              <span class="viewtab">Tydzień</span>
+              <span class="viewtab">Miesiąc</span>
+              <span class="viewtab">Kwartał</span>
+              <span class="viewtab" data-on>Rok</span>
+            </div>
+            <div class="rangebar">
+              <span class="nav"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span>
+              <b>2026</b>
+              <span class="nav"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></span>
+              <span class="today">Dziś</span>
+            </div>
+            <div class="minis y">
+              <div class="mini"><b>sty</b><div class="mcells">
+                <div class="mc out"></div><div class="mc out"></div><div class="mc out"></div><div class="mc holi"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+              </div></div>
+              <div class="mini"><b>lut</b><div class="mcells">
+                <div class="mc out"></div><div class="mc out"></div><div class="mc out"></div><div class="mc out"></div><div class="mc out"></div><div class="mc out"></div><div class="mc off"></div>
+                <div class="mc mine"></div><div class="mc mine"></div><div class="mc mine"></div><div class="mc mine"></div><div class="mc mine"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc mine"></div><div class="mc mine"></div><div class="mc mine"></div><div class="mc mine"></div><div class="mc mine"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc mine"></div><div class="mc mine"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+              </div></div>
+              <div class="mini"><b>mar</b><div class="mcells">
+                <div class="mc out"></div><div class="mc out"></div><div class="mc out"></div><div class="mc out"></div><div class="mc out"></div><div class="mc out"></div><div class="mc off"></div>
+                <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+              </div></div>
+              <div class="mini"><b>kwi</b><div class="mcells">
+                <div class="mc out"></div><div class="mc out"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc holi"></div>
+                <div class="mc holi"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+              </div></div>
+              <div class="mini"><b>maj</b><div class="mcells">
+                <div class="mc out"></div><div class="mc out"></div><div class="mc out"></div><div class="mc out"></div><div class="mc holi"></div><div class="mc off"></div><div class="mc holi"></div>
+                <div class="mc holi"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+              </div></div>
+              <div class="mini"><b>cze</b><div class="mcells">
+                <div class="mc"></div><div class="mc pend"></div><div class="mc"></div><div class="mc holi"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc out"></div><div class="mc out"></div><div class="mc out"></div><div class="mc out"></div>
+              </div></div>
+              <div class="mini"><b>lip</b><div class="mcells">
+                <div class="mc out"></div><div class="mc out"></div><div class="mc today"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc team"></div><div class="mc team"></div><div class="mc team"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc pend"></div><div class="mc pend"></div><div class="mc pend"></div><div class="mc pend"></div><div class="mc pend"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc mine"></div><div class="mc mine"></div><div class="mc mine"></div><div class="mc mine"></div><div class="mc mine"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc team"></div><div class="mc team"></div><div class="mc team"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+              </div></div>
+              <div class="mini"><b>sie</b><div class="mcells">
+                <div class="mc out"></div><div class="mc out"></div><div class="mc out"></div><div class="mc out"></div><div class="mc out"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc"></div><div class="mc"></div><div class="mc holi"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+              </div></div>
+              <div class="mini"><b>wrz</b><div class="mcells">
+                <div class="mc out"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc out"></div><div class="mc out"></div><div class="mc out"></div>
+              </div></div>
+              <div class="mini"><b>paź</b><div class="mcells">
+                <div class="mc out"></div><div class="mc out"></div><div class="mc out"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+              </div></div>
+              <div class="mini"><b>lis</b><div class="mcells">
+                <div class="mc out"></div><div class="mc out"></div><div class="mc out"></div><div class="mc out"></div><div class="mc out"></div><div class="mc off"></div><div class="mc holi"></div>
+                <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc holi"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+              </div></div>
+              <div class="mini"><b>gru</b><div class="mcells">
+                <div class="mc out"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc holi"></div><div class="mc holi"></div><div class="mc off"></div><div class="mc off"></div>
+                <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+              </div></div>
+            </div>
+            <div class="callegend">
+              <span><i class="mine"></i>urlop</span>
+              <span><i class="pend"></i>wniosek</span>
+              <span><i class="team"></i>zespół</span>
+              <span><i style="background:color-mix(in srgb,var(--d-danger) 45%,transparent)"></i>święto</span>
+            </div>
+          </div>
+        </div></div>
+        <div class="caption">
+          <h3><i>04</i> Rok — rozkład urlopu w skali roku</h3>
+          <p>
+            Dwanaście mini-miesięcy po siedem kolumn. Nie ma tu numerów dni — na 30 dp nie da się
+            ich przeczytać i nie o to chodzi: ten widok odpowiada na jedno pytanie, <b>czy urlop
+            nie zebrał się w jednym kwartale</b>.
+          </p>
+          <p>
+            Liczniki kurczą się do trzech, żeby zmieściła się cała siatka. Stuknięcie miesiąca
+            przełącza na widok miesiąca w tym miesiącu.
+          </p>
+        </div>
+      </div>
+
+      <!-- 05 — Kwartał -->
+      <div class="shot">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>9:45</span><span>▮▮▯ ▲ 82%</span></div>
+          <div class="topbar">
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span>
+            <div class="toptitle">Urlop<span>Piotr Nowak · wymiar 2026</span></div>
+          </div>
+          <div class="screen">
+            <div class="viewtabs">
+              <span class="viewtab">Tydzień</span>
+              <span class="viewtab">Miesiąc</span>
+              <span class="viewtab" data-on>Kwartał</span>
+              <span class="viewtab">Rok</span>
+            </div>
+            <div class="rangebar">
+              <span class="nav"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span>
+              <b>III kwartał 2026</b>
+              <span class="nav"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></span>
+              <span class="today">Dziś</span>
+            </div>
+            <div class="minis q">
+              <div class="mini">
+                <b>lipiec <u>10 dni nieobecności w zespole</u></b>
+                <div class="dow"><span>Pn</span><span>Wt</span><span>Śr</span><span>Cz</span><span>Pt</span><span>So</span><span>Nd</span></div>
+                <div class="mcells">
+                  <div class="mc out"></div><div class="mc out"></div><div class="mc today"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                  <div class="mc team"></div><div class="mc team"></div><div class="mc team"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                  <div class="mc pend"></div><div class="mc pend"></div><div class="mc pend"></div><div class="mc pend"></div><div class="mc pend"></div><div class="mc off"></div><div class="mc off"></div>
+                  <div class="mc mine"></div><div class="mc mine"></div><div class="mc mine"></div><div class="mc mine"></div><div class="mc mine"></div><div class="mc off"></div><div class="mc off"></div>
+                  <div class="mc team"></div><div class="mc team"></div><div class="mc team"></div><div class="mc"></div><div class="mc"></div><div class="mc out"></div><div class="mc out"></div>
+                </div>
+              </div>
+              <div class="mini">
+                <b>sierpień <u>1 święto</u></b>
+                <div class="dow"><span>Pn</span><span>Wt</span><span>Śr</span><span>Cz</span><span>Pt</span><span>So</span><span>Nd</span></div>
+                <div class="mcells">
+                  <div class="mc out"></div><div class="mc out"></div><div class="mc out"></div><div class="mc out"></div><div class="mc out"></div><div class="mc off"></div><div class="mc off"></div>
+                  <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                  <div class="mc"></div><div class="mc"></div><div class="mc holi"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                  <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                  <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                </div>
+              </div>
+              <div class="mini">
+                <b>wrzesień <u>bez urlopów</u></b>
+                <div class="dow"><span>Pn</span><span>Wt</span><span>Śr</span><span>Cz</span><span>Pt</span><span>So</span><span>Nd</span></div>
+                <div class="mcells">
+                  <div class="mc out"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                  <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                  <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                  <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc off"></div><div class="mc off"></div>
+                  <div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc"></div><div class="mc out"></div><div class="mc out"></div><div class="mc out"></div>
+                </div>
+              </div>
+            </div>
+            <div class="callegend">
+              <span><i class="mine"></i>mój urlop</span>
+              <span><i class="pend"></i>mój wniosek</span>
+              <span><i class="team"></i>zespół</span>
+            </div>
+          </div>
+        </div></div>
+        <div class="caption">
+          <h3><i>05</i> Kwartał — trzy miesiące pod sobą</h3>
+          <p>
+            Komórki są tu na tyle duże, że da się w nie trafić palcem: kwartał, w odróżnieniu od
+            roku, <b>pozwala zaznaczyć zakres</b> przez dwa miesiące — typowy przypadek urlopu na
+            przełomie lipca i sierpnia.
+          </p>
+          <p>
+            Podpis przy nazwie miesiąca to jedno zdanie kontekstu, którego panel nie ma: ile dni
+            nieobecności ma w tym miesiącu zespół.
+          </p>
+        </div>
+      </div>
+
+      <!-- 06 — Tydzień -->
+      <div class="shot">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>9:46</span><span>▮▮▯ ▲ 82%</span></div>
+          <div class="topbar">
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span>
+            <div class="toptitle">Urlop<span>Piotr Nowak · wymiar 2026</span></div>
+          </div>
+          <div class="screen">
+            <div class="viewtabs">
+              <span class="viewtab" data-on>Tydzień</span>
+              <span class="viewtab">Miesiąc</span>
+              <span class="viewtab">Kwartał</span>
+              <span class="viewtab">Rok</span>
+            </div>
+            <div class="rangebar">
+              <span class="nav"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span>
+              <b>13 – 19 lipca</b>
+              <span class="nav"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></span>
+              <span class="today">Dziś</span>
+            </div>
+            <div class="weekstrip">
+              <div class="wcell sel"><u>Pn</u><b>13</b><i class="pend"></i></div>
+              <div class="wcell sel"><u>Wt</u><b>14</b><i class="pend"></i></div>
+              <div class="wcell sel"><u>Śr</u><b>15</b><i class="pend"></i></div>
+              <div class="wcell sel"><u>Cz</u><b>16</b><i class="pend"></i></div>
+              <div class="wcell sel"><u>Pt</u><b>17</b><i class="pend"></i></div>
+              <div class="wcell off"><u>So</u><b>18</b><i></i></div>
+              <div class="wcell off"><u>Nd</u><b>19</b><i></i></div>
+            </div>
+            <div class="seclabel">Ten tydzień</div>
+            <div class="reqlist">
+              <div class="req pend">
+                <div class="nm"><b>Ty · wypoczynkowy</b><span>13 – 17 lipca · 5 dni</span></div>
+                <span class="pill wait">Oczekuje</span>
+              </div>
+              <div class="req" style="border-left-color:var(--u-team)">
+                <div class="nm"><b>Marek Kubiak · wypoczynkowy</b><span>15 – 24 lipca · montaż</span></div>
+                <span class="pill ok">Zatwierdzony</span>
+              </div>
+              <div class="req" style="border-left-color:var(--u-team)">
+                <div class="nm"><b>Anna Wilk · okolicznościowy</b><span>16 lipca · biuro</span></div>
+                <span class="pill ok">Zatwierdzony</span>
+              </div>
+              <div class="warnbox">
+                W tym tygodniu na urlopie jest <b>2 z 5 monterów</b>. Zwierzchnik zobaczy to samo
+                ostrzeżenie przy decyzji.
+              </div>
+            </div>
+          </div>
+          <div class="fab"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div>
+        </div></div>
+        <div class="caption">
+          <h3><i>06</i> Tydzień — kto jeszcze jest poza firmą</h3>
+          <p>
+            Siedem kafli na całą szerokość plus imienna lista pod spodem. To widok dla kogoś, kto
+            planuje wolne „na już” i musi wiedzieć, czy ktoś z jego brygady już go nie wziął.
+          </p>
+          <p>
+            Ostrzeżenie o obsadzie liczymy z tych samych danych co oś czasu zespołu — pokazujemy
+            je po obu stronach, składającemu i decydującemu.
+          </p>
+        </div>
+      </div>
+
+      <!-- 07 — Tryb bezpłatny -->
+      <div class="shot">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>9:47</span><span>▮▮▯ ▲ 81%</span></div>
+          <div class="topbar">
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span>
+            <div class="toptitle">Urlop<span>Tomasz Rak · Wspólnik</span></div>
+          </div>
+          <div class="screen">
+            <div class="counters c3">
+              <div class="ctr hi"><div class="k">Bezpłatny</div><div class="v">6 <u>dni</u></div></div>
+              <div class="ctr"><div class="k">Wykorzystane</div><div class="v used">4</div></div>
+              <div class="ctr"><div class="k">Zaplanowane</div><div class="v plan">2</div></div>
+            </div>
+            <div class="infobox">
+              Twoja umowa (<b>Wspólnik</b>) nie daje wymiaru urlopu — nie ma limitu dni, liczymy je
+              jako urlop bezpłatny.
+            </div>
+            <div class="viewtabs">
+              <span class="viewtab">Tydzień</span>
+              <span class="viewtab" data-on>Miesiąc</span>
+              <span class="viewtab">Kwartał</span>
+              <span class="viewtab">Rok</span>
+            </div>
+            <div class="rangebar">
+              <span class="nav"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span>
+              <b>lipiec 2026</b>
+              <span class="nav"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></span>
+              <span class="today">Dziś</span>
+            </div>
+            <div class="dow"><span>Pn</span><span>Wt</span><span>Śr</span><span>Cz</span><span>Pt</span><span>So</span><span>Nd</span></div>
+            <div class="mgrid">
+              <div class="mday out">29</div><div class="mday out">30</div>
+              <div class="mday today">1</div><div class="mday">2</div><div class="mday">3</div>
+              <div class="mday off">4</div><div class="mday off">5</div>
+              <div class="mday">6</div><div class="mday">7</div><div class="mday">8</div>
+              <div class="mday">9</div><div class="mday">10</div>
+              <div class="mday off">11</div><div class="mday off">12</div>
+              <div class="mday">13</div><div class="mday">14</div><div class="mday mine">15</div>
+              <div class="mday mine">16</div><div class="mday">17</div>
+              <div class="mday off">18</div><div class="mday off">19</div>
+              <div class="mday team">20</div><div class="mday team">21</div><div class="mday team">22</div>
+              <div class="mday team">23</div><div class="mday team">24</div>
+              <div class="mday off">25</div><div class="mday off">26</div>
+              <div class="mday">27</div><div class="mday">28</div><div class="mday">29</div>
+              <div class="mday">30</div><div class="mday">31</div>
+              <div class="mday out off">1</div><div class="mday out off">2</div>
+            </div>
+            <div class="typerow">
+              <span data-off>Wypoczynkowy</span>
+              <span data-off>Na żądanie</span>
+              <span data-off>Okolicznościowy</span>
+              <span data-on>Bezpłatny</span>
+            </div>
+          </div>
+          <div class="fab"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div>
+        </div></div>
+        <div class="caption">
+          <h3><i>07</i> Umowa bez wymiaru — Wspólnik, B2B, zlecenie</h3>
+          <p>
+            Ten sam ekran, inne liczniki: żadnego „przysługuje” i żadnego paska zużycia, bo nie ma
+            puli do wyczerpania. Zostaje liczba dni i podział na minione i przyszłe.
+          </p>
+          <p>
+            Rodzaj urlopu jest <b>jeden</b> i widać dlaczego — pozostałe zostają na ekranie
+            przekreślone. API i tak odrzuci inny rodzaj (422), więc nie udajemy wyboru, którego nie ma.
+          </p>
+        </div>
+      </div>
+
+      <!-- 08 — Wnioski zespołu -->
+      <div class="shot">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>9:48</span><span>▮▮▯ ▲ 81%</span></div>
+          <div class="topbar">
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span>
+            <div class="toptitle">Urlop<span>Anna Wilk · zwierzchnik 6 osób</span></div>
+          </div>
+          <div class="screen">
+            <div class="segrow"><span>Moje</span><span data-on>Zespół (3)</span></div>
+            <div class="seclabel">Do decyzji</div>
+            <div class="reqlist">
+              <div class="req pend">
+                <div class="nm"><b>Piotr Nowak · wypoczynkowy</b><span>13 – 17 lipca · 5 dni · montaż</span></div>
+                <div class="decide"><span class="yes">Zatwierdź</span><span class="no">Odrzuć</span></div>
+              </div>
+              <div class="req pend">
+                <div class="nm"><b>Marek Kubiak · na żądanie</b><span>15 lipca · 1 dzień · montaż</span><span class="note">Kolizja: 2 z 5 monterów już na urlopie</span></div>
+                <div class="decide"><span class="yes">Zatwierdź</span><span class="no">Odrzuć</span></div>
+              </div>
+              <div class="req pend">
+                <div class="nm"><b>Ewa Szot · okolicznościowy</b><span>3 sierpnia · 1 dzień · biuro</span></div>
+                <div class="decide"><span class="yes">Zatwierdź</span><span class="no">Odrzuć</span></div>
+              </div>
+              <div class="seclabel">Nie do Ciebie</div>
+              <div class="req">
+                <div class="nm"><b>Jan Bąk · wypoczynkowy</b><span>20 – 31 lipca · 10 dni · serwis</span></div>
+                <span class="pill wait">Czeka na: Grzegorz L.</span>
+              </div>
+              <div class="req">
+                <div class="nm"><b>Ola Zając · bezpłatny</b><span>6 – 7 sierpnia · 2 dni · biuro</span></div>
+                <span class="pill wait">Czeka na: Marek K. (backup)</span>
+              </div>
+            </div>
+          </div>
+        </div></div>
+        <div class="caption">
+          <h3><i>08</i> Wnioski zespołu — skrzynka zwierzchnika</h3>
+          <p>
+            Dwa zbiory w jednej liście: te, o których <b>Ty</b> decydujesz, z przyciskami, i te,
+            które widzisz, ale rozstrzyga ktoś inny — z imieniem tego kogoś. Dokładnie ta sama
+            reguła co w panelu, łącznie z podmianą na backup, gdy zwierzchnik sam jest na urlopie.
+          </p>
+          <p>
+            Przy wniosku, który rozbiera brygadę, ostrzeżenie jest <b>przy przycisku</b>, a nie
+            w osobnym raporcie — to jedyny moment, w którym ktoś na to spojrzy.
+          </p>
+        </div>
+      </div>
+
+      <!-- 09 — Oś czasu zespołu -->
+      <div class="shot">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>9:49</span><span>▮▮▯ ▲ 80%</span></div>
+          <div class="topbar">
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span>
+            <div class="toptitle">Nieobecności<span>lipiec 2026 · 9 osób</span></div>
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"/></svg></span>
+          </div>
+          <div class="screen">
+            <div class="segrow"><span data-on>Wszyscy</span><span>Montaż</span><span>Biuro</span></div>
+            <div class="tlscale"><span>1</span><span>8</span><span>15</span><span>22</span><span>31</span></div>
+            <div class="reqlist" style="gap:5px">
+              <div class="tlrow"><div class="who">Piotr N.<u>montaż</u></div>
+                <div class="track"><i class="bar pend" style="left:39%;width:16%"></i><i class="bar me" style="left:61%;width:16%"></i><i class="now" style="left:3%"></i></div></div>
+              <div class="tlrow"><div class="who">Marek K.<u>montaż</u></div>
+                <div class="track"><i class="bar" style="left:45%;width:32%"></i><i class="now" style="left:3%"></i></div></div>
+              <div class="tlrow"><div class="who">Jan B.<u>serwis</u></div>
+                <div class="track"><i class="bar pend" style="left:61%;width:36%"></i><i class="now" style="left:3%"></i></div></div>
+              <div class="tlrow"><div class="who">Anna W.<u>biuro</u></div>
+                <div class="track"><i class="bar" style="left:48%;width:4%"></i><i class="now" style="left:3%"></i></div></div>
+              <div class="tlrow"><div class="who">Ewa S.<u>biuro</u></div>
+                <div class="track"><i class="now" style="left:3%"></i></div></div>
+              <div class="tlrow"><div class="who">Ola Z.<u>biuro</u></div>
+                <div class="track"><i class="now" style="left:3%"></i></div></div>
+              <div class="tlrow"><div class="who">Tomasz R.<u>zarząd</u></div>
+                <div class="track"><i class="bar" style="left:16%;width:7%"></i><i class="now" style="left:3%"></i></div></div>
+              <div class="tlrow"><div class="who">Grzegorz L.<u>serwis</u></div>
+                <div class="track"><i class="bar" style="left:84%;width:13%"></i><i class="now" style="left:3%"></i></div></div>
+              <div class="tlrow"><div class="who">Kasia D.<u>montaż</u></div>
+                <div class="track"><i class="bar" style="left:16%;width:10%"></i><i class="now" style="left:3%"></i></div></div>
+            </div>
+            <div class="warnbox">
+              <b>20 – 24 lipca</b>: 2 z 5 monterów poza firmą. Najciaśniejszy tydzień miesiąca.
+            </div>
+            <div class="callegend">
+              <span><i style="background:color-mix(in srgb,var(--u-mine) 70%,transparent)"></i>Ty</span>
+              <span><i style="background:color-mix(in srgb,var(--u-team) 70%,transparent)"></i>zatwierdzony</span>
+              <span><i class="pend"></i>oczekuje</span>
+            </div>
+          </div>
+        </div></div>
+        <div class="caption">
+          <h3><i>09</i> Oś czasu — kto kiedy nieobecny</h3>
+          <p>
+            Panel rysuje ten pasek na jeden miesiąc obok wniosków. Na telefonie dostaje osobny
+            ekran, bo tu jest miejsce na wszystkie dziewięć osób naraz i na filtr działu
+            (<b>Wszyscy / Montaż / Biuro</b>, jak w panelu).
+          </p>
+          <p>
+            Pionowa kreska to dzisiaj. Zdanie pod spodem nazywa najciaśniejszy tydzień — to jedyna
+            rzecz, po którą koordynator sięga w drodze na budowę.
+          </p>
+        </div>
+      </div>
+
+      <!-- 10 — Powiadomienie -->
+      <div class="shot">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>17:02</span><span>▮▮▯ ▲ 62%</span></div>
+          <div class="lockclock"><b>17:02</b><span>wtorek, 7 lipca</span></div>
+          <div class="notif">
+            <div class="ic">U</div>
+            <div class="tx">
+              <b>Urlop zatwierdzony</b>
+              <span>Anna Wilk zatwierdziła wniosek na 13 – 17 lipca (5 dni). Zostało Ci 8 dni wymiaru.</span>
+            </div>
+            <span class="tm">teraz</span>
+          </div>
+          <div class="notif" style="top:130px">
+            <div class="ic">U</div>
+            <div class="tx">
+              <b>Wniosek do decyzji</b>
+              <span>Marek Kubiak prosi o 1 dzień na żądanie — 15 lipca. Czeka na Twoją decyzję.</span>
+            </div>
+            <span class="tm">9 min</span>
+          </div>
+        </div></div>
+        <div class="caption">
+          <h3><i>10</i> Powiadomienia</h3>
+          <p>
+            Dwa rodzaje, oba ustalone: <b>decyzja o moim wniosku</b> (dla składającego) i
+            <b>nowy wniosek do akceptacji</b> (dla zwierzchnika i jego backupu). Panel nie ma jak
+            ich wysłać — na telefonie to główny powód, żeby moduł w ogóle otwierać.
+          </p>
+          <p>
+            Treść niesie liczbę, nie samo „sprawdź aplikację”: ile dni i ile zostało. Stuknięcie
+            otwiera wniosek. Kanał <code>hr_leave</code>, znacznik <code>id:status</code> — jedno
+            powiadomienie na zmianę stanu, bez dubli po każdej synchronizacji.
+          </p>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="palette">
+      <div class="sw2"><b style="background:#44D62C"></b><span><em>#44D62C</em> mój urlop, zaznaczenie, wolne dni</span></div>
+      <div class="sw2"><b style="background:#FFCF8F"></b><span><em>#FFCF8F</em> wniosek w toku, dni wykorzystane</span></div>
+      <div class="sw2"><b style="background:#79C0FF"></b><span><em>#79C0FF</em> urlop zespołu, dni zaplanowane</span></div>
+      <div class="sw2"><b style="background:#F0A742"></b><span><em>#F0A742</em> akcent kafelka „Urlop” na pulpicie</span></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead">
+      <div class="snum">Ustalenia — 2026-09-06</div>
+      <h2>Siedem decyzji</h2>
+      <p>Odpowiedzi zamawiającego. Wybrane warianty na zielono, odrzucone przekreślone.</p>
+    </div>
+    <div class="qs">
+
+      <div class="qq">
+        <h3>1 · Zakres</h3>
+        <p>
+          Wchodzi <b>mój urlop</b> i <b>wnioski zespołu z zatwierdzaniem</b> (razem z osią czasu
+          nieobecności). Kartoteki kadrowe — własna i zespołu — zostają w panelu; na telefonie nie
+          pokazujemy ani limitów do edycji, ani terminów badań i BHP.
+        </p>
+        <div class="opts">
+          <i class="on">Mój urlop</i><i class="on">Wnioski zespołu + oś czasu</i>
+          <i class="off">Moja kartoteka</i><i class="off">Kartoteki zespołu</i>
+        </div>
+      </div>
+
+      <div class="qq">
+        <h3>2 · Cztery przybliżenia kalendarza</h3>
+        <p>
+          Wszystkie cztery skale panelu — tydzień, miesiąc, kwartał, rok — a nie okrojone dwie.
+          Każda dostaje własny układ na 360 dp: rok bez numerów dni, kwartał z komórkami do
+          trafienia palcem, tydzień z imienną listą nieobecnych.
+        </p>
+        <div class="opts"><i class="on">Wszystkie cztery</i><i class="off">Miesiąc + rok</i><i class="off">Tylko miesiąc</i></div>
+      </div>
+
+      <div class="qq">
+        <h3>3 · Pełna kolejka offline</h3>
+        <p>
+          Cache w Room i kolejka mutacji: złożenie, edycja, anulowanie i <b>decyzja zwierzchnika</b>
+          działają bez zasięgu. Lokalnie lustrujemy dwie walidacje API — liczenie dni roboczych
+          (z polskimi świętami) i nakładanie się okresów — żeby nie kolejkować wniosku, który
+          i tak wróci błędem.
+        </p>
+        <div class="opts"><i class="on">Pełna kolejka</i><i class="off">Odczyt offline, zapis online</i><i class="off">Tylko online</i></div>
+      </div>
+
+      <div class="qq">
+        <h3>4 · Powiadomienia: dwa rodzaje</h3>
+        <p>
+          Decyzja o moim wniosku oraz nowy wniosek do akceptacji. Terminy kadrowe (badania, BHP,
+          uprawnienia) <b>nie</b> — to konsekwencja decyzji 1: skoro kartoteki nie ma na telefonie,
+          nie ma z czego ich liczyć.
+        </p>
+        <div class="opts"><i class="on">Decyzja o wniosku</i><i class="on">Wniosek do akceptacji</i><i class="off">Terminy kadrowe</i></div>
+      </div>
+
+      <div class="qq open">
+        <h3>5 · Zwierzchnik bez <code>hr.manage</code> — nowa trasa w API <span class="tag mod">zmiana w board360</span></h3>
+        <p>
+          Dziś <code>GET /hr/overview</code> i decyzja są za <code>hr.manage</code> (admin, zarząd,
+          biuro, inżynier). Koordynator — zwierzchnik montażu i serwisu — ma samo
+          <code>hr.view</code>, więc na telefonie nie zatwierdziłby niczego. Dokładamy
+          <code>GET /hr/leave/inbox</code> pod <code>hr.view</code>, zwracającą <b>wyłącznie</b>
+          wnioski podwładnych pytającego, i rozluźniamy guard decyzji do <code>hr.view</code> —
+          właściwą bramką zostaje istniejąca reguła <code>canDecideLeave</code>. Kartoteki kadrowe
+          zostają za <code>hr.manage</code> bez zmian.
+        </p>
+        <p>
+          <b>Przy budowie U1 doszła druga trasa:</b> <code>GET /hr/absences</code>, też pod
+          <code>hr.view</code> — sam fakt nieobecności kolegów (osoba, zakres, status), bez rodzaju
+          urlopu i powodu. Bez niej monter i koordynator mieliby puste tło kalendarza i pustą oś
+          czasu, bo jedyne dzisiejsze źródło cudzych urlopów (<code>hr/overview</code>) niesie
+          komplet danych kadrowych i słusznie siedzi za <code>hr.manage</code>.
+        </p>
+        <div class="opts">
+          <i class="on">Nowa trasa dla zwierzchnika</i>
+          <i class="off">Dosypać koordynatorowi hr.manage</i>
+          <i class="off">Zostawić jak jest</i>
+        </div>
+      </div>
+
+      <div class="qq">
+        <h3>6 · Kafelek nazywa się „Urlop”</h3>
+        <p>
+          Nie „HR” i nie „Kadry” — nazwa ma odpowiadać zawartości, a na telefonie jest sam urlop.
+          Klucz modułu zostaje <code>hr</code> (zgodnie z rejestrem board360), zmienia się tylko
+          etykieta. Akcent <code>#F0A742</code>, bo panel dla HR nie ma własnego koloru i leci na
+          szary domyślny.
+        </p>
+        <div class="opts"><i class="on">Urlop</i><i class="off">HR</i><i class="off">Kadry</i></div>
+      </div>
+
+      <div class="qq">
+        <h3>7 · Najpierw makieta</h3>
+        <p>
+          Ten dokument. Kotlin dopiero po akceptacji układu — tak samo jak przy Zadaniach, Mapie,
+          Serwisie i Kalendarzu.
+        </p>
+        <div class="opts"><i class="on">Makieta, potem kod</i><i class="off">Od razu kod</i></div>
+      </div>
+
+    </div>
+  </section>
+
+  <section>
+    <div class="shead">
+      <div class="snum">Kontrakt</div>
+      <h2>Co bierzemy z API, a co trzeba dołożyć</h2>
+      <p>
+        Siedem tras HR istnieje i wystarcza. Dokładamy jedną, rozluźniamy jedną bramkę i piszemy
+        atrapę — <code>board360-mock</code> nie ma dziś ani jednej trasy HR.
+      </p>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>Trasa</th><th>Uprawnienie</th><th>Do czego na telefonie</th><th>Stan</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="mono">GET /hr/me</td><td class="mono">hr.view</td>
+            <td>Profil, liczniki (<code>balance.mode</code> decyduje o wariancie ekranu) i moje wnioski. Jedno wywołanie karmi cały ekran „Moje”.</td>
+            <td><span class="tag">bez zmian</span></td>
+          </tr>
+          <tr>
+            <td class="mono">POST /hr/leave</td><td class="mono">hr.view</td>
+            <td>Złożenie wniosku. Zwraca 409 przy nakładaniu, 422 przy rodzaju niedostępnym dla umowy.</td>
+            <td><span class="tag">bez zmian</span></td>
+          </tr>
+          <tr>
+            <td class="mono">PATCH /hr/leave/:id</td><td class="mono">hr.view</td>
+            <td>Modyfikacja własnego wniosku — cofa go do akceptacji.</td>
+            <td><span class="tag">bez zmian</span></td>
+          </tr>
+          <tr>
+            <td class="mono">POST /hr/leave/:id/cancel</td><td class="mono">hr.view</td>
+            <td>Anulowanie własnego wniosku (oczekującego lub zatwierdzonego).</td>
+            <td><span class="tag">bez zmian</span></td>
+          </tr>
+          <tr>
+            <td class="mono">GET /hr/leave/inbox</td><td class="mono">hr.view</td>
+            <td>
+              <b>Nowa.</b> Wnioski podwładnych pytającego + ci, dla których jest backupem
+              nieobecnego zwierzchnika. Bez kartotek i bez limitów — same wnioski i imiona.
+            </td>
+            <td><span class="tag new">do dopisania</span></td>
+          </tr>
+          <tr>
+            <td class="mono">POST /hr/leave/:id/decision</td><td class="mono">hr.view</td>
+            <td>Zatwierdzenie albo odrzucenie z notatką. Guard schodzi z <code>hr.manage</code>; kto naprawdę może decydować, rozstrzyga <code>canDecideLeave</code> — bez zmian w logice.</td>
+            <td><span class="tag mod">zmiana bramki</span></td>
+          </tr>
+          <tr>
+            <td class="mono">GET /hr/absences</td><td class="mono">hr.view</td>
+            <td>
+              <b>Nowa.</b> Sam fakt nieobecności kolegów: osoba, zakres, status — bez rodzaju
+              urlopu i bez powodu. Tło kalendarza i oś czasu. Wyszła przy budowie U1:
+              <code>hr/overview</code> nie mogło jej podać, bo tam idą pełne dane kadrowe,
+              a monter i koordynator mieliby puste tło.
+            </td>
+            <td><span class="tag new">do dopisania</span></td>
+          </tr>
+          <tr>
+            <td class="mono">GET /hr/overview</td><td class="mono">hr.manage</td>
+            <td>Liczniki i wnioski całego zespołu — dla kadr. Zwierzchnik bez <code>hr.manage</code> składa swój ekran z <code>inbox</code> i <code>absences</code>.</td>
+            <td><span class="tag">bez zmian</span></td>
+          </tr>
+          <tr>
+            <td class="mono">PATCH /hr/employees/:id</td><td class="mono">hr.manage</td>
+            <td>Edycja kartoteki — świadomie <b>nieużywana</b> na telefonie (decyzja 1).</td>
+            <td><span class="tag">pomijamy</span></td>
+          </tr>
+          <tr>
+            <td class="mono">board360-mock: routes/hr.js</td><td class="mono">—</td>
+            <td>Atrapa: 9 kartotek (w tym jedna „Wspólnik” do testu trybu bezpłatnego), ~20 wniosków w różnych stanach, zwierzchnik z backupem na urlopie, kolizja 409 i odmowa 422.</td>
+            <td><span class="tag new">do napisania</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead">
+      <div class="snum">Plan</div>
+      <h2>Cztery etapy</h2>
+      <p>Kolejność jest zależnościowa: każdy etap zostawia coś, co da się uruchomić i obejrzeć.</p>
+    </div>
+    <div class="steps">
+
+      <div class="step">
+        <div class="no">U1</div>
+        <div>
+          <h3>Fundament: kafelek, API, baza <span class="tag new">zrobione 2026-09-06</span></h3>
+          <p>
+            Kafelek <b>Urlop</b> w rejestrze modułów pulpitu i trasa nawigacji. Wywołania HR
+            w <code>TeamTalkApi</code> z modelami DTO. Migracja Room o tabele wniosków, liczników
+            i kolejki mutacji. Atrapa <code>routes/hr.js</code> z seedem, sprawdzona curlem —
+            żeby ekrany miały na czym stanąć, zanim dotkniemy produkcyjnego API.
+          </p>
+          <div class="files">
+            <i>presentation/home/HomeModules.kt</i><i>navigation/TeamTalkNavGraph.kt</i>
+            <i>data/remote/api/TeamTalkApi.kt</i><i>data/local/…/LeaveDao.kt</i>
+            <i>board360-mock/src/routes/hr.js</i>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="no">U2</div>
+        <div>
+          <h3>Mój urlop: liczniki, cztery skale, wniosek <span class="tag new">zrobione 2026-09-06</span></h3>
+          <p>
+            Ekrany 00–07: liczniki w obu trybach, kalendarz w czterech przybliżeniach z polskimi
+            świętami i zaznaczaniem zakresu dwoma dotknięciami, arkusz wniosku, obsługa nakładania
+            (409) i odmowy rodzaju (422), lista własnych wniosków z edycją i anulowaniem.
+          </p>
+          <div class="files">
+            <i>presentation/leave/LeaveScreen.kt</i><i>presentation/leave/LeaveCalendar.kt</i>
+            <i>presentation/leave/LeaveRequestSheet.kt</i><i>domain/leave/WorkingDays.kt</i>
+            <i>domain/leave/PolishHolidays.kt</i>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="no">U3</div>
+        <div>
+          <h3>Zespół: skrzynka decyzji i oś czasu</h3>
+          <p>
+            Nowa trasa <code>GET /hr/leave/inbox</code> i rozluźniona bramka decyzji po stronie
+            board360 (z testem, że obcy wniosek nadal wraca 403). Na telefonie: segment
+            „Moje / Zespół”, zatwierdzanie z ostrzeżeniem o obsadzie, oś czasu nieobecności
+            z filtrem działu.
+          </p>
+          <div class="files">
+            <i>api/src/modules/hr/presentation/hr.controller.ts</i>
+            <i>api/src/modules/hr/application/hr.usecases.ts</i>
+            <i>presentation/leave/TeamInboxScreen.kt</i><i>presentation/leave/AbsenceTimeline.kt</i>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="no">U4</div>
+        <div>
+          <h3>Bez zasięgu i powiadomienia</h3>
+          <p>
+            <code>LeaveSyncWorker</code>: wysyłka kolejki, rozstrzyganie konfliktów, oznaczanie
+            wniosków odrzuconych przy wysyłce. Kanał <code>hr_leave</code> i dwa powiadomienia
+            ze znacznikiem <code>id:status</code>, żeby nie dublowały się po każdej synchronizacji.
+            Weryfikacja na urządzeniu: tryb samolotowy, złożenie wniosku, powrót zasięgu.
+          </p>
+          <div class="files">
+            <i>data/sync/LeaveSyncWorker.kt</i><i>data/notification/LeaveNotifier.kt</i>
+            <i>data/repository/LeaveRepositoryImpl.kt</i>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <footer class="end">
+    <span>TeamTalk Android · moduł Urlop</span>
+    <span>makieta 2026-09-06</span>
+    <span>źródło: web/src/app/app/hr + api/src/modules/hr</span>
+    <span>ekrany 318 × 664 px ≈ 360 dp</span>
+  </footer>
+
+</div>

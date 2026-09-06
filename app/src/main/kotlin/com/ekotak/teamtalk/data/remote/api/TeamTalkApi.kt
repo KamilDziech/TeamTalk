@@ -582,6 +582,63 @@ interface TeamTalkApi {
         @Query("to") to: String,
     ): List<CalendarOverlayDto>
 
+    // ── Urlop (moduł HR → zakładka „Urlop") ───────────────────────────────────
+    // Własny urlop chodzi pod `hr.view` — ma je każdy pracownik. Kartoteki
+    // kadrowe siedzą za `hr.manage` i telefon ich NIE dotyka (ustalenie
+    // 2026-09-06): stąd brak `PATCH /hr/employees/{id}` w tym interfejsie.
+    //
+    // Dwie odpowiedzi błędu, które ekran obsługuje po swojemu:
+    //  • 409 — okres nachodzi na inny wniosek tej samej osoby,
+    //  • 422 — rodzaj urlopu niedostępny przy tej umowie (poza umową o pracę
+    //    zostaje sam „bezpłatny").
+
+    @GET("api/hr/me")
+    suspend fun getHrDashboard(): HrDashboardDto
+
+    @POST("api/hr/leave")
+    suspend fun createLeaveRequest(@Body body: LeaveCreateDto): LeaveRequestDto
+
+    /** Edycja własnego wniosku — cofa go do akceptacji. Ciało jak przy tworzeniu. */
+    @PATCH("api/hr/leave/{id}")
+    suspend fun updateLeaveRequest(
+        @Path("id") id: String,
+        @Body body: LeaveCreateDto,
+    ): LeaveRequestDto
+
+    @POST("api/hr/leave/{id}/cancel")
+    suspend fun cancelLeaveRequest(@Path("id") id: String): LeaveRequestDto
+
+    /**
+     * Skrzynka zwierzchnika. Trasa dopisana do board360 pod `hr.view`, bo
+     * `GET /hr/overview` wymaga `hr.manage`, którego koordynator — zwierzchnik
+     * montażu i serwisu — nie ma. Zwraca WYŁĄCZNIE wnioski podwładnych
+     * pytającego oraz te, w których zastępuje nieobecnego zwierzchnika.
+     */
+    @GET("api/hr/leave/inbox")
+    suspend fun getLeaveInbox(): LeaveInboxDto
+
+    @POST("api/hr/leave/{id}/decision")
+    suspend fun decideLeaveRequest(
+        @Path("id") id: String,
+        @Body body: LeaveDecisionDto,
+    ): LeaveRequestDto
+
+    /**
+     * Nieobecności zespołu — tło kalendarza urlopowego i oś czasu. Druga trasa
+     * dopisana do board360: sam fakt nieobecności (osoba, zakres, status), bez
+     * rodzaju urlopu i powodu, więc może chodzić pod `hr.view`. Przez
+     * `hr/overview` podać się tego nie da — tam idą pełne dane kadrowe.
+     */
+    @GET("api/hr/absences")
+    suspend fun getLeaveAbsences(
+        @Query("from") from: String? = null,
+        @Query("to") to: String? = null,
+    ): List<LeaveAbsenceDto>
+
+    /** Liczniki i wnioski całego zespołu — tylko dla kadr (`hr.manage`). */
+    @GET("api/hr/overview")
+    suspend fun getHrOverview(): HrOverviewDto
+
     /** Skrzynka: dyskusje, w których bierzemy udział (wywołani albo pisaliśmy). */
     @GET("api/discussions")
     suspend fun getDiscussions(): List<DiscussionSummaryDto>

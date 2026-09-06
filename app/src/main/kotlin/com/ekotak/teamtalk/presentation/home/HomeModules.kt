@@ -182,6 +182,25 @@ val HOME_MODULES: List<HomeModule> = listOf(
             "M15.5 16.5h-7",
         ),
     ),
+    // Zakładka „Urlop" modułu HR panelu (/app/hr). Nazwa mówi, co jest w środku:
+    // kartotek kadrowych na telefonie nie ma, jest sam urlop
+    // (ustalenie 2026-09-06, design/mockups/modul-urlop.html). Kolor bursztynowy
+    // zamiast HR-owego #5EEAD4 ze Szkoleń — te dwa kafelki prowadzą w zupełnie
+    // inne miejsca, a bursztyn wiąże kafelek z kolorem wniosku w toku (#FFCF8F)
+    // w samym module. Ten sam zabieg co przy parze Serwis / Przeglądy.
+    HomeModule(
+        key = "hr",
+        label = "Urlop",
+        desc = "Wymiar, wnioski urlopowe i nieobecności zespołu",
+        color = Color(0xFFF0A742),
+        icon = moduleIcon(
+            // Parasol plażowy: kopuła, maszt, podstawka.
+            "M3.4 12.4c1.4-5 4.8-7.6 8.6-7.6s7.2 2.6 8.6 7.6z",
+            "M12 4.8V20",
+            "M9.4 20.4a2.6 2.6 0 0 1 5.2 0",
+        ),
+    ),
+    // Kafelek spoza rejestru board360: w panelu szkolenia są ZAKŁADKĄ modułu HR
     // Drugi kafelek z modułu HR: w panelu szkolenia są ZAKŁADKĄ HR
     // (/app/hr → „Szkolenia"), a HR jako całość był z pulpitu mobilnego
     // wypchnięty jako biurkowy. Same szkolenia biurkowe nie są — montażysta

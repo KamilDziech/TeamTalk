@@ -53,6 +53,15 @@ const db = {
   // szare pola i kolizje 409 bez konta Google i bez internetu.
   privateCalendarLinks: [], // {userId, organizationId, urlHint, status, lastSyncedAt, blockCount}
   privateBusy: [],          // {id, organizationId, userId, startAt, endAt}
+  // ── HR: urlopy (modul Urlop) ───────────────────────────────────────────────
+  // Kartoteka kadrowa jest 1:1 z uzytkownikiem i niesie DWIE rzeczy, na ktorych
+  // stoi caly modul: rodzaj umowy (decyduje o trybie urlopu — wymiar kontra
+  // same dni bezplatnego) oraz zwierzchnika z jego backupem decyzyjnym.
+  hrProfiles: [],   // {id, organizationId, userId, managerId, backupDecisionId,
+                    //  annualLeaveDays, onDemandDays, carriedOverDays,
+                    //  unpaidLeaveDays, employmentType, employmentStart, position}
+  leaveRequests: [], // {id, organizationId, userId, type, startDate, endDate,
+                     //  workingDays, status, reason, decidedById, decidedAt, decisionNote}
 };
 
 const normalizePhone = (p) => String(p || '').replace(/[^0-9]/g, '').replace(/^0+/, '');

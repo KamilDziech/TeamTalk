@@ -61,6 +61,7 @@ app.use('/api', require('./src/routes/tasks'));
 app.use('/api', require('./src/routes/discussions'));
 app.use('/api', require('./src/routes/service'));
 app.use('/api', require('./src/routes/calendar'));
+app.use('/api', require('./src/routes/hr'));
 app.use('/api', require('./src/routes/audits'));
 app.use('/api', require('./src/routes/sales'));
 

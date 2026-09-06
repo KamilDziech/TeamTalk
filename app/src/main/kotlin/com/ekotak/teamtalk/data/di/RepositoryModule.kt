@@ -82,4 +82,7 @@ abstract class RepositoryModule {
 
     @Binds @Singleton
     abstract fun bindTrainingRepository(impl: TrainingRepositoryImpl): TrainingRepository
+
+    @Binds @Singleton
+    abstract fun bindLeaveRepository(impl: LeaveRepositoryImpl): LeaveRepository
 }

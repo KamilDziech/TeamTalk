@@ -34,6 +34,7 @@ import com.ekotak.teamtalk.presentation.crm.DealEditScreen
 import com.ekotak.teamtalk.presentation.crm.DealListScreen
 import com.ekotak.teamtalk.presentation.crm.KnowledgeArticleScreen
 import com.ekotak.teamtalk.presentation.history.HistoryScreen
+import com.ekotak.teamtalk.presentation.leave.LeaveScreen
 import com.ekotak.teamtalk.presentation.map.MapScreen
 import com.ekotak.teamtalk.presentation.home.HomeScreen
 import com.ekotak.teamtalk.presentation.home.ModulePlaceholderScreen
@@ -218,6 +219,9 @@ private fun MainScreen(
                             // w dziedzinie „Przegląd" (ustalenie 2026-09-02).
                             "inspections" -> "service?inspections=1"
                             "calendar" -> "calendar"
+                            // Kafelek „Urlop" — na telefonie to sama zakładka
+                            // Urlop modułu HR, bez kartotek kadrowych.
+                            "hr" -> "leave"
                             "inventory" -> "inventory"
                             "projects" -> "projects"
                             "training" -> "training"
@@ -356,6 +360,11 @@ private fun MainScreen(
                 arguments = listOf(navArgument("cardId") { type = NavType.StringType }),
             ) {
                 WarrantyCardScreen(onNavigateBack = { navController.popBackStack() })
+            }
+
+            // ── Urlop (kafelek pulpitu = zakładka HR → Urlop) ─────────────────
+            composable("leave") {
+                LeaveScreen(onNavigateBack = { navController.popBackStack() })
             }
 
             // ── Kalendarz (kafelek pulpitu) ───────────────────────────────────
