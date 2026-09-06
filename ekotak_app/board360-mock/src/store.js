@@ -62,6 +62,17 @@ const db = {
                     //  unpaidLeaveDays, employmentType, employmentStart, position}
   leaveRequests: [], // {id, organizationId, userId, type, startDate, endDate,
                      //  workingDays, status, reason, decidedById, decidedAt, decisionNote}
+
+  // ── Modul Email (hub Komunikacja panelu, modul Email w TeamTalku) ──────────
+  // Skrzynka kind=shared jest wspolna dla firmy, ale kazdy widzi w niej
+  // domyslnie WYCINEK OPIEKUNA; kind=personal powstaje leniwie, przy wejsciu
+  // pracownika w modul, i widzi ja wylacznie on.
+  emailAccounts: [],    // {id, organizationId, address, displayName, kind, userId, createdAt}
+  emailThreads: [],     // {id, organizationId, accountId, subject, folder, lastAt, unread, starred, dealId, clientId}
+  emailMessages: [],    // {id, organizationId, threadId, direction, fromAddr, fromName, toAddrs[], ...}
+  emailAttachments: [], // {id, organizationId, messageId, filename, mimeType, sizeBytes, storageKey}
+  emailLabels: [],      // {id, organizationId, name, color}
+  emailThreadLabels: [],// {threadId, labelId}
 };
 
 const normalizePhone = (p) => String(p || '').replace(/[^0-9]/g, '').replace(/^0+/, '');

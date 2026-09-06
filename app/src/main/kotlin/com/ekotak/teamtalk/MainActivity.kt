@@ -43,6 +43,9 @@ class MainActivity : ComponentActivity() {
 
         /** Kalendarz otwierany z przypomnienia o wydarzeniu. */
         const val EXTRA_CALENDAR_EVENT_ID = "extra_calendar_event_id"
+
+        /** Poczta otwierana z powiadomienia o odrzuconej wysyłce z kolejki. */
+        const val EXTRA_OPEN_EMAIL = "extra_open_email"
     }
 
     private val settingsVm: SettingsViewModel by viewModels()
@@ -51,6 +54,7 @@ class MainActivity : ComponentActivity() {
     private var deepLinkTaskId by mutableStateOf<String?>(null)
     private var deepLinkServiceJobId by mutableStateOf<String?>(null)
     private var deepLinkCalendarEventId by mutableStateOf<String?>(null)
+    private var deepLinkOpenEmail by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -60,6 +64,7 @@ class MainActivity : ComponentActivity() {
         deepLinkTaskId = intent.getStringExtra(EXTRA_TASK_ID)
         deepLinkServiceJobId = intent.getStringExtra(EXTRA_SERVICE_JOB_ID)
         deepLinkCalendarEventId = intent.getStringExtra(EXTRA_CALENDAR_EVENT_ID)
+        deepLinkOpenEmail = intent.getBooleanExtra(EXTRA_OPEN_EMAIL, false)
         if (intent.getBooleanExtra(EXTRA_OPEN_POST_CALL_NOTE, false)) {
             deepLinkPostCallPhone = intent.getStringExtra(EXTRA_POST_CALL_PHONE) ?: ""
         }
@@ -95,6 +100,7 @@ class MainActivity : ComponentActivity() {
                         deepLinkTaskId = deepLinkTaskId,
                         deepLinkServiceJobId = deepLinkServiceJobId,
                         deepLinkCalendarEventId = deepLinkCalendarEventId,
+                        deepLinkOpenEmail = deepLinkOpenEmail,
                     )
                 }
             }
@@ -107,6 +113,7 @@ class MainActivity : ComponentActivity() {
         deepLinkTaskId = intent.getStringExtra(EXTRA_TASK_ID)
         deepLinkServiceJobId = intent.getStringExtra(EXTRA_SERVICE_JOB_ID)
         deepLinkCalendarEventId = intent.getStringExtra(EXTRA_CALENDAR_EVENT_ID)
+        deepLinkOpenEmail = intent.getBooleanExtra(EXTRA_OPEN_EMAIL, false)
         if (intent.getBooleanExtra(EXTRA_OPEN_POST_CALL_NOTE, false)) {
             deepLinkPostCallPhone = intent.getStringExtra(EXTRA_POST_CALL_PHONE) ?: ""
         }

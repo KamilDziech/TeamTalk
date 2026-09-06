@@ -187,6 +187,15 @@ class TeamTalkApp : Application(), Configuration.Provider {
             )
             nm.createNotificationChannel(
                 NotificationChannel(
+                    NotificationHelper.EMAIL_CHANNEL_ID,
+                    "Poczta",
+                    NotificationManager.IMPORTANCE_DEFAULT,
+                ).apply {
+                    description = "Wiadomość zapisana bez zasięgu, której serwer nie przyjął"
+                }
+            )
+            nm.createNotificationChannel(
+                NotificationChannel(
                     CallMonitorService.CHANNEL_ID,
                     "Monitorowanie połączenia",
                     NotificationManager.IMPORTANCE_LOW,

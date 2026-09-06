@@ -44,8 +44,15 @@ import com.ekotak.teamtalk.data.local.entity.*
         LeaveAbsenceEntity::class,
         LeaveBalanceEntity::class,
         LeaveMutationEntity::class,
+        EmailAccountEntity::class,
+        EmailFolderCountEntity::class,
+        EmailThreadEntity::class,
+        EmailMessageEntity::class,
+        EmailAttachmentEntity::class,
+        EmailLabelEntity::class,
+        EmailMutationEntity::class,
     ],
-    version = 17,
+    version = 18,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -70,4 +77,5 @@ abstract class TeamTalkDatabase : RoomDatabase() {
     abstract fun projectMutationDao(): ProjectMutationDao
     abstract fun orderDao(): OrderDao
     abstract fun leaveDao(): LeaveDao
+    abstract fun emailDao(): EmailDao
 }

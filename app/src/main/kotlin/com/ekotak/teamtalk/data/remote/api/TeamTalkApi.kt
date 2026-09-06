@@ -604,6 +604,84 @@ interface TeamTalkApi {
         @Query("to") to: String,
     ): List<CalendarOverlayDto>
 
+    // ── Email (hub Komunikacja → poczta) ──────────────────────────────────────
+    // Odczyt chodzi pod `crm.view`, wysyłka i zmiany pod `deal.manage` — tak
+    // samo jak w panelu. To, co widać w skrzynce, NIE zależy jednak od tych
+    // uprawnień, tylko od pary (skrzynka, widok):
+    //
+    //  • `accountId` wybiera skrzynkę z `GET /api/email/accounts`; brak =
+    //    pierwsza z listy, czyli firmowa,
+    //  • `scope` to widok skrzynki firmowej: `mine` (wycinek opiekuna —
+    //    domyślny dla KAŻDEGO) albo `all` (cała skrzynka). `all` bez
+    //    uprawnienia `email.view_all` kończy się kodem 403, więc telefon
+    //    pokazuje przełącznik dopiero przy `canViewAll = true`.
+    //
+    // Wątek spoza wycinka oddaje 404, a nie 403 — sama odpowiedź nie ma
+    // zdradzać, że w cudzej skrzynce leży wątek o tym identyfikatorze.
+
+    @GET("api/email/accounts")
+    suspend fun getEmailAccounts(): List<EmailAccountDto>
+
+    @GET("api/email/folders")
+    suspend fun getEmailFolders(
+        @Query("accountId") accountId: String? = null,
+        @Query("scope") scope: String? = null,
+    ): List<EmailFolderCountDto>
+
+    @GET("api/email/labels")
+    suspend fun getEmailLabels(): List<EmailLabelDto>
+
+    @GET("api/email/threads")
+    suspend fun getEmailThreads(
+        @Query("accountId") accountId: String? = null,
+        @Query("scope") scope: String? = null,
+        @Query("folder") folder: String? = null,
+        @Query("q") q: String? = null,
+    ): List<EmailThreadDto>
+
+    /** Korespondencja jednego deala — ze wszystkich folderów i obu skrzynek. */
+    @GET("api/email/threads")
+    suspend fun getEmailThreadsForDeal(@Query("dealId") dealId: String): List<EmailThreadDto>
+
+    /** Otwarcie wątku oznacza go na serwerze jako przeczytany. */
+    @GET("api/email/threads/{id}")
+    suspend fun getEmailThread(@Path("id") id: String): EmailThreadDetailDto
+
+    /**
+     * Zmiana wątku: gwiazdka, przeczytane, folder, etykiety, dowiązanie do
+     * deala. Ciało jako `JsonObject` (`buildEmailThreadPatch`) — `dealId: null`
+     * ODPINA wątek od karty, a data class z `explicitNulls = false` nie umie
+     * takiego nulla wysłać.
+     */
+    @PATCH("api/email/threads/{id}")
+    suspend fun patchEmailThread(
+        @Path("id") id: String,
+        @Body body: JsonObject,
+    )
+
+    /** Do kosza, a gdy wątek już w koszu — trwale. */
+    @DELETE("api/email/threads/{id}")
+    suspend fun deleteEmailThread(@Path("id") id: String)
+
+    @POST("api/email/messages")
+    suspend fun sendEmail(@Body body: EmailSendDto): EmailMessageDto
+
+    @POST("api/email/drafts")
+    suspend fun saveEmailDraft(@Body body: EmailSendDto): EmailMessageDto
+
+    @Multipart
+    @POST("api/email/messages/{id}/attachments")
+    suspend fun uploadEmailAttachment(
+        @Path("id") messageId: String,
+        @Part file: MultipartBody.Part,
+    ): EmailAttachmentDto
+
+    @GET("api/email/attachments/{id}")
+    suspend fun downloadEmailAttachment(@Path("id") id: String): ResponseBody
+
+    @GET("api/email/deal-options")
+    suspend fun getEmailDealOptions(@Query("q") q: String? = null): List<EmailDealOptionDto>
+
     // ── Urlop (moduł HR → zakładka „Urlop") ───────────────────────────────────
     // Własny urlop chodzi pod `hr.view` — ma je każdy pracownik. Kartoteki
     // kadrowe siedzą za `hr.manage` i telefon ich NIE dotyka (ustalenie

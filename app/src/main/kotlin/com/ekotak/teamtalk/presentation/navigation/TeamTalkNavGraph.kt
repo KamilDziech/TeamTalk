@@ -34,6 +34,8 @@ import com.ekotak.teamtalk.presentation.crm.DealEditScreen
 import com.ekotak.teamtalk.presentation.crm.DealListScreen
 import com.ekotak.teamtalk.presentation.crm.KnowledgeArticleScreen
 import com.ekotak.teamtalk.presentation.history.HistoryScreen
+import com.ekotak.teamtalk.presentation.email.EmailScreen
+import com.ekotak.teamtalk.presentation.email.EmailThreadScreen
 import com.ekotak.teamtalk.presentation.leave.LeaveScreen
 import com.ekotak.teamtalk.presentation.map.MapScreen
 import com.ekotak.teamtalk.presentation.home.HomeScreen
@@ -82,6 +84,8 @@ fun TeamTalkNavGraph(
     deepLinkTaskId: String? = null,
     deepLinkServiceJobId: String? = null,
     deepLinkCalendarEventId: String? = null,
+    /** Wejście z powiadomienia o poczcie, której serwer nie przyjął z kolejki. */
+    deepLinkOpenEmail: Boolean = false,
 ) {
     val navController = rememberNavController()
     val sessionState by viewModel.sessionState.collectAsState()
@@ -123,6 +127,7 @@ fun TeamTalkNavGraph(
                 deepLinkTaskId = deepLinkTaskId,
                 deepLinkServiceJobId = deepLinkServiceJobId,
                 deepLinkCalendarEventId = deepLinkCalendarEventId,
+                deepLinkOpenEmail = deepLinkOpenEmail,
             )
         }
     }
@@ -135,6 +140,8 @@ private fun MainScreen(
     deepLinkTaskId: String? = null,
     deepLinkServiceJobId: String? = null,
     deepLinkCalendarEventId: String? = null,
+    /** Wejście z powiadomienia o poczcie, której serwer nie przyjął z kolejki. */
+    deepLinkOpenEmail: Boolean = false,
 ) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -181,6 +188,14 @@ private fun MainScreen(
         }
     }
 
+    // Powiadomienie o odrzuconej wysyłce prowadzi do skrzynki — samej wiadomości
+    // już w niej nie ma (serwer jej nie przyjął), więc otwieramy listę.
+    LaunchedEffect(deepLinkOpenEmail) {
+        if (deepLinkOpenEmail) {
+            navController.navigate("email") { launchSingleTop = true }
+        }
+    }
+
     Scaffold(
         bottomBar = {
             if (currentRoute in bottomBarRoutes) {
@@ -222,6 +237,8 @@ private fun MainScreen(
                             // Kafelek „Urlop" — na telefonie to sama zakładka
                             // Urlop modułu HR, bez kartotek kadrowych.
                             "hr" -> "leave"
+                            // Poczta = zakładka e-mail huba Komunikacja panelu.
+                            "email" -> "email"
                             "inventory" -> "inventory"
                             "projects" -> "projects"
                             "training" -> "training"
@@ -360,6 +377,24 @@ private fun MainScreen(
                 arguments = listOf(navArgument("cardId") { type = NavType.StringType }),
             ) {
                 WarrantyCardScreen(onNavigateBack = { navController.popBackStack() })
+            }
+
+            // ── Email (kafelek pulpitu = poczta huba Komunikacja) ─────────────
+            composable("email") {
+                EmailScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onOpenThread = { threadId -> navController.navigate("email/$threadId") },
+                )
+            }
+
+            composable(
+                route = "email/{threadId}",
+                arguments = listOf(navArgument("threadId") { type = NavType.StringType }),
+            ) {
+                EmailThreadScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onOpenDeal = { dealId -> navController.navigate("deal/$dealId") },
+                )
             }
 
             // ── Urlop (kafelek pulpitu = zakładka HR → Urlop) ─────────────────
