@@ -51,6 +51,8 @@ import com.ekotak.teamtalk.presentation.task.CreateTaskViewModel
 import com.ekotak.teamtalk.presentation.discussion.DiscussionListScreen
 import com.ekotak.teamtalk.presentation.task.TaskDetailScreen
 import com.ekotak.teamtalk.presentation.task.TaskListScreen
+import com.ekotak.teamtalk.presentation.training.LessonScreen
+import com.ekotak.teamtalk.presentation.training.TrainingScreen
 import com.ekotak.teamtalk.presentation.voicereport.VoiceReportScreen
 
 /** Klucz komunikatu wracającego do kartoteki z ekranów potomnych. */
@@ -212,6 +214,7 @@ private fun MainScreen(
                             // w dziedzinie „Przegląd" (ustalenie 2026-09-02).
                             "inspections" -> "service?inspections=1"
                             "calendar" -> "calendar"
+                            "training" -> "training"
                             else -> "module/${module.key}"
                         }
                         navController.navigate(route)
@@ -235,6 +238,21 @@ private fun MainScreen(
             }
 
             // ── Zadania zespołu (kafelek pulpitu) ──────────────────────────────
+            // ── Szkolenia (kafelek pulpitu = zakładka HR → Szkolenia) ──────────
+            composable("training") {
+                TrainingScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onOpenLesson = { lessonId -> navController.navigate("training/$lessonId") },
+                )
+            }
+
+            composable(
+                route = "training/{lessonId}",
+                arguments = listOf(navArgument("lessonId") { type = NavType.StringType }),
+            ) {
+                LessonScreen(onNavigateBack = { navController.popBackStack() })
+            }
+
             composable("tasks") {
                 TaskListScreen(
                     onCreateTask = { navController.navigate("create_task") },

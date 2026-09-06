@@ -1,0 +1,878 @@
+<title>Szkolenia w TeamTalku</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Roboto:wght@400;500;700&display=swap">
+
+<style>
+/* ── Tokeny strony (te same co modul-serwis.html / modul-kalendarz.html) ── */
+:root{
+  --bg:#EEF3F9; --bg-2:#DBE6F2; --surface:#FFFFFF;
+  --fg:#0F1720; --muted:#5A6B7C; --border:#C3CBD4;
+  --brand:#2FA84F; --brand-loud:#44D62C; --ink:#080808;
+  --warn:#B4680A; --danger:#C5343A; --info:#2563EB;
+  --shadow:0 1px 2px rgba(15,23,32,.06), 0 10px 30px rgba(15,23,32,.08);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0B1220; --bg-2:#12161F; --surface:#12161F;
+    --fg:#E6EDF3; --muted:#9FB0C3; --border:#2A3441;
+    --brand:#44D62C; --brand-loud:#44D62C; --ink:#080808;
+    --warn:#F59E0B; --danger:#E5484D; --info:#5B8DEF;
+    --shadow:0 1px 2px rgba(0,0,0,.5), 0 14px 40px rgba(0,0,0,.45);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0B1220; --bg-2:#12161F; --surface:#12161F;
+  --fg:#E6EDF3; --muted:#9FB0C3; --border:#2A3441;
+  --brand:#44D62C; --brand-loud:#44D62C; --ink:#080808;
+  --warn:#F59E0B; --danger:#E5484D; --info:#5B8DEF;
+  --shadow:0 1px 2px rgba(0,0,0,.5), 0 14px 40px rgba(0,0,0,.45);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--fg);
+  font-family:"Archivo","Segoe UI",system-ui,sans-serif;
+  font-size:16px; line-height:1.55; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px 96px}
+h1,h2,h3{text-wrap:balance;margin:0}
+a{color:inherit}
+code{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.88em;
+  background:var(--bg-2);border:1px solid var(--border);border-radius:5px;padding:1px 5px;
+}
+
+.masthead{padding:52px 0 32px;border-bottom:1px solid var(--border);display:grid;gap:18px}
+.eyebrow{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
+  display:flex;flex-wrap:wrap;align-items:center;gap:10px;
+}
+.eyebrow b{color:var(--brand);font-weight:600}
+.masthead h1{font-size:clamp(34px,5.4vw,58px);font-weight:800;letter-spacing:-.025em;line-height:1.02}
+.lede{font-size:17px;color:var(--muted);max-width:62ch;margin:0}
+.lede b{color:var(--fg);font-weight:600}
+
+section{padding:52px 0 0}
+.shead{display:grid;gap:8px;margin-bottom:26px;max-width:70ch}
+.shead h2{font-size:clamp(22px,2.6vw,30px);font-weight:700;letter-spacing:-.015em}
+.shead p{margin:0;color:var(--muted);font-size:15px}
+.snum{
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--brand);font-weight:600;
+}
+
+.cards{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(268px,1fr))}
+.card{
+  background:var(--surface);border:1px solid var(--border);border-radius:14px;
+  padding:15px 17px;display:grid;gap:7px;align-content:start;
+}
+.card h3{font-size:14.5px;font-weight:700;display:flex;align-items:center;gap:8px}
+.card p{margin:0;font-size:13.5px;color:var(--muted)}
+.dot{width:9px;height:9px;border-radius:50%;flex:none;display:inline-block}
+.dot.ok{background:var(--brand)}
+.dot.part{background:var(--warn)}
+.dot.no{background:var(--danger)}
+
+.tablewrap{overflow-x:auto;border:1px solid var(--border);border-radius:14px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:700px;font-size:13.5px}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:top}
+th{
+  font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--muted);font-weight:600;white-space:nowrap;
+}
+tbody tr:last-child td{border-bottom:none}
+td.mono{font-family:"IBM Plex Mono",monospace;font-size:12px;white-space:nowrap}
+.tag{
+  font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--border);
+  color:var(--muted);white-space:nowrap;display:inline-block;
+}
+.tag.jest{color:var(--brand);border-color:color-mix(in srgb,var(--brand) 45%,var(--border))}
+.tag.brak{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 45%,var(--border))}
+.tag.mock{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 45%,var(--border))}
+.tag.nowe{color:var(--info);border-color:color-mix(in srgb,var(--info) 45%,var(--border))}
+
+/* ── Makiety: telefon ─────────────────────────────────────────────── */
+.screens{display:grid;gap:34px 26px;grid-template-columns:repeat(auto-fit,minmax(330px,1fr))}
+.screenblock{display:grid;gap:16px;justify-items:center}
+.caption{max-width:34ch;display:grid;gap:6px}
+.caption h3{font-size:15.5px;font-weight:700;display:flex;gap:9px;align-items:baseline}
+.caption h3 i{font-style:normal;font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--brand)}
+.caption p{margin:0;font-size:13px;color:var(--muted)}
+
+.phone{
+  width:340px;padding:11px;border-radius:38px;
+  background:linear-gradient(160deg,#3a4152,#161a22);box-shadow:var(--shadow);flex:none;
+}
+.device{
+  --d-bg:#0B1220;--d-surface:#12161F;--d-panel:#1A212E;
+  --d-fg:#E6EDF3;--d-muted:#9FB0C3;--d-border:#2A3441;
+  --d-brand:#44D62C;--d-ink:#080808;
+  --d-danger:#F85149;--d-warn:#E3A008;--d-info:#4AA3FF;--d-violet:#C084FC;
+  --d-trn:#5EEAD4;--d-gray:#888780;
+  width:318px;height:664px;border-radius:28px;overflow:hidden;
+  background:var(--d-bg);color:var(--d-fg);
+  font-family:"Roboto",system-ui,sans-serif;font-size:14px;line-height:1.4;
+  display:flex;flex-direction:column;position:relative;
+}
+.statusbar{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:8px 16px 2px;font-size:11px;color:var(--d-muted);
+  font-variant-numeric:tabular-nums;flex:none;
+}
+.topbar{display:flex;align-items:center;gap:6px;padding:6px 10px;flex:none}
+.iconbtn{
+  width:32px;height:32px;border-radius:50%;border:none;background:transparent;
+  color:var(--d-fg);display:grid;place-items:center;flex:none;position:relative;
+}
+.iconbtn svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.toptitle{font-size:16px;font-weight:500;flex:1;min-width:0}
+.screen{flex:1;overflow:hidden;padding:0 12px 8px;display:flex;flex-direction:column;gap:9px}
+
+/* zakładki: Moje szkolenia | Moje poziomy */
+.seg{display:flex;background:var(--d-panel);border-radius:999px;padding:3px;gap:3px;flex:none}
+.seg span{flex:1;text-align:center;font-size:12px;padding:6px 4px;border-radius:999px;color:var(--d-muted)}
+.seg span[data-on]{background:color-mix(in srgb,var(--d-trn) 22%,var(--d-surface));color:var(--d-trn);font-weight:700}
+
+.hint{font-size:10.5px;color:var(--d-muted);flex:none}
+
+/* ── Wiersz szkolenia ─────────────────────────────────────────────── */
+.trow{
+  display:flex;align-items:center;gap:10px;padding:10px 4px 10px 9px;
+  border-bottom:1px solid var(--d-border);border-left:3px solid transparent;
+}
+.trow[data-st="todo"]{border-left-color:var(--d-info)}
+.trow[data-st="fail"]{border-left-color:var(--d-danger);background:color-mix(in srgb,var(--d-danger) 9%,transparent)}
+.trow[data-st="late"]{border-left-color:var(--d-warn);background:color-mix(in srgb,var(--d-warn) 10%,transparent)}
+.trow[data-st="pass"]{border-left-color:var(--d-brand)}
+.trow[data-st="old"]{border-left-color:var(--d-gray)}
+.trow .nm{flex:1;min-width:0;display:grid;gap:2px}
+.trow .nm b{font-size:12.8px;font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.trow .nm span{font-size:10.5px;color:var(--d-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.trow[data-st="old"] .nm b{color:var(--d-muted)}
+.pill{
+  font-size:10px;padding:2px 8px;border-radius:999px;white-space:nowrap;flex:none;
+  border:1px solid var(--d-border);color:var(--d-muted);
+}
+.pill.todo{color:var(--d-info);border-color:color-mix(in srgb,var(--d-info) 55%,transparent)}
+.pill.prog{color:var(--d-violet);border-color:color-mix(in srgb,var(--d-violet) 55%,transparent)}
+.pill.pass{color:var(--d-brand);border-color:color-mix(in srgb,var(--d-brand) 55%,transparent);background:color-mix(in srgb,var(--d-brand) 12%,transparent)}
+.pill.fail{color:#FF9A8F;border-color:color-mix(in srgb,var(--d-danger) 55%,transparent);background:color-mix(in srgb,var(--d-danger) 14%,transparent)}
+.pill.old{color:var(--d-warn);border-color:color-mix(in srgb,var(--d-warn) 55%,transparent);background:color-mix(in srgb,var(--d-warn) 12%,transparent)}
+.certbtn{
+  font-size:10px;padding:3px 9px;border-radius:999px;flex:none;color:var(--d-brand);
+  border:1px solid color-mix(in srgb,var(--d-brand) 45%,var(--d-border));white-space:nowrap;
+}
+.list{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden}
+.counter{display:flex;gap:6px;flex:none;overflow:hidden}
+.cnt{
+  flex:1;background:var(--d-surface);border:1px solid var(--d-border);border-radius:11px;
+  padding:7px 9px;display:grid;gap:1px;min-width:0;
+}
+.cnt b{font-size:17px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
+.cnt span{font-size:9.5px;color:var(--d-muted);text-transform:uppercase;letter-spacing:.06em}
+.cnt.due b{color:var(--d-warn)}
+.cnt.fail b{color:var(--d-danger)}
+
+/* ── Lekcja: film ─────────────────────────────────────────────────── */
+.video{
+  flex:none;border-radius:12px;overflow:hidden;border:1px solid var(--d-border);
+  background:#05070C;aspect-ratio:16/9;display:grid;place-items:center;position:relative;
+}
+.video .play{
+  width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,.14);
+  border:1.5px solid rgba(255,255,255,.5);display:grid;place-items:center;color:#fff;
+}
+.video .play svg{width:22px;height:22px;fill:currentColor;stroke:none;margin-left:3px}
+.video .yt{position:absolute;left:8px;top:8px;font-size:9px;color:#E6EDF3;background:rgba(0,0,0,.55);border-radius:5px;padding:2px 6px}
+.video .bar{position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(255,255,255,.18)}
+.video .bar i{display:block;height:100%;background:#FF3D3D}
+.gate{
+  flex:none;border:1px solid var(--d-border);border-radius:12px;background:var(--d-surface);
+  padding:10px 11px;display:grid;gap:7px;
+}
+.gate .k{font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--d-muted);font-weight:700}
+.gate p{margin:0;font-size:11.5px;color:var(--d-muted)}
+.watch{display:flex;align-items:center;gap:8px;font-size:11.5px}
+.watch .track{flex:1;height:6px;border-radius:999px;background:var(--d-panel);overflow:hidden}
+.watch .track i{display:block;height:100%;background:var(--d-trn)}
+.watch b{font-size:11px;font-weight:500;color:var(--d-muted);font-variant-numeric:tabular-nums;flex:none}
+.btn{
+  border-radius:12px;padding:11px 14px;text-align:center;font-size:13px;font-weight:500;
+  background:var(--d-trn);color:var(--d-ink);flex:none;
+}
+.btn.off{background:var(--d-panel);color:var(--d-muted);border:1px solid var(--d-border)}
+.btn.ghost{background:transparent;color:var(--d-fg);border:1px solid var(--d-border)}
+.meta{display:flex;flex-wrap:wrap;gap:5px;flex:none}
+.meta i{
+  font-style:normal;font-size:10px;padding:3px 8px;border-radius:999px;
+  border:1px solid var(--d-border);color:var(--d-muted);
+}
+
+/* ── Test ─────────────────────────────────────────────────────────── */
+.quizhead{display:flex;align-items:center;gap:8px;flex:none}
+.quizhead .q{font-size:11px;color:var(--d-muted);flex:1}
+.timer{
+  font-size:12px;font-variant-numeric:tabular-nums;padding:3px 10px;border-radius:999px;
+  border:1px solid var(--d-border);color:var(--d-fg);flex:none;
+}
+.timer.low{color:#FF9A8F;border-color:color-mix(in srgb,var(--d-danger) 55%,transparent);background:color-mix(in srgb,var(--d-danger) 14%,transparent)}
+.prog{height:4px;border-radius:999px;background:var(--d-panel);overflow:hidden;flex:none}
+.prog i{display:block;height:100%;background:var(--d-trn)}
+.qprompt{font-size:14px;line-height:1.35;flex:none}
+.qkind{font-size:10px;color:var(--d-muted);flex:none}
+.opts{display:grid;gap:7px;flex:none}
+.opt{
+  display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:12px;
+  border:1px solid var(--d-border);background:var(--d-panel);font-size:12.5px;
+}
+.opt .box{
+  width:18px;height:18px;border-radius:50%;border:2px solid var(--d-muted);flex:none;
+  display:grid;place-items:center;
+}
+.opt .box.sq{border-radius:5px}
+.opt[data-on]{border-color:var(--d-trn);background:color-mix(in srgb,var(--d-trn) 14%,var(--d-panel))}
+.opt[data-on] .box{border-color:var(--d-trn);background:var(--d-trn)}
+.opt[data-on] .box svg{width:11px;height:11px;stroke:var(--d-ink);fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.navrow{display:flex;gap:8px;flex:none;margin-top:auto}
+.navrow .btn{flex:1}
+
+/* ── Wynik ────────────────────────────────────────────────────────── */
+.score{
+  flex:none;border-radius:16px;padding:18px 14px;display:grid;gap:6px;justify-items:center;text-align:center;
+  border:1px solid color-mix(in srgb,var(--d-brand) 45%,transparent);
+  background:color-mix(in srgb,var(--d-brand) 12%,transparent);
+}
+.score.bad{
+  border-color:color-mix(in srgb,var(--d-danger) 45%,transparent);
+  background:color-mix(in srgb,var(--d-danger) 12%,transparent);
+}
+.score b{font-size:40px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums;color:var(--d-brand)}
+.score.bad b{color:#FF9A8F}
+.score span{font-size:12px;color:var(--d-muted);max-width:26ch}
+.rowline{display:flex;align-items:center;gap:9px;padding:9px 2px;border-bottom:1px solid var(--d-border);font-size:12px}
+.rowline .k{flex:1;color:var(--d-muted)}
+.rowline .v{font-variant-numeric:tabular-nums}
+.rowline .v.ok{color:var(--d-brand)}
+
+/* ── Moje poziomy ─────────────────────────────────────────────────── */
+.dcard{
+  border:1px solid var(--d-border);border-radius:12px;background:var(--d-surface);
+  padding:9px 11px;display:grid;gap:6px;
+}
+.dcard[data-gap]{border-left:3px solid var(--d-danger)}
+.dcard .top{display:flex;align-items:center;gap:9px}
+.dcard .top b{flex:1;min-width:0;font-size:12.8px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dots{display:flex;gap:3px;flex:none}
+.dots i{width:12px;height:12px;border-radius:50%;display:block;box-sizing:border-box;padding:1px;background-clip:content-box}
+.dots i.full{border:2px solid var(--d-brand);background:var(--d-brand);background-clip:content-box}
+.dots i.theory{border:2px solid var(--d-brand);background:transparent}
+.dots i.needt{border:2px solid var(--d-danger);background:transparent}
+.dots i.needp{border:2px solid var(--d-brand);background:var(--d-danger);background-clip:content-box}
+.dots i.gapall{border:2px solid var(--d-danger);background:var(--d-danger);background-clip:content-box}
+.dots i.pale{border:2px solid color-mix(in srgb,var(--d-muted) 55%,transparent);background:transparent}
+.dcard .sub{font-size:10.5px;color:var(--d-muted)}
+.dcard .gapline{font-size:10.5px;color:#FF9A8F}
+.legend{
+  flex:none;border:1px solid var(--d-border);border-radius:11px;background:var(--d-surface);
+  padding:8px 10px;display:grid;gap:4px;font-size:10px;color:var(--d-muted);
+}
+.legend div{display:flex;align-items:center;gap:7px}
+
+/* ── Pulpit: kafelki ──────────────────────────────────────────────── */
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:9px;overflow:hidden;align-content:start}
+.tile{
+  background:var(--d-surface);border:1px solid var(--d-border);border-radius:14px;
+  padding:10px;display:grid;gap:5px;align-content:start;position:relative;
+}
+.tile .ic{
+  width:30px;height:30px;border-radius:9px;display:grid;place-items:center;
+  background:color-mix(in srgb,var(--c) 18%,transparent);color:var(--c);
+}
+.tile .ic svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.tile b{font-size:12.5px;font-weight:500}
+.tile span{font-size:9.5px;color:var(--d-muted);line-height:1.3}
+.tile.hot{border-color:var(--c);box-shadow:0 0 0 2px color-mix(in srgb,var(--c) 32%,transparent)}
+.tile .new{
+  position:absolute;top:-7px;right:8px;font-size:8.5px;font-weight:700;letter-spacing:.06em;
+  background:var(--c);color:#08110F;border-radius:999px;padding:1px 7px;text-transform:uppercase;
+}
+
+/* ── Etapy ────────────────────────────────────────────────────────── */
+.steps{display:grid;gap:12px}
+.step{
+  display:flex;gap:16px;background:var(--surface);border:1px solid var(--border);
+  border-radius:14px;padding:16px 18px;
+}
+.step .no{
+  font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:600;color:var(--brand);
+  border:1px solid color-mix(in srgb,var(--brand) 40%,var(--border));border-radius:8px;
+  padding:3px 8px;height:fit-content;flex:none;
+}
+.step h3{font-size:15px;font-weight:700;display:flex;flex-wrap:wrap;gap:9px;align-items:center}
+.step p{margin:6px 0 0;font-size:13.5px;color:var(--muted)}
+.files{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.files i{
+  font-style:normal;font-family:"IBM Plex Mono",monospace;font-size:11px;
+  padding:3px 8px;border-radius:6px;background:var(--bg-2);color:var(--muted);
+  border:1px solid var(--border);
+}
+
+/* ── Ustalenia ────────────────────────────────────────────────────── */
+.qs{display:grid;gap:12px}
+.qq{
+  background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--brand);
+  border-radius:14px;padding:16px 18px;display:grid;gap:7px;
+}
+.qq.open{border-left-color:var(--warn)}
+.qq h3{font-size:15.5px;font-weight:700;display:flex;flex-wrap:wrap;gap:9px;align-items:center}
+.qq p{margin:0;font-size:13.5px;color:var(--muted)}
+</style>
+
+<div class="wrap">
+
+<header class="masthead">
+  <div class="eyebrow">
+    <span>TeamTalk · Android</span><span>·</span>
+    <b>moduł Szkolenia</b><span>·</span>
+    <span>makieta 2026-09-06</span>
+  </div>
+  <h1>Szkolenia na telefonie</h1>
+  <p class="lede">
+    Przeniesienie zakładki <b>HR → Szkolenia</b> z panelu board360 na telefon: lista przypisanych
+    lekcji, film, test wiedzy, certyfikat i „Moje poziomy” z lukami do nadgonienia.
+    Backend jest kompletny — mobilka nie potrzebuje <b>żadnego nowego endpointu</b>,
+    bo serwisant ma już uprawnienie <code>training.view</code>.
+  </p>
+</header>
+
+<!-- ─────────────────────────────────────────────────────────────── -->
+<section>
+  <div class="shead">
+    <div class="snum">01 — Stan wyjściowy</div>
+    <h2>Co panel już umie, a czego telefon nie ma</h2>
+    <p>
+      W panelu moduł stoi od sierpnia: lekcja = film (YouTube/Loom) + pytania jedno-
+      i wielokrotnego wyboru, próg zaliczenia, ważność w miesiącach, certyfikat PDF.
+      Na telefonie nie ma nawet kafelka.
+    </p>
+  </div>
+
+  <div class="cards">
+    <div class="card">
+      <h3><i class="dot ok"></i> Panel: lista + player</h3>
+      <p>
+        <code>/app/hr</code> → zakładka „Szkolenia” pokazuje <b>Moje szkolenia</b> i <b>Moje poziomy</b>.
+        Klik w wiersz otwiera skupiony ekran <code>/szkolenie/[id]</code>: film, krok 2 „Test wiedzy”,
+        wynik, certyfikat.
+      </p>
+    </div>
+    <div class="card">
+      <h3><i class="dot ok"></i> Panel: ocenia serwer</h3>
+      <p>
+        Player nie zna poprawnych odpowiedzi — <code>/play</code> zwraca pytania bez klucza,
+        a <code>/submit</code> oddaje <code>{score, passed, correctCount, total}</code>. Zaliczenie
+        zapisuje wpis w kartotece HR i powiadamia przypisującego.
+      </p>
+    </div>
+    <div class="card">
+      <h3><i class="dot ok"></i> Panel: ważność i terminy</h3>
+      <p>
+        Lekcja ma <code>validityMonths</code> — po zaliczeniu liczy się <code>expiresAt</code>,
+        a wiersz po terminie zmienia pigułkę na „Do odnowienia”. Scheduler pilnuje <code>dueDate</code>
+        i wysyła powiadomienie o przekroczeniu.
+      </p>
+    </div>
+    <div class="card">
+      <h3><i class="dot part"></i> Telefon: uprawnienie już jest</h3>
+      <p>
+        <code>training.view</code> ma każda rola, także serwisant i montaż. Token mobilny niesie
+        te same uprawnienia co sesja web, więc wszystkie trasy pracownika odpowiadają
+        aplikacji bez jednej linii po stronie API.
+      </p>
+    </div>
+    <div class="card">
+      <h3><i class="dot no"></i> Telefon: brak kafelka</h3>
+      <p>
+        <code>HOME_MODULES</code> nie zna HR — pulpit mobilny pomijał moduł jako „biurkowy”.
+        Szkolenia biurkowe nie są: montażysta ogląda je w busie, a nie przy biurku.
+      </p>
+    </div>
+    <div class="card">
+      <h3><i class="dot no"></i> Telefon: brak WebView</h3>
+      <p>
+        Aplikacja nie miała dotąd ani jednego <code>WebView</code> — film z YouTube/Loom to
+        pierwszy przypadek, w którym treść przychodzi jako strona, a nie jako JSON.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────────────────────────────────────────── -->
+<section>
+  <div class="shead">
+    <div class="snum">02 — Ekrany</div>
+    <h2>Sześć plansz: od kafelka do certyfikatu</h2>
+    <p>
+      Ścieżka jest liniowa i tak też jest narysowana: pulpit → lista → film → test → wynik.
+      „Moje poziomy” siedzą w drugiej zakładce listy, bo to jest odpowiedź na pytanie
+      <b>„po co mi to szkolenie”</b>.
+    </p>
+  </div>
+
+  <div class="screens">
+
+    <!-- 00 Pulpit -->
+    <div class="screenblock">
+      <div class="phone"><div class="device">
+        <div class="statusbar"><span>9:41</span><span>◗ ▮▮▮ 78%</span></div>
+        <div class="topbar">
+          <span class="toptitle" style="padding-left:6px">Pulpit</span>
+          <button class="iconbtn"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></button>
+        </div>
+        <div class="screen">
+          <div class="tiles">
+            <div class="tile" style="--c:#C084FC"><div class="ic"><svg viewBox="0 0 24 24"><path d="M9 4.5H6.5A1.5 1.5 0 0 0 5 6v13a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 19V6a1.5 1.5 0 0 0-1.5-1.5H15"/><rect x="9" y="2.8" width="6" height="3.4" rx="1"/><path d="M8.6 12l1.7 1.7 3.4-3.4"/></svg></div><b>Zadania</b><span>Twoje zadania i przypomnienia</span></div>
+            <div class="tile" style="--c:#FB7185"><div class="ic"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="1.8"/><path d="M3.5 9.5h17M8 3.5v3M16 3.5v3"/></svg></div><b>Kalendarz</b><span>Terminy, wizyty i wydarzenia</span></div>
+            <div class="tile hot" style="--c:#5EEAD4">
+              <span class="new">nowe</span>
+              <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 4.2 2.8 8.4 12 12.6l9.2-4.2z"/><path d="M6.4 10.3v4.9c0 1.7 2.5 3 5.6 3s5.6-1.3 5.6-3v-4.9"/><path d="M21.2 8.4v5.4"/></svg></div>
+              <b>Szkolenia</b><span>Twoje szkolenia i poziomy</span>
+            </div>
+            <div class="tile" style="--c:#FF7B54"><div class="ic"><svg viewBox="0 0 24 24"><path d="M15.4 4.4a4.5 4.5 0 0 0-5.9 5.5L4 15.4a2 2 0 0 0 2.8 2.8l5.5-5.5a4.5 4.5 0 0 0 5.5-5.9l-2.7 2.7-2.4-.6-.6-2.4z"/></svg></div><b>Serwis</b><span>Zgłoszenia i przeglądy</span></div>
+            <div class="tile" style="--c:#EAB308"><div class="ic"><svg viewBox="0 0 24 24"><path d="M20.5 15.6V8.4a1.5 1.5 0 0 0-.8-1.3l-6.9-3.8a1.5 1.5 0 0 0-1.6 0L4.3 7.1a1.5 1.5 0 0 0-.8 1.3v7.2a1.5 1.5 0 0 0 .8 1.3l6.9 3.8a1.5 1.5 0 0 0 1.6 0l6.9-3.8a1.5 1.5 0 0 0 .8-1.3z"/><path d="M3.7 7.6 12 12.2l8.3-4.6M12 12.2V21"/></svg></div><b>Magazyn</b><span>Stany i ruchy materiałów</span></div>
+            <div class="tile" style="--c:#7C5CFF"><div class="ic"><svg viewBox="0 0 24 24"><path d="M4 6.5h16M4 12h16M4 17.5h10"/><path d="M18.5 16l1.6 1.6 3-3.2"/></svg></div><b>Projekty</b><span>Kamienie milowe i zadania</span></div>
+          </div>
+        </div>
+      </div></div>
+      <div class="caption">
+        <h3><i>00</i> Pulpit</h3>
+        <p>
+          Nowy kafelek <b>Szkolenia</b> w kolorze HR z panelu (<code>#5EEAD4</code>), między
+          Kalendarzem a Serwisem. Kafelek nie nazywa się „HR”, bo urlopy zostają w panelu —
+          na telefon wchodzi wyłącznie ta jedna zakładka.
+        </p>
+      </div>
+    </div>
+
+    <!-- 01 Moje szkolenia -->
+    <div class="screenblock">
+      <div class="phone"><div class="device">
+        <div class="statusbar"><span>9:41</span><span>◗ ▮▮▮ 78%</span></div>
+        <div class="topbar">
+          <button class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+          <span class="toptitle">Szkolenia</span>
+        </div>
+        <div class="screen">
+          <div class="seg"><span data-on>Moje szkolenia</span><span>Moje poziomy</span></div>
+          <div class="counter">
+            <div class="cnt"><b>3</b><span>do zrobienia</span></div>
+            <div class="cnt due"><b>1</b><span>po terminie</span></div>
+            <div class="cnt"><b>7</b><span>zaliczone</span></div>
+          </div>
+          <div class="list">
+            <div class="trow" data-st="fail">
+              <div class="nm"><b>Pompy ciepła — pierwsze uruchomienie</b><span>12 pyt. · próg 80% · ostatnio 55%</span></div>
+              <span class="pill fail">Do poprawy</span>
+            </div>
+            <div class="trow" data-st="late">
+              <div class="nm"><b>BHP na budowie — szkolenie okresowe</b><span>10 pyt. · termin 2026-09-01 · przypisał: M. Kowal</span></div>
+              <span class="pill old">Po terminie</span>
+            </div>
+            <div class="trow" data-st="todo">
+              <div class="nm"><b>Rekuperacja — dobór central</b><span>15 pyt. · termin 2026-09-20 · przypisał: A. Nowak</span></div>
+              <span class="pill todo">Do zrobienia</span>
+            </div>
+            <div class="trow" data-st="todo">
+              <div class="nm"><b>Fotowoltaika — bezpieczeństwo DC</b><span>8 pyt. · bez terminu</span></div>
+              <span class="pill prog">W toku</span>
+            </div>
+            <div class="trow" data-st="old">
+              <div class="nm"><b>Karty gwarancyjne w praktyce</b><span>wynik 92% · ważne do 2026-08-30</span></div>
+              <span class="pill old">Do odnowienia</span>
+            </div>
+            <div class="trow" data-st="pass">
+              <div class="nm"><b>Pierwsza pomoc</b><span>wynik 100% · ważne do 2027-04-11</span></div>
+              <span class="certbtn">PDF</span>
+              <span class="pill pass">Zaliczone</span>
+            </div>
+          </div>
+        </div>
+      </div></div>
+      <div class="caption">
+        <h3><i>01</i> Moje szkolenia</h3>
+        <p>
+          Ta sama kolejność co w panelu: <b>do poprawy → do zrobienia → w toku → zaliczone</b>,
+          tylko z belką pilności po lewej, bo na telefonie pigułka po prawej ginie przy
+          długim tytule. Trzy liczniki na górze zastępują nagłówek karty.
+        </p>
+      </div>
+    </div>
+
+    <!-- 02 Lekcja -->
+    <div class="screenblock">
+      <div class="phone"><div class="device">
+        <div class="statusbar"><span>9:44</span><span>◗ ▮▮▮ 77%</span></div>
+        <div class="topbar">
+          <button class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+          <span class="toptitle">Rekuperacja</span>
+        </div>
+        <div class="screen">
+          <div class="video">
+            <span class="yt">YouTube</span>
+            <span class="play"><svg viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></svg></span>
+            <span class="bar"><i style="width:62%"></i></span>
+          </div>
+          <div class="meta">
+            <i>10 z 15 pytań</i><i>próg 80%</i><i>ważne 24 mies.</i><i>termin 20.09</i>
+          </div>
+          <div class="gate">
+            <div class="k">Krok 1 — film</div>
+            <div class="watch">
+              <span class="track"><i style="width:62%"></i></span>
+              <b>62%</b>
+            </div>
+            <p>Test odblokuje się po obejrzeniu filmu do końca. Przewijanie do przodu nie liczy się jako obejrzane.</p>
+          </div>
+          <div class="btn off">Rozpocznij test — 10 pyt., 3:20</div>
+          <div class="hint">Materiał: transkrypcja filmu jest w opisie lekcji — rozwiń, jeśli wolisz przeczytać.</div>
+        </div>
+      </div></div>
+      <div class="caption">
+        <h3><i>02</i> Lekcja — film</h3>
+        <p>
+          Film leci w <code>WebView</code> przez IFrame API YouTube, więc aplikacja wie, ile
+          sekund faktycznie poszło. <b>Bramka</b>: przycisk testu jest szary do końca odtwarzania.
+          Loom i linki spoza YouTube nie raportują postępu — tam bramką jest odtworzenie
+          i ręczne „Obejrzałem”.
+        </p>
+      </div>
+    </div>
+
+    <!-- 03 Test -->
+    <div class="screenblock">
+      <div class="phone"><div class="device">
+        <div class="statusbar"><span>9:52</span><span>◗ ▮▮▮ 76%</span></div>
+        <div class="topbar">
+          <button class="iconbtn"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+          <span class="toptitle">Test wiedzy</span>
+        </div>
+        <div class="screen">
+          <div class="quizhead">
+            <span class="q">Pytanie 4 z 10 · próg 80%</span>
+            <span class="timer low">0:12</span>
+          </div>
+          <div class="prog"><i style="width:26%"></i></div>
+          <p class="qprompt">Jaki jest minimalny odstęp czerpni od wyrzutni na elewacji przy centrali z odzyskiem?</p>
+          <div class="qkind">jedna odpowiedź</div>
+          <div class="opts">
+            <div class="opt"><span class="box"></span>0,5 m</div>
+            <div class="opt" data-on><span class="box"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span>1,5 m</div>
+            <div class="opt"><span class="box"></span>3,0 m</div>
+            <div class="opt"><span class="box"></span>Odstęp nie ma znaczenia przy różnych wysokościach</div>
+          </div>
+          <div class="navrow">
+            <div class="btn ghost">Wstecz</div>
+            <div class="btn">Dalej</div>
+          </div>
+        </div>
+      </div></div>
+      <div class="caption">
+        <h3><i>03</i> Test — jedno pytanie na ekran</h3>
+        <p>
+          Panel pokazuje wszystkie pytania na jednej długiej stronie; na telefonie to znaczy
+          przewijanie w trakcie odliczania. Dlatego <b>jedno pytanie na ekran</b> i licznik
+          <b>20 s na pytanie</b> zamiast twardych 60 s na całość — zegar tyka dla całego testu,
+          nie resetuje się przy przejściu dalej. Zero sekund = auto-wysyłka tego, co zaznaczone.
+        </p>
+      </div>
+    </div>
+
+    <!-- 04 Wynik -->
+    <div class="screenblock">
+      <div class="phone"><div class="device">
+        <div class="statusbar"><span>9:57</span><span>◗ ▮▮▮ 75%</span></div>
+        <div class="topbar">
+          <button class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+          <span class="toptitle">Wynik</span>
+        </div>
+        <div class="screen">
+          <div class="score">
+            <b>90%</b>
+            <span>Zaliczone — 9 z 10 poprawnych. Wpis trafił do Twojej kartoteki HR.</span>
+          </div>
+          <div class="rowline"><span class="k">Próg zaliczenia</span><span class="v">80%</span></div>
+          <div class="rowline"><span class="k">Poprawne odpowiedzi</span><span class="v ok">9 / 10</span></div>
+          <div class="rowline"><span class="k">Ważne do</span><span class="v">11.09.2028</span></div>
+          <div class="rowline"><span class="k">Przypisał</span><span class="v">A. Nowak</span></div>
+          <div style="flex:1"></div>
+          <div class="btn">Pobierz certyfikat (PDF)</div>
+          <div class="btn ghost">Wróć do moich szkoleń</div>
+          <div class="hint">Certyfikat otwiera się w systemowej przeglądarce PDF — plik ląduje w pamięci podręcznej aplikacji, można go stamtąd udostępnić.</div>
+        </div>
+      </div></div>
+      <div class="caption">
+        <h3><i>04</i> Wynik i certyfikat</h3>
+        <p>
+          Ocena jest po stronie API, aplikacja pokazuje to, co wróciło z <code>/submit</code>.
+          Przy wyniku poniżej progu ta sama plansza robi się czerwona i zamiast certyfikatu
+          ma <b>„Spróbuj ponownie”</b> — bez limitu podejść, jak w panelu.
+        </p>
+      </div>
+    </div>
+
+    <!-- 05 Moje poziomy -->
+    <div class="screenblock">
+      <div class="phone"><div class="device">
+        <div class="statusbar"><span>10:03</span><span>◗ ▮▮▮ 74%</span></div>
+        <div class="topbar">
+          <button class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+          <span class="toptitle">Szkolenia</span>
+        </div>
+        <div class="screen">
+          <div class="seg"><span>Moje szkolenia</span><span data-on>Moje poziomy</span></div>
+          <div class="hint">2 domeny do nadgonienia · tabelę prowadzi zarząd w module Zespół</div>
+          <div class="list" style="gap:7px;overflow:hidden">
+            <div class="dcard" data-gap>
+              <div class="top">
+                <b>Pompy ciepła</b>
+                <span class="dots"><i class="full"></i><i class="needp"></i><i class="pale"></i></span>
+              </div>
+              <div class="sub">Cel: średnio zaawansowany (teoria + praktyka) · termin 30.09</div>
+              <div class="gapline">Do nadgonienia: średnio zaawansowany (praktyka)</div>
+            </div>
+            <div class="dcard" data-gap>
+              <div class="top">
+                <b>BHP i praca na wysokości</b>
+                <span class="dots"><i class="needt"></i><i class="pale"></i><i class="pale"></i></span>
+              </div>
+              <div class="sub">Cel: podstawowy (sama teoria) · termin 15.09</div>
+              <div class="gapline">Do nadgonienia: podstawowy (teoria)</div>
+            </div>
+            <div class="dcard">
+              <div class="top">
+                <b>Rekuperacja</b>
+                <span class="dots"><i class="full"></i><i class="full"></i><i class="theory"></i></span>
+              </div>
+              <div class="sub">Cel: średnio zaawansowany (teoria + praktyka) · dowiezione</div>
+            </div>
+            <div class="dcard">
+              <div class="top">
+                <b>Fotowoltaika</b>
+                <span class="dots"><i class="full"></i><i class="theory"></i><i class="pale"></i></span>
+              </div>
+              <div class="sub">Cel: nie dotyczy · oceniona 12.06.2026</div>
+            </div>
+          </div>
+          <div class="legend">
+            <div><span class="dots"><i class="theory"></i></span> obrys = teoria zdana</div>
+            <div><span class="dots"><i class="full"></i></span> środek = praktyka zdana</div>
+            <div><span class="dots"><i class="gapall"></i></span> czerwone = wymagane, a brak</div>
+          </div>
+        </div>
+      </div></div>
+      <div class="caption">
+        <h3><i>05</i> Moje poziomy</h3>
+        <p>
+          Tabela z panelu (6 kolumn) nie mieści się na 318 px, więc każda domena to karta:
+          nazwa, trzy kropki, cel i jedna linia „do nadgonienia”. <b>Kropka niesie dwie
+          informacje</b> — obrys to teoria, środek to praktyka — dokładnie jak
+          <code>LevelGapMark</code> w panelu. Braki na górze.
+        </p>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ─────────────────────────────────────────────────────────────── -->
+<section>
+  <div class="shead">
+    <div class="snum">03 — Zakres</div>
+    <h2>Co z panelu wchodzi na telefon, a co zostaje</h2>
+    <p>Ustalenie: na telefon idzie <b>cała zakładka HR → Szkolenia</b>, czyli widok pracownika. Zarządzanie zostaje w panelu.</p>
+  </div>
+
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr><th>Funkcja panelu</th><th>Gdzie w panelu</th><th>Na telefonie</th><th>Uwaga</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Lista „Moje szkolenia”</td><td class="mono">TrainingList.tsx</td><td><span class="tag jest">wchodzi</span></td><td>Ta sama kolejność i pigułki, plus liczniki i belka pilności.</td></tr>
+        <tr><td>Ekran lekcji (film)</td><td class="mono">szkolenie/[id]</td><td><span class="tag jest">wchodzi</span></td><td>WebView zamiast iframe; bramka na obejrzenie.</td></tr>
+        <tr><td>Test wiedzy</td><td class="mono">LessonPlayer.tsx</td><td><span class="tag jest">wchodzi</span></td><td>Jedno pytanie na ekran, 20 s/pytanie zamiast 60 s na całość.</td></tr>
+        <tr><td>Wynik i próg</td><td class="mono">POST /submit</td><td><span class="tag jest">wchodzi</span></td><td>Ocenia serwer — aplikacja nie zna klucza odpowiedzi.</td></tr>
+        <tr><td>Certyfikat PDF</td><td class="mono">GET /certificate</td><td><span class="tag jest">wchodzi</span></td><td>Pobranie do cache + <code>FileProvider</code>, jak załączniki zadań.</td></tr>
+        <tr><td>„Moje poziomy” (luki)</td><td class="mono">SkillLevels.tsx</td><td><span class="tag jest">wchodzi</span></td><td>Tabela → karty domen; kropki teoria/praktyka bez zmian znaczenia.</td></tr>
+        <tr><td>Transkrypcja lekcji</td><td class="mono">lesson.description</td><td><span class="tag jest">wchodzi</span></td><td>Zwijana sekcja pod filmem — bywa 100 tys. znaków.</td></tr>
+        <tr><td>Katalog lekcji, pytania, generator AI</td><td class="mono">Baza wiedzy</td><td><span class="tag brak">zostaje</span></td><td>Wymaga <code>training.manage</code>; to praca przy biurku.</td></tr>
+        <tr><td>Przypisywanie osób, „kto zaliczył”</td><td class="mono">assignments</td><td><span class="tag brak">zostaje</span></td><td>Poza zakresem ustalonym 2026-09-06.</td></tr>
+        <tr><td>Dzwonek „kto zdał/oblał”</td><td class="mono">/training/notifications</td><td><span class="tag brak">zostaje</span></td><td>To widok przypisującego, nie pracownika.</td></tr>
+        <tr><td>Urlopy, wnioski, kalendarz HR</td><td class="mono">/app/hr → Urlop</td><td><span class="tag brak">zostaje</span></td><td>Druga zakładka HR — inny moduł, inna rozmowa.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ─────────────────────────────────────────────────────────────── -->
+<section>
+  <div class="shead">
+    <div class="snum">04 — API</div>
+    <h2>Backend jest kompletny — zero zmian po stronie board360</h2>
+    <p>
+      Wszystkie trasy poniżej stoją za <code>SessionAuthGuard</code> + <code>training.view</code>,
+      które ma każda rola. Token mobilny (<code>POST /api/auth/mobile-login</code>) niesie te same
+      uprawnienia, więc aplikacja czyta je bez żadnego nowego endpointu.
+    </p>
+  </div>
+
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr><th>Trasa</th><th>Zwraca</th><th>Używa jej</th><th>Stan</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="mono">GET /api/training/my</td><td>lista przypisań: tytuł, status, wynik, próg, liczba pytań, termin, ważność, kto przypisał</td><td>Ekran 01</td><td><span class="tag jest">jest</span></td></tr>
+        <tr><td class="mono">GET /api/training/lessons/:id/play</td><td>lekcja + pytania bez klucza + <code>assignmentId</code> + ostatni wynik</td><td>Ekran 02, 03</td><td><span class="tag jest">jest</span></td></tr>
+        <tr><td class="mono">POST /api/training/assignments/:id/submit</td><td><code>{score, passed, passThreshold, correctCount, total}</code></td><td>Ekran 04</td><td><span class="tag jest">jest</span></td></tr>
+        <tr><td class="mono">GET /api/training/lessons/:id/certificate</td><td>PDF (<code>Content-Disposition: attachment</code>)</td><td>Ekran 04, 01</td><td><span class="tag jest">jest</span></td></tr>
+        <tr><td class="mono">GET /api/domain-skills/me</td><td><code>{data:{rows, domains}}</code> — poziomy, wymogi, terminy, opisy domen</td><td>Ekran 05</td><td><span class="tag jest">jest</span></td></tr>
+        <tr><td class="mono">atrapa board360-mock</td><td>—</td><td>testy bez VPS</td><td><span class="tag mock">nie zna szkoleń</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="cards" style="margin-top:16px">
+    <div class="card">
+      <h3><i class="dot part"></i> 403 to nie błąd</h3>
+      <p>
+        <code>/play</code> oddaje <b>403</b>, gdy lekcja nie jest przypisana — ekran pokazuje wtedy
+        „Szkolenie niedostępne”, a nie czerwony komunikat sieciowy. Tak samo robi panel.
+      </p>
+    </div>
+    <div class="card">
+      <h3><i class="dot part"></i> Certyfikat wymaga zaliczenia</h3>
+      <p>
+        Przy statusie innym niż <code>passed</code> trasa certyfikatu odpowiada błędem — przycisk
+        „PDF” pokazujemy tylko przy zaliczonych, dokładnie jak w panelu.
+      </p>
+    </div>
+    <div class="card">
+      <h3><i class="dot part"></i> Test to 10 losowych pytań z puli</h3>
+      <p>
+        <code>/play</code> tasuje pulę lekcji i wydaje <b>maksymalnie 10 pytań</b> — inny zestaw
+        przy każdym wejściu. Dlatego licznik na telefonie liczy się od tego, co przyszło
+        (10 pyt. = 3:20), a „Spróbuj ponownie" <b>dociąga nowy zestaw</b>, zamiast powtarzać stary.
+      </p>
+    </div>
+    <div class="card">
+      <h3><i class="dot ok"></i> Ważność liczy serwer</h3>
+      <p>
+        <code>expiresAt</code> przychodzi policzone z <code>validityMonths</code>. Aplikacja tylko
+        porównuje z „dziś”, żeby zamienić „Zaliczone” na <b>„Do odnowienia”</b> — bez własnej
+        arytmetyki miesięcy.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────────────────────────────────────────── -->
+<section>
+  <div class="shead">
+    <div class="snum">05 — Ustalenia</div>
+    <h2>Cztery decyzje zamawiającego (2026-09-06)</h2>
+  </div>
+
+  <div class="qs">
+    <div class="qq">
+      <h3>Zakres 1:1 z zakładką HR <span class="tag jest">ustalone</span></h3>
+      <p>
+        Na telefon wchodzi <b>Moje szkolenia + Moje poziomy</b> — czyli dokładnie to, co widzi
+        pracownik w panelu. Katalog lekcji, pytania i przypisywanie zostają przy biurku.
+      </p>
+    </div>
+    <div class="qq">
+      <h3>Film w WebView, z wymuszeniem obejrzenia <span class="tag jest">ustalone</span></h3>
+      <p>
+        Odtwarzacz siedzi w aplikacji, a test odblokowuje się dopiero po obejrzeniu filmu —
+        w panelu „Krok 2” był tylko przyciskiem, nikt nie sprawdzał, czy ktokolwiek oglądał.
+        Dla YouTube liczymy realny czas odtwarzania (IFrame API); dla pozostałych źródeł
+        bramką jest odtworzenie + potwierdzenie „Obejrzałem”.
+      </p>
+    </div>
+    <div class="qq">
+      <h3>Licznik 20 sekund na pytanie <span class="tag jest">ustalone</span></h3>
+      <p>
+        Zamiast twardych 60 s na cały test limit skaluje się z liczbą pytań (10 pyt. = 3:20).
+        Auto-wysyłka po zejściu do zera zostaje — tak samo jak w panelu, razem z tym,
+        co zdążyło się zaznaczyć.
+      </p>
+    </div>
+    <div class="qq">
+      <h3>Wyłącznie online <span class="tag jest">ustalone</span></h3>
+      <p>
+        Bez cache w Room i bez kolejki offline. Film i tak wymaga sieci, a ocena jest po
+        stronie serwera — rozwiązany test „w kolejce” znaczyłby wynik nieznany do powrotu
+        zasięgu. Brak sieci = pasek „Brak połączenia” i ponów.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────────────────────────────────────────── -->
+<section>
+  <div class="shead">
+    <div class="snum">06 — Realizacja</div>
+    <h2>Trzy etapy</h2>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="no">E1</div>
+      <div>
+        <h3>Warstwa danych i lista <span class="tag jest">zrobione</span></h3>
+        <p>
+          Model domenowy, DTO, mapper i repozytorium bez cache. Kafelek na pulpicie, ekran
+          listy z licznikami i dwiema zakładkami, pigułki statusu z „Do odnowienia” po
+          <code>expiresAt</code>.
+        </p>
+        <div class="files">
+          <i>domain/model/Training.kt</i><i>data/remote/dto/TrainingDto.kt</i>
+          <i>data/mapper/TrainingMappers.kt</i><i>data/repository/TrainingRepositoryImpl.kt</i>
+          <i>presentation/training/TrainingScreen.kt</i><i>presentation/home/HomeModules.kt</i>
+        </div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="no">E2</div>
+      <div>
+        <h3>Lekcja: film, test, wynik, certyfikat <span class="tag jest">zrobione</span></h3>
+        <p>
+          WebView z mostkiem JS liczącym obejrzane sekundy, bramka testu, jedno pytanie na
+          ekran z licznikiem 20 s/pyt. i auto-wysyłką, plansza wyniku, pobranie certyfikatu
+          przez <code>FileProvider</code>.
+        </p>
+        <div class="files">
+          <i>presentation/training/LessonScreen.kt</i><i>presentation/training/LessonVideo.kt</i>
+          <i>presentation/training/LessonViewModel.kt</i>
+        </div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="no">E3</div>
+      <div>
+        <h3>Moje poziomy <span class="tag jest">zrobione</span></h3>
+        <p>
+          Karty domen z kropkami teoria/praktyka, braki na górze, cel i termin nadgonienia —
+          port <code>mineEntries</code> i <code>LevelGapMark</code> z panelu do Compose.
+        </p>
+        <div class="files">
+          <i>presentation/training/SkillLevelsView.kt</i><i>domain/model/SkillLevels.kt</i>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</div>

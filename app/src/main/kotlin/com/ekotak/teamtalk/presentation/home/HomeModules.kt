@@ -172,6 +172,22 @@ val HOME_MODULES: List<HomeModule> = listOf(
             "M15.5 16.5h-7",
         ),
     ),
+    // Drugi kafelek z modułu HR: w panelu szkolenia są ZAKŁADKĄ HR
+    // (/app/hr → „Szkolenia"), a HR jako całość był z pulpitu mobilnego
+    // wypchnięty jako biurkowy. Same szkolenia biurkowe nie są — montażysta
+    // ogląda film w busie, nie przy biurku (ustalenie 2026-09-06). Kolor bierzemy
+    // z kafelka HR w Pomocy panelu (#5EEAD4), żeby to był ten sam moduł.
+    HomeModule(
+        key = "training",
+        label = "Szkolenia",
+        desc = "Twoje szkolenia, testy i poziomy",
+        color = Color(0xFF5EEAD4),
+        icon = moduleIcon(
+            "M12 4.2 2.8 8.4 12 12.6l9.2-4.2z",
+            "M6.4 10.3v4.9c0 1.7 2.5 3 5.6 3s5.6-1.3 5.6-3v-4.9",
+            "M21.2 8.4v5.4",
+        ),
+    ),
     HomeModule(
         key = "calendar",
         label = "Kalendarz",

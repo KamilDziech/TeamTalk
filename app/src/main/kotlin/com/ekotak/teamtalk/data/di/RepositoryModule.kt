@@ -67,4 +67,7 @@ abstract class RepositoryModule {
 
     @Binds @Singleton
     abstract fun bindMemberRepository(impl: MemberRepositoryImpl): MemberRepository
+
+    @Binds @Singleton
+    abstract fun bindTrainingRepository(impl: TrainingRepositoryImpl): TrainingRepository
 }

@@ -533,4 +533,42 @@ interface TeamTalkApi {
         @Path("taskId") taskId: String,
         @Body request: AddCommentRequest,
     ): DiscussionCommentDto
+
+    // ── Szkolenia (kafelek „Szkolenia" = zakładka HR → Szkolenia w panelu) ──────
+    // Trasy pracownika stoją za `training.view`, które ma KAŻDA rola — serwisant
+    // i montaż też, więc token mobilny wystarcza i po stronie board360 nic nie
+    // trzeba było dopisywać. Zarządzanie katalogiem (`training.manage`) zostaje
+    // w panelu, patrz `design/mockups/modul-szkolenia.html`.
+
+    /** Szkolenia przypisane zalogowanemu, ze stanem wykonania i ważnością. */
+    @GET("api/training/my")
+    suspend fun getMyTrainings(): List<MyAssignmentDto>
+
+    /**
+     * Materiał lekcji + pytania BEZ klucza odpowiedzi. Gdy lekcja nie jest
+     * zalogowanemu przypisana, API oddaje 403 — to stan ekranu („szkolenie
+     * niedostępne"), a nie awaria.
+     */
+    @GET("api/training/lessons/{id}/play")
+    suspend fun getPlayableLesson(@Path("id") id: String): PlayableLessonDto
+
+    /** Odpowiedzi do oceny; wynik i próg liczy serwer. */
+    @POST("api/training/assignments/{id}/submit")
+    suspend fun submitTraining(
+        @Path("id") assignmentId: String,
+        @Body request: SubmitTrainingRequest,
+    ): GradeResultDto
+
+    /** Certyfikat PDF — wyłącznie dla zaliczonego szkolenia. */
+    @Streaming
+    @GET("api/training/lessons/{id}/certificate")
+    suspend fun downloadTrainingCertificate(@Path("id") id: String): ResponseBody
+
+    /**
+     * „Moje poziomy" — wymogi i stan zalogowanego w domenach umiejętności.
+     * Trasa spoza modułu szkoleń (`skill-catalog`), dostępna każdemu
+     * zalogowanemu, i jako jedyna tutaj pakuje odpowiedź w `{data:...}`.
+     */
+    @GET("api/domain-skills/me")
+    suspend fun getMySkills(): MySkillsEnvelopeDto
 }

@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Ścieżki, które FileProvider wolno udostępnić innym aplikacjom. Trzymamy się
-  jednego katalogu: pobrane załączniki lądują w cache i stamtąd oddajemy je
-  systemowi do otwarcia. Reszta danych aplikacji zostaje niewidoczna.
+  cache'u: pobrane pliki lądują w nim i stamtąd oddajemy je systemowi do
+  otwarcia. Reszta danych aplikacji zostaje niewidoczna.
 -->
 <paths>
     <cache-path name="task-attachments" path="attachments/" />
+    <!-- Certyfikaty ukończonych szkoleń (PDF) otwierane systemowym czytnikiem. -->
+    <cache-path name="training-certificates" path="certificates/" />
 </paths>
