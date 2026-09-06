@@ -38,10 +38,14 @@ import com.ekotak.teamtalk.presentation.map.MapScreen
 import com.ekotak.teamtalk.presentation.home.HomeScreen
 import com.ekotak.teamtalk.presentation.home.ModulePlaceholderScreen
 import com.ekotak.teamtalk.presentation.home.homeModule
+import com.ekotak.teamtalk.presentation.inventory.InventoryScreen
+import com.ekotak.teamtalk.presentation.inventory.ProductDetailScreen
 import com.ekotak.teamtalk.presentation.postcallnote.PostCallNoteScreen
 import com.ekotak.teamtalk.presentation.calendar.CalendarScreen
 import com.ekotak.teamtalk.presentation.calendar.FindTimeScreen
 import com.ekotak.teamtalk.domain.model.ServiceDomain
+import com.ekotak.teamtalk.presentation.projects.ProjectDetailScreen
+import com.ekotak.teamtalk.presentation.projects.ProjectsScreen
 import com.ekotak.teamtalk.presentation.service.ServiceJobScreen
 import com.ekotak.teamtalk.presentation.service.ServiceScreen
 import com.ekotak.teamtalk.presentation.service.WarrantyCardScreen
@@ -214,6 +218,8 @@ private fun MainScreen(
                             // w dziedzinie „Przegląd" (ustalenie 2026-09-02).
                             "inspections" -> "service?inspections=1"
                             "calendar" -> "calendar"
+                            "inventory" -> "inventory"
+                            "projects" -> "projects"
                             "training" -> "training"
                             else -> "module/${module.key}"
                         }
@@ -237,7 +243,30 @@ private fun MainScreen(
                 }
             }
 
-            // ── Zadania zespołu (kafelek pulpitu) ──────────────────────────────
+            // ── Magazyn (kafelek pulpitu) ──────────────────────────────────────
+            // Etap E1: zakładka „Stan" i karta pozycji, wyłącznie do odczytu.
+            composable("inventory") {
+                InventoryScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onOpenProduct = { id -> navController.navigate("product/$id") },
+                )
+            }
+
+            // ── Projekty (kafelek pulpitu) ─────────────────────────────────────
+            composable("projects") {
+                ProjectsScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onOpenProject = { id -> navController.navigate("projects/$id") },
+                )
+            }
+
+            composable(
+                route = "projects/{projectId}",
+                arguments = listOf(navArgument("projectId") { type = NavType.StringType }),
+            ) {
+                ProjectDetailScreen(onNavigateBack = { navController.popBackStack() })
+            }
+
             // ── Szkolenia (kafelek pulpitu = zakładka HR → Szkolenia) ──────────
             composable("training") {
                 TrainingScreen(
@@ -253,6 +282,14 @@ private fun MainScreen(
                 LessonScreen(onNavigateBack = { navController.popBackStack() })
             }
 
+            composable(
+                route = "product/{productId}",
+                arguments = listOf(navArgument("productId") { type = NavType.StringType }),
+            ) {
+                ProductDetailScreen(onNavigateBack = { navController.popBackStack() })
+            }
+
+            // ── Zadania zespołu (kafelek pulpitu) ──────────────────────────────
             composable("tasks") {
                 TaskListScreen(
                     onCreateTask = { navController.navigate("create_task") },

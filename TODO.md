@@ -147,6 +147,180 @@ Dociągane dopiero przy wejściu w zakładkę — reszta karty ich nie potrzebuj
 - ❌ Ikonografika budynku i ręczna korekta danych budynku ze zgłoszenia
   (`PATCH …/lead/building`) — te same wartości stoją niżej wypisane
 
+### Zakładka „Audyt" karty deala
+
+Odpowiednik zakładki `audyt` z `DealDrawer` panelu. Trzy bloki, w kolejności
+używania: spotkanie audytowe (termin i dojazd), formularz audytu instalacji
+(podstawa oferty) i lista Heizlast. Dane z czterech źródeł, każde z osobną
+obsługą błędu: `GET /api/deals/:id/audits`, `GET /api/categories` (szablon
+`auditForm` do dziedziczenia), `GET /api/deals/:id/installations` (migawka
+etapu `audit`) i `GET /api/deals/:id/contracts` (czy oferta jest zamknięta
+podpisem). Dociągane dopiero przy wejściu w zakładkę.
+
+- ✅ Spotkanie audytowe: miejsce (instalacja / biuro / online) i termin zapisują
+  się od razu, bez trybu edycji; adres i osoba wykonująca do odczytu
+- ✅ Akcja miejsca: „Wyznacz trasę" (intent `geo:`) przy audycie u klienta,
+  „Otwórz spotkanie" (link) przy audycie online — jak zielony pasek w panelu
+- ✅ Wybór instalacji z migawki etapu „Audyt"; formularz DZIEDZICZONY z katalogu
+  (najbliższy przodek z `Category.auditForm`), więc marka pyta o to samo,
+  o co pyta technologia nad nią
+- ✅ Formularz audytu OP w trzech zwijanych sekcjach: Dane ogólne (system rur,
+  sterowanie, napełnienie, chłodzenie przy pompie ciepła), Dane instalacji
+  (8 pytań + warunkowe: medium i inhibitor, dokumentacja gwarancji) z licznikiem
+  „x / y" na belce, Kondygnacje (nazwa, metraż wg projektu, system, rozdzielacze,
+  skrzynka, metraże wg rozstawu rur, komentarz) z sumą i porównaniem z projektem
+- ✅ Pierwsze wypełnienie startuje z szablonu katalogu uzupełnionego danymi
+  budynku (ilość i nazwy kondygnacji) — tak samo jak panel
+- ✅ Rozstaw 5 cm znika przy rurze ⌀18 (nie da się jej tak wygiąć)
+- ✅ Lista braków + „Zapisz — brakuje N" na pomarańczowo; niekompletny audyt
+  zapisuje się normalnie (uzupełnia się go na raty)
+- ✅ Blokada po podpisie umowy: formularz do odczytu, pasek mówi którą umowę
+  klient podpisał i czy zmiana jest już w toku
+- ✅ Heizlast: lista wpisów (tryb, data, kW, notatka) + nowy w trybie szybkim
+  (metraż, wysokość, standard budynku, podgląd kW) albo DIN (wynik zewnętrzny)
+- ❌ Rysowanie po rzucie kondygnacji: kropki rozdzielaczy, pomiar metrażu
+  z obrysów, kalibracja skali, źródło ciepła, historia zmian na rzucie. To
+  rysowanie po planie budynku — palcem na 360 dp nie da się tego zrobić
+  uczciwie. Zapisane wartości PRZECHODZĄ przez telefon nietknięte
+  (`UfhFloor.planJson`), więc zapis z terenu nie kasuje pracy z panelu
+- ❌ Automat zmiany oferty po podpisie (nowa umowa / aneks z policzonym
+  rozpisem) — ruch kończy się dokumentem do podpisu, robi się go w panelu
+- ❌ Materiał, długości rur, pojemność wodna i punkty montażowe liczone z audytu
+  — to widoki wynikowe, nie pytania do audytora
+- ✅ Kolejka offline i cache (baza w wersji 13). Audyt robi się w domu w budowie,
+  gdzie zasięgu zwykle nie ma, a formularz jest podstawą oferty — utrata
+  odpowiedzi wpisanych przy kliencie to drugi dojazd. Szczegóły niżej.
+
+#### Kolejka offline zakładki „Audyt"
+
+Cache (`audits`, `catalog_categories`, `audit_installations`) plus kolejka
+(`audit_mutations`), opróżniana przez `AuditSyncWorker` na warunek sieci —
+bez odpytywania, system budzi robotnika sam. Odczyt: najpierw sieć, przy jej
+braku cache. Zapis: najpierw sieć, przy jej braku kolejka i od razu cache.
+
+- ✅ Formularz audytu instalacji zapisany bez zasięgu ląduje w kolejce; nagłówek
+  bloku pokazuje „czeka na wysyłkę", a komunikat mówi wprost „zapisano
+  w telefonie — wyślemy, gdy wróci zasięg" (samo „zapisano" audytor przeczytałby
+  jako „panel już to ma")
+- ✅ Nowy wpis Heizlast bez zasięgu dostaje lokalne id i czeka w kolejce.
+  kW szybkiego szacunku liczy SERWER, więc do wysyłki wiersz pokazuje „czeka
+  na wysyłkę" zamiast zmyślonego wyniku
+- ✅ Jeden wiersz kolejki = CAŁY dokument `formData`, nie pojedyncze pole
+  (inaczej niż w Zadaniach): API podmienia go w całości, więc scalanie dwóch
+  zapisów dałoby formularz, którego nikt nie wypełnił. Kolejny zapis tego
+  samego audytu nadpisuje poprzedni — liczy się ostatnia decyzja audytora
+- ✅ Po wysłaniu rekordu założonego offline cache i kolejka przechodzą na id
+  nadane przez serwer, a czekający zapis zmienia się z `POST` na `PATCH` —
+  bez tego deal dostałby DWA formularze tego samego węzła
+- ✅ Odmowa serwera (409 przy podpisanej umowie, 403, 404) porzuca wpis
+  i mówi o tym przez skrzynkę `syncProblem` — ponowienie nic by nie zmieniło,
+  a to praca człowieka przepadła
+- ✅ Migawka instalacji cache'uje też węzły ze WSZYSTKICH etapów, bo z nich
+  rozpoznajemy pompę ciepła. Bez tego audyt zapisany offline chowałby pytanie
+  o chłodzenie i wysyłał `cooling: false`, kasując odpowiedź daną w panelu
+- ⚠️ Bez zasięgu nie wiemy, czy oferta jest zamknięta umową (`/contracts` nie
+  odpowiada). Formularz zostaje wtedy OTWARTY: audytor ma zapisać to, co
+  zmierzył, a rozjazd i tak wychwyci serwer przy wysyłce (409)
+- ❌ Wejście w kartę deala nadal wymaga sieci (`DealRepository` świadomie bez
+  cache). Kolejka ratuje pracę zaczętą w zasięgu i ciągniętą dalej bez niego,
+  ale po ubiciu aplikacji offline audytor nie dojdzie do zakładki. Pełne
+  offline wymaga cache lejka — osobna decyzja, bo to zmiana ustalenia z karty
+
+#### Do sprawdzenia na urządzeniu (kolejka audytu)
+
+1. Tryb samolotowy → wypełnij formularz audytu → „Zapisz". Komunikat ma mówić
+   „w telefonie", a nagłówek bloku „czeka na wysyłkę". Zabij aplikację i wejdź
+   ponownie — odpowiedzi mają zostać.
+2. Wyłącz tryb samolotowy → w ciągu chwili znacznik znika, a panel pokazuje
+   zapisany formularz.
+3. Bez zasięgu zapisz formularz DWA razy (druga wersja z innym metrażem) —
+   na serwer ma pójść JEDEN rekord, z drugą wersją.
+4. Bez zasięgu dodaj wpis Heizlast w trybie szybkim → po powrocie sieci wiersz
+   ma dostać kW policzone przez serwer.
+5. Bez zasięgu zapisz audyt deala z podpisaną umową → po powrocie sieci zapis
+   ma przepaść z komunikatem o umowie, a nie krążyć w kolejce.
+
+#### Do sprawdzenia na urządzeniu (round-trip warstwy rzutu)
+
+Projekt nie ma testów jednostkowych, a przejścia `formData` przez telefon nie
+da się sprawdzić kompilacją. Atrapa ma na to gotowe dane: deal na etapie „Audyt"
+niesie formularz OP z kropką rozdzielacza, obrysem pomieszczenia, skalą,
+historią i podpisami. Scenariusz po `gradlew installDebug`:
+
+1. Deal na etapie „Audyt" → zakładka „Audyt" → instalacja „Ogrzewanie
+   podlogowe". Formularz ma być wypełniony wartościami z panelu.
+2. Zmień JEDNO pole (np. komentarz kondygnacji) i zapisz.
+3. `GET /api/deals/:id/audits` — w `formData.floors[0]` muszą nadal być
+   `manifoldMarks`, `heatSource`, `manifoldHistory`, `rooms`, `planScale`,
+   `planSlot`, `planDocId` oraz podpisy `marksSavedBy` / `areaSavedBy`.
+   Zniknięcie któregokolwiek = utrata pracy zrobionej w panelu.
+4. `manifolds` ma zostać liczbą całkowitą (`1`, nie `1.0`).
+
+### Zakładka „Zamówienie" karty deala
+
+Odpowiednik zakładki `zamowienia` z `DealDrawer` panelu — te same trzy bloki,
+przestawione pod kciuk: zakres (drzewo etapu `sold`, **zwinięte** do nagłówka,
+bo na 360 dp wypycha resztę pod krawędź), rezerwacja materiału i zamówienia.
+Cztery odczyty, każdy z osobną obsługą błędu, bo każdy stoi na innym
+uprawnieniu: `GET /api/deals/:id/orders` (`order.manage` — w board360 to
+uprawnienie gate'uje TAKŻE odczyt), `GET /api/deals/:id/offers` (`crm.view`),
+`GET /api/inventory/reservations?status=all&dealId=` i
+`GET /api/inventory/orders?status=all&dealId=` (`inventory.view`).
+
+- ✅ Zakres jako czysty podgląd: drzewo przycięte do wyboru klienta
+  (`pruneToSelected` — bez pustych kategorii i wyszarzonych marek, jak
+  `onlyPicked` w panelu); zakres zamówienia zmienia się wyłącznie przez ofertę
+- ✅ Karta zamówienia z nazwą instalacji w nagłówku (z umowy powstaje po jednym
+  zamówieniu na instalację), znacznikiem „z umowy", stanem liczonym z pozycji
+  i licznikiem „n / m odebrane"
+- ✅ Dwa ptaszki przy pozycji („zamów." / „odebr.") pod nazwą, nie obok —
+  nazwy magazynowe są za długie na jedną linię z dwoma polami wyboru
+- ✅ Ręczne zakładanie zamówienia z WYGRANEJ oferty (selektor + przycisk),
+  droga awaryjna pod listą — zamówienia zwykle powstają same z umowy
+- ✅ Rezerwacja materiału: trzy liczby magazynu (potrzeba / z magazynu /
+  brakuje), stan zakupu linii (propozycja → lista zakupowa → zamówione + ETA →
+  przyjęte), ostrzeżenie o pozycjach bez kartoteki
+- ✅ „ZAMÓW braki (n)" — tylko pozycje, których nie objął żaden zakup; reszta
+  ma już propozycję albo dostawę w drodze i drugie kliknięcie kupiłoby podwójnie
+- ✅ „Wydane" / „Zwolnij" / „Przywróć" przy linii rezerwacji
+- ✅ Brak uprawnienia chowa POJEDYNCZY blok z wyjaśnieniem, a nie całą zakładkę
+- ⛔ „Przelicz z audytu" **zostaje w panelu** — zestawienie liczy się z całego
+  audytu podłogówki (rozdzielacze, długości rur, chemia); druga implementacja
+  tej matematyki na telefonie zamawiałaby zły towar przy pierwszym rozjeździe
+
+#### Kolejka offline zakładki „Zamówienie"
+
+Baza **14 → 15**: `deal_orders`, `deal_offers`, `order_mutations`, kolumna
+`inventory_orders.reservationId` i `audit_installations.soldStageCategoryIds`
+(drzewo zakresu ma się rysować bez zasięgu). Kolejkę opróżnia `OrderSyncWorker`
+z warunkiem sieci — bez odpytywania.
+
+- ✅ Cztery rodzaje zapisu w JEDNEJ kolejce (`order_create`, `order_item`,
+  `reservation`, `purchase`) — wspólna kolejność wysyłki, bo zamówienie
+  założone offline musi pójść przed zakupami braków, które przy nim powstały
+- ✅ Niewysłane zmiany **nakładane przy odczycie**, nie wpisywane w cache:
+  odświeżenie Magazynu podmienia rezerwacje hurtem i skasowałoby ptaszek
+  postawiony przed chwilą w kotłowni
+- ✅ Drugi ptaszek przy tej samej pozycji **dokłada się** do czekającego ciała
+  („zamów." i „odebr." to dwa niezależne pola)
+- ✅ Zamówienie zakolejkowane offline stoi na liście puste, z podpisem, że
+  pozycje dopisze panel — kopiuje je z oferty, więc zgadywanie ich na telefonie
+  dałoby listę do odhaczania inną niż ta po synchronizacji
+- ✅ Odmowa serwera (403/404/409) kończy wpis i mówi o tym człowiekowi
+  (`SessionPreferences.saveSyncProblem`) — ponowienie nic by nie zmieniło
+
+#### Do przeklikania na urządzeniu
+
+1. Deal „Instal Serwis" → zakładka „Zamówienie": zamówienie z umowy, cztery
+   pozycje, rezerwacja z pięcioma wariantami wiersza (atrapa ma na to seed).
+2. Tryb samolotowy → odhacz „odebr." przy dwóch pozycjach i zwolnij jedną
+   rezerwację → wszystko z niebieskim „czeka na wysyłkę"; wróć w zasięg
+   i sprawdź `GET /api/deals/:id/orders`.
+3. Konto `montaz` (bez `order.manage`): blok magazynu widoczny, blok zamówień
+   z wyjaśnieniem. Konto `serwisant`: oba bloki z wyjaśnieniem.
+4. Deal „Wojcik — PV + magazyn": selektor pokazuje TYLKO ofertę `won`;
+   po utworzeniu zamówienie ma 3 pozycje przepisane z oferty.
+
 ### Edycja karty (ekran `deal/{id}/edit`)
 
 Pełen zakres pól przyjmowanych przez `PATCH /api/deals/:id`. Zapis idzie jednym
@@ -272,6 +446,56 @@ Scenariusz na telefon po `gradlew installDebug`:
    po powrocie sieci mają wejść obie zmiany, jednym żądaniem.
 4. Bez zasięgu odhacz zadanie, usuń je w panelu, wróć w zasięg — zadanie znika
    z listy, a na dole pojawia się komunikat „Zmiana … przepadła".
+
+---
+
+## 12. Moduł Magazyn (kafelek „Magazyn")
+
+- ✅ Koncepcja i makieta (2026-09-04) — `design/mockups/modul-magazyn.html`:
+  cztery zakładki (Stan · Dostawy · Spis · Braki), skaner kodów z etykiet
+  drukowanych w panelu, wydanie jako przycisk w karcie pozycji (nie osobna
+  karta). Oferty, faktury, raport, archiwum i pełna edycja kartoteki zostają
+  w panelu — na telefon wchodzi tylko to, co robi się na stojąco
+- ❌ Cały moduł — kafelek `inventory` (`HomeModules.kt`) prowadzi do zaślepki;
+  brak DTO, encji Room, repozytorium i tras w `TeamTalkApi.kt`
+- ❌ Braki po stronie board360 (warunek wstępny E1–E4): `GET /api/products`
+  bez `q`, stronicowania i `updatedSince`; brak `GET /api/products/lookup?code=`
+  dla skanera; brak idempotencji na `POST /products/:id/movements` (kolejka
+  offline zdubluje przyjęcie po ponowieniu); brak tras magazynu w atrapie
+  `board360-mock`
+
+### Do ustalenia (odpowiedzi zamawiającego)
+
+Siedem pytań z sekcji 07 makiety. Pierwsze jest blokujące — dziś żadna rola
+używana w TeamTalku nie może zaksięgować ruchu magazynowego.
+
+1. ❓ **Kto może wydawać i przyjmować z telefonu?** `serwisant`, `montaz`
+   i `stazysta` mają w `permissions.ts` tylko `inventory.view`;
+   `inventory.manage` ma admin, zarząd i koordynator.
+   Opcje: nadpisanie per osoba dla magazyniera · nowa rola `magazyn` · monter
+   też dostaje `manage` · telefon zostaje czytelnią.
+   Rekomendacja: nadpisanie per osoba, monter przy podglądzie
+2. ❓ **Czy „Wydane" z rezerwacji ma księgować ruch?** Dziś `PATCH
+   /inventory/reservations/:id` ze statusem `done` nie rusza stanu.
+   Opcje: jedna akcja robi oba (zmiana także w panelu, trasa
+   `/reservations/:id/issue`) · telefon jak panel, dwa kroki.
+   Rekomendacja: jedna akcja — inaczej panel i telefon liczą magazyn inaczej
+3. ❓ **Czy wydanie musi wskazywać „pod kogo"?**
+   Opcje: zawsze deal albo rezerwacja · wolno „na magazyn" z notatką.
+   Rekomendacja: wolno „na magazyn", ale notatka obowiązkowa
+4. ❓ **Co czyta skaner?** Etykiety z panelu kodują `code ?? id`, opakowania
+   mają własne EAN-y, których w kartotekach częściowo nie ma.
+   Opcje: tylko nasze QR · QR + EAN z dopisywaniem kodu do kartoteki.
+   Rekomendacja: oba, plus pytanie „kod nieznany — przypisać do pozycji?"
+5. ❓ **Czy stan ma spadać od razu, przed wysłaniem?**
+   Opcje: optymistycznie z licznikiem „czeka" · dopiero po potwierdzeniu.
+   Rekomendacja: optymistycznie, ze znacznikiem „2 ruchy czekają"
+6. ❓ **Ile kartoteki wolno poprawić z telefonu?**
+   Opcje: lokalizacja + uwagi · dodatkowo progi min/maks · pełna edycja.
+   Rekomendacja: lokalizacja i uwagi — progi ruszają automatem zakupowym
+7. ❓ **Czy zakładka Braki wchodzi w pierwszej wersji?**
+   Opcje: cztery zakładki od razu · trzy, Braki na koniec (E5) albo wcale.
+   Rekomendacja: zaplanować cztery, wypuścić Braki jako ostatnie
 
 ---
 

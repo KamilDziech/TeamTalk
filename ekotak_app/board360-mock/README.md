@@ -78,6 +78,7 @@ Trzy konta zamiast jednego, bo tylko tak da się na telefonie sprawdzić, że pr
 - **8 deali** — po jednym w kluczowych etapach lejka, jeden **zaległy** (filtr „Zaległe"), jeden **stracony**, jeden klient z dwoma dealami.
 - **3 zgłoszenia z leadowni** (kanały `targi` / `www` / `tel`) — pozostałe deale celowo bez zgłoszenia, żeby dało się zobaczyć komunikat „deal spoza leadowni".
 - **Katalog technologii** (5 kategorii głównych + podkategorie), wartości ofert, „deale wspólne", historia zmian, kolejka nieodebranych połączeń i notatka z transkrypcją.
+- **Sprzedaż i magazyn** — deal „Wojcik — PV + magazyn" ma dwie oferty (przegraną i wygraną) i żadnego zamówienia (na nim testuje się ręczne zakładanie); deal „Instal Serwis" ma zamówienie **z umowy** z pozycjami w trzech stanach oraz rezerwację ze wszystkimi wariantami wiersza: pokryty, brak już kupowany, brak nieobjęty zakupem (na nim działa „ZAMÓW braki"), pozycja bez kartoteki i jedna wydana (historia).
 
 ---
 
@@ -105,11 +106,52 @@ Trzy konta zamiast jednego, bo tylko tak da się na telefonie sprawdzić, że pr
 - `POST /api/deals/:id/assistant`
 - `GET /api/deals/:id/installations` → `{current, stages[]}` z **dziedziczeniem** wyboru z wcześniejszych etapów
 
+### Audyty (zakładka „Audyt" karty deala)
+Jeden endpoint niesie **dwie różne rzeczy**, rozróżnia je `formData.kind`:
+audyt Heizlast (tryb + kW + notatka) i formularz audytu instalacji
+(`kind: "underfloorHeating"`, jeden na parę deal + węzeł katalogu).
+- `GET /api/deals/:id/audits` → lista, najnowsze pierwsze (`crm.view`)
+- `POST /api/deals/:id/audits` (`deal.manage`) — w trybie `szybki` kW liczy
+  **serwer** z `heatloadInputs` `{area, standard, height?}`; telefon podaje
+  wejścia, nie wynik
+- `PATCH /api/audits/:id` (`deal.manage`) — `formData` podmieniane w całości
+- `GET /api/deals/:id/contracts` → **zawsze `[]`**. Atrapa nie ma modułu Umowy,
+  a telefon pyta o tę listę tylko po to, żeby wiedzieć, czy oferta jest zamknięta
+  podpisem. Pusto = audyt otwarty, czyli stan do testowania formularza.
+  Blokady po podpisie (409) na atrapie **nie sprawdzisz**.
+
+### Sprzedaż i magazyn (zakładka „Zamówienie" karty deala)
+Trzy reguły board360 odwzorowane 1:1: status zamówienia **wynika z pozycji**,
+zamówienie powstaje **tylko z wygranej oferty**, a pokrycie rezerwacji
+(`covered` / `missing`) liczy **serwer**, nie telefon.
+- `GET /api/deals/:id/offers` → oferty deala (`crm.view`)
+- `GET /api/deals/:id/orders` → zamówienia (`order.manage` — w board360 to
+  uprawnienie gate'uje **także odczyt**, i na tym stoi rozróżnienie
+  „brak zamówień" od „brak dostępu")
+- `POST /api/deals/:id/orders` `{offerId}` (`order.manage`) — pozycje przepisuje
+  serwer z oferty; oferta inna niż `won` → **422**
+- `PATCH /api/orders/:id/items/:itemId` `{ordered?, received?}` (`order.manage`)
+  — pominięte pole zostaje **nietknięte**; puste ciało → 422
+- `GET /api/inventory/reservations?status=&dealId=` (`inventory.view`) — brak
+  `status` = **same aktywne**, `status=all` = także historia (wydane, zwolnione)
+- `PATCH /api/inventory/reservations/:id` `{status}` (`inventory.manage`) —
+  „Wydane" / „Zwolnij" / „Przywróć"
+- `GET /api/inventory/orders?status=&dealId=` (`inventory.view`) — `open` =
+  `to_order` + `ordered`, `all` = także zamknięte
+- `POST /api/inventory/orders` `{productId, quantity, note?}` (`inventory.manage`)
+  — brak dołożony na listę zakupową; atrapa dokleja `reservationId` po kartotece,
+  żeby wiersz rezerwacji poznał, że jego brak ktoś już kupuje
+
+Uprawnienia w seedzie dobrane tak, żeby dało się przeklikać **wszystkie trzy
+warianty** zakładki: `koordynator`/`biuro`/`admin` widzą całość, `montaz` ma
+sam magazyn (bez zamówień), a `serwisant` żadnego z dwóch bloków (2 × 403).
+
 ### Dane pochodne lejka
 - `GET /api/deals/installations/current` → `{dealId: [idKategoriiGłównej]}`
 - `GET /api/deals/contacts` → `[{dealId, clientId}]`
 - `GET /api/offers/deal-values` → `{dealId: kwotaBrutto}`
-- `GET /api/categories` → katalog technologii
+- `GET /api/categories` → katalog technologii; węzeł „Ogrzewanie podlogowe"
+  niesie `auditForm` — szablon dziedziczony przez zakładkę „Audyt"
 
 ### Leadownia
 - `GET /api/intake/deal/:dealId/lead` — deal spoza leadowni dostaje **200 z pustym ciałem** (nie 404 — mobilka na tym polega)
@@ -231,5 +273,6 @@ src/deal-rules.js      maszyna stanów lejka + blokady walidacyjne
 src/store.js           baza w pamięci i helpery
 src/seed.js            dane startowe
 src/middleware.js      requireAuth / requirePermission / 422
-src/routes/            auth, clients, deals, intake, catalog, telephony, tasks
+src/routes/            auth, clients, deals, intake, catalog, telephony, tasks,
+                       discussions, service, calendar, audits, sales
 ```

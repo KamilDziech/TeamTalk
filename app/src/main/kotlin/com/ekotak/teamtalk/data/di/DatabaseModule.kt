@@ -12,6 +12,10 @@ import com.ekotak.teamtalk.data.local.database.MIGRATION_7_8
 import com.ekotak.teamtalk.data.local.database.MIGRATION_8_9
 import com.ekotak.teamtalk.data.local.database.MIGRATION_9_10
 import com.ekotak.teamtalk.data.local.database.MIGRATION_10_11
+import com.ekotak.teamtalk.data.local.database.MIGRATION_11_12
+import com.ekotak.teamtalk.data.local.database.MIGRATION_12_13
+import com.ekotak.teamtalk.data.local.database.MIGRATION_13_14
+import com.ekotak.teamtalk.data.local.database.MIGRATION_14_15
 import com.ekotak.teamtalk.data.local.database.TeamTalkDatabase
 import dagger.Module
 import dagger.Provides
@@ -42,6 +46,10 @@ object DatabaseModule {
                 MIGRATION_8_9,
                 MIGRATION_9_10,
                 MIGRATION_10_11,
+                MIGRATION_11_12,
+                MIGRATION_12_13,
+                MIGRATION_13_14,
+                MIGRATION_14_15,
             )
             .fallbackToDestructiveMigration()
             .build()
@@ -64,7 +72,12 @@ object DatabaseModule {
     @Provides fun provideMapPointDao(db: TeamTalkDatabase): MapPointDao           = db.mapPointDao()
     @Provides fun provideServiceDao(db: TeamTalkDatabase): ServiceDao             = db.serviceDao()
     @Provides fun provideServiceMutationDao(db: TeamTalkDatabase): ServiceMutationDao = db.serviceMutationDao()
+    @Provides fun provideProjectDao(db: TeamTalkDatabase): ProjectDao             = db.projectDao()
+    @Provides fun provideProjectMutationDao(db: TeamTalkDatabase): ProjectMutationDao = db.projectMutationDao()
     @Provides fun provideCalendarDao(db: TeamTalkDatabase): CalendarDao               = db.calendarDao()
     @Provides fun provideCalendarMutationDao(db: TeamTalkDatabase): CalendarMutationDao = db.calendarMutationDao()
     @Provides fun provideMemberDao(db: TeamTalkDatabase): MemberDao                   = db.memberDao()
+    @Provides fun provideInventoryDao(db: TeamTalkDatabase): InventoryDao             = db.inventoryDao()
+    @Provides fun provideAuditDao(db: TeamTalkDatabase): AuditDao                     = db.auditDao()
+    @Provides fun provideOrderDao(db: TeamTalkDatabase): OrderDao                     = db.orderDao()
 }

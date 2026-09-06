@@ -1,0 +1,1465 @@
+<title>Magazyn w TeamTalku</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Roboto:wght@400;500;700&display=swap">
+
+<style>
+/* ── Tokeny strony (te same co modul-serwis.html / modul-mapa.html) ────── */
+:root{
+  --bg:#EEF3F9; --bg-2:#DBE6F2; --surface:#FFFFFF;
+  --fg:#0F1720; --muted:#5A6B7C; --border:#C3CBD4;
+  --brand:#2FA84F; --brand-loud:#44D62C; --ink:#080808;
+  --warn:#B4680A; --danger:#C5343A; --info:#2563EB; --acc:#B98900;
+  --shadow:0 1px 2px rgba(15,23,32,.06), 0 10px 30px rgba(15,23,32,.08);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0B1220; --bg-2:#12161F; --surface:#12161F;
+    --fg:#E6EDF3; --muted:#9FB0C3; --border:#2A3441;
+    --brand:#44D62C; --brand-loud:#44D62C; --ink:#080808;
+    --warn:#F59E0B; --danger:#E5484D; --info:#5B8DEF; --acc:#EAB308;
+    --shadow:0 1px 2px rgba(0,0,0,.5), 0 14px 40px rgba(0,0,0,.45);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0B1220; --bg-2:#12161F; --surface:#12161F;
+  --fg:#E6EDF3; --muted:#9FB0C3; --border:#2A3441;
+  --brand:#44D62C; --brand-loud:#44D62C; --ink:#080808;
+  --warn:#F59E0B; --danger:#E5484D; --info:#5B8DEF; --acc:#EAB308;
+  --shadow:0 1px 2px rgba(0,0,0,.5), 0 14px 40px rgba(0,0,0,.45);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--fg);
+  font-family:"Archivo","Segoe UI",system-ui,sans-serif;
+  font-size:16px; line-height:1.55; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px 96px}
+h1,h2,h3{text-wrap:balance;margin:0}
+a{color:inherit}
+code{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.88em;
+  background:var(--bg-2);border:1px solid var(--border);border-radius:5px;padding:1px 5px;
+}
+
+/* ── Nagłówek ─────────────────────────────────────────────────────── */
+.masthead{padding:52px 0 32px;border-bottom:1px solid var(--border);display:grid;gap:18px}
+.eyebrow{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
+  display:flex;flex-wrap:wrap;align-items:center;gap:10px;
+}
+.eyebrow b{color:var(--acc);font-weight:600}
+.masthead h1{font-size:clamp(34px,5.4vw,58px);font-weight:800;letter-spacing:-.025em;line-height:1.02}
+.lede{font-size:17px;color:var(--muted);max-width:64ch;margin:0}
+.lede b{color:var(--fg);font-weight:600}
+
+/* ── Sekcje ───────────────────────────────────────────────────────── */
+section{padding:52px 0 0}
+.shead{display:grid;gap:8px;margin-bottom:26px;max-width:72ch}
+.shead h2{font-size:clamp(22px,2.6vw,30px);font-weight:700;letter-spacing:-.015em}
+.shead p{margin:0;color:var(--muted);font-size:15px}
+.shead p b{color:var(--fg);font-weight:600}
+.snum{
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--acc);font-weight:600;
+}
+
+.cards{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(268px,1fr))}
+.card{
+  background:var(--surface);border:1px solid var(--border);border-radius:14px;
+  padding:15px 17px;display:grid;gap:7px;align-content:start;
+}
+.card h3{font-size:14.5px;font-weight:700;display:flex;align-items:center;gap:8px}
+.card p{margin:0;font-size:13.5px;color:var(--muted)}
+.card p b{color:var(--fg);font-weight:600}
+.dot{width:9px;height:9px;border-radius:50%;flex:none;display:inline-block}
+.dot.ok{background:var(--brand)}
+.dot.part{background:var(--warn)}
+.dot.no{background:var(--danger)}
+
+.tablewrap{overflow-x:auto;border:1px solid var(--border);border-radius:14px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:780px;font-size:13.5px}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:top}
+th{
+  font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--muted);font-weight:600;white-space:nowrap;
+}
+tbody tr:last-child td{border-bottom:none}
+td.mono{font-family:"IBM Plex Mono",monospace;font-size:12px;white-space:nowrap}
+.tag{
+  font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--border);
+  color:var(--muted);white-space:nowrap;display:inline-block;
+}
+.tag.jest{color:var(--brand);border-color:color-mix(in srgb,var(--brand) 45%,var(--border))}
+.tag.brak{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 45%,var(--border))}
+.tag.mock{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 45%,var(--border))}
+.tag.nowe{color:var(--info);border-color:color-mix(in srgb,var(--info) 45%,var(--border))}
+
+/* ── Makiety: telefon ─────────────────────────────────────────────── */
+.screens{display:grid;gap:34px 26px;grid-template-columns:repeat(auto-fit,minmax(330px,1fr))}
+.screenblock{display:grid;gap:16px;justify-items:center}
+.caption{max-width:34ch;display:grid;gap:6px}
+.caption h3{font-size:15.5px;font-weight:700;display:flex;gap:9px;align-items:baseline}
+.caption h3 i{font-style:normal;font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--acc)}
+.caption p{margin:0;font-size:13px;color:var(--muted)}
+.caption p b{color:var(--fg);font-weight:600}
+
+.phone{
+  width:340px;padding:11px;border-radius:38px;
+  background:linear-gradient(160deg,#3a4152,#161a22);box-shadow:var(--shadow);flex:none;
+}
+.device{
+  --d-bg:#0B1220;--d-surface:#12161F;--d-panel:#1A212E;
+  --d-fg:#E6EDF3;--d-muted:#9FB0C3;--d-border:#2A3441;
+  --d-brand:#44D62C;--d-ink:#080808;
+  --d-danger:#F85149;--d-warn:#E3A008;--d-info:#4AA3FF;--d-violet:#C084FC;
+  --d-inv:#EAB308;--d-gray:#6E7681;
+  /* światła stanu 1:1 z panelem — web/src/app/app/inventory/stockLevel.ts */
+  --l-low:#F85149;--l-ok:#7EE787;--l-over:#58A6FF;--l-nogoal:#6E7681;
+  width:318px;height:664px;border-radius:28px;overflow:hidden;
+  background:var(--d-bg);color:var(--d-fg);
+  font-family:"Roboto",system-ui,sans-serif;font-size:14px;line-height:1.4;
+  display:flex;flex-direction:column;position:relative;
+}
+.statusbar{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:8px 16px 2px;font-size:11px;color:var(--d-muted);
+  font-variant-numeric:tabular-nums;flex:none;
+}
+.topbar{display:flex;align-items:center;gap:6px;padding:6px 10px;flex:none}
+.iconbtn{
+  width:32px;height:32px;border-radius:50%;border:none;background:transparent;
+  color:var(--d-fg);display:grid;place-items:center;flex:none;position:relative;
+}
+.iconbtn svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.iconbtn.acc{color:var(--d-inv)}
+.toptitle{font-size:16px;font-weight:500;flex:1;min-width:0}
+.toptitle small{display:block;font-size:10px;color:var(--d-muted);font-weight:400}
+.screen{flex:1;overflow:hidden;padding:0 12px 6px;display:flex;flex-direction:column;gap:9px}
+
+/* dwa światy towaru: Magazyn | Pod klienta (StockType z panelu) */
+.domseg{display:flex;background:var(--d-panel);border-radius:999px;padding:3px;gap:3px;flex:none}
+.domseg span{flex:1;text-align:center;font-size:12px;padding:6px 4px;border-radius:999px;color:var(--d-muted)}
+.domseg span[data-on="m"]{background:color-mix(in srgb,var(--d-inv) 22%,var(--d-surface));color:var(--d-inv);font-weight:700}
+.domseg span[data-on="k"]{background:color-mix(in srgb,var(--d-violet) 22%,var(--d-surface));color:var(--d-violet);font-weight:700}
+
+/* szukanie + filtr */
+.searchrow{display:flex;gap:7px;flex:none}
+.searchbox{
+  flex:1;min-width:0;display:flex;align-items:center;gap:7px;background:var(--d-surface);
+  border:1px solid var(--d-border);border-radius:11px;padding:7px 10px;font-size:12px;color:var(--d-muted);
+}
+.searchbox svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.8;flex:none}
+.filterbtn{
+  width:38px;border:1px solid var(--d-border);border-radius:11px;background:var(--d-surface);
+  display:grid;place-items:center;position:relative;flex:none;color:var(--d-fg);
+}
+.filterbtn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round}
+.filterbtn .cnt{
+  position:absolute;top:-6px;right:-6px;min-width:16px;height:16px;padding:0 4px;border-radius:999px;
+  background:var(--d-inv);color:var(--d-ink);font-size:9.5px;font-weight:700;
+  display:grid;place-items:center;border:2px solid var(--d-bg);
+}
+
+/* chipy filtrów */
+.chips{display:flex;gap:6px;flex:none;overflow:hidden;-webkit-mask-image:linear-gradient(90deg,#000 90%,transparent);mask-image:linear-gradient(90deg,#000 90%,transparent)}
+.chip{
+  font-size:11px;padding:4px 9px;border-radius:999px;border:1px solid var(--d-border);
+  color:var(--d-muted);display:inline-flex;align-items:center;gap:5px;white-space:nowrap;
+}
+.chip b{font-weight:500;opacity:.75;font-variant-numeric:tabular-nums}
+.chip[data-on]{background:var(--d-panel);border-color:var(--d-fg);color:var(--d-fg);font-weight:500}
+.chip i{font-style:normal;width:8px;height:8px;border-radius:50%;display:inline-block}
+.chip i.low{background:var(--l-low)}
+.chip i.ok{background:var(--l-ok)}
+.chip i.over{background:var(--l-over)}
+
+/* ── Wiersz pozycji magazynu ──────────────────────────────────────── */
+.list{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden}
+.prow{display:flex;align-items:center;gap:9px;padding:8px 2px;border-bottom:1px solid var(--d-border)}
+.thumb{
+  width:38px;height:38px;border-radius:9px;flex:none;display:grid;place-items:center;
+  background:var(--d-panel);border:1px solid var(--d-border);color:var(--c,var(--d-muted));
+}
+.thumb svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.prow .nm{flex:1;min-width:0;display:grid;gap:3px}
+.prow .nm b{font-size:12.5px;font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.prow .nm .meta{font-size:10px;color:var(--d-muted);display:flex;gap:6px;align-items:center;overflow:hidden;white-space:nowrap}
+.bar{height:4px;border-radius:999px;background:var(--d-panel);overflow:hidden;display:block}
+.bar i{display:block;height:100%;border-radius:999px;background:var(--l-ok)}
+.bar i.low{background:var(--l-low)}
+.bar i.over{background:var(--l-over)}
+.bar i.nogoal{background:var(--l-nogoal)}
+.qty{flex:none;text-align:right;font-variant-numeric:tabular-nums;line-height:1.2}
+.qty b{font-size:14px;font-weight:600;display:block}
+.qty b.low{color:var(--l-low)}
+.qty b.over{color:var(--l-over)}
+.qty span{font-size:9.5px;color:var(--d-muted);display:block}
+.shelf{
+  font-size:9.5px;padding:2px 7px;border-radius:6px;white-space:nowrap;
+  background:var(--d-panel);border:1px solid var(--d-border);color:var(--d-muted);
+  font-family:"IBM Plex Mono",monospace;
+}
+.shelf.none{color:var(--d-warn);border-color:color-mix(in srgb,var(--d-warn) 45%,var(--d-border))}
+.lock{font-size:9.5px;color:var(--d-violet);white-space:nowrap}
+.transit{font-size:9.5px;color:var(--d-info);white-space:nowrap}
+
+/* FAB skanera + dolna nawigacja modułu */
+.fab{
+  position:absolute;right:14px;bottom:66px;width:52px;height:52px;border-radius:17px;
+  background:var(--d-inv);color:var(--d-ink);display:grid;place-items:center;
+  box-shadow:0 6px 18px rgba(0,0,0,.45);
+}
+.fab svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.bnav{flex:none;display:flex;border-top:1px solid var(--d-border);background:var(--d-surface);padding:5px 4px 7px}
+.bnav span{flex:1;display:grid;justify-items:center;gap:2px;font-size:9.5px;color:var(--d-muted);position:relative}
+.bnav span svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.bnav span[data-on]{color:var(--d-inv);font-weight:600}
+.bnav .bdg{
+  position:absolute;top:-3px;right:20%;min-width:15px;height:15px;padding:0 4px;border-radius:999px;
+  background:var(--d-danger);color:#fff;font-size:9px;font-weight:700;display:grid;place-items:center;
+  border:2px solid var(--d-surface);
+}
+
+/* ── Karta pozycji / arkusze ──────────────────────────────────────── */
+.scrim{position:absolute;inset:0;background:rgba(4,8,15,.55)}
+.sheet{
+  position:absolute;left:0;right:0;bottom:0;background:var(--d-surface);
+  border-top:1px solid var(--d-border);border-radius:20px 20px 0 0;padding:10px 14px 16px;
+  display:flex;flex-direction:column;gap:9px;
+}
+.grab{width:34px;height:4px;border-radius:999px;background:var(--d-border);margin:0 auto 2px}
+.cardhead{display:flex;align-items:flex-start;gap:9px;flex:none}
+.cardhead .nm{flex:1;min-width:0;display:grid;gap:2px}
+.cardtitle{font-size:16px;font-weight:500;line-height:1.25}
+.cardsub{font-size:11px;color:var(--d-muted);font-family:"IBM Plex Mono",monospace}
+.thumb.big{width:52px;height:52px;border-radius:11px}
+.thumb.big svg{width:26px;height:26px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;flex:none}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.num{
+  background:var(--d-panel);border:1px solid var(--d-border);border-radius:10px;
+  padding:6px 4px;display:grid;gap:1px;justify-items:center;
+}
+.num b{font-size:15px;font-weight:600;font-variant-numeric:tabular-nums}
+.num b.low{color:var(--l-low)}
+.num b.res{color:var(--d-violet)}
+.num b.tr{color:var(--d-info)}
+.num span{font-size:8.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--d-muted);font-weight:700}
+.field{
+  background:var(--d-panel);border:1px solid var(--d-border);border-radius:11px;padding:7px 10px;
+  display:flex;align-items:center;gap:8px;min-width:0;
+}
+.field .kv{flex:1;min-width:0;display:grid;gap:2px}
+.field .k{font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--d-muted);font-weight:700}
+.field .v{font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.field .v.big{font-size:14px;font-family:"IBM Plex Mono",monospace}
+.field .v.warn{color:var(--d-warn)}
+.field .ed{color:var(--d-muted);flex:none;display:grid;place-items:center}
+.field .ed svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.actions{display:grid;gap:7px}
+.act{
+  display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:12px;
+  border:1px solid var(--d-border);background:var(--d-panel);font-size:12.5px;
+}
+.act svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.act.prim{background:var(--d-inv);border-color:var(--d-inv);color:var(--d-ink);font-weight:600;justify-content:center}
+.act.ghost{color:var(--d-muted)}
+.act .chev{margin-left:auto;color:var(--d-muted)}
+.seclabel{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--d-muted);font-weight:700;margin-top:2px}
+.resrow{
+  display:flex;align-items:center;gap:8px;background:var(--d-panel);border:1px solid var(--d-border);
+  border-radius:11px;padding:7px 10px;font-size:11.5px;
+}
+.resrow.pick{border-color:var(--d-violet);background:color-mix(in srgb,var(--d-violet) 12%,var(--d-panel))}
+.resrow .who{flex:1;min-width:0;display:grid;gap:1px}
+.resrow .who b{font-weight:500;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.resrow .who span{font-size:10px;color:var(--d-muted)}
+.resrow .cnt{font-variant-numeric:tabular-nums;font-size:12px;flex:none}
+.resrow .cnt.miss{color:var(--d-danger)}
+
+/* stepper ilości */
+.stepper{display:flex;align-items:center;gap:12px;justify-content:center;padding:4px 0;flex:none}
+.stepper .pm{
+  width:44px;height:44px;border-radius:14px;border:1px solid var(--d-border);background:var(--d-panel);
+  display:grid;place-items:center;color:var(--d-fg);flex:none;
+}
+.stepper .pm svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2.4;stroke-linecap:round}
+.stepper .val{min-width:96px;text-align:center}
+.stepper .val b{display:block;font-size:34px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums}
+.stepper .val span{font-size:10.5px;color:var(--d-muted)}
+.segsm{display:flex;background:var(--d-panel);border-radius:10px;padding:3px;gap:3px;flex:none}
+.segsm span{flex:1;text-align:center;font-size:11px;padding:6px 3px;border-radius:8px;color:var(--d-muted)}
+.segsm span[data-on]{background:var(--d-surface);color:var(--d-fg);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.4)}
+.note{
+  background:var(--d-panel);border:1px solid var(--d-border);border-radius:11px;
+  padding:8px 10px;font-size:11.5px;color:var(--d-muted);
+}
+.offline{
+  display:flex;align-items:center;gap:7px;font-size:10.5px;color:var(--d-warn);
+  background:color-mix(in srgb,var(--d-warn) 12%,transparent);
+  border:1px solid color-mix(in srgb,var(--d-warn) 40%,transparent);
+  border-radius:9px;padding:6px 9px;flex:none;
+}
+.offline svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:1.9;flex:none}
+
+/* skaner */
+.cam{
+  position:relative;flex:1;min-height:0;border-radius:14px;overflow:hidden;
+  background:linear-gradient(150deg,#1B2430,#0D141D 60%,#161E29);
+  border:1px solid var(--d-border);display:grid;place-items:center;
+}
+.cam .frame{width:170px;height:170px;position:relative}
+.cam .frame i{position:absolute;width:32px;height:32px;border:3px solid var(--d-inv);font-style:normal}
+.cam .frame i:nth-child(1){top:0;left:0;border-right:0;border-bottom:0;border-radius:8px 0 0 0}
+.cam .frame i:nth-child(2){top:0;right:0;border-left:0;border-bottom:0;border-radius:0 8px 0 0}
+.cam .frame i:nth-child(3){bottom:0;left:0;border-right:0;border-top:0;border-radius:0 0 0 8px}
+.cam .frame i:nth-child(4){bottom:0;right:0;border-left:0;border-top:0;border-radius:0 0 8px 0}
+.cam .laser{position:absolute;left:6px;right:6px;top:50%;height:2px;background:color-mix(in srgb,var(--d-inv) 80%,transparent)}
+.cam .hint{
+  position:absolute;left:12px;right:12px;bottom:12px;text-align:center;font-size:11px;color:#C9D4E1;
+  background:rgba(6,10,17,.65);border-radius:9px;padding:6px 8px;
+}
+.cam .qrlabel{
+  position:absolute;top:74px;left:50%;transform:translateX(-50%) rotate(-4deg);
+  width:96px;height:56px;border-radius:5px;background:#E8E3D6;display:grid;place-items:center;gap:2px;
+  box-shadow:0 8px 20px rgba(0,0,0,.5);
+}
+.cam .qrlabel .qrp{width:34px;height:34px;background:
+  repeating-linear-gradient(90deg,#111 0 3px,#E8E3D6 3px 6px),
+  repeating-linear-gradient(0deg,#111 0 3px,transparent 3px 6px);}
+.cam .qrlabel small{font-size:6.5px;color:#2A2A2A;font-family:"IBM Plex Mono",monospace}
+
+/* dostawy */
+.grp{
+  display:flex;align-items:center;gap:7px;font-size:10.5px;color:var(--d-muted);
+  padding:6px 2px 3px;border-bottom:1px solid var(--d-border);flex:none;
+}
+.grp b{color:var(--d-fg);font-weight:600;font-size:11.5px}
+.grp .sp{flex:1}
+.drow{display:grid;gap:6px;padding:8px 2px;border-bottom:1px solid var(--d-border)}
+.drow .top{display:flex;align-items:center;gap:9px}
+.drow .btns{display:flex;gap:6px}
+.btn{
+  flex:1;text-align:center;font-size:11px;padding:6px 4px;border-radius:9px;
+  border:1px solid var(--d-border);color:var(--d-muted);white-space:nowrap;
+}
+.btn.ok{background:var(--d-inv);border-color:var(--d-inv);color:var(--d-ink);font-weight:600}
+.btn.bad{color:var(--d-danger);border-color:color-mix(in srgb,var(--d-danger) 45%,var(--d-border))}
+.issue{
+  font-size:10px;color:var(--d-danger);background:color-mix(in srgb,var(--d-danger) 12%,transparent);
+  border:1px solid color-mix(in srgb,var(--d-danger) 38%,transparent);border-radius:8px;padding:4px 8px;
+}
+
+/* spis z natury */
+.progress{display:flex;align-items:center;gap:9px;flex:none}
+.progress .pb{flex:1;height:6px;border-radius:999px;background:var(--d-panel);overflow:hidden}
+.progress .pb i{display:block;height:100%;background:var(--d-inv);border-radius:999px}
+.progress .pv{font-size:10.5px;color:var(--d-muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.crow{display:flex;align-items:center;gap:8px;padding:7px 2px;border-bottom:1px solid var(--d-border)}
+.crow .nm{flex:1;min-width:0;display:grid;gap:1px}
+.crow .nm b{font-size:12px;font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.crow .nm span{font-size:9.5px;color:var(--d-muted)}
+.inp{
+  width:52px;height:34px;border-radius:9px;border:1px solid var(--d-border);background:var(--d-panel);
+  display:grid;place-items:center;font-size:14px;font-variant-numeric:tabular-nums;flex:none;
+}
+.inp.filled{border-color:var(--d-fg)}
+.inp.empty{color:var(--d-muted)}
+.diff{width:38px;text-align:right;font-size:11.5px;font-variant-numeric:tabular-nums;flex:none;color:var(--d-muted)}
+.diff.plus{color:var(--l-over)}
+.diff.minus{color:var(--l-low)}
+
+/* ── Etapy ────────────────────────────────────────────────────────── */
+.steps{display:grid;gap:12px}
+.step{display:flex;gap:16px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 18px}
+.step .no{
+  font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:600;color:var(--acc);
+  border:1px solid color-mix(in srgb,var(--acc) 40%,var(--border));border-radius:8px;
+  padding:3px 8px;height:fit-content;flex:none;
+}
+.step h3{font-size:15px;font-weight:700;display:flex;flex-wrap:wrap;gap:9px;align-items:center}
+.step p{margin:6px 0 0;font-size:13.5px;color:var(--muted)}
+.step p b{color:var(--fg);font-weight:600}
+.files{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.files i{
+  font-style:normal;font-family:"IBM Plex Mono",monospace;font-size:11px;
+  padding:3px 8px;border-radius:6px;background:var(--bg-2);color:var(--muted);
+  border:1px solid var(--border);
+}
+
+/* ── Ustalenia ────────────────────────────────────────────────────── */
+.qs{display:grid;gap:12px}
+.qq{
+  background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--warn);
+  border-radius:14px;padding:16px 18px;display:grid;gap:7px;
+}
+.qq.set{border-left-color:var(--brand)}
+.qq h3{font-size:15.5px;font-weight:700;display:flex;flex-wrap:wrap;gap:9px;align-items:center}
+.qq p{margin:0;font-size:13.5px;color:var(--muted)}
+.qq p b{color:var(--fg);font-weight:600}
+.qq .opts{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+.qq .opts i{
+  font-style:normal;font-size:12px;padding:4px 10px;border-radius:999px;
+  border:1px solid var(--border);color:var(--fg);background:var(--bg-2);
+}
+.qq .rec{color:var(--brand);font-weight:600;font-size:12.5px}
+
+/* legenda świateł */
+.palette{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));margin-top:20px}
+.sw{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--muted)}
+.sw b{width:16px;height:16px;border-radius:50%;flex:none;box-shadow:0 0 0 1px rgba(0,0,0,.15)}
+.sw em{font-style:normal;color:var(--fg);font-weight:600}
+
+footer.end{
+  margin-top:56px;padding-top:22px;border-top:1px solid var(--border);
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--muted);
+  display:flex;flex-wrap:wrap;gap:10px 22px;
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="eyebrow">
+      <span>TeamTalk Android</span> · <b>moduł Magazyn</b> · <span>koncepcja 2026-09-04</span>
+    </div>
+    <h1>Magazyn w TeamTalku</h1>
+    <p class="lede">
+      Panel ma magazyn kompletny: dziesięć kart, ruchy księgowane transakcyjnie, rezerwacje
+      z pokryciem i spis z natury z osobną akceptacją. Telefon ma kafelek-zaślepkę. Ta koncepcja
+      nie przenosi panelu na ekran 6 cali — <b>wybiera z niego te cztery sytuacje, które dzieją się
+      na stojąco przy regale albo przy palecie</b>: gdzie to leży, ile mam wolnego, przyjmuję dostawę,
+      liczę spis. Reszta (oferty, faktury, raporty, archiwum) zostaje pracą biurkową.
+    </p>
+  </header>
+
+  <section>
+    <div class="shead">
+      <div class="snum">01 — Punkt wyjścia</div>
+      <h2>Co panel już umie, a czego telefon nie ma</h2>
+      <p>
+        Stan sprawdzony w kodzie: <code>web/src/app/app/inventory/</code> (10 kart, 2483 linie samego
+        widoku głównego), <code>api/src/modules/inventory/</code> (48 tras) i
+        <code>presentation/home/HomeModules.kt</code> po stronie aplikacji.
+      </p>
+    </div>
+    <div class="cards">
+      <div class="card">
+        <h3><i class="dot ok"></i> Panel: dziesięć kart</h3>
+        <p>
+          Produkty, Zamówienie, Przyjęcie, Wydanie, Inwentaryzacja, Oferty, Faktury, Rezerwacje,
+          Raport, Archiwum — <code>tabs.ts</code>. Karta „Faktury” to na razie sam opis zakresu.
+        </p>
+      </div>
+      <div class="card">
+        <h3><i class="dot ok"></i> Panel: stan to jedyna prawda</h3>
+        <p>
+          <b>Zamówienie i rezerwacja nie ruszają stanu</b> — zmienia go wyłącznie ruch
+          (<code>receipt</code>/<code>issue</code>) i korekta ze spisu (<code>adjustment</code>).
+          Ta zasada musi obowiązywać identycznie na telefonie.
+        </p>
+      </div>
+      <div class="card">
+        <h3><i class="dot ok"></i> Panel: rezerwacje z pokryciem</h3>
+        <p>
+          Kto montuje wcześniej, ten bierze towar z półki (<code>reservation.ts</code>, kolejka wg
+          <code>neededBy</code>). API liczy <code>covered</code>/<code>missing</code> przez wszystkie
+          deale naraz — telefon tego nie przelicza, tylko pokazuje.
+        </p>
+      </div>
+      <div class="card">
+        <h3><i class="dot ok"></i> Panel: etykiety QR już się drukują</h3>
+        <p>
+          <code>GET /api/products/labels</code> generuje PDF z kodem <code>code ?? id</code>.
+          Na regałach jest więc <b>gotowy nośnik dla skanera</b> — telefon nie zaczyna od zera.
+        </p>
+      </div>
+      <div class="card">
+        <h3><i class="dot no"></i> Telefon: kafelek to zaślepka</h3>
+        <p>
+          <code>HomeModules.kt:155</code> ma wpis <code>inventory</code> (żółty <code>#EAB308</code>),
+          ale prowadzi do <code>ModulePlaceholderScreen</code>. Zero DTO, encji Room, repozytorium
+          i tras w <code>TeamTalkApi.kt</code>.
+        </p>
+      </div>
+      <div class="card">
+        <h3><i class="dot no"></i> Telefon: brak skanera kodów</h3>
+        <p>
+          <code>data/scanner/</code> to czytnik rejestru połączeń, nie aparat. Skan kodu z etykiety
+          wymaga nowej zależności (ML Kit / ZXing) i uprawnienia do kamery — dziś nieproszonego.
+        </p>
+      </div>
+      <div class="card">
+        <h3><i class="dot part"></i> Uprawnienia: monter jest widzem</h3>
+        <p>
+          <code>permissions.ts</code>: <b>serwisant, montaż i stażysta mają tylko
+          <code>inventory.view</code></b>. <code>inventory.manage</code> ma admin, zarząd i koordynator.
+          Bez decyzji kadrowej telefon jest czytelnią — to pytanie nr 1 w sekcji 07.
+        </p>
+      </div>
+      <div class="card">
+        <h3><i class="dot part"></i> Atrapa nie zna magazynu</h3>
+        <p>
+          <code>board360-mock</code> ma dziesięć plików tras (auth, clients, deals, tasks, service,
+          calendar…), <b>ale żadnej magazynowej</b>. Bez niej nie ma na czym rozwijać aplikacji offline.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead">
+      <div class="snum">02 — Kto trzyma telefon</div>
+      <h2>Trzy pary rąk, jeden moduł</h2>
+      <p>
+        Panel obsługuje jedną osobę przy biurku, która robi wszystko. Na telefonie te same dane
+        oglądają trzy zupełnie różne osoby — i to one dyktują nawigację, nie karty panelu.
+      </p>
+    </div>
+    <div class="cards">
+      <div class="card">
+        <h3><i class="dot ok"></i> Magazynier przy palecie</h3>
+        <p>
+          Przyjmuje dostawę, odkłada na półkę, liczy spis, wydaje materiał ekipie.
+          Ma <code>inventory.manage</code>. <b>Dla niego są wszystkie cztery zakładki.</b>
+        </p>
+      </div>
+      <div class="card">
+        <h3><i class="dot ok"></i> Monter i serwisant w aucie</h3>
+        <p>
+          Pyta o jedno: <b>„jest to na stanie i gdzie leży?”</b> — plus „co jest odłożone pod mojego
+          klienta”. Dziś ma tylko <code>inventory.view</code>, więc widzi Stan i Pod klienta,
+          bez przycisków księgujących.
+        </p>
+      </div>
+      <div class="card">
+        <h3><i class="dot part"></i> Kierownik między jednym a drugim</h3>
+        <p>
+          Księguje spis (<code>inventory.count.approve</code>) i akceptuje propozycje zakupu z umów.
+          Na telefonie potrzebuje dwóch przycisków, nie całej karty — reszta decyzji zakupowych
+          zostaje przy biurku.
+        </p>
+      </div>
+    </div>
+
+    <div class="shead" style="margin-top:34px">
+      <h2 style="font-size:19px">Cztery zakładki zamiast dziesięciu kart</h2>
+      <p>
+        Dolna nawigacja modułu odpowiada na cztery pytania z terenu. W nawiasach karta panelu,
+        z której zakładka pochodzi — nazewnictwo i kolejność zostają wspólne.
+      </p>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>Zakładka</th><th>Pytanie z terenu</th><th>Źródło w panelu</th><th>Kto widzi</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>Stan</b></td>
+            <td>Co mam, ile wolnego i gdzie to leży?</td>
+            <td class="mono">Produkty + Rezerwacje</td>
+            <td><span class="tag">inventory.view</span></td>
+          </tr>
+          <tr>
+            <td><b>Dostawy</b></td>
+            <td>Co przyjechało i czy zgadza się z zamówieniem?</td>
+            <td class="mono">Przyjęcie</td>
+            <td><span class="tag">inventory.manage</span></td>
+          </tr>
+          <tr>
+            <td><b>Spis</b></td>
+            <td>Ile faktycznie leży na półce?</td>
+            <td class="mono">Inwentaryzacja</td>
+            <td><span class="tag">inventory.manage</span></td>
+          </tr>
+          <tr>
+            <td><b>Braki</b></td>
+            <td>Czego brakuje i co trzeba dorzucić do zamówienia?</td>
+            <td class="mono">Zamówienie + Raport</td>
+            <td><span class="tag">inventory.manage</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="font-size:13.5px;color:var(--muted);margin:14px 0 0;max-width:72ch">
+      Wydanie nie jest zakładką. W panelu jest kartą, bo tam zaczyna się od listy ruchów;
+      na telefonie <b>zawsze zaczyna się od konkretnej pozycji</b> — po skanie albo z wyszukiwarki —
+      więc mieszka jako przycisk w karcie pozycji. Kto ma samo <code>inventory.view</code>,
+      widzi dwie pierwsze zakładki i żadnego przycisku księgującego.
+    </p>
+  </section>
+
+  <section>
+    <div class="shead">
+      <div class="snum">03 — Makieta</div>
+      <h2>Siedem ekranów</h2>
+      <p>
+        Kolory poziomu stanu przeniesione 1:1 z panelu (<code>stockLevel.ts</code>), żeby czerwień
+        w telefonie znaczyła dokładnie to samo co czerwień na monitorze. Dane w makiecie pochodzą
+        z seeda demonstracyjnego <code>scripts/seed-inventory-demo.sql</code>.
+      </p>
+    </div>
+    <div class="screens">
+
+      <!-- 01 STAN -->
+      <div class="screenblock">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>9:41</span><span>▾ ▮▮▮ 84%</span></div>
+          <div class="topbar">
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"></path></svg></span>
+            <span class="toptitle">Magazyn<small>1 284 pozycje · dane sprzed 4 min</small></span>
+            <span class="iconbtn acc"><svg viewBox="0 0 24 24"><path d="M4 9V6.5A2.5 2.5 0 0 1 6.5 4H9M15 4h2.5A2.5 2.5 0 0 1 20 6.5V9M20 15v2.5a2.5 2.5 0 0 1-2.5 2.5H15M9 20H6.5A2.5 2.5 0 0 1 4 17.5V15M4 12h16"></path></svg></span>
+          </div>
+          <div class="screen">
+            <div class="domseg"><span data-on="m">Magazyn</span><span>Pod klienta</span></div>
+            <div class="searchrow">
+              <span class="searchbox">
+                <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+                nazwa, kod, producent…
+              </span>
+              <span class="filterbtn">
+                <svg viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"></path></svg>
+                <i class="cnt">1</i>
+              </span>
+            </div>
+            <div class="chips">
+              <span class="chip" data-on><i class="low"></i>Zbyt mało <b>7</b></span>
+              <span class="chip"><i class="ok"></i>Bezpieczny</span>
+              <span class="chip"><i class="over"></i>Ponad maks.</span>
+              <span class="chip">Hala</span>
+            </div>
+            <div class="list">
+              <div class="prow">
+                <span class="thumb"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"></circle><path d="M4 12h4M16 12h4M12 4v4M12 16v4"></path></svg></span>
+                <span class="nm">
+                  <b>Zawór kulowy 3/4"</b>
+                  <span class="bar"><i class="low" style="width:30%"></i></span>
+                  <span class="meta"><span class="shelf">Kontener 2 · A35</span><span class="lock">🔒 4</span></span>
+                </span>
+                <span class="qty"><b class="low">15</b><span>min 20</span></span>
+              </div>
+              <div class="prow">
+                <span class="thumb"><svg viewBox="0 0 24 24"><path d="M4 8c4-3 12-3 16 0M4 16c4 3 12 3 16 0M4 8v8M20 8v8"></path></svg></span>
+                <span class="nm">
+                  <b>Kanał Flexi fi 75 (rolka 50 m)</b>
+                  <span class="bar"><i class="low" style="width:12%"></i></span>
+                  <span class="meta"><span class="shelf none">Blaszak · brak półki</span></span>
+                </span>
+                <span class="qty"><b class="low">1</b><span>min 3</span></span>
+              </div>
+              <div class="prow">
+                <span class="thumb"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16M8 6v12M16 6v12"></path></svg></span>
+                <span class="nm">
+                  <b>Rozdzielacz podłogówki 8-obw. INOX</b>
+                  <span class="bar"><i class="low" style="width:33%"></i></span>
+                  <span class="meta"><span class="shelf">Hala · R2</span><span class="transit">w drodze 6</span></span>
+                </span>
+                <span class="qty"><b class="low">4</b><span>min 5</span></span>
+              </div>
+              <div class="prow">
+                <span class="thumb"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="3"></circle></svg></span>
+                <span class="nm">
+                  <b>Rura PE-RT 16×2 mm (rolka 200 m)</b>
+                  <span class="bar"><i style="width:52%"></i></span>
+                  <span class="meta"><span class="shelf">Hala · R7</span></span>
+                </span>
+                <span class="qty"><b>31</b><span>z 60</span></span>
+              </div>
+              <div class="prow">
+                <span class="thumb"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="1.5"></rect><path d="M3 12h18M12 5v14"></path></svg></span>
+                <span class="nm">
+                  <b>Panel PV 450 W mono half-cut</b>
+                  <span class="bar"><i style="width:60%"></i></span>
+                  <span class="meta"><span class="shelf">Parking tył</span><span class="lock">🔒 24</span></span>
+                </span>
+                <span class="qty"><b>48</b><span>z 80</span></span>
+              </div>
+              <div class="prow">
+                <span class="thumb"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"></rect><circle cx="9" cy="9" r="1"></circle><circle cx="15" cy="9" r="1"></circle><circle cx="9" cy="15" r="1"></circle><circle cx="15" cy="15" r="1"></circle></svg></span>
+                <span class="nm">
+                  <b>Płyta systemowa noppowa 30 mm</b>
+                  <span class="bar"><i style="width:53%"></i></span>
+                  <span class="meta"><span class="shelf">Hala · P1</span></span>
+                </span>
+                <span class="qty"><b>210</b><span>z 400</span></span>
+              </div>
+            </div>
+          </div>
+          <span class="fab"><svg viewBox="0 0 24 24"><path d="M4 9V6.5A2.5 2.5 0 0 1 6.5 4H9M15 4h2.5A2.5 2.5 0 0 1 20 6.5V9M20 15v2.5a2.5 2.5 0 0 1-2.5 2.5H15M9 20H6.5A2.5 2.5 0 0 1 4 17.5V15M4 12h16"></path></svg></span>
+          <div class="bnav">
+            <span data-on><svg viewBox="0 0 24 24"><path d="M20.5 15.6V8.4a1.5 1.5 0 0 0-.8-1.3l-6.9-3.8a1.5 1.5 0 0 0-1.6 0L4.3 7.1a1.5 1.5 0 0 0-.8 1.3v7.2a1.5 1.5 0 0 0 .8 1.3l6.9 3.8a1.5 1.5 0 0 0 1.6 0l6.9-3.8a1.5 1.5 0 0 0 .8-1.3z"></path><path d="M3.7 7.6 12 12.2l8.3-4.6M12 12.2V21"></path></svg>Stan</span>
+            <span><i class="bdg">3</i><svg viewBox="0 0 24 24"><path d="M3 7h11v10H3zM14 10h4l3 3v4h-7z"></path><circle cx="7" cy="18" r="1.8"></circle><circle cx="17.5" cy="18" r="1.8"></circle></svg>Dostawy</span>
+            <span><svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2"></rect><path d="M9 3h6v3H9zM8.5 12l2 2 4-4"></path></svg>Spis</span>
+            <span><i class="bdg">7</i><svg viewBox="0 0 24 24"><path d="M12 4 3 20h18z"></path><path d="M12 10v4M12 17h.01"></path></svg>Braki</span>
+          </div>
+        </div></div>
+        <div class="caption">
+          <h3><i>01</i> Stan magazynu</h3>
+          <p>
+            Ten sam podział co w panelu: przełącznik <b>Magazyn / Pod klienta</b> to
+            <code>stockType</code>, a szyna chipów to filtr poziomu stanu. Wiersz jest ułożony pod
+            człowieka idącego po hali: <b>pasek stanu, półka i licznik</b> — cena i dystrybutor
+            schodzą do karty. 🔒 to sztuki zarezerwowane pod umowy, niebieskie „w drodze” to pozycje
+            ze statusem <code>ordered</code>. Żółty FAB otwiera skaner.
+          </p>
+        </div>
+      </div>
+
+      <!-- 02 SKANER -->
+      <div class="screenblock">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>9:42</span><span>▾ ▮▮▮ 84%</span></div>
+          <div class="topbar">
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"></path></svg></span>
+            <span class="toptitle">Skanuj kod</span>
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"></path></svg></span>
+          </div>
+          <div class="screen">
+            <div class="cam">
+              <div class="qrlabel"><span class="qrp"></span><small>5901234000322</small></div>
+              <div class="frame"><i></i><i></i><i></i><i></i><span class="laser"></span></div>
+              <div class="hint">Kod QR z etykiety regału albo kod kreskowy z opakowania</div>
+            </div>
+            <div class="segsm"><span data-on>Szukaj</span><span>Wydaj</span><span>Przyjmij</span><span>Spis</span></div>
+            <div class="note">
+              Tryb decyduje, co się stanie po trafieniu w kod — w trybie <b>Spis</b> skaner nie
+              zamyka się po odczycie, tylko przewija arkusz do pozycji i czeka na liczbę.
+            </div>
+          </div>
+          <div class="scrim" style="top:auto;height:222px;background:linear-gradient(transparent,rgba(4,8,15,.75) 40%)"></div>
+          <div class="sheet">
+            <span class="grab"></span>
+            <div class="cardhead">
+              <span class="thumb big"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"></circle><path d="M4 12h4M16 12h4M12 4v4M12 16v4"></path></svg></span>
+              <span class="nm">
+                <span class="cardtitle">Zawór kulowy 3/4"</span>
+                <span class="cardsub">5901234000322 · Kontener 2 · A35</span>
+              </span>
+            </div>
+            <div class="grid4">
+              <span class="num"><b class="low">15</b><span>stan</span></span>
+              <span class="num"><b class="res">4</b><span>rezerw.</span></span>
+              <span class="num"><b>11</b><span>wolne</span></span>
+              <span class="num"><b class="tr">0</b><span>w drodze</span></span>
+            </div>
+            <div class="actions">
+              <span class="act prim"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7 7 7-7"></path></svg>Wydaj</span>
+              <span class="act"><svg viewBox="0 0 24 24"><path d="M12 5v14M19 12l-7-7-7 7"></path></svg>Przyjmij od ręki<span class="chev">›</span></span>
+              <span class="act ghost"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"></rect><path d="M8 9h8M8 13h6"></path></svg>Otwórz kartę pozycji<span class="chev">›</span></span>
+            </div>
+          </div>
+        </div></div>
+        <div class="caption">
+          <h3><i>02</i> Skaner — sedno wersji mobilnej</h3>
+          <p>
+            To jedyna rzecz, której panel nie potrafi, a magazyn ma już gotową: etykiety z
+            <code>GET /api/products/labels</code> kodują <code>code ?? id</code>, więc
+            <b>szukanie po kodzie musi trafiać w oba</b>. Trafienie od razu pokazuje cztery liczby,
+            którymi żyje moduł, i trzy akcje. Kod nieznany → od razu wyszukiwarka po nazwie,
+            bez ślepego zaułka.
+          </p>
+        </div>
+      </div>
+
+      <!-- 03 KARTA POZYCJI -->
+      <div class="screenblock">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>9:43</span><span>▾ ▮▮▮ 83%</span></div>
+          <div class="topbar">
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"></path></svg></span>
+            <span class="toptitle">Pozycja</span>
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.4"></circle><circle cx="12" cy="12" r="1.4"></circle><circle cx="12" cy="19" r="1.4"></circle></svg></span>
+          </div>
+          <div class="screen">
+            <div class="cardhead">
+              <span class="thumb big"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"></circle><path d="M4 12h4M16 12h4M12 4v4M12 16v4"></path></svg></span>
+              <span class="nm">
+                <span class="cardtitle">Zawór kulowy 3/4"</span>
+                <span class="cardsub">5901234000322 · Wod-kan</span>
+              </span>
+            </div>
+            <div class="grid4">
+              <span class="num"><b class="low">15</b><span>stan</span></span>
+              <span class="num"><b class="res">4</b><span>rezerw.</span></span>
+              <span class="num"><b>11</b><span>wolne</span></span>
+              <span class="num"><b class="tr">0</b><span>w drodze</span></span>
+            </div>
+            <span class="bar" style="height:6px"><i class="low" style="width:30%"></i></span>
+            <div class="field">
+              <span class="kv"><span class="k">Lokalizacja</span><span class="v big">Kontener 2 · A35</span></span>
+              <span class="ed"><svg viewBox="0 0 24 24"><path d="M4 20h4l10-10-4-4L4 16z"></path></svg></span>
+            </div>
+            <div class="grid2">
+              <span class="field"><span class="kv"><span class="k">Cena netto</span><span class="v">18,40 zł</span></span></span>
+              <span class="field"><span class="kv"><span class="k">Punkt zakupu</span><span class="v">Tokmet</span></span></span>
+            </div>
+            <div class="field">
+              <span class="kv"><span class="k">Uwagi magazynu</span><span class="v warn">nie mieszać z 1/2" — ta sama paczka</span></span>
+              <span class="ed"><svg viewBox="0 0 24 24"><path d="M4 20h4l10-10-4-4L4 16z"></path></svg></span>
+            </div>
+            <span class="seclabel">Odłożone pod klientów</span>
+            <div class="resrow">
+              <span class="who"><b>Kowalski Jan</b><span>montaż 12.09 · z umowy</span></span>
+              <span class="cnt">4 szt</span>
+            </div>
+            <div class="resrow">
+              <span class="who"><b>Nowak (Busko)</b><span>montaż 19.09 · z umowy</span></span>
+              <span class="cnt miss">brak 6</span>
+            </div>
+            <div class="actions" style="margin-top:2px">
+              <span class="act prim"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7 7 7-7"></path></svg>Wydaj</span>
+            </div>
+          </div>
+        </div></div>
+        <div class="caption">
+          <h3><i>03</i> Karta pozycji</h3>
+          <p>
+            Cztery liczby z panelu w jednym rzędzie: <b>stan − zarezerwowane = wolne</b>, obok ilość
+            w drodze. <b>Lokalizacja stoi wyżej niż cena</b>, bo przy regale to ona jest pytaniem.
+            Dwa pola z ołówkiem to jedyna edycja kartoteki dopuszczona z telefonu (półka i uwagi) —
+            reszta metryczki zostaje w panelu. Lista „pod kogo” pokazuje kolejkę wg daty montażu
+            i czerwony brak, dokładnie jak karta Rezerwacje.
+          </p>
+        </div>
+      </div>
+
+      <!-- 04 WYDANIE -->
+      <div class="screenblock">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>9:44</span><span>▾ ▯▯▯ 83%</span></div>
+          <div class="topbar">
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"></path></svg></span>
+            <span class="toptitle">Pozycja</span>
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.4"></circle><circle cx="12" cy="12" r="1.4"></circle><circle cx="12" cy="19" r="1.4"></circle></svg></span>
+          </div>
+          <div class="screen" style="opacity:.35">
+            <div class="cardhead">
+              <span class="thumb big"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"></circle><path d="M4 12h4M16 12h4M12 4v4M12 16v4"></path></svg></span>
+              <span class="nm"><span class="cardtitle">Zawór kulowy 3/4"</span><span class="cardsub">5901234000322</span></span>
+            </div>
+            <div class="grid4">
+              <span class="num"><b>15</b><span>stan</span></span>
+              <span class="num"><b>4</b><span>rezerw.</span></span>
+              <span class="num"><b>11</b><span>wolne</span></span>
+              <span class="num"><b>0</b><span>w drodze</span></span>
+            </div>
+          </div>
+          <div class="scrim"></div>
+          <div class="sheet">
+            <span class="grab"></span>
+            <span class="cardtitle">Wydanie</span>
+            <span class="cardsub" style="font-family:Roboto">Zawór kulowy 3/4" · 11 wolnych z 15</span>
+            <div class="stepper">
+              <span class="pm"><svg viewBox="0 0 24 24"><path d="M5 12h14"></path></svg></span>
+              <span class="val"><b>4</b><span>szt</span></span>
+              <span class="pm"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"></path></svg></span>
+            </div>
+            <span class="seclabel">Pod kogo</span>
+            <div class="segsm"><span data-on>Rezerwacja</span><span>Deal</span><span>Na magazyn</span></div>
+            <div class="resrow pick">
+              <span class="who"><b>Kowalski Jan</b><span>montaż 12.09 · zarezerwowane 4 szt</span></span>
+              <span class="cnt">✓</span>
+            </div>
+            <div class="resrow">
+              <span class="who"><b>Nowak (Busko)</b><span>montaż 19.09 · brak 6 szt</span></span>
+              <span class="cnt miss">brak</span>
+            </div>
+            <div class="note">Notatka (opcjonalnie) — np. „wydane Marcinowi na budowę”</div>
+            <div class="offline">
+              <svg viewBox="0 0 24 24"><path d="M3 3l18 18M8.5 16.5a5 5 0 0 1 7 0M5 13a10 10 0 0 1 4-2.4M19 13a10 10 0 0 0-7-2.9"></path></svg>
+              Bez zasięgu — wydanie poleci samo, gdy wróci sieć
+            </div>
+            <span class="act prim" style="justify-content:center;padding:12px">Wydaj 4 szt</span>
+          </div>
+        </div></div>
+        <div class="caption">
+          <h3><i>04</i> Wydanie</h3>
+          <p>
+            Duży stepper zamiast klawiatury — magazynier ma rękawice. „Pod kogo” domyślnie wskazuje
+            <b>pierwszą rezerwację z kolejki</b> (najbliższy montaż), bo to ona ma prawo do towaru.
+            Jedno kliknięcie musi zrobić <b>dwie rzeczy naraz</b>: ruch <code>issue</code> i zamknięcie
+            linii rezerwacji — dziś API robi to dwoma żądaniami i tylko pierwsze rusza stan
+            (patrz sekcja 05). Bez zasięgu zmiana idzie do kolejki, tak jak w module Zadania.
+          </p>
+        </div>
+      </div>
+
+      <!-- 05 DOSTAWY -->
+      <div class="screenblock">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>10:02</span><span>▾ ▮▮▮ 79%</span></div>
+          <div class="topbar">
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"></path></svg></span>
+            <span class="toptitle">Dostawy<small>9 pozycji w drodze</small></span>
+            <span class="iconbtn acc"><svg viewBox="0 0 24 24"><path d="M4 9V6.5A2.5 2.5 0 0 1 6.5 4H9M15 4h2.5A2.5 2.5 0 0 1 20 6.5V9M20 15v2.5a2.5 2.5 0 0 1-2.5 2.5H15M9 20H6.5A2.5 2.5 0 0 1 4 17.5V15M4 12h16"></path></svg></span>
+          </div>
+          <div class="screen">
+            <div class="chips">
+              <span class="chip" data-on>Zamówione <b>9</b></span>
+              <span class="chip">Do zamówienia <b>4</b></span>
+              <span class="chip">Reklamacje <b>1</b></span>
+            </div>
+            <div class="list">
+              <div class="grp"><b>Tokmet</b><span class="sp"></span><span>zam. 28.08 · dziś</span></div>
+              <div class="drow">
+                <div class="top">
+                  <span class="thumb"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16M8 6v12M16 6v12"></path></svg></span>
+                  <span class="nm" style="flex:1;min-width:0;display:grid;gap:2px">
+                    <b style="font-size:12.5px;font-weight:400">Rozdzielacz podłogówki 8-obw.</b>
+                    <span class="meta" style="font-size:10px;color:var(--d-muted)">Hala · R2 — odłożyć tam</span>
+                  </span>
+                  <span class="qty"><b>6</b><span>z 6 szt</span></span>
+                </div>
+                <div class="btns">
+                  <span class="btn ok">Przyjęto 6</span>
+                  <span class="btn">Częściowo</span>
+                  <span class="btn bad">Zgłoś</span>
+                </div>
+              </div>
+              <div class="drow">
+                <div class="top">
+                  <span class="thumb"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="3"></circle></svg></span>
+                  <span class="nm" style="flex:1;min-width:0;display:grid;gap:2px">
+                    <b style="font-size:12.5px;font-weight:400">Rura PE-RT 16×2 (rolka 200 m)</b>
+                    <span class="meta" style="font-size:10px;color:var(--d-muted)">Hala · R7</span>
+                  </span>
+                  <span class="qty"><b>10</b><span>z 20 szt</span></span>
+                </div>
+                <span class="issue">Dostawa częściowa — 10 szt zostaje w drodze</span>
+                <div class="btns">
+                  <span class="btn ok">Przyjmij resztę</span>
+                  <span class="btn bad">Reklamacja</span>
+                </div>
+              </div>
+              <div class="grp"><b>Onninen</b><span class="sp"></span><span>zam. 01.09 · jutro</span></div>
+              <div class="drow">
+                <div class="top">
+                  <span class="thumb"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"></rect><path d="M8 12h8"></path></svg></span>
+                  <span class="nm" style="flex:1;min-width:0;display:grid;gap:2px">
+                    <b style="font-size:12.5px;font-weight:400">Zawór kulowy 3/4"</b>
+                    <span class="meta" style="font-size:10px;color:var(--d-muted)">Kontener 2 · A35 · pod Nowak (Busko)</span>
+                  </span>
+                  <span class="qty"><b>30</b><span>z 30 szt</span></span>
+                </div>
+                <div class="btns">
+                  <span class="btn ok">Przyjęto 30</span>
+                  <span class="btn">Częściowo</span>
+                  <span class="btn bad">Zgłoś</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="bnav">
+            <span><svg viewBox="0 0 24 24"><path d="M20.5 15.6V8.4a1.5 1.5 0 0 0-.8-1.3l-6.9-3.8a1.5 1.5 0 0 0-1.6 0L4.3 7.1a1.5 1.5 0 0 0-.8 1.3v7.2a1.5 1.5 0 0 0 .8 1.3l6.9 3.8a1.5 1.5 0 0 0 1.6 0l6.9-3.8a1.5 1.5 0 0 0 .8-1.3z"></path><path d="M3.7 7.6 12 12.2l8.3-4.6M12 12.2V21"></path></svg>Stan</span>
+            <span data-on><svg viewBox="0 0 24 24"><path d="M3 7h11v10H3zM14 10h4l3 3v4h-7z"></path><circle cx="7" cy="18" r="1.8"></circle><circle cx="17.5" cy="18" r="1.8"></circle></svg>Dostawy</span>
+            <span><svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2"></rect><path d="M9 3h6v3H9zM8.5 12l2 2 4-4"></path></svg>Spis</span>
+            <span><i class="bdg">7</i><svg viewBox="0 0 24 24"><path d="M12 4 3 20h18z"></path><path d="M12 10v4M12 17h.01"></path></svg>Braki</span>
+          </div>
+        </div></div>
+        <div class="caption">
+          <h3><i>05</i> Dostawy — przyjęcie przy palecie</h3>
+          <p>
+            Układ przeniesiony z <code>ExpectedDeliveries.tsx</code>: <b>grupa per dystrybutor</b>,
+            bo paczka przychodzi od jednego, a pozycje tej samej kartoteki scalone w jeden wiersz
+            (rozdział na rekordy FIFO robi API). Pod nazwą stoi <b>półka, na którą to odłożyć</b>.
+            „Zgłoś” otwiera reklamację ze zdjęciem — trasa <code>POST /inventory/orders/:id/issues</code>
+            jest już multipartowa i w komentarzu wprost mówi „zdjęcie palety wprost z telefonu”.
+          </p>
+        </div>
+      </div>
+
+      <!-- 06 SPIS -->
+      <div class="screenblock">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>10:20</span><span>▾ ▯▯▯ 76%</span></div>
+          <div class="topbar">
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"></path></svg></span>
+            <span class="toptitle">Spis wrzesień<small>Materiały ogólne · otwarty</small></span>
+            <span class="iconbtn acc"><svg viewBox="0 0 24 24"><path d="M4 9V6.5A2.5 2.5 0 0 1 6.5 4H9M15 4h2.5A2.5 2.5 0 0 1 20 6.5V9M20 15v2.5a2.5 2.5 0 0 1-2.5 2.5H15M9 20H6.5A2.5 2.5 0 0 1 4 17.5V15M4 12h16"></path></svg></span>
+          </div>
+          <div class="screen">
+            <div class="progress">
+              <span class="pb"><i style="width:35%"></i></span>
+              <span class="pv">41 / 118 · różnic 6</span>
+            </div>
+            <div class="offline">
+              <svg viewBox="0 0 24 24"><path d="M3 3l18 18M8.5 16.5a5 5 0 0 1 7 0M5 13a10 10 0 0 1 4-2.4M19 13a10 10 0 0 0-7-2.9"></path></svg>
+              Bez zasięgu · 12 wpisów czeka w kolejce
+            </div>
+            <div class="chips">
+              <span class="chip" data-on>Nieliczone <b>77</b></span>
+              <span class="chip">Różnice <b>6</b></span>
+              <span class="chip">Kontener 2</span>
+            </div>
+            <div class="list">
+              <div class="crow">
+                <span class="nm"><b>Zawór kulowy 3/4"</b><span>system 15 · A35</span></span>
+                <span class="inp filled">13</span>
+                <span class="diff minus">−2</span>
+              </div>
+              <div class="crow">
+                <span class="nm"><b>Kolano PP-R 90° fi 20</b><span>system 340 · A12</span></span>
+                <span class="inp filled">352</span>
+                <span class="diff plus">+12</span>
+              </div>
+              <div class="crow">
+                <span class="nm"><b>Uchwyt montażowy uniwersalny</b><span>system 520 · A18</span></span>
+                <span class="inp filled">520</span>
+                <span class="diff">0</span>
+              </div>
+              <div class="crow">
+                <span class="nm"><b>Rura PP-R fi 20 PN20 (4 m)</b><span>system 88 · A20</span></span>
+                <span class="inp empty">—</span>
+                <span class="diff"></span>
+              </div>
+              <div class="crow">
+                <span class="nm"><b>Filtr F7 do centrali (para)</b><span>system 22 · B4</span></span>
+                <span class="inp empty">—</span>
+                <span class="diff"></span>
+              </div>
+            </div>
+            <div class="actions">
+              <span class="act prim"><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-9"></path></svg>Zamknij do akceptacji</span>
+              <span class="act ghost" style="font-size:11px;justify-content:center">Korekty księguje kierownik — stan się teraz nie zmienia</span>
+            </div>
+          </div>
+        </div></div>
+        <div class="caption">
+          <h3><i>06</i> Spis z natury</h3>
+          <p>
+            Ekran, dla którego w ogóle warto robić magazyn na telefonie: dziś ktoś chodzi z kartką,
+            a potem przepisuje. Skaner przewija arkusz do pozycji, człowiek wbija liczbę.
+            <b>Reguła z panelu zostaje nietknięta</b> — arkusz nie rusza stanu, „Zamknij do akceptacji”
+            przestawia go na <code>to_approve</code>, a korekty <code>adjustment</code> księguje dopiero
+            kierownik z <code>inventory.count.approve</code>. Cały arkusz działa offline.
+          </p>
+        </div>
+      </div>
+
+      <!-- 07 BRAKI -->
+      <div class="screenblock">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>10:31</span><span>▾ ▮▮▮ 74%</span></div>
+          <div class="topbar">
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"></path></svg></span>
+            <span class="toptitle">Braki<small>7 poniżej minimum · 4 w koszyku</small></span>
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"></path></svg></span>
+          </div>
+          <div class="screen">
+            <div class="segsm"><span data-on>Poniżej minimum</span><span>Koszyk</span><span>Propozycje</span></div>
+            <div class="list">
+              <div class="prow">
+                <span class="thumb"><svg viewBox="0 0 24 24"><path d="M4 8c4-3 12-3 16 0M4 16c4 3 12 3 16 0M4 8v8M20 8v8"></path></svg></span>
+                <span class="nm">
+                  <b>Kanał Flexi fi 75 (rolka 50 m)</b>
+                  <span class="meta">stan 1 · min 3 · <span style="color:var(--d-inv)">dokupić 5</span></span>
+                </span>
+                <span class="btn ok" style="flex:none;padding:6px 10px">+ Dorzuć</span>
+              </div>
+              <div class="prow">
+                <span class="thumb"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"></circle><path d="M4 12h4M16 12h4M12 4v4M12 16v4"></path></svg></span>
+                <span class="nm">
+                  <b>Zawór kulowy 3/4"</b>
+                  <span class="meta">stan 15 · min 20 · <span style="color:var(--d-inv)">dokupić 35</span></span>
+                </span>
+                <span class="btn ok" style="flex:none;padding:6px 10px">+ Dorzuć</span>
+              </div>
+              <div class="prow">
+                <span class="thumb"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="2"></rect><path d="M8 6V4h8v2"></path></svg></span>
+                <span class="nm">
+                  <b>Zasobnik CWU 300 l ze spiralą</b>
+                  <span class="meta">stan 2 · min 3 · <span style="color:var(--d-inv)">dokupić 6</span></span>
+                </span>
+                <span class="btn ok" style="flex:none;padding:6px 10px">+ Dorzuć</span>
+              </div>
+              <div class="grp" style="margin-top:6px"><b>Propozycje z podpisanych umów</b><span class="sp"></span><span>2</span></div>
+              <div class="drow">
+                <div class="top">
+                  <span class="thumb"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16M8 6v12M16 6v12"></path></svg></span>
+                  <span class="nm" style="flex:1;min-width:0;display:grid;gap:2px">
+                    <b style="font-size:12.5px;font-weight:400">Rozdzielacz podłogówki 8-obw.</b>
+                    <span class="meta" style="font-size:10px;color:var(--d-muted)">Nowak (Busko) · umowa z 02.09 · 2 szt</span>
+                  </span>
+                </div>
+                <div class="btns">
+                  <span class="btn ok">Akceptuj</span>
+                  <span class="btn">Odrzuć</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="bnav">
+            <span><svg viewBox="0 0 24 24"><path d="M20.5 15.6V8.4a1.5 1.5 0 0 0-.8-1.3l-6.9-3.8a1.5 1.5 0 0 0-1.6 0L4.3 7.1a1.5 1.5 0 0 0-.8 1.3v7.2a1.5 1.5 0 0 0 .8 1.3l6.9 3.8a1.5 1.5 0 0 0 1.6 0l6.9-3.8a1.5 1.5 0 0 0 .8-1.3z"></path><path d="M3.7 7.6 12 12.2l8.3-4.6M12 12.2V21"></path></svg>Stan</span>
+            <span><i class="bdg">3</i><svg viewBox="0 0 24 24"><path d="M3 7h11v10H3zM14 10h4l3 3v4h-7z"></path><circle cx="7" cy="18" r="1.8"></circle><circle cx="17.5" cy="18" r="1.8"></circle></svg>Dostawy</span>
+            <span><svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2"></rect><path d="M9 3h6v3H9zM8.5 12l2 2 4-4"></path></svg>Spis</span>
+            <span data-on><svg viewBox="0 0 24 24"><path d="M12 4 3 20h18z"></path><path d="M12 10v4M12 17h.01"></path></svg>Braki</span>
+          </div>
+        </div></div>
+        <div class="caption">
+          <h3><i>07</i> Braki i zamówienie</h3>
+          <p>
+            Najbardziej okrojona zakładka i tak ma być. Telefon robi dwie rzeczy: <b>dorzuca pozycję
+            do koszyka</b> (<code>to_order</code>) w chwili, gdy magazynier zobaczy pustą półkę, i
+            <b>akceptuje propozycję z podpisanej umowy</b> (<code>proposed</code> → <code>to_order</code>).
+            Składanie zamówienia u dystrybutora, ceny, porównania ofert i „Zamówiono” zostają
+            w panelu — to robota przy monitorze, nie na hali.
+          </p>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="palette">
+      <div class="sw"><b style="background:#F85149"></b><em>Zbyt mało</em> — poniżej minimum</div>
+      <div class="sw"><b style="background:#7EE787"></b><em>Stan bezpieczny</em> — między min. a maks.</div>
+      <div class="sw"><b style="background:#58A6FF"></b><em>Ponad maks.</em> — i „w drodze”</div>
+      <div class="sw"><b style="background:#6E7681"></b><em>Bez celu</em> — pozycja pod klienta</div>
+      <div class="sw"><b style="background:#C084FC"></b><em>Rezerwacja</em> — odłożone pod umowę</div>
+      <div class="sw"><b style="background:#EAB308"></b><em>Akcent modułu</em> — jak kafelek w panelu</div>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead">
+      <div class="snum">04 — Zakres</div>
+      <h2>Co z panelu wchodzi na telefon</h2>
+      <p>
+        Zasada podziału jest jedna: <b>wchodzi to, co robi się na stojąco</b>. Wszystko, co wymaga
+        porównywania kolumn, wgrywania plików albo decyzji o pieniądzach, zostaje przy biurku.
+      </p>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>Karta panelu</th><th>Telefon</th><th>Zakres na telefonie</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Produkty</td>
+            <td><span class="tag jest">wchodzi</span></td>
+            <td>Zakładka <b>Stan</b>: lista, szukajka, skaner, filtry poziomu/instalacji/strefy, karta pozycji.</td>
+          </tr>
+          <tr>
+            <td>Rezerwacje</td>
+            <td><span class="tag jest">wchodzi</span></td>
+            <td>Przełącznik <b>Pod klienta</b> + sekcja „odłożone pod kogo” w karcie. Układ wg klienta i wg materiału, tak jak w panelu.</td>
+          </tr>
+          <tr>
+            <td>Przyjęcie</td>
+            <td><span class="tag jest">wchodzi</span></td>
+            <td>Zakładka <b>Dostawy</b>: oczekiwane pozycje, przyjęcie pełne i częściowe, reklamacja ze zdjęciem, przyjęcie od ręki spoza zamówień.</td>
+          </tr>
+          <tr>
+            <td>Wydanie</td>
+            <td><span class="tag jest">wchodzi</span></td>
+            <td>Nie jako zakładka — jako przycisk w karcie pozycji, z wyborem rezerwacji/deala.</td>
+          </tr>
+          <tr>
+            <td>Inwentaryzacja</td>
+            <td><span class="tag jest">wchodzi</span></td>
+            <td>Zakładka <b>Spis</b>: arkusze, liczenie ze skanerem, zamknięcie do akceptacji. Zakładanie arkusza z filtra też (magazynier stoi już przy regale).</td>
+          </tr>
+          <tr>
+            <td>Zamówienie</td>
+            <td><span class="tag mock">skrócone</span></td>
+            <td>Zakładka <b>Braki</b>: dorzucenie pozycji i akceptacja propozycji z umów. Grupowanie po dystrybutorze, „Zamówiono” i ceny — w panelu.</td>
+          </tr>
+          <tr>
+            <td>Raport</td>
+            <td><span class="tag mock">skrócone</span></td>
+            <td>Dwa liczniki w nagłówku Braków (poniżej minimum, w koszyku). Wykresy zakupów i wartość zapasu — w panelu.</td>
+          </tr>
+          <tr>
+            <td>Kartoteka (edycja)</td>
+            <td><span class="tag mock">skrócone</span></td>
+            <td>Tylko <b>lokalizacja</b> (strefa + półka) i <b>uwagi magazynu</b>. Ceny, progi, grupy porównawcze, systemy rur — w panelu.</td>
+          </tr>
+          <tr>
+            <td>Oferty</td>
+            <td><span class="tag brak">zostaje</span></td>
+            <td>Wgrywanie cenników hurtowni i wiązanie pozycji z kartotekami. Praca na dużym ekranie z plikiem PDF.</td>
+          </tr>
+          <tr>
+            <td>Faktury</td>
+            <td><span class="tag brak">zostaje</span></td>
+            <td>Nie ma zaplecza w API (karta pokazuje sam zakres) — nie ma czego przenosić.</td>
+          </tr>
+          <tr>
+            <td>Archiwum</td>
+            <td><span class="tag brak">zostaje</span></td>
+            <td>Wymaga <code>inventory.delete</code> (zarząd). Kasowanie kartotek nie jest czynnością terenową.</td>
+          </tr>
+          <tr>
+            <td>Etykiety QR (PDF)</td>
+            <td><span class="tag brak">zostaje</span></td>
+            <td>Druk zostaje w panelu — telefon jest po drugiej stronie tej samej etykiety: ją czyta.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead">
+      <div class="snum">05 — API</div>
+      <h2>Czego brakuje po drodze</h2>
+      <p>
+        Backend magazynu jest najbardziej kompletnym modułem w całym board360 — 48 tras, wszystkie
+        stany i przejścia. <b>Ale był pisany pod jeden ekran z szybkim łączem.</b> Sześć rzeczy trzeba
+        dołożyć, zanim ten sam magazyn zadziała w kieszeni.
+      </p>
+    </div>
+    <div class="cards">
+      <div class="card">
+        <h3><span class="tag nowe">do dopisania</span> Lista bez stronicowania</h3>
+        <p>
+          <code>GET /api/products</code> zwraca <b>całą kartotekę jednym strzałem</b>, z historią
+          dystrybutorów, cenami per punkt zakupu i specyfikacją katalogową. Na LTE w kontenerze to
+          setki kilobajtów przy każdym wejściu. Potrzebne: <code>?q=</code>, <code>?limit/cursor</code>
+          i <b><code>?updatedSince=</code></b> — pierwszy zaciąg pełny do Room, potem sama delta.
+        </p>
+      </div>
+      <div class="card">
+        <h3><span class="tag nowe">nowe</span> Szukanie po kodzie</h3>
+        <p>
+          Nie ma trasy „daj pozycję po kodzie”. Skaner potrzebuje
+          <code>GET /api/products/lookup?code=</code>, które trafia zarówno w <code>code</code>
+          (EAN), jak i w <code>id</code> — bo etykiety kodują <code>code ?? id</code>
+          (<code>generate-labels.usecase.ts</code>).
+        </p>
+      </div>
+      <div class="card">
+        <h3><span class="tag nowe">nowe</span> Idempotencja ruchów</h3>
+        <p>
+          <code>POST /products/:id/movements</code> nie ma klucza idempotencji. Przy kolejce offline
+          i ponowieniu po zerwanej sieci <b>przyjęcie zaksięguje się dwa razy</b>. Potrzebny nagłówek
+          <code>Idempotency-Key</code> (albo <code>clientMutationId</code> w ciele) i unikat po nim
+          w bazie. Bez tego pisanie offline jest niebezpieczne dla stanu.
+        </p>
+      </div>
+      <div class="card">
+        <h3><span class="tag nowe">decyzja + trasa</span> „Wydane” nie rusza stanu</h3>
+        <p>
+          <code>PATCH /inventory/reservations/:id</code> ze statusem <code>done</code> tylko przestawia
+          status — <code>UpdateReservation</code> nie tworzy żadnego ruchu. W panelu magazynier
+          księguje wydanie osobno w karcie „Wydanie”. <b>Na telefonie to jeden przycisk</b>, więc
+          potrzebna trasa <code>POST /inventory/reservations/:id/issue</code>, która w jednej transakcji
+          robi ruch <code>issue</code> i zamyka linię. Pytanie: czy panel ma się do tego dostosować.
+        </p>
+      </div>
+      <div class="card">
+        <h3><span class="tag brak">brak</span> Atrapa nie zna magazynu</h3>
+        <p>
+          <code>board360-mock</code> nie ma <code>src/routes/inventory.js</code> ani seeda pozycji.
+          Bez tego nie ma na czym pisać ani testować aplikacji — jak przy Serwisie i Kalendarzu,
+          atrapa musi dostać komplet tras używanych przez telefon.
+        </p>
+      </div>
+      <div class="card">
+        <h3><span class="tag mock">do sprawdzenia</span> Zdjęcia pozycji</h3>
+        <p>
+          <code>imageUrl</code> to adres zewnętrzny (strona producenta), a nie plik z naszego storage.
+          Na telefonie trzeba je cache’ować na dysku (Coil), a przy braku sieci i tak zostaje
+          kolorowa zaślepka z ikoną — dokładnie jak <code>ProductThumb</code> w panelu.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead">
+      <div class="snum">06 — Realizacja</div>
+      <h2>Pięć etapów</h2>
+      <p>
+        Kolejność wynika z ryzyka: najpierw odczyt (nic nie może się zepsuć), potem zapis online,
+        na końcu kolejka offline — bo dopiero ona wymaga idempotencji po stronie API.
+      </p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <span class="no">E1</span>
+        <div>
+          <h3>Stan i karta pozycji <span class="tag">odczyt</span></h3>
+          <p>
+            DTO, encje Room, repozytorium i zakładka <b>Stan</b> z wyszukiwarką, filtrami i kartą
+            pozycji. Cache w Room = magazyn działa bez zasięgu w trybie do czytania, co samo w sobie
+            załatwia potrzebę montera w aucie. Wymaga <code>?updatedSince=</code> po stronie API.
+          </p>
+          <div class="files">
+            <i>data/remote/dto/InventoryDto.kt</i><i>data/local/entity/ProductEntity.kt</i>
+            <i>domain/model/Product.kt</i><i>presentation/inventory/</i>
+          </div>
+        </div>
+      </div>
+      <div class="step">
+        <span class="no">E2</span>
+        <div>
+          <h3>Skaner i ruchy od ręki <span class="tag">zapis online</span></h3>
+          <p>
+            ML Kit / ZXing, uprawnienie do kamery, cztery tryby skanera i dwa ruchy: <b>Wydaj</b>
+            i <b>Przyjmij od ręki</b>. Tu wchodzi <code>lookup?code=</code> i decyzja o uprawnieniach —
+            przyciski pokazujemy po <code>permissions.contains("inventory.manage")</code>, tak jak
+            <code>DealDetailViewModel</code> robi to dziś dla <code>deal.manage</code>.
+          </p>
+          <div class="files"><i>data/scanner/CodeScanner.kt</i><i>presentation/inventory/IssueSheet.kt</i></div>
+        </div>
+      </div>
+      <div class="step">
+        <span class="no">E3</span>
+        <div>
+          <h3>Dostawy <span class="tag">zapis + zdjęcia</span></h3>
+          <p>
+            Oczekiwane dostawy grupowane po dystrybutorze, przyjęcie pełne i częściowe, reklamacja
+            ze zdjęciem z aparatu (multipart — trasa już to przyjmuje). Rozdział ilości na rekordy
+            FIFO zostaje po stronie API.
+          </p>
+          <div class="files"><i>presentation/inventory/DeliveriesScreen.kt</i></div>
+        </div>
+      </div>
+      <div class="step">
+        <span class="no">E4</span>
+        <div>
+          <h3>Spis z natury <span class="tag">pełny offline</span></h3>
+          <p>
+            Arkusz w Room, liczenie bez zasięgu, kolejka <code>inventory_mutations</code> i worker
+            wzorowany 1:1 na <code>TaskSyncWorker</code> (klucz główny = pozycja arkusza, więc
+            poprawiona liczba nadpisuje poprzednią). <b>Warunek wstępny: idempotencja po stronie API.</b>
+            Pamiętać o <code>ksp(androidx.hilt:hilt-compiler)</code> — bez niego <code>@HiltWorker</code>
+            jest ignorowany i worker nie wstaje.
+          </p>
+          <div class="files">
+            <i>data/local/entity/InventoryMutationEntity.kt</i><i>worker/InventorySyncWorker.kt</i>
+            <i>data/sync/InventorySyncScheduler.kt</i>
+          </div>
+        </div>
+      </div>
+      <div class="step">
+        <span class="no">E5</span>
+        <div>
+          <h3>Braki i propozycje <span class="tag">domknięcie</span></h3>
+          <p>
+            Zakładka Braki: lista poniżej minimum z <code>GET /inventory/reorder</code>, dorzucenie
+            do koszyka i akceptacja propozycji z umów. Domyka moduł do stanu, w którym magazynier
+            nie musi wracać do komputera po nic poza zamówieniem u dystrybutora.
+          </p>
+          <div class="files"><i>presentation/inventory/ShortagesScreen.kt</i></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead">
+      <div class="snum">07 — Do ustalenia</div>
+      <h2>Siedem pytań przed pierwszą linijką kodu</h2>
+      <p>
+        Wszystkie mają rekomendację; żadna nie jest jeszcze decyzją. Pierwsze pytanie jest blokujące —
+        od niego zależy, czy ten moduł jest narzędziem pracy, czy czytelnią.
+      </p>
+    </div>
+    <div class="qs">
+      <div class="qq">
+        <h3>1. Kto może wydawać i przyjmować z telefonu? <span class="tag mock">blokujące</span></h3>
+        <p>
+          Dziś <code>serwisant</code>, <code>montaz</code> i <code>stazysta</code> mają wyłącznie
+          <code>inventory.view</code> — czyli <b>żaden użytkownik TeamTalka nie może zaksięgować ruchu</b>.
+          <code>inventory.manage</code> ma admin, zarząd i koordynator.
+        </p>
+        <div class="opts">
+          <i>Magazynier dostaje nadpisanie per osoba</i>
+          <i>Nowa rola „magazyn”</i>
+          <i>Monter też dostaje manage</i>
+          <i>Telefon zostaje czytelnią</i>
+        </div>
+        <p class="rec">
+          Rekomendacja: nadpisanie per osoba dla magazyniera (mechanizm już istnieje, zero zmian
+          w rolach), a monter zostaje przy podglądzie. Materiał na budowę i tak wydaje magazynier —
+          i to jego podpis ma stać przy ruchu.
+        </p>
+      </div>
+      <div class="qq">
+        <h3>2. Czy „Wydane” z rezerwacji ma księgować ruch?</h3>
+        <p>
+          Dziś w panelu przestawienie linii na <code>done</code> nie zmienia stanu — trzeba pamiętać
+          o osobnym wydaniu. To jest miejsce, w którym stan magazynu cicho się rozjeżdża z rzeczywistością.
+        </p>
+        <div class="opts"><i>Jedna akcja robi oba (zmiana też w panelu)</i><i>Telefon jak panel — dwa kroki</i></div>
+        <p class="rec">
+          Rekomendacja: jedna akcja, wspólna trasa <code>/reservations/:id/issue</code> i podpięcie jej
+          także pod przycisk w panelu. Inaczej telefon i panel będą liczyć magazyn inaczej.
+        </p>
+      </div>
+      <div class="qq">
+        <h3>3. Czy wydanie musi wskazywać „pod kogo”?</h3>
+        <p>
+          Wydanie na warsztat, na własne potrzeby albo „chłopaki wzięli” istnieje naprawdę, a
+          rezerwacja go nie obejmuje.
+        </p>
+        <div class="opts"><i>Zawsze deal albo rezerwacja</i><i>Wolno „na magazyn” z notatką</i></div>
+        <p class="rec">
+          Rekomendacja: wolno „na magazyn”, ale wtedy notatka jest obowiązkowa — inaczej po miesiącu
+          nikt nie odtworzy, gdzie zniknęło 40 kolanek.
+        </p>
+      </div>
+      <div class="qq">
+        <h3>4. Co czyta skaner: same etykiety czy też kody producenta?</h3>
+        <p>
+          Etykiety z panelu kodują <code>code ?? id</code>. Opakowania mają własne EAN-y, których
+          w kartotekach częściowo nie ma.
+        </p>
+        <div class="opts"><i>Tylko nasze etykiety QR</i><i>QR + EAN, z dopisywaniem kodu do kartoteki</i></div>
+        <p class="rec">
+          Rekomendacja: oba, plus „ten kod nie jest znany — przypisać do pozycji?”. Magazyn sam sobie
+          uzupełni EAN-y w kilka tygodni, bez osobnego projektu.
+        </p>
+      </div>
+      <div class="qq">
+        <h3>5. Czy stan ma spadać od razu, jeszcze przed wysłaniem?</h3>
+        <p>
+          Wydanie bez zasięgu można pokazać optymistycznie (stan spada lokalnie) albo uczciwie
+          (stan bez zmian, ruch czeka w kolejce).
+        </p>
+        <div class="opts"><i>Optymistycznie, z licznikiem „czeka”</i><i>Dopiero po potwierdzeniu</i></div>
+        <p class="rec">
+          Rekomendacja: optymistycznie, ale z widocznym znacznikiem „2 ruchy czekają” przy liczniku —
+          magazynier musi widzieć różnicę między „jest 11” a „będzie 11”.
+        </p>
+      </div>
+      <div class="qq">
+        <h3>6. Ile kartoteki wolno poprawić z telefonu?</h3>
+        <p>
+          Makieta dopuszcza dwa pola: lokalizację i uwagi. Kusi, żeby dołożyć progi min/maks —
+          magazynier najlepiej wie, ile czego trzymać.
+        </p>
+        <div class="opts"><i>Lokalizacja + uwagi</i><i>Dodatkowo min/maks</i><i>Pełna edycja</i></div>
+        <p class="rec">
+          Rekomendacja: na start lokalizacja i uwagi. Progi ruszają automatem zakupowym — to decyzja
+          przy monitorze, nie przy regale.
+        </p>
+      </div>
+      <div class="qq">
+        <h3>7. Czy zakładka Braki jest potrzebna w pierwszej wersji?</h3>
+        <p>
+          Cztery zakładki to dużo jak na telefon. Braki są najmniej „terenowe” z całej czwórki.
+        </p>
+        <div class="opts"><i>Cztery zakładki od razu</i><i>Trzy, Braki w E5 albo wcale</i></div>
+        <p class="rec">
+          Rekomendacja: zaplanować cztery, ale wypuścić Braki jako ostatnie (E5) — po E1–E4 będzie
+          już wiadomo, czy magazynier w ogóle sięga po telefon do zamówień.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <footer class="end">
+    <span>design/mockups/modul-magazyn.html</span>
+    <span>koncepcja: 2026-09-04</span>
+    <span>panel: web/src/app/app/inventory + api/src/modules/inventory</span>
+    <span>telefon: presentation/home/HomeModules.kt (kafelek inventory)</span>
+  </footer>
+
+</div>

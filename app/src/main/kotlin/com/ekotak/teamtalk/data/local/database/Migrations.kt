@@ -280,3 +280,301 @@ val MIGRATION_10_11 = object : Migration(10, 11) {
         db.execSQL("DROP TABLE IF EXISTS `calendar_members`")
     }
 }
+
+/**
+ * 11 → 12: cache modułu Magazyn (etap E1) — kartoteki, rezerwacje pod klientów
+ * i zapotrzebowanie zakupowe.
+ *
+ * Trzy nowe tabele, zero ruchu w istniejących: to czysty cache odczytu, więc
+ * dokładamy je migracją zamiast kasować bazę (leżą w niej kolejki niewysłanych
+ * zmian zadań, serwisu i kalendarza — tego skasować nie wolno).
+ */
+val MIGRATION_11_12 = object : Migration(11, 12) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `inventory_products` (
+                `id` TEXT NOT NULL,
+                `name` TEXT NOT NULL,
+                `code` TEXT,
+                `installation` TEXT,
+                `stockType` TEXT NOT NULL,
+                `dealId` TEXT,
+                `stock` REAL NOT NULL,
+                `minQty` REAL NOT NULL,
+                `targetQty` REAL NOT NULL,
+                `price` REAL,
+                `producer` TEXT,
+                `distributor` TEXT,
+                `distributors` TEXT NOT NULL,
+                `distributorPricesJson` TEXT NOT NULL,
+                `packaging` TEXT,
+                `notes` TEXT,
+                `storageZone` TEXT,
+                `storageShelf` TEXT,
+                `stockPolicy` TEXT,
+                `imageUrl` TEXT,
+                `leadTimeDays` INTEGER,
+                `syncedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `inventory_reservations` (
+                `id` TEXT NOT NULL,
+                `dealId` TEXT NOT NULL,
+                `productId` TEXT,
+                `itemName` TEXT NOT NULL,
+                `itemCode` TEXT,
+                `clientLabel` TEXT NOT NULL,
+                `quantity` REAL NOT NULL,
+                `unit` TEXT NOT NULL,
+                `status` TEXT NOT NULL,
+                `source` TEXT NOT NULL,
+                `neededBy` TEXT,
+                `note` TEXT,
+                `covered` REAL NOT NULL,
+                `missing` REAL NOT NULL,
+                `productName` TEXT,
+                `syncedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `inventory_orders` (
+                `id` TEXT NOT NULL,
+                `productId` TEXT NOT NULL,
+                `dealId` TEXT,
+                `quantity` REAL NOT NULL,
+                `receivedQty` REAL NOT NULL,
+                `status` TEXT NOT NULL,
+                `distributor` TEXT,
+                `unitPrice` REAL,
+                `expectedAt` TEXT,
+                `note` TEXT,
+                `syncedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent(),
+        )
+    }
+}
+
+/**
+ * Zakładka „Audyt" offline: cache audytów, katalogu technologii i migawki
+ * instalacji etapu „Audyt" oraz kolejka niewysłanych zapisów.
+ *
+ * Migracja, a nie skasowanie bazy: w `task_mutations`, `service_mutations`
+ * i `calendar_mutations` leżą decyzje zrobione bez zasięgu, a od teraz też
+ * w `audit_mutations` — czyli formularz wypełniony u klienta, którego nie da
+ * się odtworzyć bez drugiego dojazdu.
+ */
+val MIGRATION_12_13 = object : Migration(12, 13) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `audits` (
+                `id` TEXT NOT NULL,
+                `dealId` TEXT NOT NULL,
+                `heatloadMode` TEXT,
+                `heatloadKw` REAL,
+                `formData` TEXT,
+                `createdAt` TEXT NOT NULL,
+                `pendingSince` INTEGER,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `catalog_categories` (
+                `id` TEXT NOT NULL,
+                `parentId` TEXT,
+                `name` TEXT NOT NULL,
+                `position` INTEGER NOT NULL,
+                `auditForm` TEXT,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `audit_installations` (
+                `dealId` TEXT NOT NULL,
+                `categoryIds` TEXT NOT NULL,
+                `allStageCategoryIds` TEXT NOT NULL,
+                `syncedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`dealId`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `audit_mutations` (
+                `auditId` TEXT NOT NULL,
+                `field` TEXT NOT NULL,
+                `payload` TEXT NOT NULL,
+                `dealId` TEXT NOT NULL,
+                `createdAt` INTEGER NOT NULL,
+                PRIMARY KEY(`auditId`, `field`)
+            )
+            """.trimIndent(),
+        )
+    }
+}
+
+/**
+ * Moduł Projekty na telefonie (E5). Cztery tabele: projekty, kamienie milowe,
+ * zadania z karty projektu i kolejka zmian zrobionych bez zasięgu.
+ *
+ * `project_tasks` jest CELOWO osobne od `tasks`: tam trzymamy zadania przekazane
+ * do realizacji, a z karty projektu przychodzą także `planned` — wrzucenie ich
+ * razem pokazałoby ludziom w „Zadaniach" robotę, której nikt im nie zlecił.
+ */
+val MIGRATION_13_14 = object : Migration(13, 14) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `projects` (
+                `id` TEXT NOT NULL,
+                `name` TEXT NOT NULL,
+                `description` TEXT,
+                `color` TEXT,
+                `stage` TEXT NOT NULL,
+                `department` TEXT,
+                `managerEmail` TEXT,
+                `sponsorEmail` TEXT,
+                `memberCount` INTEGER NOT NULL,
+                `taskCount` INTEGER NOT NULL,
+                `doneCount` INTEGER NOT NULL,
+                `dueAt` TEXT,
+                `problemStatement` TEXT,
+                `metricName` TEXT,
+                `metricBaseline` TEXT,
+                `metricTarget` TEXT,
+                `membersJson` TEXT,
+                `localOnly` INTEGER NOT NULL,
+                `cachedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `project_milestones` (
+                `id` TEXT NOT NULL,
+                `projectId` TEXT NOT NULL,
+                `name` TEXT NOT NULL,
+                `dueAt` TEXT,
+                `acceptanceCriteria` TEXT,
+                `ownerEmail` TEXT,
+                `doneAt` TEXT,
+                `position` INTEGER NOT NULL,
+                `taskCount` INTEGER NOT NULL,
+                `doneCount` INTEGER NOT NULL,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `project_tasks` (
+                `id` TEXT NOT NULL,
+                `projectId` TEXT NOT NULL,
+                `title` TEXT NOT NULL,
+                `assigneeId` TEXT,
+                `assigneeEmail` TEXT,
+                `startAt` TEXT,
+                `dueAt` TEXT,
+                `status` TEXT NOT NULL,
+                `lifecycle` TEXT NOT NULL,
+                `milestoneId` TEXT,
+                `estimatedMinutes` INTEGER,
+                `actualMinutes` INTEGER,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `project_mutations` (
+                `targetId` TEXT NOT NULL,
+                `kind` TEXT NOT NULL,
+                `payload` TEXT NOT NULL,
+                `createdAt` INTEGER NOT NULL,
+                PRIMARY KEY(`targetId`, `kind`)
+            )
+            """.trimIndent(),
+        )
+    }
+}
+
+/**
+ * 14 → 15: zakładka „Zamówienie" karty deala — zamówienia deala, jego oferty
+ * i wspólna kolejka zmian zrobionych bez zasięgu.
+ *
+ * Przy okazji `inventory_orders` dostaje `reservationId`: po nim wiersz
+ * rezerwacji poznaje, że jego brak ktoś już kupuje. Kolumnę dokładamy przez
+ * `ALTER TABLE`, a nie przez odtworzenie tabeli — leżą w niej pozycje zakupowe
+ * założone offline (`local:…`), których nie wolno zgubić.
+ */
+val MIGRATION_14_15 = object : Migration(14, 15) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `deal_orders` (
+                `id` TEXT NOT NULL,
+                `dealId` TEXT NOT NULL,
+                `status` TEXT NOT NULL,
+                `contractId` TEXT,
+                `installationId` TEXT,
+                `installationName` TEXT,
+                `source` TEXT NOT NULL,
+                `createdAt` TEXT NOT NULL,
+                `itemsJson` TEXT NOT NULL,
+                `syncedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `deal_offers` (
+                `id` TEXT NOT NULL,
+                `dealId` TEXT NOT NULL,
+                `number` TEXT NOT NULL,
+                `status` TEXT NOT NULL,
+                `netTotal` REAL NOT NULL,
+                `grossTotal` REAL NOT NULL,
+                `margin` REAL NOT NULL,
+                `syncedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `order_mutations` (
+                `targetId` TEXT NOT NULL,
+                `kind` TEXT NOT NULL,
+                `payload` TEXT NOT NULL,
+                `dealId` TEXT NOT NULL,
+                `createdAt` INTEGER NOT NULL,
+                PRIMARY KEY(`targetId`, `kind`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL("ALTER TABLE `inventory_orders` ADD COLUMN `reservationId` TEXT")
+        // Migawka instalacji deala dostaje etap „sold" — z niego zakładka
+        // „Zamówienie" rysuje zakres kupiony przez klienta. Pusty domyślnie:
+        // dopisze go pierwszy udany odczyt karty.
+        db.execSQL(
+            "ALTER TABLE `audit_installations` " +
+                "ADD COLUMN `soldStageCategoryIds` TEXT NOT NULL DEFAULT ''",
+        )
+    }
+}

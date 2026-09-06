@@ -26,6 +26,13 @@ const ALL_PERMS = [
   // ("Zaplanuj mimo to"). Celowo NIE dla serwisanta i montera — tak samo
   // jak w board360, gdzie to prawo maja planisci: admin/koordynator/biuro.
   'calendar.override_busy',
+  // Sprzedaz i magazyn (zakladka „Zamowienie"). W board360 `order.manage`
+  // gate-uje takze ODCZYT listy zamowien, nie tylko zapis — trzymamy to tak
+  // samo, bo na tym stoi rozroznienie „brak zamowien" od „brak dostepu".
+  'offer.manage',
+  'order.manage',
+  'inventory.view',
+  'inventory.manage',
 ];
 
 const ROLE_PERMS = {
@@ -35,6 +42,7 @@ const ROLE_PERMS = {
     'crm.view', 'deal.manage', 'telephony.use', 'reports.view',
     'tasks.view', 'tasks.manage', 'projects.view', 'projects.manage',
     'service.view', 'service.manage', 'calendar.view', 'calendar.override_busy',
+    'offer.manage', 'order.manage', 'inventory.view', 'inventory.manage',
   ],
   // Serwisant widzi projekty, ale nie zaklada w nich zadan — na tym koncie da sie
   // na telefonie sprawdzic, ze krok "projekt" w kreatorze konczy sie kodem 403.
@@ -45,10 +53,16 @@ const ROLE_PERMS = {
   // Biuro celowo BEZ serwisu — tak samo jak w board360, gdzie modul Serwis ma
   // role admin / koordynator / serwisant / montaz. Konta biurowego seed nie
   // zaklada, wiec sciezke 403 sprawdza sie recznie (zmiana roli w seedzie).
-  biuro: ['crm.view', 'deal.manage', 'tasks.view', 'tasks.manage', 'projects.view', 'calendar.view', 'calendar.override_busy'],
+  biuro: [
+    'crm.view', 'deal.manage', 'tasks.view', 'tasks.manage', 'projects.view',
+    'calendar.view', 'calendar.override_busy',
+    'offer.manage', 'order.manage', 'inventory.view', 'inventory.manage',
+  ],
+  // Montaz widzi magazyn, ale nie zaklada zamowien — na tym koncie sprawdza sie
+  // zakladka „Zamowienie" w wariancie „rezerwacja jest, zamowien nie widac".
   montaz: [
     'crm.view', 'tasks.view', 'tasks.manage', 'projects.view',
-    'service.view', 'service.manage', 'calendar.view',
+    'service.view', 'service.manage', 'calendar.view', 'inventory.view',
   ],
   stazysta: [],
 };

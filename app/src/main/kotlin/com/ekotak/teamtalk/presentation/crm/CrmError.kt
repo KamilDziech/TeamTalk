@@ -18,6 +18,10 @@ fun crmErrorMessage(e: Throwable, fallback: String): String = when (e) {
         401 -> "Sesja wygasła — zaloguj się ponownie"
         403 -> "Brak uprawnień do CRM"
         404 -> "Rekord nie istnieje lub nie należy do Twojej organizacji"
+        // 409 to stan zasobu, nie błąd wejścia — dziś wraca tak zapis audytu
+        // dla deala z podpisaną umową. Komunikat serwera mówi wprost, o którą
+        // umowę chodzi, więc pokazujemy go zamiast własnego streszczenia.
+        409 -> unprocessableMessage(e) ?: "Zmiana odrzucona — stan rekordu na to nie pozwala"
         422 -> unprocessableMessage(e) ?: "Operacja odrzucona przez serwer"
         in 500..599 -> "Błąd serwera (${e.code()}) — spróbuj ponownie"
         else -> "$fallback (kod ${e.code()})"

@@ -126,6 +126,16 @@ val HOME_MODULES: List<HomeModule> = listOf(
         ),
     ),
     HomeModule(
+        key = "projects",
+        label = "Projekty",
+        desc = "Kamienie milowe i moje zadania w projektach",
+        color = Color(0xFF7C5CFF),
+        icon = moduleIcon(
+            "M4 6.5h16M4 12h16M4 17.5h10",
+            "M18.5 16l1.6 1.6 3-3.2",
+        ),
+    ),
+    HomeModule(
         key = "service",
         label = "Serwis",
         desc = "Zgłoszenia i przeglądy serwisowe",

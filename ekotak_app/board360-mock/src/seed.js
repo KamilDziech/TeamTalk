@@ -35,6 +35,46 @@ function seedCategories(db) {
       ids[name].children[child] = node.id;
     });
   });
+
+  // Jedyna technologia z USTRUKTURYZOWANYM formularzem audytu (`auditForm`) —
+  // bez niej zakladka „Audyt" w telefonie nie mialaby czego dziedziczyc.
+  // Ksztalt szablonu = `formData` audytu ogrzewania podlogowego w board360:
+  // odpowiedzi, ktore firma daje z gory, wpisane; reszta pusta dla audytora.
+  const ufh = {
+    id: uuid(),
+    parentId: null,
+    name: 'Ogrzewanie podlogowe',
+    position: main.length,
+    auditForm: {
+      kind: 'underfloorHeating',
+      pipeSystem: 'pert-evoh-16',
+      roomControl: '',
+      systemFilling: '',
+      cooling: false,
+      install: {
+        wallChase: '',
+        leadInRouting: '',
+        // Wartosci pol wyboru sa CZESCIA KONTRAKTU (mapuja sie na pozycje
+        // cennika), wiec ida doslownie tak, jak w `ufh-install-params.ts`
+        // board360 — z polskimi znakami, mimo ze reszta seeda ich unika.
+        subfloorJoints: 'niedopuszczalne',
+        leadInByWodKan: false,
+        manifoldByWodKan: false,
+        designScope: 'projekt przez ekotak',
+        leadInPipeMm: 25,
+        pressureTest: 'próba szczelności powietrzem z protokołem',
+        systemPlateM2: null,
+        wasteRemoval: 'całkowite usunięcie odpadów przez ekotak',
+        heatMedium: null,
+        biocide: null,
+        warrantyDocs: null,
+      },
+      floors: [],
+    },
+  };
+  db.categories.push(ufh);
+  ids['Ogrzewanie podlogowe'] = { id: ufh.id, children: {} };
+
   return ids;
 }
 
@@ -201,6 +241,7 @@ function makeDeal(db, overrides) {
 }
 
 function seed(db) {
+  const orgId = db.organization.id;
   const cat = seedCategories(db);
   const users = seedUsers(db);
   const clients = seedClients(db);
@@ -210,6 +251,7 @@ function seed(db) {
   const pv = cat['Fotowoltaika'];
   const storage = cat['Magazyn energii'];
   const ac = cat['Klimatyzacja'];
+  const ufh = cat['Ogrzewanie podlogowe'];
 
   // ── Lejek ──────────────────────────────────────────────────────────────────
   // 1. Swiezy lead z leadowni (targi), czeka na decyzje auto-kwalifikacji.
@@ -410,9 +452,16 @@ function seed(db) {
   // ── Instalacje per etap (z dziedziczeniem licznym po stronie API) ──────────
   db.dealInstallations[dLead.id] = { lead: [heat.children['Pompa ciepla'], pv.id] };
   db.dealInstallations[dQual.id] = { lead: [heat.children['Pompa ciepla']] };
+  // Deal na etapie „Audyt" ma OP w migawce tego etapu — to jedyna technologia
+  // z formularzem audytu, wiec bez niej zakladka „Audyt" w telefonie pokazywalaby
+  // wylacznie komunikat „brak formularza w katalogu".
   db.dealInstallations[dAudit.id] = {
     lead: [heat.children['Pompa ciepla']],
-    audit: [heat.children['Pompa ciepla'], pv.children['Instalacja on-grid']],
+    audit: [
+      heat.children['Pompa ciepla'],
+      pv.children['Instalacja on-grid'],
+      ufh.id,
+    ],
   };
   db.dealInstallations[dOffer.id] = {
     lead: [pv.children['Instalacja on-grid']],
@@ -422,6 +471,87 @@ function seed(db) {
   db.dealInstallations[dSold.id] = { lead: [ac.children['Multi-split']], sold: [ac.children['Multi-split']] };
   db.dealInstallations[dDone.id] = { lead: [heat.children['Pompa ciepla']] };
   db.dealInstallations[dSecond.id] = { lead: [ac.children['Split']] };
+
+  // ── Audyty (zakladka „Audyt" karty deala) ─────────────────────────────────
+  // Jeden wpis Heizlast i JEDEN formularz audytu instalacji, ktory udaje zapis
+  // zrobiony wczesniej w panelu: niesie warstwe rzutu (kropki rozdzielaczy,
+  // obrysy pomieszczen, kalibracje skali, historie i podpisy). Telefon tych pol
+  // NIE edytuje i ma je oddac nietkniete — to jest scenariusz do sprawdzenia
+  // na urzadzeniu (patrz TODO.md, sekcja „Audyt").
+  db.audits.push({
+    id: uuid(),
+    organizationId: orgId,
+    dealId: dAudit.id,
+    heatloadMode: 'din',
+    heatloadInputs: null,
+    heatloadKw: 9.4,
+    formData: { note: 'Heizlast z projektu branzowego' },
+    createdAt: daysAgo(6),
+    updatedAt: daysAgo(6),
+  });
+  db.audits.push({
+    id: uuid(),
+    organizationId: orgId,
+    dealId: dAudit.id,
+    heatloadMode: null,
+    heatloadInputs: null,
+    heatloadKw: null,
+    formData: {
+      kind: 'underfloorHeating',
+      categoryId: ufh.id,
+      pipeSystem: 'kan-therm-16',
+      roomControl: 'nie (rekomendowane)',
+      systemFilling: 'po zakończeniu instalacji ogrzewania podłogowego',
+      cooling: true,
+      install: {
+        wallChase: 'nie',
+        leadInRouting: 'położone w izolacji na chudziaku',
+        subfloorJoints: 'niedopuszczalne',
+        leadInByWodKan: false,
+        manifoldByWodKan: false,
+        designScope: 'projekt przez ekotak',
+        leadInPipeMm: 25,
+        pressureTest: 'próba szczelności powietrzem z protokołem',
+        systemPlateM2: 96,
+        wasteRemoval: 'całkowite usunięcie odpadów przez ekotak',
+        heatMedium: 'woda demi',
+        biocide: 'tak',
+        warrantyDocs: 'tak',
+      },
+      floors: [
+        {
+          name: 'Parter',
+          projectM2: 96,
+          system: 'mokry — jastrych',
+          comment: null,
+          manifolds: 1,
+          boxType: 'podtynkowa w ścianie działowej',
+          m2_5: null,
+          m2_10: 74,
+          m2_15: null,
+          m2_20: 8,
+          noUfhM2: 6,
+          leadInM2: 8,
+          // ↓ warstwa rzutu — wylacznie panel ja tworzy i zmienia
+          planSlot: 'parter',
+          planDocId: 'doc-parter-1',
+          manifoldMarks: [{ x: 0.412, y: 0.633, boxType: 'podtynkowa w ścianie działowej' }],
+          heatSource: { x: 0.208, y: 0.741 },
+          manifoldHistory: [
+            { at: daysAgo(4), by: 'seed', byName: 'Piotr Koordynator', what: 'rozdzielacze' },
+          ],
+          rooms: [{ cat: 's10', name: 'Salon', points: [[0.1, 0.1], [0.5, 0.1], [0.5, 0.6]] }],
+          planScale: { a: { x: 0.1, y: 0.9 }, b: { x: 0.6, y: 0.9 }, cm: 500, aspect: 1.41 },
+          marksSavedAt: daysAgo(4),
+          marksSavedBy: 'Piotr Koordynator',
+          areaSavedAt: daysAgo(4),
+          areaSavedBy: 'Piotr Koordynator',
+        },
+      ],
+    },
+    createdAt: daysAgo(4),
+    updatedAt: daysAgo(4),
+  });
 
   // ── Zgloszenia z leadowni (zakladka LEAD) ──────────────────────────────────
   db.leads.push({
@@ -736,8 +866,192 @@ function seed(db) {
 
   seedService(db, users, clients);
   seedCalendar(db, users);
+  seedSales(db, { dOffer, dSold, kontrahent, wojcik });
 
   return { users, clients, missedNowak };
+}
+
+/**
+ * Sprzedaz i magazyn dla zakladki „Zamowienie" karty deala.
+ *
+ * Zestaw dobrany tak, zeby telefon mial co pokazac w KAZDYM stanie, w jakim
+ * ta zakladka bywa:
+ *  - `dOffer` (etap „Oferta") ma dwie oferty, w tym jedna WYGRANA i zadnego
+ *    zamowienia — na nim sprawdza sie recznie zakladanie zamowienia,
+ *  - `dSold` (etap montazowy) ma zamowienie z UMOWY, po jednym na instalacje,
+ *    z pozycjami w trzech stanach (nieruszona / zamowiona / odebrana),
+ *  - rezerwacja `dSold` niesie wszystkie cztery warianty wiersza: pokryty,
+ *    z brakiem juz kupionym, z brakiem NIEkupionym (na nim dziala „ZAMOW braki")
+ *    i bez kartoteki magazynu, plus jeden wiersz wydany (historia).
+ */
+function seedSales(db, { dOffer, dSold, kontrahent, wojcik }) {
+  const orgId = db.organization.id;
+  const label = (client, place) => `${client.lastName} ${client.firstName || ''}`.trim() +
+    (place ? ` · ${place}` : '');
+
+  const offerItems = [
+    { name: 'Panel PV 450 W', quantity: 24, purchasePrice: 480, salePrice: 690 },
+    { name: 'Falownik hybrydowy 10 kW', quantity: 1, purchasePrice: 8200, salePrice: 11900 },
+    { name: 'Konstrukcja na blachodachowke', quantity: 24, purchasePrice: 95, salePrice: 150 },
+  ].map((i) => ({
+    id: uuid(),
+    priceListItemId: null,
+    ...i,
+    margin: (i.salePrice - i.purchasePrice) * i.quantity,
+  }));
+
+  const netOf = (items) => items.reduce((s, i) => s + i.salePrice * i.quantity, 0);
+
+  // Oferta odrzucona i wygrana — selektor „Wygrana oferta…" ma pokazac TYLKO te
+  // druga, wiec obie musza istniec, zeby filtr dalo sie sprawdzic.
+  db.offers.push({
+    id: uuid(),
+    organizationId: orgId,
+    dealId: dOffer.id,
+    number: 'OF/2026/041',
+    status: 'lost',
+    netTotal: 121500,
+    grossTotal: 149445,
+    margin: 24300,
+    items: [],
+    createdAt: daysAgo(30),
+    updatedAt: daysAgo(20),
+  });
+  const wonOffer = {
+    id: uuid(),
+    organizationId: orgId,
+    dealId: dOffer.id,
+    number: 'OF/2026/052',
+    status: 'won',
+    netTotal: netOf(offerItems),
+    grossTotal: Math.round(netOf(offerItems) * 1.23 * 100) / 100,
+    margin: offerItems.reduce((s, i) => s + i.margin, 0),
+    items: offerItems,
+    createdAt: daysAgo(12),
+    updatedAt: daysAgo(5),
+  };
+  db.offers.push(wonOffer);
+
+  // Zamowienie z UMOWY — powstaje samo po podpisie, po jednym na instalacje.
+  db.orders.push({
+    id: uuid(),
+    organizationId: orgId,
+    dealId: dSold.id,
+    supplierId: null,
+    contractId: uuid(),
+    installationId: null,
+    installationName: 'Klimatyzacja multi-split',
+    source: 'contract',
+    createdAt: daysAgo(6),
+    items: [
+      { id: uuid(), name: 'Jednostka zewnetrzna multi 8 kW', quantity: 1, ordered: true, received: true },
+      { id: uuid(), name: 'Jednostka wewnetrzna scienna 2,5 kW', quantity: 3, ordered: true, received: false },
+      { id: uuid(), name: 'Rura miedziana 1/4 + 3/8 (zwoj 25 m)', quantity: 2, ordered: false, received: false },
+      { id: uuid(), name: 'Uchwyt scienny pod jednostke', quantity: 1, ordered: false, received: false },
+    ],
+  });
+
+  // ── Rezerwacja materialu deala `dSold` ──────────────────────────────────────
+  const clientLabel = label(kontrahent, 'Bielsko-Biala');
+  const productSplit = uuid();
+  const productPipe = uuid();
+  const productBracket = uuid();
+
+  const reserve = (over) => {
+    const row = {
+      id: uuid(),
+      organizationId: orgId,
+      dealId: dSold.id,
+      productId: null,
+      itemName: '',
+      itemCode: null,
+      productName: null,
+      clientLabel,
+      quantity: 1,
+      unit: 'szt',
+      status: 'active',
+      source: 'contract',
+      neededBy: daysAhead(9),
+      note: null,
+      covered: 0,
+      issuedById: null,
+      createdAt: daysAgo(6),
+      updatedAt: daysAgo(6),
+      ...over,
+    };
+    db.reservations.push(row);
+    return row;
+  };
+
+  // Pokryty w calosci — wiersz „● pokryte".
+  reserve({
+    productId: productSplit,
+    itemName: 'Jednostka wewnetrzna scienna 2,5 kW',
+    productName: 'Jednostka wewnetrzna scienna 2,5 kW',
+    itemCode: 'AC-IN-25',
+    quantity: 3,
+    covered: 3,
+  });
+  // Brak, ktory KTOS JUZ KUPUJE — „ZAMOW braki" ma go pominac.
+  const pipeRow = reserve({
+    productId: productPipe,
+    itemName: 'Rura miedziana 1/4 + 3/8 (zwoj 25 m)',
+    productName: 'Rura miedziana 1/4 + 3/8',
+    itemCode: 'CU-1438-25',
+    quantity: 2,
+    covered: 0,
+    unit: 'zwoj',
+  });
+  // Brak NIEobjety zadnym zakupem — tylko on wchodzi do „ZAMOW braki".
+  reserve({
+    productId: productBracket,
+    itemName: 'Uchwyt scienny pod jednostke',
+    productName: 'Uchwyt scienny pod jednostke',
+    itemCode: 'AC-BR-01',
+    quantity: 4,
+    covered: 1,
+  });
+  // Pozycja BEZ kartoteki magazynu — nie da sie jej ani zarezerwowac, ani kupic.
+  reserve({
+    itemName: 'Korytko maskujace 80 mm (dociac na miejscu)',
+    quantity: 12,
+    unit: 'mb',
+    covered: 0,
+    note: 'Do potwierdzenia obmiarem na budowie',
+  });
+  // Historia: linia wydana na budowe — widoczna tylko przy `status=all`.
+  reserve({
+    productId: productSplit,
+    itemName: 'Jednostka zewnetrzna multi 8 kW',
+    productName: 'Jednostka zewnetrzna multi 8 kW',
+    itemCode: 'AC-OUT-80',
+    quantity: 1,
+    covered: 1,
+    status: 'done',
+  });
+
+  // Zakup pod brak rury — wiersz rezerwacji ma pokazac „zamowione · ~data".
+  db.purchaseOrders.push({
+    id: uuid(),
+    organizationId: orgId,
+    productId: productPipe,
+    dealId: dSold.id,
+    reservationId: pipeRow.id,
+    source: 'contract',
+    quantity: 2,
+    receivedQty: 0,
+    status: 'ordered',
+    distributor: 'https://hurtownia.example/oferta/cu-1438',
+    unitPrice: 410,
+    expectedAt: daysAhead(4),
+    note: `Pod klienta: ${clientLabel}`,
+    createdAt: daysAgo(3),
+    updatedAt: daysAgo(2),
+  });
+
+  // Deal `dOffer` czeka na wlasne zamowienie — celowo bez rezerwacji, zeby dalo
+  // sie sprawdzic pusty blok magazynu obok wypelnionego bloku zamowien.
+  void wojcik;
 }
 
 /**

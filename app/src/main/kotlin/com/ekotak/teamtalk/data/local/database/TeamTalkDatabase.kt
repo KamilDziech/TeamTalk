@@ -26,8 +26,22 @@ import com.ekotak.teamtalk.data.local.entity.*
         TeamMemberEntity::class,
         CalendarMutationEntity::class,
         CalendarBusyEntity::class,
+        ProductEntity::class,
+        ReservationEntity::class,
+        PurchaseOrderEntity::class,
+        AuditEntity::class,
+        CatalogCategoryEntity::class,
+        AuditInstallationsEntity::class,
+        AuditMutationEntity::class,
+        ProjectEntity::class,
+        ProjectMilestoneEntity::class,
+        ProjectTaskEntity::class,
+        ProjectMutationEntity::class,
+        DealOrderEntity::class,
+        DealOfferEntity::class,
+        OrderMutationEntity::class,
     ],
-    version = 11,
+    version = 15,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -46,4 +60,9 @@ abstract class TeamTalkDatabase : RoomDatabase() {
     abstract fun calendarDao(): CalendarDao
     abstract fun calendarMutationDao(): CalendarMutationDao
     abstract fun memberDao(): MemberDao
+    abstract fun inventoryDao(): InventoryDao
+    abstract fun auditDao(): AuditDao
+    abstract fun projectDao(): ProjectDao
+    abstract fun projectMutationDao(): ProjectMutationDao
+    abstract fun orderDao(): OrderDao
 }

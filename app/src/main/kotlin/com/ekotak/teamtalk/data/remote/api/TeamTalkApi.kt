@@ -142,6 +142,70 @@ interface TeamTalkApi {
         @Body request: SetInstallationsRequest,
     ): DealInstallationsDto
 
+    // ── Audyty deala (zakładka „Audyt") ───────────────────────────────────────
+    // Jeden endpoint obsługuje dwie rzeczy naraz: audyty Heizlast i formularz
+    // audytu instalacji — rozróżnia je `formData.kind`. Odczyt wymaga
+    // `crm.view`, zapis `deal.manage`. Zapis formularza dla deala z podpisaną
+    // umową API odrzuca (409), dopóki ciało nie niesie `zmianaOferty: true`.
+
+    @GET("api/deals/{id}/audits")
+    suspend fun getDealAudits(@Path("id") id: String): List<AuditDto>
+
+    /**
+     * Ciało jako `JsonObject` z tego samego powodu co przy `PATCH` deala:
+     * formularz audytu musi umieć wysłać jawnego `null`-a, żeby skasować
+     * odpowiedź na pytanie warunkowe, które przestało być widoczne.
+     */
+    @POST("api/deals/{id}/audits")
+    suspend fun createDealAudit(
+        @Path("id") id: String,
+        @Body body: JsonObject,
+    ): AuditDto
+
+    @PATCH("api/audits/{id}")
+    suspend fun updateAudit(
+        @Path("id") id: String,
+        @Body body: JsonObject,
+    ): AuditDto
+
+    /**
+     * Umowy deala — telefon czyta je WYŁĄCZNIE po to, żeby wiedzieć, czy
+     * oferta jest już zamknięta podpisem (wtedy audyt jest do odczytu).
+     * Zarządzanie umowami zostaje w panelu.
+     */
+    @GET("api/deals/{id}/contracts")
+    suspend fun getDealContracts(@Path("id") id: String): List<ContractSummaryDto>
+
+    // ── Zamówienia deala (zakładka „Zamówienie") ──────────────────────────────
+    // Oferty czyta każdy z `crm.view`; zamówienia — także do odczytu — wymagają
+    // `order.manage`, bo panel trzyma je pod jednym uprawnieniem z zapisem.
+    // Zakładka radzi sobie z odmową każdego z tych odczytów osobno.
+
+    /** Oferty deala — z wygranych zakłada się zamówienie. */
+    @GET("api/deals/{id}/offers")
+    suspend fun getDealOffers(@Path("id") id: String): List<OfferDto>
+
+    @GET("api/deals/{id}/orders")
+    suspend fun getDealOrders(@Path("id") id: String): List<OrderDto>
+
+    /** Zamówienie z wygranej oferty (FR-14). Treść pozycji przepisuje serwer. */
+    @POST("api/deals/{id}/orders")
+    suspend fun createDealOrder(
+        @Path("id") id: String,
+        @Body request: OrderCreateRequest,
+    ): OrderDto
+
+    /**
+     * Ptaszek „zamówione" / „odebrane" przy pozycji. Odpowiedzią jest CAŁE
+     * zamówienie z przeliczonym statusem nagłówka, nie sama pozycja.
+     */
+    @PATCH("api/orders/{id}/items/{itemId}")
+    suspend fun updateOrderItem(
+        @Path("id") orderId: String,
+        @Path("itemId") itemId: String,
+        @Body request: OrderItemPatchRequest,
+    ): OrderDto
+
     // ── Artykuł wiedzy per instalacja (zakładka „LEAD") ────────────────────────
     // Odczyt: zalogowany. Generowanie: `deal.manage`, a dodatkowo bramka etapu
     // i danych budynku — niespełniona wraca jako 422 z wyjaśnieniem po polsku.
@@ -304,10 +368,14 @@ interface TeamTalkApi {
         @Body request: CreateTaskRequest,
     ): TaskResponseDto
 
-    /** Lista projektów do kroku „kogo dotyczy". Domyślnie tylko aktywne, bez szablonów. */
+    /**
+     * Lista projektów. Domyślnie aktywne bez szablonów — tyle wystarczy krokowi
+     * „kogo dotyczy" w kreatorze zadania. Moduł Projekty woła ją z `status = null`,
+     * żeby dostać także pomysły z Poczekalni i projekty przed decyzją.
+     */
     @GET("api/projects")
     suspend fun getProjects(
-        @Query("status") status: String = "active",
+        @Query("status") status: String? = "active",
         @Query("templates") templates: String = "0",
     ): List<ProjectDto>
 
@@ -533,6 +601,78 @@ interface TeamTalkApi {
         @Path("taskId") taskId: String,
         @Body request: AddCommentRequest,
     ): DiscussionCommentDto
+
+    // ── Magazyn (kafelek „Magazyn", etap E1 — odczyt) ────────────────────────────
+
+    /**
+     * Cała kartoteka magazynu. Trasa nie ma dziś ani filtrów, ani stronicowania,
+     * ani znacznika zmiany — bierzemy komplet i trzymamy go w Room. Dopisanie
+     * `?updatedSince=` po stronie board360 zamieni to na dociąganie różnicy
+     * (patrz `design/mockups/modul-magazyn.html`, sekcja API).
+     */
+    @GET("api/products")
+    suspend fun getProducts(): List<ProductDto>
+
+    /**
+     * Rezerwacje materiału pod klientów — z pokryciem policzonym przez API.
+     * Bez `status` API oddaje SAME AKTYWNE; `status=all` dokłada historię
+     * (wydane, zwolnione), której potrzebuje karta deala. `dealId` zawęża do
+     * jednego deala — tak czyta tę listę zakładka „Zamówienie".
+     */
+    @GET("api/inventory/reservations")
+    suspend fun getInventoryReservations(
+        @Query("status") status: String? = null,
+        @Query("dealId") dealId: String? = null,
+    ): List<ReservationDto>
+
+    /**
+     * Zapotrzebowanie zakupowe. `status=open` = pozycje w obiegu
+     * (`to_order` + `ordered`) — tyle wystarczy licznikom „w drodze"
+     * i „do zamówienia" przy stanie pozycji; `all` = także propozycje
+     * i pozycje przyjęte, po których karta deala poznaje, że brak jest już
+     * załatwiony. `dealId` zawęża do zakupów pod jednego deala.
+     */
+    @GET("api/inventory/orders")
+    suspend fun getInventoryOrders(
+        @Query("status") status: String = "open",
+        @Query("dealId") dealId: String? = null,
+    ): List<PurchaseOrderItemDto>
+
+    /**
+     * Braki rezerwacji na listę zakupową magazynu — ta sama droga, co „ZAMÓW"
+     * w Produktach panelu. Wymaga `inventory.manage`.
+     */
+    @POST("api/inventory/orders")
+    suspend fun createPurchaseOrderItem(
+        @Body request: PurchaseOrderCreateRequest,
+    ): PurchaseOrderItemDto
+
+    /** Korekta linii rezerwacji: „Wydane" / „Zwolnij" / „Przywróć". */
+    @PATCH("api/inventory/reservations/{id}")
+    suspend fun updateReservation(
+        @Path("id") id: String,
+        @Body request: ReservationPatchRequest,
+    ): ReservationDto
+
+    // ── Projekty (moduł „Projekt" board360) ─────────────────────────────────────
+
+    /** Karta projektu jednym strzałem: kamienie, zadania i zespół. */
+    @GET("api/projects/{id}")
+    suspend fun getProject(@Path("id") id: String): ProjectDetailDto
+
+    /**
+     * Domknięcie zadania z podaniem czasu („ile zajęło?"). Pominięcie godzin jest
+     * dozwolone — wtedy rozliczenie liczy zadanie po estymacie.
+     */
+    @POST("api/projects/tasks/{taskId}/close")
+    suspend fun closeProjectTask(
+        @Path("taskId") taskId: String,
+        @Body body: TaskCloseDto,
+    ): ProjectTaskDto
+
+    /** Pomysł do Poczekalni — najkrótsza droga z telefonu do modułu. */
+    @POST("api/projects")
+    suspend fun createIdea(@Body body: IdeaCreateDto): ProjectDto
 
     // ── Szkolenia (kafelek „Szkolenia" = zakładka HR → Szkolenia w panelu) ──────
     // Trasy pracownika stoją za `training.view`, które ma KAŻDA rola — serwisant

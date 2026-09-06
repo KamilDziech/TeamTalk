@@ -73,4 +73,7 @@ fun CategoryDto.toDomain(): Category = Category(
     parentId = parentId,
     name = name,
     position = position,
+    // Szablon audytu rozkładamy tu, a nie w prezentacji — kontrakt `formData`
+    // ma jedno miejsce w kodzie (`AuditMapper`).
+    auditForm = auditForm?.let { ufhFromFormData(it) },
 )

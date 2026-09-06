@@ -208,6 +208,15 @@ fun DealDetailScreen(
                                 },
                                 viewModel = viewModel,
                             )
+                            DealTab.AUDYT -> DealAuditTab(
+                                state = state,
+                                onEdit = onEdit,
+                                viewModel = viewModel,
+                            )
+                            DealTab.ZAMOWIENIE -> DealOrderTab(
+                                state = state,
+                                viewModel = viewModel,
+                            )
                             DealTab.HISTORIA -> DealHistoryTab(detail.activities, state.members)
                             DealTab.PODSUMOWANIE -> DealSummaryTab(detail, state.members)
                             else -> TabPlaceholder(state.tab)

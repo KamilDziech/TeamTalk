@@ -66,7 +66,19 @@ abstract class RepositoryModule {
     abstract fun bindCalendarRepository(impl: CalendarRepositoryImpl): CalendarRepository
 
     @Binds @Singleton
+    abstract fun bindProjectRepository(impl: ProjectRepositoryImpl): ProjectRepository
+
+    @Binds @Singleton
     abstract fun bindMemberRepository(impl: MemberRepositoryImpl): MemberRepository
+
+    @Binds @Singleton
+    abstract fun bindAuditRepository(impl: AuditRepositoryImpl): AuditRepository
+
+    @Binds @Singleton
+    abstract fun bindInventoryRepository(impl: InventoryRepositoryImpl): InventoryRepository
+
+    @Binds @Singleton
+    abstract fun bindOrderRepository(impl: OrderRepositoryImpl): OrderRepository
 
     @Binds @Singleton
     abstract fun bindTrainingRepository(impl: TrainingRepositoryImpl): TrainingRepository

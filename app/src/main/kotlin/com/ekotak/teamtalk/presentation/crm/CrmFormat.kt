@@ -36,6 +36,30 @@ private val dayTimeFormat = ThreadLocal.withInitial {
     }
 }
 
+private val moneyFormat = ThreadLocal.withInitial {
+    java.text.DecimalFormat(
+        "#,##0.00",
+        java.text.DecimalFormatSymbols(Locale("pl", "PL")),
+    )
+}
+
+/** Kwota netto po polsku: „12 340,50 zł" — ten sam zapis co `zl()` w panelu. */
+fun formatZl(value: Double): String = "${moneyFormat.get()!!.format(value)} zł"
+
+/**
+ * Ilość pozycji. Magazyn liczy też metry i rolki, więc wartości bywają
+ * ułamkowe — całkowite pokazujemy bez zer po przecinku, jak w panelu.
+ */
+fun formatQty(value: Double): String =
+    if (value % 1.0 == 0.0) value.toLong().toString()
+    else String.format(Locale("pl", "PL"), "%.1f", value)
+
+/** ISO 8601 → „12.09" (rok w karcie deala tylko zaszumia). */
+fun formatDayMonth(iso: String?): String? {
+    val parts = iso?.take(10)?.split("-") ?: return null
+    return if (parts.size == 3) "${parts[2]}.${parts[1]}" else null
+}
+
 /** ISO 8601 → millis, albo `null` gdy pole puste lub w nieznanym formacie. */
 fun parseIsoMillis(iso: String?): Long? {
     if (iso.isNullOrBlank()) return null

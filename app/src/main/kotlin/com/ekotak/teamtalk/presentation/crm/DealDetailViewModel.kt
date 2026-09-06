@@ -5,24 +5,48 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ekotak.teamtalk.domain.model.ArticleGate
 import com.ekotak.teamtalk.domain.model.AssistantMessage
+import com.ekotak.teamtalk.domain.model.Audit
+import com.ekotak.teamtalk.domain.model.AuditAddressKind
+import com.ekotak.teamtalk.domain.model.BuildingStandard
+import com.ekotak.teamtalk.domain.model.Category
 import com.ekotak.teamtalk.domain.model.CategoryNode
 import com.ekotak.teamtalk.domain.model.Client
 import com.ekotak.teamtalk.domain.model.ClientDraft
+import com.ekotak.teamtalk.domain.model.Deal
 import com.ekotak.teamtalk.domain.model.DealBuildingKind
 import com.ekotak.teamtalk.domain.model.DealDetail
 import com.ekotak.teamtalk.domain.model.DealDraft
+import com.ekotak.teamtalk.domain.model.DealOffer
+import com.ekotak.teamtalk.domain.model.DealOrder
 import com.ekotak.teamtalk.domain.model.DealStage
+import com.ekotak.teamtalk.domain.model.PurchaseLine
+import com.ekotak.teamtalk.domain.model.StockReservation
+import com.ekotak.teamtalk.domain.model.pruneToSelected
+import com.ekotak.teamtalk.domain.model.HeatloadMode
 import com.ekotak.teamtalk.domain.model.InstallationStage
 import com.ekotak.teamtalk.domain.model.KnowledgeArticle
 import com.ekotak.teamtalk.domain.model.LeadIntake
 import com.ekotak.teamtalk.domain.model.MeetingKind
+import com.ekotak.teamtalk.domain.model.OfferLock
 import com.ekotak.teamtalk.domain.model.TaskMember
+import com.ekotak.teamtalk.domain.model.UfhState
 import com.ekotak.teamtalk.domain.model.ancestorsOfSelected
+import com.ekotak.teamtalk.domain.model.applyBuildingToUfh
 import com.ekotak.teamtalk.domain.model.buildCategoryTree
+import com.ekotak.teamtalk.domain.model.categoryPath
+import com.ekotak.teamtalk.domain.model.previewHeatloadKw
+import com.ekotak.teamtalk.domain.model.resolveAuditForm
+import com.ekotak.teamtalk.domain.model.toM2
+import com.ekotak.teamtalk.domain.model.ufhMissingAnswers
 import com.ekotak.teamtalk.domain.model.hasChangesFrom
 import com.ekotak.teamtalk.domain.model.nextStages
 import com.ekotak.teamtalk.domain.model.toDraft
+import com.ekotak.teamtalk.domain.repository.AuditInstallations
+import com.ekotak.teamtalk.domain.repository.AuditRepository
+import com.ekotak.teamtalk.domain.repository.AuditSaveResult
 import com.ekotak.teamtalk.domain.repository.AuthRepository
+import com.ekotak.teamtalk.domain.repository.OrderRepository
+import com.ekotak.teamtalk.domain.repository.OrderSaveResult
 import com.ekotak.teamtalk.domain.repository.TaskRepository
 import com.ekotak.teamtalk.domain.usecase.calllog.MakeCallUseCase
 import com.ekotak.teamtalk.domain.usecase.client.UpdateClientUseCase
@@ -65,8 +89,26 @@ import javax.inject.Inject
  */
 internal const val PERMISSION_DEAL_MANAGE = "deal.manage"
 
+/**
+ * Zamówienia deala: board360 trzyma pod tym uprawnieniem także ODCZYT listy,
+ * nie tylko zapis (`OrdersController`). Bez niego zakładka pokazuje sam zakres
+ * i rezerwację, zamiast udawać, że deal nie ma zamówień.
+ */
+private const val PERMISSION_ORDER_MANAGE = "order.manage"
+
+/** Zmiany w rezerwacji materiału i dokładanie braków na listę zakupową. */
+private const val PERMISSION_INVENTORY_MANAGE = "inventory.manage"
+
 /** Odstęp między znakiem a zapytaniem do kartoteki przy szukaniu kontaktu. */
 private const val CONTACT_SEARCH_DEBOUNCE_MS = 250L
+
+/**
+ * Pompa ciepła w ścieżce katalogu („Pompa ciepła", „Powietrzne pompy ciepła").
+ * Rozpoznajemy po NAZWIE, a nie po id węzła — katalog jest budowany osobno
+ * w każdej organizacji, więc id niczego nie gwarantuje. Ten sam wzorzec ma
+ * panel (`dealHasHeatPump`).
+ */
+private val HEAT_PUMP_NAME = Regex("pomp\\w*\\s+ciep", RegexOption.IGNORE_CASE)
 
 /**
  * Karta deala — odpowiednik `DealDrawer` z panelu. Uprawnienia czytamy z
@@ -103,6 +145,8 @@ class DealDetailViewModel @Inject constructor(
     private val navigateToClientUseCase: NavigateToClientUseCase,
     private val authRepository: AuthRepository,
     private val taskRepository: TaskRepository,
+    private val auditRepository: AuditRepository,
+    private val orderRepository: OrderRepository,
     private val makeCallUseCase: MakeCallUseCase,
 ) : ViewModel() {
 
@@ -192,6 +236,158 @@ class DealDetailViewModel @Inject constructor(
         val configured: Boolean = true,
     )
 
+    /**
+     * Formularz nowego audytu Heizlast. Pola liczbowe trzymamy jako tekst
+     * z tego samego powodu co `NumberText` wyżej — w trakcie pisania bywają
+     * niesparsowalne.
+     */
+    data class HeatloadDraft(
+        val mode: HeatloadMode? = null,
+        val areaM2: String = "",
+        val heightM: String = "",
+        val standard: BuildingStandard? = null,
+        val kw: String = "",
+        val note: String = "",
+    ) {
+        /** Podgląd wyniku szybkiego szacunku; `null` = za mało danych. */
+        val preview: Double?
+            get() = if (mode == HeatloadMode.SZYBKI) {
+                previewHeatloadKw(areaM2.toM2(), standard, heightM.toM2())
+            } else {
+                null
+            }
+
+        /** Czy da się z tego zbudować zapis (walidacja jak w panelu). */
+        val isSubmittable: Boolean
+            get() = when (mode) {
+                HeatloadMode.SZYBKI -> (areaM2.toM2() ?: 0.0) > 0 && standard != null
+                HeatloadMode.DIN -> (kw.toM2() ?: 0.0) > 0
+                null -> note.isNotBlank()
+            }
+    }
+
+    /**
+     * Zakładka „Audyt". Trzy niezależne bloki, każdy z własnym błędem — jak
+     * w panelu: awaria odczytu umów nie może schować formularza, a brak
+     * katalogu nie może schować listy Heizlast.
+     */
+    data class AuditState(
+        val isLoading: Boolean = false,
+        val loaded: Boolean = false,
+        /** Wszystkie audyty deala — po przełączeniu instalacji szukamy w nich rekordu. */
+        val records: List<Audit> = emptyList(),
+        /** Płaski katalog — z niego dziedziczy się formularz po przodkach węzła. */
+        val categories: List<Category> = emptyList(),
+        /** Instalacje migawki etapu „audit", ze ścieżką nazw. */
+        val installations: List<SelectedInstallation> = emptyList(),
+        val selectedInstallationId: String? = null,
+        /** Węzeł-właściciel szablonu; `null` = ta gałąź formularza nie ma. */
+        val formOwnerId: String? = null,
+        /** Id rekordu formularza deala; `null` = jeszcze nie zapisano żadnego. */
+        val formAuditId: String? = null,
+        /** Stan formularza w edycji; `null` = nie ma czego pokazać. */
+        val form: UfhState? = null,
+        /** Stan zapisany — po nim poznajemy niezapisane zmiany. */
+        val savedForm: UfhState? = null,
+        /** Czy deal ma gdziekolwiek pompę ciepła — odsłania pytanie o chłodzenie. */
+        val hasHeatPump: Boolean = false,
+        /** Podpisana umowa zamykająca ofertę; `null` = audyt otwarty. */
+        val lock: OfferLock? = null,
+        val isSavingForm: Boolean = false,
+        val draft: HeatloadDraft = HeatloadDraft(),
+        val isSavingHeatload: Boolean = false,
+        val error: String? = null,
+    ) {
+        /**
+         * Lista Heizlast — bez rekordów formularza instalacji. Jeden endpoint
+         * zwraca oba rodzaje, a wymieszane na jednej liście nic by nie mówiły.
+         */
+        val heatloads: List<Audit> get() = records.filter { it.installationForm == null }
+
+        /** Pytania bez odpowiedzi — sterują kolorem „Zapisz" i wypisem braków. */
+        val missing: List<String> get() = form?.let(::ufhMissingAnswers).orEmpty()
+
+        val isFormDirty: Boolean get() = form != null && form != savedForm
+
+        /** Formularz zapisany w telefonie, ale jeszcze niewysłany do panelu. */
+        val isFormPending: Boolean
+            get() = formAuditId != null &&
+                records.firstOrNull { it.id == formAuditId }?.pendingSince != null
+
+        /** Formularz zamknięty podpisem: pola nieaktywne, zmiana idzie z panelu. */
+        val isFormLocked: Boolean get() = lock != null
+    }
+
+    /**
+     * Zakładka „Zamówienie" — trzy bloki panelu w jednym stanie: zakres (drzewo
+     * etapu „sold", sam podgląd), rezerwacja materiału i zamówienia deala.
+     * Każdy blok ma własne prawo do porażki, bo każdy stoi na innym uprawnieniu
+     * board360 (`crm.view` / `inventory.view` / `order.manage`).
+     */
+    data class OrdersState(
+        val isLoading: Boolean = false,
+        val loaded: Boolean = false,
+        val orders: List<DealOrder> = emptyList(),
+        val offers: List<DealOffer> = emptyList(),
+        val reservations: List<StockReservation> = emptyList(),
+        val purchases: List<PurchaseLine> = emptyList(),
+        /** `false` = odczytu zamówień odmówiono (brak `order.manage`). */
+        val ordersAvailable: Boolean = true,
+        /** `false` = odczytu magazynu odmówiono (brak `inventory.view`). */
+        val materialsAvailable: Boolean = true,
+        /** Dane sprzed utraty zasięgu — zakładka mówi o tym wprost. */
+        val fromCache: Boolean = false,
+        /** Katalog przycięty do zakresu kupionego przez klienta (etap „sold"). */
+        val scopeTree: List<CategoryNode> = emptyList(),
+        val scope: Set<String> = emptySet(),
+        val expanded: Set<String> = emptySet(),
+        /** Oferta wskazana w selektorze „Wygrana oferta…". */
+        val selectedOfferId: String? = null,
+        val isSaving: Boolean = false,
+        val error: String? = null,
+    ) {
+        /** Tylko z wygranej oferty da się założyć zamówienie (reguła board360). */
+        val wonOffers: List<DealOffer> get() = offers.filter { it.isWon }
+
+        /** Linie, które realnie trzymają towar — wydane i zwolnione już nie. */
+        val activeReservations: List<StockReservation>
+            get() = reservations.filter { it.isActive }
+
+        /** Braki z kartoteką: tylko takie da się dołożyć na listę zakupową. */
+        val missingReservations: List<StockReservation>
+            get() = activeReservations.filter { it.missing > 0 && it.productId != null }
+
+        /** Linie bez kartoteki magazynu — nikt ich nie zarezerwuje ani nie kupi. */
+        val gapReservations: List<StockReservation>
+            get() = activeReservations.filter { it.productId == null }
+
+        val coveredCount: Int
+            get() = activeReservations.size - missingReservations.size - gapReservations.size
+
+        /**
+         * Braki, których nie objął jeszcze żaden zakup — tylko te wolno
+         * „ZAMÓWIĆ". Reszta ma propozycję albo zamówienie w drodze i drugie
+         * kliknięcie kupiłoby towar podwójnie.
+         */
+        val unorderedReservations: List<StockReservation>
+            get() = missingReservations.filter { purchasesFor(it).isEmpty() }
+
+        /**
+         * Zakupy pod jedną linię rezerwacji. Propozycja scalona z kilku linii
+         * gubi `reservationId` — wtedy paruje się po kartotece, żeby wiersz nie
+         * udawał, że nikt nic nie zamówił.
+         */
+        fun purchasesFor(row: StockReservation): List<PurchaseLine> = purchases.filter {
+            it.status != "cancelled" &&
+                (it.reservationId == row.id ||
+                    (it.reservationId == null && row.productId != null && it.productId == row.productId))
+        }
+
+        /** Klient plus miejscowość — podpis „dla kogo", ten sam co w magazynie. */
+        val clientLabel: String
+            get() = reservations.firstOrNull()?.clientLabel.orEmpty()
+    }
+
     data class UiState(
         val isLoading: Boolean = true,
         val isSaving: Boolean = false,
@@ -208,7 +404,22 @@ class DealDetailViewModel @Inject constructor(
         val members: List<TaskMember> = emptyList(),
         val assistant: AssistantState = AssistantState(),
         val lead: LeadState = LeadState(),
+        val audit: AuditState = AuditState(),
+        val orders: OrdersState = OrdersState(),
+        /**
+         * Uprawnienia z `GET /api/me`. Trzymamy CAŁY zestaw, a nie same
+         * `deal.manage`: zakładka „Zamówienie" pyta jeszcze o `order.manage`
+         * i `inventory.manage`, a dokładanie kolejnych `Boolean`-ów przy każdej
+         * nowej zakładce rozjeżdżałoby się z odpowiedzią serwera.
+         */
+        val permissions: Set<String> = emptySet(),
     ) {
+        /** Zakładanie zamówień i odhaczanie pozycji (board360: `order.manage`). */
+        val canManageOrders: Boolean get() = PERMISSION_ORDER_MANAGE in permissions
+
+        /** Zmiany w rezerwacji materiału i lista zakupowa (`inventory.manage`). */
+        val canManageInventory: Boolean get() = PERMISSION_INVENTORY_MANAGE in permissions
+
         /** Etapy, na które wolno przejść z bieżącego (maszyna stanów board360). */
         val availableStages: List<DealStage>
             get() = detail?.deal?.stage?.let(::nextStages).orEmpty()
@@ -317,12 +528,17 @@ class DealDetailViewModel @Inject constructor(
 
     /** Brak odpowiedzi z `/api/me` nie blokuje podglądu — chowamy tylko akcje. */
     private suspend fun loadPermissions() {
-        val canManage = try {
-            authRepository.getCurrentUser().permissions.contains(PERMISSION_DEAL_MANAGE)
+        val permissions = try {
+            authRepository.getCurrentUser().permissions.toSet()
         } catch (_: Exception) {
-            false
+            emptySet()
         }
-        _uiState.update { it.copy(canManage = canManage) }
+        _uiState.update {
+            it.copy(
+                permissions = permissions,
+                canManage = PERMISSION_DEAL_MANAGE in permissions,
+            )
+        }
     }
 
     /**
@@ -351,6 +567,8 @@ class DealDetailViewModel @Inject constructor(
         }
         _uiState.update { it.copy(tab = tab) }
         if (tab == DealTab.LEAD) loadLead()
+        if (tab == DealTab.AUDYT) loadAudit()
+        if (tab == DealTab.ZAMOWIENIE) loadOrders()
     }
 
     // ── Zakładka „LEAD" ──────────────────────────────────────────────────────
@@ -561,6 +779,521 @@ class DealDetailViewModel @Inject constructor(
         }
     }
 
+    // ── Zakładka „Audyt" ─────────────────────────────────────────────────────
+
+    /**
+     * Materiał zakładki: audyty deala, katalog (dla dziedziczenia formularza),
+     * migawka instalacji etapu „audit" i stan blokady ofertowej. Każdy odczyt
+     * osobno — awaria jednego nie może wygasić pozostałych bloków.
+     *
+     * @param force ponowny odczyt po zapisie.
+     */
+    fun loadAudit(force: Boolean = false) {
+        val audit = _uiState.value.audit
+        if (!force && (audit.loaded || audit.isLoading)) return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(audit = it.audit.copy(isLoading = true, error = null)) }
+
+            var error: String? = null
+            val audits = try {
+                auditRepository.getAudits(dealId)
+            } catch (e: Exception) {
+                error = crmErrorMessage(e, "Nie udało się wczytać audytów")
+                null
+            }
+            // Katalog i migawka idą przez repozytorium audytu, a nie przez
+            // use case'y karty: tamte są czysto sieciowe, a tu bez zasięgu
+            // muszą wrócić z cache — inaczej audytor w domu w budowie zobaczy
+            // pustą zakładkę zamiast formularza do wypełnienia.
+            val categories = try {
+                auditRepository.getCategories()
+            } catch (_: Exception) {
+                emptyList()
+            }
+            val snapshot = try {
+                auditRepository.getAuditInstallations(dealId)
+            } catch (_: Exception) {
+                AuditInstallations()
+            }
+            val lock = auditRepository.getOfferLock(dealId)
+
+            val byId = categories.associateBy { it.id }
+            val installations = snapshot.auditStage.map { id ->
+                SelectedInstallation(
+                    categoryId = id,
+                    pathLabel = categoryPath(id, byId).joinToString(" › ").ifBlank { id },
+                )
+            }
+
+            _uiState.update { state ->
+                // Pompa ciepła gdziekolwiek w dealu odsłania pytanie o chłodzenie —
+                // po nazwie w ścieżce, tak jak w panelu (id katalogu bywa inne
+                // w każdej organizacji).
+                val heatPump = snapshot.allStages.any { id ->
+                    categoryPath(id, byId).any { HEAT_PUMP_NAME.containsMatchIn(it) }
+                }
+                val fresh = state.audit.copy(
+                    isLoading = false,
+                    loaded = true,
+                    records = audits ?: state.audit.records,
+                    categories = categories,
+                    installations = installations,
+                    hasHeatPump = heatPump,
+                    lock = lock,
+                    error = error,
+                )
+                // Wybór instalacji zostaje, dopóki nadal jest w migawce —
+                // odświeżenie po zapisie nie ma przerzucać audytora na inny węzeł.
+                val keep = fresh.selectedInstallationId
+                    ?.takeIf { id -> installations.any { it.categoryId == id } }
+                state.copy(
+                    audit = fresh.withInstallation(
+                        categoryId = keep ?: installations.firstOrNull()?.categoryId,
+                        deal = state.detail?.deal,
+                    ),
+                )
+            }
+        }
+    }
+
+    /** Przełączenie instalacji, której audyt oglądamy. */
+    fun selectAuditInstallation(categoryId: String) {
+        _uiState.update { state ->
+            if (state.audit.selectedInstallationId == categoryId) return@update state
+            // Niezapisane zmiany przepadłyby po cichu — mówimy o tym wprost
+            // zamiast blokować przełączenie: audytor bywa w połowie dwóch
+            // formularzy naraz i sam wie, który chce dokończyć.
+            val warn = if (state.audit.isFormDirty) {
+                "Zmiany w poprzednim formularzu nie zostały zapisane"
+            } else {
+                state.message
+            }
+            state.copy(
+                message = warn,
+                audit = state.audit.withInstallation(
+                    categoryId = categoryId,
+                    deal = state.detail?.deal,
+                ),
+            )
+        }
+    }
+
+    /** Zmiana pola formularza audytu instalacji. Nic nie wysyła. */
+    fun editAuditForm(edit: (UfhState) -> UfhState) {
+        _uiState.update { state ->
+            val form = state.audit.form ?: return@update state
+            if (state.audit.isFormLocked) return@update state
+            state.copy(audit = state.audit.copy(form = edit(form)))
+        }
+    }
+
+    /**
+     * Zapis formularza audytu instalacji. Niekompletny audyt też zapisujemy —
+     * audyt bywa uzupełniany na raty, a lista braków jest sygnałem, nie blokadą.
+     */
+    fun saveAuditForm() {
+        val state = _uiState.value
+        val audit = state.audit
+        val form = audit.form ?: return
+        val owner = audit.formOwnerId ?: return
+        if (audit.isSavingForm || audit.isFormLocked || !state.canManage) return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(audit = it.audit.copy(isSavingForm = true), message = null) }
+            try {
+                val result = auditRepository.saveInstallationAudit(
+                    dealId = dealId,
+                    auditId = audit.formAuditId,
+                    categoryId = owner,
+                    state = form,
+                    includeCooling = audit.hasHeatPump,
+                )
+                _uiState.update {
+                    it.copy(
+                        message = savedMessage(result, "Zapisano audyt instalacji"),
+                        audit = it.audit.copy(isSavingForm = false),
+                    )
+                }
+                // Rekord wraca z serwera z własnym id — bez tego drugi zapis
+                // założyłby DRUGI formularz tego samego węzła.
+                loadAudit(force = true)
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        audit = it.audit.copy(isSavingForm = false),
+                        message = crmErrorMessage(e, "Nie udało się zapisać audytu"),
+                    )
+                }
+            }
+        }
+    }
+
+    fun editHeatloadDraft(edit: (HeatloadDraft) -> HeatloadDraft) {
+        _uiState.update { it.copy(audit = it.audit.copy(draft = edit(it.audit.draft))) }
+    }
+
+    /** Nowy wpis Heizlast. Wejścia szybkiego szacunku przelicza serwer. */
+    fun saveHeatload() {
+        val audit = _uiState.value.audit
+        val draft = audit.draft
+        if (audit.isSavingHeatload || !_uiState.value.canManage) return
+        if (!draft.isSubmittable) {
+            _uiState.update {
+                it.copy(
+                    message = when (draft.mode) {
+                        HeatloadMode.SZYBKI -> "Podaj powierzchnię i standard budynku"
+                        HeatloadMode.DIN -> "Podaj dodatni wynik Heizlast (kW)"
+                        null -> "Wybierz tryb Heizlast albo wpisz notatkę"
+                    },
+                )
+            }
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(audit = it.audit.copy(isSavingHeatload = true), message = null)
+            }
+            try {
+                val result = auditRepository.createHeatload(
+                    dealId = dealId,
+                    mode = draft.mode,
+                    areaM2 = draft.areaM2.toM2(),
+                    standard = draft.standard,
+                    heightM = draft.heightM.toM2(),
+                    kw = draft.kw.toM2(),
+                    note = draft.note,
+                )
+                _uiState.update {
+                    it.copy(
+                        message = savedMessage(result, "Zapisano audyt"),
+                        audit = it.audit.copy(
+                            isSavingHeatload = false,
+                            draft = HeatloadDraft(),
+                        ),
+                    )
+                }
+                loadAudit(force = true)
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        audit = it.audit.copy(isSavingHeatload = false),
+                        message = crmErrorMessage(e, "Nie udało się zapisać audytu"),
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * Potwierdzenie zapisu. Przy braku zasięgu mówimy WPROST, że praca siedzi
+     * w telefonie i pójdzie sama — audytor u klienta musi wiedzieć, czy może
+     * wyjść z budynku, a samo „zapisano" znaczyłoby dla niego „panel już to ma".
+     */
+    private fun savedMessage(result: AuditSaveResult, sent: String): String = when (result) {
+        AuditSaveResult.SENT -> sent
+        AuditSaveResult.QUEUED -> "$sent w telefonie — wyślemy, gdy wróci zasięg"
+    }
+
+    // ── Zakładka „Zamówienie" ────────────────────────────────────────────────
+
+    /**
+     * Materiał zakładki: zamówienia deala z ofertami i rezerwacją materiału
+     * (jedno wywołanie repozytorium — ono rozdziela cztery odczyty i kolejkę)
+     * plus zakres etapu „sold" na drzewo.
+     *
+     * Zakres idzie przez repozytorium audytu, a nie przez use case'y karty:
+     * tamte są czysto sieciowe, a tu drzewo ma się narysować także bez zasięgu —
+     * magazynier pakuje towar w hali, nie przy biurku.
+     *
+     * @param force ponowny odczyt po zapisie.
+     */
+    fun loadOrders(force: Boolean = false) {
+        val orders = _uiState.value.orders
+        if (!force && (orders.loaded || orders.isLoading)) return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(orders = it.orders.copy(isLoading = true, error = null)) }
+
+            var error: String? = null
+            val snapshot = try {
+                orderRepository.getDealOrders(dealId)
+            } catch (e: Exception) {
+                error = crmErrorMessage(e, "Nie udało się wczytać zamówień")
+                null
+            }
+            val categories = try {
+                auditRepository.getCategories()
+            } catch (_: Exception) {
+                emptyList()
+            }
+            val scope = try {
+                auditRepository.getAuditInstallations(dealId).soldStage.toSet()
+            } catch (_: Exception) {
+                emptySet()
+            }
+            val tree = pruneToSelected(buildCategoryTree(categories), scope)
+
+            _uiState.update { state ->
+                val fresh = state.orders.copy(
+                    isLoading = false,
+                    loaded = true,
+                    orders = snapshot?.orders ?: state.orders.orders,
+                    offers = snapshot?.offers ?: state.orders.offers,
+                    reservations = snapshot?.reservations ?: state.orders.reservations,
+                    purchases = snapshot?.purchases ?: state.orders.purchases,
+                    ordersAvailable = snapshot?.ordersAvailable ?: state.orders.ordersAvailable,
+                    materialsAvailable = snapshot?.materialsAvailable
+                        ?: state.orders.materialsAvailable,
+                    fromCache = snapshot?.fromCache ?: state.orders.fromCache,
+                    scopeTree = tree,
+                    scope = scope,
+                    // Zakres jest tu PODGLĄDEM, nie wyborem — rozwijamy więc
+                    // wszystkie gałęzie z zaznaczeniem, żeby magazynier zobaczył
+                    // kupione instalacje bez ani jednego dotknięcia. Ręczne
+                    // zwinięcia zostają, bo dokładamy tylko brakujące gałęzie.
+                    expanded = state.orders.expanded + ancestorsOfSelected(tree, scope),
+                    error = error,
+                )
+                // Oferta wskazana w selektorze zostaje, dopóki nadal jest wygrana;
+                // inaczej po odświeżeniu przycisk „Utwórz zamówienie" celowałby
+                // w ofertę, której na liście już nie ma.
+                val keep = fresh.selectedOfferId
+                    ?.takeIf { id -> fresh.wonOffers.any { it.id == id } }
+                state.copy(
+                    orders = fresh.copy(
+                        selectedOfferId = keep ?: fresh.wonOffers.singleOrNull()?.id,
+                    ),
+                )
+            }
+        }
+    }
+
+    /** Rozwinięcie gałęzi drzewa zakresu. Wyboru NIE zmieniamy — to podgląd. */
+    fun toggleOrderScopeBranch(categoryId: String) {
+        _uiState.update { state ->
+            val expanded = state.orders.expanded
+            state.copy(
+                orders = state.orders.copy(
+                    expanded = if (categoryId in expanded) expanded - categoryId
+                    else expanded + categoryId,
+                ),
+            )
+        }
+    }
+
+    fun selectOffer(offerId: String) {
+        _uiState.update { it.copy(orders = it.orders.copy(selectedOfferId = offerId)) }
+    }
+
+    /**
+     * Zamówienie z wygranej oferty. Zamówienia powstają zwykle SAME z podpisanej
+     * umowy — to jest droga ręczna, dla deali sprzedanych z samej oferty.
+     */
+    fun createOrder() {
+        val state = _uiState.value
+        val offerId = state.orders.selectedOfferId ?: return
+        if (state.orders.isSaving) return
+        if (!state.canManageOrders) {
+            _uiState.update { it.copy(message = "Brak uprawnień do zamówień (order.manage)") }
+            return
+        }
+
+        runOrderAction(
+            action = { orderRepository.createOrder(dealId, offerId) },
+            sent = "Utworzono zamówienie",
+            failed = "Nie udało się utworzyć zamówienia",
+        )
+    }
+
+    /**
+     * Ptaszek przy pozycji zamówienia. Wysyłamy dokładnie jedno pole — API
+     * zostawia drugie nietknięte, więc odhaczenie „odebrane" nie cofa
+     * „zamówione" postawionego wcześniej w panelu.
+     */
+    fun setOrderItem(orderId: String, itemId: String, ordered: Boolean? = null, received: Boolean? = null) {
+        val state = _uiState.value
+        if (state.orders.isSaving) return
+        if (!state.canManageOrders) {
+            _uiState.update { it.copy(message = "Brak uprawnień do zamówień (order.manage)") }
+            return
+        }
+
+        runOrderAction(
+            action = {
+                orderRepository.setOrderItem(
+                    dealId = dealId,
+                    orderId = orderId,
+                    itemId = itemId,
+                    ordered = ordered,
+                    received = received,
+                )
+            },
+            sent = "Zapisano pozycję",
+            failed = "Nie udało się zapisać pozycji",
+        )
+    }
+
+    /** „Wydane" / „Zwolnij" / „Przywróć" przy linii rezerwacji materiału. */
+    fun setReservationStatus(reservationId: String, status: String) {
+        val state = _uiState.value
+        if (state.orders.isSaving) return
+        if (!state.canManageInventory) {
+            _uiState.update { it.copy(message = "Brak uprawnień do magazynu (inventory.manage)") }
+            return
+        }
+
+        runOrderAction(
+            action = { orderRepository.setReservationStatus(dealId, reservationId, status) },
+            sent = when (status) {
+                "done" -> "Materiał oznaczony jako wydany"
+                "cancelled" -> "Rezerwacja zwolniona"
+                else -> "Rezerwacja przywrócona"
+            },
+            failed = "Nie udało się zmienić rezerwacji",
+        )
+    }
+
+    /**
+     * Braki na listę zakupową magazynu — tylko te, których nie objął jeszcze
+     * żaden zakup. Reszta ma propozycję albo zamówienie w drodze, więc drugie
+     * kliknięcie kupiłoby ten sam towar podwójnie.
+     */
+    fun orderMissingMaterials() {
+        val state = _uiState.value
+        val rows = state.orders.unorderedReservations
+        if (state.orders.isSaving || rows.isEmpty()) return
+        if (!state.canManageInventory) {
+            _uiState.update { it.copy(message = "Brak uprawnień do magazynu (inventory.manage)") }
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(orders = it.orders.copy(isSaving = true), message = null) }
+            var queued = 0
+            var failed = 0
+            for (row in rows) {
+                val productId = row.productId ?: continue
+                try {
+                    val result = orderRepository.orderMissing(
+                        dealId = dealId,
+                        reservationId = row.id,
+                        productId = productId,
+                        quantity = row.missing,
+                        clientLabel = row.clientLabel,
+                    )
+                    if (result == OrderSaveResult.QUEUED) queued++
+                } catch (_: Exception) {
+                    failed++
+                }
+            }
+            _uiState.update {
+                it.copy(
+                    orders = it.orders.copy(isSaving = false),
+                    message = when {
+                        failed == rows.size -> "Nie udało się dopisać braków do listy zakupowej"
+                        failed > 0 -> "$failed z ${rows.size} pozycji nie weszło na listę zakupową"
+                        queued > 0 -> "Dodano ${rows.size} poz. w telefonie — wyślemy, gdy wróci zasięg"
+                        else -> "Dodano ${rows.size} poz. na listę zakupową magazynu"
+                    },
+                )
+            }
+            loadOrders(force = true)
+        }
+    }
+
+    /**
+     * Wspólna obsługa zapisów zakładki: blokada podwójnego dotknięcia, komunikat
+     * rozróżniający wysłane od zakolejkowanego i odświeżenie. Cztery akcje
+     * różnią się wyłącznie treścią, więc trzymanie czterech kopii tej ramy
+     * kończyłoby się rozjazdem komunikatów.
+     */
+    private fun runOrderAction(
+        action: suspend () -> OrderSaveResult,
+        sent: String,
+        failed: String,
+    ) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(orders = it.orders.copy(isSaving = true), message = null) }
+            try {
+                val result = action()
+                _uiState.update {
+                    it.copy(
+                        orders = it.orders.copy(isSaving = false),
+                        message = when (result) {
+                            OrderSaveResult.SENT -> sent
+                            OrderSaveResult.QUEUED ->
+                                "$sent w telefonie — wyślemy, gdy wróci zasięg"
+                        },
+                    )
+                }
+                loadOrders(force = true)
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        orders = it.orders.copy(isSaving = false),
+                        message = crmErrorMessage(e, failed),
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * Wybór instalacji + dobranie formularza: szablon dziedziczymy z najbliższego
+     * przodka z `auditForm`, a dane deala z rekordu przypiętego do tego przodka.
+     * Bez rekordu startujemy z szablonu uzupełnionego danymi budynku — dokładnie
+     * jak panel, żeby pierwszy audyt wyglądał tak samo z telefonu i z biurka.
+     */
+    private fun AuditState.withInstallation(
+        categoryId: String?,
+        deal: Deal?,
+    ): AuditState {
+        if (categoryId == null) {
+            return copy(
+                selectedInstallationId = null,
+                formOwnerId = null,
+                formAuditId = null,
+                form = null,
+                savedForm = null,
+            )
+        }
+
+        val owner = resolveAuditForm(categoryId, categories.associateBy { it.id })
+        val template = owner?.auditForm
+        if (owner == null || template == null) {
+            return copy(
+                selectedInstallationId = categoryId,
+                formOwnerId = null,
+                formAuditId = null,
+                form = null,
+                savedForm = null,
+            )
+        }
+
+        val forms = records.filter { it.installationForm != null }
+        // 1) rekord dokładnie dla tego węzła; 2) zapis sprzed wprowadzenia
+        //    `categoryId` (jeden formularz na cały deal).
+        val record = forms.firstOrNull { it.categoryId == owner.id }
+            ?: forms.firstOrNull { it.categoryId == null }
+
+        // Brak rekordu deala → start z szablonu katalogu, uzupełnionego danymi
+        // budynku (ilość i nazwy kondygnacji) — czyli dziedziczenie.
+        val form = record?.installationForm ?: applyBuildingToUfh(
+            template,
+            deal?.buildingData?.floors,
+            deal?.buildingData?.heatedBasement == true,
+        )
+        return copy(
+            selectedInstallationId = categoryId,
+            formOwnerId = owner.id,
+            formAuditId = record?.id,
+            form = form,
+            savedForm = form,
+        )
+    }
+
     // ── Szybka edycja pól deala z zakładki LEAD ──────────────────────────────
 
     fun setBuildingKind(kind: DealBuildingKind) =
@@ -572,6 +1305,18 @@ class DealDetailViewModel @Inject constructor(
     fun setMeetingAt(millis: Long?) =
         patchDeal(if (millis == null) "Usunięto termin" else "Zapisano termin") {
             it.copy(meetingAt = millis)
+        }
+
+    /**
+     * Miejsce i termin AUDYTU — osobne pola deala niż spotkanie wstępne
+     * (`meetingKind`/`meetingAt`), bo to dwa różne wyjazdy do klienta.
+     */
+    fun setAuditAddressKind(kind: AuditAddressKind) =
+        patchDeal("Zapisano miejsce audytu") { it.copy(auditAddressKind = kind) }
+
+    fun setAuditMeetingAt(millis: Long?) =
+        patchDeal(if (millis == null) "Usunięto termin audytu" else "Zapisano termin audytu") {
+            it.copy(auditMeetingAt = millis)
         }
 
     /**

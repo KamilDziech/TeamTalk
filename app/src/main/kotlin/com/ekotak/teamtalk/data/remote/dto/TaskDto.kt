@@ -46,8 +46,12 @@ data class TaskResponseDto(
 )
 
 /**
- * Projekt z GET /api/projects — w aplikacji mobilnej używany wyłącznie jako
- * pozycja listy w kroku „kogo dotyczy" kreatora zadania, stąd okrojony kształt.
+ * Projekt z GET /api/projects. Powstał jako pozycja listy w kroku „kogo dotyczy"
+ * kreatora zadania, a od modułu Projekty (E5) niesie też etap, odpowiedzialnych
+ * i uzasadnienie — wszystko opcjonalne, bo starszy backend tych pól nie zna.
+ *
+ * KWOT tu nie ma świadomie: `budgetPlanned` i `costSummary` API wysyła tylko
+ * z uprawnieniem `projects.finance`, którego technik w terenie nie ma.
  */
 @Serializable
 data class ProjectDto(
@@ -56,6 +60,21 @@ data class ProjectDto(
     val status: String? = null,
     val color: String? = null,
     val taskCount: Int? = null,
+    val description: String? = null,
+    /** idea | appraisal | approval | planning | active | closed. */
+    val stage: String? = null,
+    val department: String? = null,
+    val managerId: String? = null,
+    val managerEmail: String? = null,
+    val sponsorEmail: String? = null,
+    val memberCount: Int? = null,
+    val doneCount: Int? = null,
+    val dueAt: String? = null,
+    val metricDueAt: String? = null,
+    val problemStatement: String? = null,
+    val metricName: String? = null,
+    val metricBaseline: String? = null,
+    val metricTarget: String? = null,
 )
 
 /** Członek zespołu z GET /api/tasks/members. */

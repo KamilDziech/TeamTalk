@@ -62,6 +62,25 @@ fun CategoryNode.selectedCount(selected: Set<String>): Int =
     subtreeIds().count { it in selected }
 
 /**
+ * Drzewo przycięte do samej ścieżki wyboru — bez pustych kategorii i bez
+ * wyszarzonego rodzeństwa marek. Tak zakres pokazuje zakładka „Zamówienie":
+ * zamawiamy dokładnie to, co klient kupił, więc alternatywy, których nie wziął,
+ * są tu tylko szumem (panel robi to samo przez `onlyPicked` w `DealDrawer`).
+ *
+ * Gałąź zostaje, gdy jest zaznaczona ALBO ma zaznaczonego potomka: bez tego
+ * wybór wskazany na poziomie „Ogrzewanie" zniknąłby razem z dziećmi.
+ */
+fun pruneToSelected(nodes: List<CategoryNode>, selected: Set<String>): List<CategoryNode> =
+    nodes.mapNotNull { node ->
+        val keptChildren = pruneToSelected(node.children, selected)
+        when {
+            keptChildren.isNotEmpty() -> node.copy(children = keptChildren)
+            node.id in selected -> node.copy(children = emptyList())
+            else -> null
+        }
+    }
+
+/**
  * Gałęzie, które trzeba rozwinąć, żeby każdy zaznaczony węzeł był widoczny od
  * razu po wejściu w zakładkę. Bez tego wybór schowany dwa poziomy w głąb
  * wyglądałby jak brak wyboru — a to główna informacja tej sekcji.

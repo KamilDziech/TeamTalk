@@ -24,12 +24,21 @@ const db = {
   discussionReads: [],     // {organizationId, userId, taskId, lastReadAt}
   // ── CRM ────────────────────────────────────────────────────────────────────
   categories: [],          // katalog technologii (GET /api/categories)
+  audits: [],              // audyty deala: Heizlast + formularz audytu instalacji
   deals: [],
   dealContacts: [],        // {dealId, clientId} — kontakty towarzyszace
   dealValues: {},          // dealId -> kwota brutto (GET /api/offers/deal-values)
   dealInstallations: {},   // dealId -> { [stage]: [categoryId] } (wybor per etap)
   activities: [],          // ActivityLog (append-only)
   leads: [],               // zgloszenia z leadowni, po jednym na deal
+  // ── Sprzedaz i magazyn (zakladka „Zamowienie" karty deala) ─────────────────
+  // Zamowienie powstaje z WYGRANEJ oferty albo samo z podpisanej umowy;
+  // rezerwacja trzyma towar pod klienta, a `purchaseOrders` to lista zakupowa
+  // magazynu (`to_order` -> `ordered` -> `received`), ktora NIE rusza stanu.
+  offers: [],              // {id, organizationId, dealId, number, status, netTotal, ...items}
+  orders: [],              // {id, organizationId, dealId, source, contractId, items[]}
+  reservations: [],        // {id, organizationId, dealId, productId, quantity, covered, status}
+  purchaseOrders: [],      // {id, organizationId, productId, dealId, reservationId, status}
   // ── Serwis (modul Serwis + kafelek Przeglady) ──────────────────────────────
   serviceJobs: [],         // zlecenia: awaria / przeglad / konserwacja
   warrantyCards: [],       // karty gwarancyjne Panasonic (5 przegladow kazda)
