@@ -1,5 +1,14 @@
 package com.ekotak.teamtalk.presentation.client
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -27,6 +36,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Merge
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Badge
@@ -57,18 +67,22 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ekotak.teamtalk.domain.model.ClientCategory
 import com.ekotak.teamtalk.domain.model.ClientListEntry
 import com.ekotak.teamtalk.domain.model.DealStage
 import com.ekotak.teamtalk.presentation.components.AppTopBar
 import com.ekotak.teamtalk.presentation.crm.stageColor
+import com.ekotak.teamtalk.presentation.theme.Red600
 
 /**
  * Kartoteka klientów. Panel ma na to szeroką tabelę z dwoma selectami i
@@ -77,6 +91,10 @@ import com.ekotak.teamtalk.presentation.crm.stageColor
  * się w segmentach), a filtry etapu i instalacji chowamy w arkuszach — chip
  * pokazuje wybór, więc
  * lista nie traci wysokości na kontrolki, których zwykle się nie rusza.
+ *
+ * Wyszukiwarka ma mikrofon — w terenie, w rękawicach, nazwisko szybciej się
+ * mówi, niż wpisuje. Dyktowanie przekręca nazwy, więc wyniki schodzą do 80%
+ * zgodności i trafienia przybliżone dostają na karcie swój procent.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -96,6 +114,29 @@ fun ClientListScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var openSheet by rememberSaveable { mutableStateOf<FilterSheet?>(null) }
 
+    val context = LocalContext.current
+    // Po przyznaniu zgody dyktowanie rusza samo — bez drugiego dotknięcia
+    // mikrofonu, którego nikt się w tym miejscu nie spodziewa.
+    var pendingVoice by remember { mutableStateOf(false) }
+    val micPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        val wanted = pendingVoice
+        pendingVoice = false
+        if (granted && wanted) viewModel.toggleVoice()
+    }
+    val onVoice: () -> Unit = {
+        val granted = ContextCompat.checkSelfPermission(
+            context, Manifest.permission.RECORD_AUDIO
+        ) == PackageManager.PERMISSION_GRANTED
+        if (granted) {
+            viewModel.toggleVoice()
+        } else {
+            pendingVoice = true
+            micPermission.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
     // Błąd pokazujemy w snackbarze tylko wtedy, gdy pod spodem jest lista;
     // przy pustej lepiej działa pełnoekranowy stan błędu.
     LaunchedEffect(state.error) {
@@ -109,6 +150,14 @@ fun ClientListScreen(
         state.message?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.clearMessage()
+        }
+    }
+    // Potknięcie mikrofonu leci snackbarem zawsze: kartoteka jest w porządku,
+    // więc pełnoekranowy stan błędu kłamałby o tym, co się właśnie nie udało.
+    LaunchedEffect(state.voiceError) {
+        state.voiceError?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearVoiceError()
         }
     }
     // Po powrocie z formularza / scalania: pokaż wynik i odśwież dane lejka
@@ -156,15 +205,20 @@ fun ClientListScreen(
                 placeholder = { Text("Szukaj: imię, telefon, e-mail…") },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 trailingIcon = {
-                    if (state.searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { viewModel.onSearchQueryChange("") }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Wyczyść")
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (state.searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { viewModel.onSearchQueryChange("") }) {
+                                Icon(Icons.Default.Clear, contentDescription = "Wyczyść")
+                            }
                         }
+                        VoiceSearchButton(active = state.isListening, onClick = onVoice)
                     }
                 },
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 singleLine = true,
             )
+
+            SearchHint(state = state)
 
             CategorySwitch(
                 selected = state.category,
@@ -217,7 +271,13 @@ fun ClientListScreen(
                                             "Brak: ${state.category.tabLabel.lowercase()} przy wybranych filtrach"
                                         else -> "Brak: ${state.category.tabLabel.lowercase()}"
                                     },
-                                    subtitle = state.error ?: "Pociągnij w dół, aby odświeżyć.",
+                                    subtitle = state.error
+                                        ?: if (state.searchQuery.isNotBlank()) {
+                                            "Żaden wpis nie zgadza się z hasłem " +
+                                                "w co najmniej $MATCH_PERCENT%."
+                                        } else {
+                                            "Pociągnij w dół, aby odświeżyć."
+                                        },
                                 )
                             }
                         }
@@ -225,6 +285,7 @@ fun ClientListScreen(
                             ClientCard(
                                 entry = entry,
                                 callCount = state.callCounts[entry.client.id] ?: 0,
+                                matchPercent = state.matchPercents[entry.client.id],
                                 onClick = { onNavigateToDetail(entry.client.id) },
                                 onCall = { phone -> viewModel.call(phone) },
                             )
@@ -260,6 +321,75 @@ fun ClientListScreen(
 
 /** Który arkusz filtra jest otwarty (żaden = `null`). */
 enum class FilterSheet { STAGE, INSTALL }
+
+/** Próg wyników w procentach — ta sama liczba co NAME_MATCH_THRESHOLD. */
+private const val MATCH_PERCENT = 80
+
+/**
+ * Mikrofon w polu wyszukiwania; w trakcie dyktowania pulsuje na czerwono.
+ * Jedno dotknięcie zaczyna, drugie kończy — ale sesja gaśnie też sama po
+ * wypowiedzi, więc mikrofon nie zostaje włączony po wypowiedzianym nazwisku.
+ */
+@Composable
+private fun VoiceSearchButton(active: Boolean, onClick: () -> Unit) {
+    val transition = rememberInfiniteTransition(label = "voice")
+    val pulse by transition.animateFloat(
+        initialValue = 1f,
+        targetValue = if (active) 1.25f else 1f,
+        animationSpec = infiniteRepeatable(tween(650), RepeatMode.Reverse),
+        label = "voicePulse",
+    )
+    IconButton(onClick = onClick) {
+        Icon(
+            imageVector = Icons.Default.Mic,
+            contentDescription = if (active) {
+                "Zakończ wyszukiwanie głosowe"
+            } else {
+                "Szukaj głosem"
+            },
+            tint = if (active) Red600 else MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(22.dp).scale(if (active) pulse else 1f),
+        )
+    }
+}
+
+/**
+ * Linijka pod wyszukiwarką: w trakcie dyktowania mówi, że mikrofon słucha, a po
+ * nim tłumaczy obecność wpisów, które nie zgadzają się z hasłem co do litery.
+ */
+@Composable
+private fun SearchHint(state: ClientListViewModel.UiState) {
+    val text = when {
+        state.isListening -> "Słucham… powiedz imię, nazwisko albo numer."
+        state.searchQuery.isNotBlank() && state.approxShown > 0 ->
+            "Wyniki od $MATCH_PERCENT% zgodności; przybliżonych trafień: " +
+                "${state.approxShown}."
+        else -> return
+    }
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodySmall,
+        color = if (state.isListening) Red600 else MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 4.dp),
+    )
+}
+
+/** Procent zgodności na karcie — tylko przy trafieniach przybliżonych. */
+@Composable
+private fun MatchPercentChip(percent: Int) {
+    Text(
+        text = "≈$percent%",
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.Medium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier
+            .background(
+                MaterialTheme.colorScheme.surfaceVariant,
+                RoundedCornerShape(4.dp),
+            )
+            .padding(horizontal = 5.dp, vertical = 2.dp),
+    )
+}
 
 /**
  * Zakładki kategorii z licznikami — te same cztery co w panelu. Segmenty dzielą
@@ -458,6 +588,8 @@ private fun SheetRow(
 private fun ClientCard(
     entry: ClientListEntry,
     callCount: Int,
+    /** Zgodność z hasłem, gdy wpis wszedł na podobieństwo, a nie dosłownie. */
+    matchPercent: Int?,
     onClick: () -> Unit,
     onCall: (String) -> Unit,
 ) {
@@ -499,6 +631,7 @@ private fun ClientCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
+                    matchPercent?.let { MatchPercentChip(it) }
                     entry.mainStage?.let { MainStageChip(it) }
                     entry.installations.forEach { InstallBadgeChip(name = it) }
                     if (entry.deals.size > 1) {

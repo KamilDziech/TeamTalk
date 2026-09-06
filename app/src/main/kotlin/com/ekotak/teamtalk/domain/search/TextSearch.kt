@@ -14,6 +14,9 @@ const val NAME_MATCH_THRESHOLD = 0.8
 /** Krótsze hasła są zbyt niejednoznaczne, żeby cokolwiek po nich podpowiadać. */
 private const val MIN_SUGGESTION_LENGTH = 3
 
+/** Wynik trafienia dosłownego — każde słowo hasła znalazło się w polach wprost. */
+const val EXACT_MATCH = 1.0
+
 /**
  * Porównanie odporne na ogonki — rozpoznawanie mowy pisze „Słoneczne", a
  * z klawiatury równie często przyjdzie „sloneczne". NFD rozkłada ą, ć, ę, ń, ó,
@@ -44,11 +47,41 @@ fun matchesAllTokens(query: String, vararg fields: String?): Boolean {
     return tokens.all { token -> haystacks.any { it.contains(token) } }
 }
 
+/**
+ * Zgodność hasła z polami w skali 0–1. 1.0 to trafienie dosłowne — dokładnie
+ * to, co przepuszcza [matchesAllTokens]. Niżej schodzą wyłącznie przekręcone
+ * słowa: rozpoznawanie mowy myli końcówki i pisownię nazwisk („Kowalsky"
+ * zamiast „Kowalski"), a hasło z klawiatury łapie literówkę.
+ *
+ * Liczymy najsłabszym ogniwem — każde wypowiedziane słowo musi mieć swoje
+ * dopasowanie. Średnia przepuściłaby „Anna Maria Nowak" na „Annę Marię
+ * Kowalską" (dwa człony idealnie, nazwisko obok), a to już inna osoba.
+ */
+fun fieldsMatchScore(query: String, vararg fields: String?): Double {
+    val tokens = query.searchTokens()
+    if (tokens.isEmpty()) return EXACT_MATCH
+    val haystacks = fields.mapNotNull { it?.takeIf(String::isNotBlank)?.foldPolish() }
+    if (haystacks.isEmpty()) return 0.0
+    // Słowa pól porównujemy osobno: „Kowalsky" ma się mierzyć z „Kowalski",
+    // a nie z całym „Jan Kowalski", gdzie sama różnica długości zjadłaby wynik.
+    val words = haystacks.flatMap { it.split(SEPARATORS) }.filter { it.isNotBlank() }
+    return tokens.minOf { token ->
+        if (haystacks.any { it.contains(token) }) EXACT_MATCH
+        else words.maxOfOrNull { ratio(token, it) } ?: 0.0
+    }
+}
+
 /** Dopasowanie pojedynczego pola — nazwa projektu, osoba w zespole. */
 fun String.matchesQuery(query: String): Boolean = matchesAllTokens(query, this)
 
 /** Pola karty klienta, po których szuka kartoteka i kreator zadania. */
-fun Client.matchesQuery(query: String): Boolean = matchesAllTokens(
+fun Client.matchesQuery(query: String): Boolean = matchScore(query) >= EXACT_MATCH
+
+/**
+ * Zgodność wpisu kartoteki z hasłem: te same pola co w [matchesQuery], tylko
+ * z oceną zamiast tak/nie. Po tym kartoteka pokazuje trafienia przybliżone.
+ */
+fun Client.matchScore(query: String): Double = fieldsMatchScore(
     query,
     firstName,
     lastName,

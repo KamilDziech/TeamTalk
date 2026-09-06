@@ -2,6 +2,7 @@ package com.ekotak.teamtalk.presentation.client
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ekotak.teamtalk.data.audio.SpeechToText
 import com.ekotak.teamtalk.domain.model.CallLogFilter
 import com.ekotak.teamtalk.domain.model.Client
 import com.ekotak.teamtalk.domain.model.ClientCategory
@@ -10,7 +11,9 @@ import com.ekotak.teamtalk.domain.model.DealStage
 import com.ekotak.teamtalk.domain.model.DuplicateGroup
 import com.ekotak.teamtalk.domain.model.duplicateGroups
 import com.ekotak.teamtalk.domain.repository.AuthRepository
-import com.ekotak.teamtalk.domain.search.matchesQuery
+import com.ekotak.teamtalk.domain.search.EXACT_MATCH
+import com.ekotak.teamtalk.domain.search.NAME_MATCH_THRESHOLD
+import com.ekotak.teamtalk.domain.search.matchScore
 import com.ekotak.teamtalk.domain.usecase.calllog.GetCallLogsUseCase
 import com.ekotak.teamtalk.domain.usecase.calllog.MakeCallUseCase
 import com.ekotak.teamtalk.domain.usecase.client.ClientDirectoryData
@@ -25,6 +28,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlin.math.roundToInt
 
 /** Uprawnienie board360 wymagane do dodania i edycji wpisu kartoteki. */
 private const val PERMISSION_DEAL_MANAGE = "deal.manage"
@@ -45,6 +49,7 @@ class ClientListViewModel @Inject constructor(
     private val getCallLogsUseCase: GetCallLogsUseCase,
     private val makeCallUseCase: MakeCallUseCase,
     private val authRepository: AuthRepository,
+    private val speechToText: SpeechToText,
 ) : ViewModel() {
 
     data class UiState(
@@ -66,8 +71,24 @@ class ClientListViewModel @Inject constructor(
         /** Liczba połączeń per klient — zostaje z poprzedniej wersji listy. */
         val callCounts: Map<String, Int> = emptyMap(),
         val canManage: Boolean = false,
+        /** Trwa dyktowanie hasła do wyszukiwarki. */
+        val isListening: Boolean = false,
+        /**
+         * Potknięcie mikrofonu (brak zgody, cisza, brak usługi). Osobno od
+         * [error], bo tamten przy pustej liście maluje stan „nie udało się
+         * wczytać kartoteki" — a kartoteka jest tu w porządku.
+         */
+        val voiceError: String? = null,
+        /**
+         * Zgodność w procentach dla trafień PRZYBLIŻONYCH (80–99%); trafienia
+         * dosłowne nie mają tu wpisu, bo nie ma czego przy nich tłumaczyć.
+         */
+        val matchPercents: Map<String, Int> = emptyMap(),
     ) {
         val filtersActive: Boolean get() = stageFilter != null || installFilter != null
+
+        /** Ile pokazanych wpisów weszło na podobieństwo, nie na dosłowne trafienie. */
+        val approxShown: Int get() = entries.count { matchPercents.containsKey(it.client.id) }
     }
 
     private val _uiState = MutableStateFlow(UiState())
@@ -75,6 +96,9 @@ class ClientListViewModel @Inject constructor(
 
     private var allClients: List<Client> = emptyList()
     private var directory = ClientDirectoryData()
+
+    /** Czy bieżące hasło przyszło z mikrofonu (patrz [pickCategory]). */
+    private var fromVoice = false
 
     init {
         observeClients()
@@ -154,11 +178,63 @@ class ClientListViewModel @Inject constructor(
     }
 
     fun onSearchQueryChange(query: String) {
+        // Ręczna poprawka hasła kończy „podążanie za dyktowaniem" — od tego
+        // momentu zakładka kategorii zostaje tam, gdzie ustawił ją użytkownik.
+        fromVoice = false
         _uiState.update { it.copy(searchQuery = query) }
         recompute()
     }
 
+    // ── Wyszukiwanie głosowe ─────────────────────────────────────────────────
+
+    /** Mikrofon przy wyszukiwarce: włącza dyktowanie albo kończy trwające. */
+    fun toggleVoice() {
+        if (_uiState.value.isListening) stopVoice() else startVoice()
+    }
+
+    private fun startVoice() {
+        if (!speechToText.isAvailable()) {
+            _uiState.update {
+                it.copy(voiceError = "Rozpoznawanie mowy niedostępne — wpisz hasło ręcznie")
+            }
+            return
+        }
+        speechToText.onText = { text -> applyVoiceQuery(text) }
+        speechToText.onError = { message ->
+            _uiState.update { it.copy(isListening = false, voiceError = message) }
+        }
+        // Jedna wypowiedź kończy sesję — mikrofon nie ma prawa zostać włączony
+        // po wypowiedzeniu nazwiska (tak samo jak w kreatorze zadania).
+        speechToText.onDone = { _uiState.update { it.copy(isListening = false) } }
+        speechToText.start(continuous = false)
+        // Stare hasło znika już na starcie: wyniki poprzedniej próby nie mają
+        // się mieszać z tym, co użytkownik właśnie mówi.
+        fromVoice = true
+        _uiState.update { it.copy(isListening = true, searchQuery = "", voiceError = null) }
+        recompute()
+    }
+
+    private fun stopVoice() {
+        if (!_uiState.value.isListening) return
+        speechToText.stop() // rozpoznany tekst wpadł już przez `onText`
+        _uiState.update { it.copy(isListening = false) }
+    }
+
+    /** Rozpoznany tekst jako hasło: kropka na końcu zdania nie trafia w nikogo. */
+    private fun applyVoiceQuery(text: String) {
+        val query = text.trim().trimEnd('.', ',', '!', '?').trim()
+        _uiState.update { it.copy(searchQuery = query) }
+        recompute()
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        speechToText.cancel()
+    }
+
     fun onCategoryChange(category: ClientCategory) {
+        // Ręczny wybór zakładki jest ostateczny — nie przestawiamy go z powrotem.
+        fromVoice = false
         _uiState.update { it.copy(category = category) }
         recompute()
     }
@@ -179,6 +255,8 @@ class ClientListViewModel @Inject constructor(
     }
 
     fun clearError() = _uiState.update { it.copy(error = null) }
+
+    fun clearVoiceError() = _uiState.update { it.copy(voiceError = null) }
 
     fun clearMessage() = _uiState.update { it.copy(message = null) }
 
@@ -203,7 +281,21 @@ class ClientListViewModel @Inject constructor(
         }
 
         val query = state.searchQuery.trim()
-        val matching = if (query.isBlank()) enriched else enriched.filter { matches(it.client, query) }
+        // Trafienia dosłowne i przybliżone idą jedną listą: dyktowanie przekręca
+        // nazwiska, więc odcięcie po samym `contains` gubiłoby szukaną osobę.
+        // Próg 80% jest ten sam, po którym kreator zadania pyta „czy chodzi o…".
+        val scored = if (query.isBlank()) {
+            enriched.map { it to EXACT_MATCH }
+        } else {
+            enriched
+                .map { it to it.client.matchScore(query) }
+                .filter { (_, score) -> score >= NAME_MATCH_THRESHOLD }
+                .sortedByDescending { (_, score) -> score }
+        }
+        val matching = scored.map { (entry, _) -> entry }
+        val matchPercents = scored
+            .filter { (_, score) -> score < EXACT_MATCH }
+            .associate { (entry, score) -> entry.client.id to (score * 100).roundToInt() }
 
         // Liczniki zakładek liczymy na wyniku wyszukiwarki (jak w panelu), żeby
         // przełącznik pokazywał, w której kategorii szukana osoba faktycznie jest.
@@ -211,7 +303,11 @@ class ClientListViewModel @Inject constructor(
             matching.count { it.client.category == cat }
         }
 
-        val inCategory = matching.filter { it.client.category == state.category }
+        // Po dyktowaniu przeskakujemy na zakładkę, w której szukany wpis
+        // faktycznie jest — powiedziane nazwisko bywa kontrahentem, a pusta
+        // lista wyglądałaby wtedy na brak w całej kartotece.
+        val category = pickCategory(state.category, categoryCounts, query)
+        val inCategory = matching.filter { it.client.category == category }
         val stageCounts = inCategory.mapNotNull { it.mainStage }.groupingBy { it }.eachCount()
 
         val shown = inCategory.filter { entry ->
@@ -224,6 +320,8 @@ class ClientListViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 entries = shown,
+                category = category,
+                matchPercents = matchPercents,
                 categoryCounts = categoryCounts,
                 stageCounts = stageCounts,
                 installOptions = directory.installOptions,
@@ -233,6 +331,17 @@ class ClientListViewModel @Inject constructor(
         }
     }
 
-    /** Wspólne dopasowanie: hasło po słowach, bez ogonków (patrz TextSearch). */
-    private fun matches(client: Client, query: String): Boolean = client.matchesQuery(query)
+    /**
+     * Zakładka do pokazania. Ruszamy ją tylko po dyktowaniu i tylko wtedy, gdy
+     * wybrana kategoria nie ma ani jednego trafienia, a inna ma.
+     */
+    private fun pickCategory(
+        current: ClientCategory,
+        counts: Map<ClientCategory, Int>,
+        query: String,
+    ): ClientCategory {
+        if (!fromVoice || query.isBlank()) return current
+        if ((counts[current] ?: 0) > 0) return current
+        return ClientCategory.entries.firstOrNull { (counts[it] ?: 0) > 0 } ?: current
+    }
 }
