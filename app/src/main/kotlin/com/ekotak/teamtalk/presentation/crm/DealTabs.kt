@@ -36,7 +36,7 @@ enum class DealTab(val key: String, val label: String, val ready: Boolean) {
     LEAD("lead", "LEAD", true),
     EDUKACJA("edukacja", "Remarketing", false),
     AUDYT("audyt", "Audyt", true),
-    OFERTA("oferta", "Oferta", false),
+    OFERTA("oferta", "Oferta", true),
     ZAMOWIENIE("zamowienia", "Zamówienie", true),
     MONTAZ("montaz", "Montaż", false),
     FAKTURA("faktura", "Faktura", false),

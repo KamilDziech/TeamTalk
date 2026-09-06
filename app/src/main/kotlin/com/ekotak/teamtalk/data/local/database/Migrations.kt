@@ -691,3 +691,36 @@ val MIGRATION_15_16 = object : Migration(15, 16) {
         )
     }
 }
+
+/**
+ * v17 — zakładka „Oferta" karty deala.
+ *
+ * Kartoteka Magazynu dostaje dwa pola, których wymaga wycena: `comparisonSize`
+ * (wielkość opakowania, np. „50 m²" — bez niej nie da się zejść z ceny rolki na
+ * cenę metra) i `defaultChoice` (★ z Magazynu, czyli materiał domyślny, gdy
+ * Technologia nic nie wskazała).
+ *
+ * Migawka instalacji deala dostaje `stagesJson` — wszystkie etapy naraz. Oferta
+ * schodzi po nich kaskadą (angebot → audit → sold → montaz → edukacja → lead),
+ * dokładnie jak panel; osobne kolumny per etap dokładałyby migrację przy każdym
+ * kolejnym czytelniku.
+ *
+ * Kolumny dochodzą z wartościami domyślnymi, więc stare wiersze zostają —
+ * kasować cache Magazynu nie ma po co, świeże pola dojdą przy najbliższym
+ * odświeżeniu.
+ */
+val MIGRATION_16_17 = object : Migration(16, 17) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.addColumnIfMissing("inventory_products", "comparisonSize", "TEXT")
+        db.addColumnIfMissing(
+            table = "inventory_products",
+            column = "defaultChoice",
+            type = "INTEGER NOT NULL DEFAULT 0",
+        )
+        db.addColumnIfMissing(
+            table = "audit_installations",
+            column = "stagesJson",
+            type = "TEXT NOT NULL DEFAULT '{}'",
+        )
+    }
+}

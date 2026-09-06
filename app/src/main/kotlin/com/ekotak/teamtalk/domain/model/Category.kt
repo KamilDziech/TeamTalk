@@ -45,6 +45,23 @@ fun resolveAuditForm(nodeId: String, byId: Map<String, Category>): Category? {
  * migawki) daje pustą listę — wywołujący pokazuje wtedy samo id albo pomija
  * pozycję, zamiast rysować pusty wiersz.
  */
+/**
+ * Ścieżka ID od korzenia do wskazanego węzła. Potrzebna wszędzie tam, gdzie coś
+ * DZIEDZICZY się w dół drzewa katalogu — jak zestawy Warunków finansowych, które
+ * cennik oferty zbiera z węzła i wszystkich jego przodków.
+ */
+fun categoryIdPath(id: String, byId: Map<String, Category>): List<String> {
+    val path = ArrayList<String>()
+    var node = byId[id]
+    var guard = 0
+    while (node != null && guard < 16) {
+        path.add(0, node.id)
+        node = node.parentId?.let { byId[it] }
+        guard++
+    }
+    return path
+}
+
 fun categoryPath(id: String, byId: Map<String, Category>): List<String> {
     val path = ArrayList<String>()
     var node = byId[id]

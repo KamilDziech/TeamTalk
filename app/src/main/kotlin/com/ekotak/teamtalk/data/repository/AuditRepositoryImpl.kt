@@ -27,6 +27,9 @@ import com.ekotak.teamtalk.domain.repository.AuditInstallations
 import com.ekotak.teamtalk.domain.repository.AuditRepository
 import com.ekotak.teamtalk.domain.repository.AuditSaveResult
 import com.ekotak.teamtalk.domain.repository.AuditSyncResult
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -84,6 +87,7 @@ class AuditRepositoryImpl @Inject constructor(
                 .firstOrNull { it.stage == InstallationStage.SOLD.wire }
                 ?.categories
                 .orEmpty(),
+            byStage = stages.associate { it.stage to it.categories },
         )
         dao.upsertInstallations(
             AuditInstallationsEntity(
@@ -91,6 +95,7 @@ class AuditRepositoryImpl @Inject constructor(
                 categoryIds = result.auditStage,
                 allStageCategoryIds = result.allStages,
                 soldStageCategoryIds = result.soldStage,
+                stagesJson = encodeStages(result.byStage),
                 syncedAt = System.currentTimeMillis(),
             ),
         )
@@ -102,10 +107,19 @@ class AuditRepositoryImpl @Inject constructor(
                     auditStage = it.categoryIds,
                     allStages = it.allStageCategoryIds,
                     soldStage = it.soldStageCategoryIds,
+                    byStage = decodeStages(it.stagesJson),
                 )
             }
             ?: AuditInstallations()
     }
+
+    /** Migawki etapów do jednej kolumny — mapa `etap → id węzłów`. */
+    private fun encodeStages(byStage: Map<String, List<String>>): String =
+        runCatching { json.encodeToString(STAGES_SERIALIZER, byStage) }.getOrDefault("{}")
+
+    /** Uszkodzony wpis nie może wywrócić zakładki — wtedy po prostu brak kaskady. */
+    private fun decodeStages(raw: String): Map<String, List<String>> =
+        runCatching { json.decodeFromString(STAGES_SERIALIZER, raw) }.getOrDefault(emptyMap())
 
     override suspend fun createHeatload(
         dealId: String,
@@ -340,5 +354,9 @@ class AuditRepositoryImpl @Inject constructor(
         404 -> "Zapis audytu przepadł — deal zniknął z panelu."
         403 -> "Zapis audytu przepadł — brak uprawnień."
         else -> "Zapis audytu przepadł — serwer go odrzucił (kod $code)."
+    }
+
+    private companion object {
+        val STAGES_SERIALIZER = MapSerializer(String.serializer(), ListSerializer(String.serializer()))
     }
 }

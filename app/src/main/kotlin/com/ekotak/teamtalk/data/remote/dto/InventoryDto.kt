@@ -36,6 +36,17 @@ data class ProductDto(
     val distributors: List<String> = emptyList(),
     val distributorPrices: List<DistributorPriceDto> = emptyList(),
     val packaging: String? = null,
+    /**
+     * Wielkość porównawcza z kartoteki („50 m²", „250 szt.") — razem
+     * z `packaging` mówi, ile jest w opakowaniu. Czyta ją wycena oferty
+     * (`PriceCatalog.kt`), żeby zejść z ceny opakowania na cenę jednostki.
+     */
+    val comparisonSize: String? = null,
+    /**
+     * Kartoteka oznaczona w Magazynie gwiazdką „★ domyślna" — bez zapisu
+     * w Technologii to ona jest materiałem domyślnym instalacji.
+     */
+    val defaultChoice: Boolean = false,
     /** Obiekt magazynu ze słownika („Hala", „Kontener 3"). */
     val storageZone: String? = null,
     /** Półka w obrębie obiektu — wolny tekst („A35"). */

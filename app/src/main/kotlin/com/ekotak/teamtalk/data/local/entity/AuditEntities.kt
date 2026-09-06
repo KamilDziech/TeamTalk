@@ -72,6 +72,12 @@ data class AuditInstallationsEntity(
      * „Zamówienie" rysuje z nich drzewo zakresu, także bez zasięgu.
      */
     val soldStageCategoryIds: List<String> = emptyList(),
+    /**
+     * Wszystkie etapy naraz jako JSON `{ "angebot": ["id", …], … }`. Zakładka
+     * „Oferta" schodzi po nich kaskadą (angebot → audit → sold → …), a osobne
+     * kolumny per etap dokładałyby migrację przy każdym nowym czytelniku.
+     */
+    val stagesJson: String = "{}",
     val syncedAt: Long,
 )
 

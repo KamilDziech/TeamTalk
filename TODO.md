@@ -118,7 +118,7 @@ bez cache Room — etap deala zmienia się często i po stronie panelu.
 - ✅ Termin następnego kontaktu — skróty jutro / 3 dni / tydzień / 2 tygodnie
 - ✅ Akcje zapisu widoczne tylko z uprawnieniem `deal.manage` (świeże z `GET /api/me`)
 - ❌ Cofanie etapu po głównej ścieżce (API dopuszcza — korekta zostaje w panelu)
-- ❌ Tworzenie deala, oferta, materiały, rozliczenie, pliki
+- ❌ Tworzenie deala, materiały, rozliczenie, pliki (oferta: patrz zakładka niżej)
 
 ### Zakładka „LEAD" karty deala
 
@@ -255,6 +255,52 @@ historią i podpisami. Scenariusz po `gradlew installDebug`:
    `planSlot`, `planDocId` oraz podpisy `marksSavedBy` / `areaSavedBy`.
    Zniknięcie któregokolwiek = utrata pracy zrobionej w panelu.
 4. `manifolds` ma zostać liczbą całkowitą (`1`, nie `1.0`).
+
+### Zakładka „Oferta" karty deala
+
+Odpowiednik `DealOfferPanel` panelu — trzy widoki tej samej instalacji: „Oferta
+dla klienta" (dlaczego to rozwiązanie + zakres w liczbach), „Podsumowanie"
+(pozycje z kwotami netto) i „Widok techniczny" (specyfikacja w układzie
+konfiguratora ekotak.pl). Instalacje bierzemy kaskadą etapów od „Oferty" w dół
+(`angebot` → `audit` → `sold` → `montaz` → `edukacja` → `lead`), audyt
+z `GET /api/deals/:id/audits`, blokadę z `GET /api/deals/:id/contracts`.
+
+Rachunek jest PORTEM, nie przybliżeniem: `domain/ufh` powtarza w Kotlinie
+`offer-quote.ts`, `ufh-points.ts`, `ufh-pipe-length.ts`, `ufh-zone-split.ts`,
+`ufh-area-measure.ts`, `price-catalog.ts`, `price-model.ts` i `offer-scope.ts`.
+Telefon liczy z tych samych danych, co przeglądarka w panelu — łącznie
+z pomiarem po rzucie i podziałem pomieszczeń na pętle.
+
+- ✅ Metraż i rura z warstwy rzutu (obrysy, wycięcia, łatki zagęszczenia, skala,
+  kropki rozdzielaczy) — telefon rzutu nie rysuje, ale go CZYTA, więc liczby
+  zgadzają się z panelem co do dziesiątej
+- ✅ „Dlaczego zaproponowaliśmy to rozwiązanie" — każda decyzja audytu jako
+  zdanie dla klienta; przy „Zaproponuj" system nazwany po imieniu
+- ✅ Zakres w liczbach (powierzchnia, rura, obwody, rozdzielacze, szafki)
+  z ostrzeżeniami rachunku
+- ✅ Podsumowanie z kwotami: ilości z audytu × ceny jednostkowe z formuły ceny
+  węzła (Magazyn + materiały domyślne Technologii + marka szafek + stawki
+  i koszty z Warunków finansowych + narzut węzła), z rozbiciem materiał /
+  robocizna i listą braków cennika
+- ✅ Widok techniczny 1:1 z konfiguratorem (parametry główne → kondygnacje →
+  parametry instalacji → uzupełnia inżynier → wyliczenia z audytu)
+- ✅ Pasek „oferta zamknięta umową" nad każdym stanem zakładki
+- ✅ Bez zasięgu: kartoteka Magazynu z cache modułu Magazyn, ustawienia firmowe
+  i zestawy cennika z ostatniego pobrania
+- ❌ „Modyfikuj ofertę" (nowa umowa / aneks) — zostaje w panelu, jak zmiana
+  audytu po podpisie
+- ❌ Zamrożone wersje oferty i historia zmian (panel też ich jeszcze nie ma)
+
+#### Do sprawdzenia na urządzeniu (zgodność z panelem)
+
+Rachunek został porównany z panelem poza aplikacją (ten sam audyt policzony
+kodem TS i kodem Kotlin — trzy scenariusze, wynik znak w znak), ale warto
+potwierdzić go na żywych danych:
+
+1. Deal z wypełnionym audytem OP → zakładka „Oferta" → „Podsumowanie".
+2. Ten sam deal w panelu, zakładka „Oferta" → „Podsumowanie".
+3. „Razem netto", liczba obwodów i rura razem muszą się zgadzać co do grosza
+   i co do dziesiątej metra.
 
 ### Zakładka „Zamówienie" karty deala
 

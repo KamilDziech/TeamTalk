@@ -45,7 +45,7 @@ import com.ekotak.teamtalk.data.local.entity.*
         LeaveBalanceEntity::class,
         LeaveMutationEntity::class,
     ],
-    version = 16,
+    version = 17,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)

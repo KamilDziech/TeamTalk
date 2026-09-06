@@ -88,6 +88,14 @@ data class Product(
     val distributors: List<String>,
     val distributorPrices: List<PurchasePoint>,
     val packaging: String?,
+    /**
+     * Wielkość porównawcza kartoteki („50 m²", „250 szt.") — razem z
+     * [packaging] mówi, ile jest w opakowaniu. Wycena oferty schodzi z niej
+     * z ceny opakowania na cenę 1 m² / 1 sztuki.
+     */
+    val comparisonSize: String? = null,
+    /** „★ domyślna" z Magazynu — materiał brany, gdy Technologia nic nie wskazała. */
+    val defaultChoice: Boolean = false,
     val notes: String?,
     val storageZone: String?,
     val storageShelf: String?,

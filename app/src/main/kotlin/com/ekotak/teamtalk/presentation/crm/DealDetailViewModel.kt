@@ -33,6 +33,7 @@ import com.ekotak.teamtalk.domain.model.UfhState
 import com.ekotak.teamtalk.domain.model.ancestorsOfSelected
 import com.ekotak.teamtalk.domain.model.applyBuildingToUfh
 import com.ekotak.teamtalk.domain.model.buildCategoryTree
+import com.ekotak.teamtalk.domain.model.categoryIdPath
 import com.ekotak.teamtalk.domain.model.categoryPath
 import com.ekotak.teamtalk.domain.model.previewHeatloadKw
 import com.ekotak.teamtalk.domain.model.resolveAuditForm
@@ -45,9 +46,11 @@ import com.ekotak.teamtalk.domain.repository.AuditInstallations
 import com.ekotak.teamtalk.domain.repository.AuditRepository
 import com.ekotak.teamtalk.domain.repository.AuditSaveResult
 import com.ekotak.teamtalk.domain.repository.AuthRepository
+import com.ekotak.teamtalk.domain.repository.OfferPricingRepository
 import com.ekotak.teamtalk.domain.repository.OrderRepository
 import com.ekotak.teamtalk.domain.repository.OrderSaveResult
 import com.ekotak.teamtalk.domain.repository.TaskRepository
+import com.ekotak.teamtalk.domain.ufh.OfferPricing
 import com.ekotak.teamtalk.domain.usecase.calllog.MakeCallUseCase
 import com.ekotak.teamtalk.domain.usecase.client.UpdateClientUseCase
 import com.ekotak.teamtalk.domain.usecase.deal.AddDealCompanionUseCase
@@ -147,6 +150,7 @@ class DealDetailViewModel @Inject constructor(
     private val taskRepository: TaskRepository,
     private val auditRepository: AuditRepository,
     private val orderRepository: OrderRepository,
+    private val offerPricingRepository: OfferPricingRepository,
     private val makeCallUseCase: MakeCallUseCase,
 ) : ViewModel() {
 
@@ -388,6 +392,66 @@ class DealDetailViewModel @Inject constructor(
             get() = reservations.firstOrNull()?.clientLabel.orEmpty()
     }
 
+    /** Ekran zakładki „Oferta" — trzy widoki tej samej instalacji, jak w panelu. */
+    enum class OfferMode(val label: String) {
+        CLIENT("Oferta dla klienta"),
+        SUMMARY("Podsumowanie"),
+        TECH("Widok techniczny"),
+    }
+
+    /**
+     * Instalacja gotowa do wyceny: audyt (CO robimy) + węzeł-właściciel
+     * formularza (spod niego idzie cennik). [form] jest ZAPISANYM audytem deala,
+     * nigdy szablonem katalogu — oferty nie składa się z pytań bez odpowiedzi.
+     */
+    data class OfferInstallation(
+        val categoryId: String,
+        val name: String,
+        val path: List<String>,
+        val formOwnerId: String?,
+        /** Nazwa węzła-właściciela — po niej poznajemy instalację (formuła ceny). */
+        val formOwnerName: String = "",
+        /** Ścieżka id od korzenia do właściciela — zestawy cennika dziedziczą w dół. */
+        val formOwnerPath: List<String> = emptyList(),
+        val form: UfhState?,
+    )
+
+    /**
+     * Zakładka „Oferta". Zakres i argumenty dla klienta plus podsumowanie
+     * z kwotami — 1:1 z `DealOfferPanel` panelu.
+     *
+     * Cennik ([pricing]) dociągamy PER WĘZEŁ-właściciel formularza, jeden odczyt
+     * na instalację; `null` w mapie = węzeł bez formuły ceny (inna instalacja),
+     * brak klucza = jeszcze nie pytaliśmy.
+     */
+    data class OfferState(
+        val isLoading: Boolean = false,
+        val loaded: Boolean = false,
+        val installations: List<OfferInstallation> = emptyList(),
+        val selectedIndex: Int = 0,
+        val mode: OfferMode = OfferMode.CLIENT,
+        /** Podpisana umowa zamykająca ofertę; `null` = oferta otwarta. */
+        val lock: OfferLock? = null,
+        val pricing: Map<String, OfferPricing?> = emptyMap(),
+        val pricingLoading: Boolean = false,
+        val error: String? = null,
+    ) {
+        val active: OfferInstallation?
+            get() = if (installations.isEmpty()) {
+                null
+            } else {
+                installations.getOrNull(selectedIndex.coerceIn(0, installations.size - 1))
+            }
+
+        /** Cennik aktywnej instalacji; `null` = brak formuły albo jeszcze nie wczytany. */
+        val activePricing: OfferPricing?
+            get() = active?.formOwnerId?.let { pricing[it] }
+
+        /** Czy o cennik aktywnej instalacji już pytaliśmy (choćby z wynikiem `null`). */
+        val activePricingAsked: Boolean
+            get() = active?.formOwnerId?.let { pricing.containsKey(it) } ?: false
+    }
+
     data class UiState(
         val isLoading: Boolean = true,
         val isSaving: Boolean = false,
@@ -405,6 +469,7 @@ class DealDetailViewModel @Inject constructor(
         val assistant: AssistantState = AssistantState(),
         val lead: LeadState = LeadState(),
         val audit: AuditState = AuditState(),
+        val offer: OfferState = OfferState(),
         val orders: OrdersState = OrdersState(),
         /**
          * Uprawnienia z `GET /api/me`. Trzymamy CAŁY zestaw, a nie same
@@ -568,6 +633,7 @@ class DealDetailViewModel @Inject constructor(
         _uiState.update { it.copy(tab = tab) }
         if (tab == DealTab.LEAD) loadLead()
         if (tab == DealTab.AUDYT) loadAudit()
+        if (tab == DealTab.OFERTA) loadOffer()
         if (tab == DealTab.ZAMOWIENIE) loadOrders()
     }
 
@@ -913,6 +979,11 @@ class DealDetailViewModel @Inject constructor(
                     it.copy(
                         message = savedMessage(result, "Zapisano audyt instalacji"),
                         audit = it.audit.copy(isSavingForm = false),
+                        // Oferta liczy się z TEGO audytu, więc po zapisie musi
+                        // przeliczyć się od nowa — inaczej zakładka pokazywałaby
+                        // klientowi zakres sprzed poprawki. Cennik zostaje:
+                        // zmienił się audyt, a nie stawki węzła.
+                        offer = it.offer.copy(loaded = false),
                     )
                 }
                 // Rekord wraca z serwera z własnym id — bez tego drugi zapis
@@ -994,6 +1065,160 @@ class DealDetailViewModel @Inject constructor(
     private fun savedMessage(result: AuditSaveResult, sent: String): String = when (result) {
         AuditSaveResult.SENT -> sent
         AuditSaveResult.QUEUED -> "$sent w telefonie — wyślemy, gdy wróci zasięg"
+    }
+
+    // ── Zakładka „Oferta" ────────────────────────────────────────────────────
+
+    /**
+     * Etapy od oferty w dół — zakres, który wyceniamy. Zaczynamy od migawki
+     * etapu „Oferta", a gdy pusta, bierzemy pierwszy wypełniony wcześniejszy
+     * (audyt zwykle wyprzedza pasek oferty). Kolejność 1:1 z panelem.
+     */
+    private val stagesFromOffer = listOf(
+        InstallationStage.ANGEBOT,
+        InstallationStage.AUDIT,
+        InstallationStage.SOLD,
+        InstallationStage.MONTAZ,
+        InstallationStage.EDUKACJA,
+        InstallationStage.LEAD,
+    )
+
+    private fun offerInstallationIds(snapshot: AuditInstallations): List<String> {
+        for (stage in stagesFromOffer) {
+            val ids = snapshot.byStage[stage.wire].orEmpty()
+            if (ids.isNotEmpty()) return ids
+        }
+        // Migawka sprzed dopisania `byStage` (cache starszego wydania) — zostają
+        // etapy, które trzymamy w osobnych polach.
+        return snapshot.auditStage.ifEmpty { snapshot.soldStage }
+    }
+
+    /**
+     * Materiał zakładki: audyty deala, katalog (dziedziczenie formularza),
+     * migawka instalacji i blokada ofertowa — te same odczyty, co „Audyt",
+     * więc drugie wejście idzie już z cache repozytorium.
+     *
+     * @param force ponowny odczyt (np. po zapisie audytu w sąsiedniej zakładce).
+     */
+    fun loadOffer(force: Boolean = false) {
+        val offer = _uiState.value.offer
+        if (!force && (offer.loaded || offer.isLoading)) return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(offer = it.offer.copy(isLoading = true, error = null)) }
+
+            var error: String? = null
+            val audits = try {
+                auditRepository.getAudits(dealId)
+            } catch (e: Exception) {
+                error = crmErrorMessage(e, "Nie udało się wczytać danych wyceny")
+                emptyList()
+            }
+            val categories = try {
+                auditRepository.getCategories()
+            } catch (_: Exception) {
+                emptyList()
+            }
+            val snapshot = try {
+                auditRepository.getAuditInstallations(dealId)
+            } catch (_: Exception) {
+                AuditInstallations()
+            }
+            // Cisza przy błędzie: pasek blokady jest informacją, a nie warunkiem
+            // pokazania oferty — zapisu i tak pilnuje API przy audycie.
+            val lock = auditRepository.getOfferLock(dealId)
+
+            val byId = categories.associateBy { it.id }
+            val forms = audits.filter { it.installationForm != null }
+            val installations = offerInstallationIds(snapshot).map { id ->
+                val owner = resolveAuditForm(id, byId)
+                // 1) rekord dokładnie dla tego węzła; 2) zapis sprzed wprowadzenia
+                //    `categoryId` (jeden formularz na cały deal).
+                val record = owner?.let { o ->
+                    forms.firstOrNull { it.categoryId == o.id }
+                        ?: forms.firstOrNull { it.categoryId == null }
+                }
+                OfferInstallation(
+                    categoryId = id,
+                    name = byId[id]?.name ?: "(nieznana instalacja)",
+                    path = categoryPath(id, byId),
+                    formOwnerId = owner?.id,
+                    formOwnerName = owner?.name.orEmpty(),
+                    formOwnerPath = owner?.let { categoryIdPath(it.id, byId) }.orEmpty(),
+                    // Oferta idzie WYŁĄCZNIE z zapisanego audytu — szablonu
+                    // katalogu tu nie podstawiamy, bo to pytania bez odpowiedzi.
+                    form = record?.installationForm,
+                )
+            }
+
+            // Pasek etapu zwykle niesie kilka instalacji, a audyt OP jest
+            // wypełniony tylko na jednej — otwieranie panelu na pierwszej
+            // z brzegu pokazywało „brak audytu" i wyglądało jak pusta zakładka.
+            val withAudit = installations.indexOfFirst { it.form != null }
+
+            _uiState.update { state ->
+                state.copy(
+                    offer = state.offer.copy(
+                        isLoading = false,
+                        loaded = true,
+                        installations = installations,
+                        selectedIndex = if (withAudit >= 0) withAudit else 0,
+                        lock = lock,
+                        error = error,
+                    ),
+                )
+            }
+            loadOfferPricing()
+        }
+    }
+
+    /** Przełączenie instalacji, której ofertę oglądamy. */
+    fun selectOfferInstallation(index: Int) {
+        _uiState.update { state ->
+            if (index == state.offer.selectedIndex) return@update state
+            state.copy(offer = state.offer.copy(selectedIndex = index))
+        }
+        loadOfferPricing()
+    }
+
+    fun setOfferMode(mode: DealDetailViewModel.OfferMode) {
+        _uiState.update { it.copy(offer = it.offer.copy(mode = mode)) }
+        // Kwoty widać dopiero w „Podsumowaniu", ale cennik dociągamy i tak przy
+        // wejściu w zakładkę: przełączenie widoku ma być natychmiastowe.
+        loadOfferPricing()
+    }
+
+    /**
+     * Cennik jednostkowy per WĘZEŁ-właściciel formularza audytu — to on trzyma
+     * stawki, koszty i narzut. Jeden odczyt na instalację, wynik zostaje
+     * w pamięci karty (`null` = węzeł bez formuły ceny, np. inna instalacja).
+     */
+    private fun loadOfferPricing() {
+        val state = _uiState.value
+        val active = state.offer.active ?: return
+        val owner = active.formOwnerId ?: return
+        if (state.offer.pricing.containsKey(owner) || state.offer.pricingLoading) return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(offer = it.offer.copy(pricingLoading = true)) }
+            val pricing = try {
+                offerPricingRepository.getPricing(
+                    categoryId = owner,
+                    categoryName = active.formOwnerName,
+                    categoryIdPath = active.formOwnerPath,
+                )
+            } catch (_: Exception) {
+                null
+            }
+            _uiState.update {
+                it.copy(
+                    offer = it.offer.copy(
+                        pricing = it.offer.pricing + (owner to pricing),
+                        pricingLoading = false,
+                    ),
+                )
+            }
+        }
     }
 
     // ── Zakładka „Zamówienie" ────────────────────────────────────────────────

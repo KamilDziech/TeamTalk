@@ -213,6 +213,10 @@ fun DealDetailScreen(
                                 onEdit = onEdit,
                                 viewModel = viewModel,
                             )
+                            DealTab.OFERTA -> DealOfferTab(
+                                state = state,
+                                viewModel = viewModel,
+                            )
                             DealTab.ZAMOWIENIE -> DealOrderTab(
                                 state = state,
                                 viewModel = viewModel,

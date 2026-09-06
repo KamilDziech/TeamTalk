@@ -106,4 +106,11 @@ data class AuditInstallations(
      * zapytania) rysuje drzewo zakresu, także bez zasięgu.
      */
     val soldStage: List<String> = emptyList(),
+    /**
+     * Migawki WSZYSTKICH etapów: `stage.wire` → id węzłów. Czyta je zakładka
+     * „Oferta", która — tak samo jak panel — schodzi kaskadą od etapu „Oferta"
+     * w dół (angebot → audit → sold → montaz → edukacja → lead) i bierze
+     * pierwszy niepusty. Pozostałe pola zostają, bo mają własnych czytelników.
+     */
+    val byStage: Map<String, List<String>> = emptyMap(),
 )

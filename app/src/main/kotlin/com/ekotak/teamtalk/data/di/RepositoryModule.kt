@@ -81,6 +81,11 @@ abstract class RepositoryModule {
     abstract fun bindOrderRepository(impl: OrderRepositoryImpl): OrderRepository
 
     @Binds @Singleton
+    abstract fun bindOfferPricingRepository(
+        impl: OfferPricingRepositoryImpl,
+    ): OfferPricingRepository
+
+    @Binds @Singleton
     abstract fun bindTrainingRepository(impl: TrainingRepositoryImpl): TrainingRepository
 
     @Binds @Singleton

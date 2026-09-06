@@ -29,6 +29,10 @@ data class ProductEntity(
     /** `List<DistributorPriceDto>` zserializowane wspólnym `Json` modułu. */
     val distributorPricesJson: String,
     val packaging: String?,
+    /** Wielkość porównawcza („50 m²") — wielkość opakowania dla wyceny oferty. */
+    val comparisonSize: String? = null,
+    /** „★ domyślna" z Magazynu — materiał domyślny bez zapisu w Technologii. */
+    val defaultChoice: Boolean = false,
     val notes: String?,
     val storageZone: String?,
     val storageShelf: String?,

@@ -267,6 +267,28 @@ interface TeamTalkApi {
     @GET("api/categories")
     suspend fun getCategories(): List<CategoryDto>
 
+    // ── Cennik zakładki „Oferta" ──────────────────────────────────────────────
+    // Kwoty oferty składamy na telefonie z tych samych trzech źródeł, co panel:
+    // kartoteki Magazynu (`getProducts`), ustawień firmowych i zestawów Warunków
+    // finansowych. Rachunek jest w `domain/ufh` — tu idą surowe dane.
+
+    /**
+     * Ustawienie firmowe: producent szafek (`ufh.cabinetBrand`), materiały
+     * domyślne technologii (`tech.defaults.underfloor`) i narzut węzła
+     * (`price.markup.<categoryId>`). Odczyt ma każda zalogowana osoba; nieznany
+     * klucz API odrzuca (400), więc trzymamy się whitelisty panelu.
+     */
+    @GET("api/organization/settings/{key}")
+    suspend fun getOrgSetting(@Path("key") key: String): OrgSettingDto
+
+    /**
+     * Zestawy Warunków finansowych — cennik montażowy („Montaż", „Biuro")
+     * i kwotowy („Koszty z ręki"). Wymaga `financial.terms.view`; odmowa znaczy
+     * ofertę bez kwot, a nie brak zakładki.
+     */
+    @GET("api/financial-terms/schemes")
+    suspend fun getFinancialSchemes(): List<FinancialSchemeDto>
+
     // ── Call logs ─────────────────────────────────────────────────────────────
 
     @POST("api/call-logs")

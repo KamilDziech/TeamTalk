@@ -23,6 +23,10 @@ interface InventoryDao {
     @Query("SELECT * FROM inventory_orders")
     fun observeOrders(): Flow<List<PurchaseOrderEntity>>
 
+    /** Cała kartoteka jednym odczytem — wycena oferty liczy z niej ceny jednostkowe. */
+    @Query("SELECT * FROM inventory_products")
+    suspend fun getProducts(): List<ProductEntity>
+
     @Query("SELECT * FROM inventory_products WHERE id = :id")
     suspend fun getProduct(id: String): ProductEntity?
 
