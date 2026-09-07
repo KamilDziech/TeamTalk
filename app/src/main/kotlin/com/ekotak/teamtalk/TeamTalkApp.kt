@@ -14,11 +14,13 @@ import androidx.work.WorkManager
 import com.ekotak.teamtalk.data.notification.NotificationHelper
 import com.ekotak.teamtalk.data.sync.AuditSyncScheduler
 import com.ekotak.teamtalk.data.sync.CalendarSyncScheduler
+import com.ekotak.teamtalk.data.sync.LeaveSyncScheduler
 import com.ekotak.teamtalk.data.sync.OrderSyncScheduler
 import com.ekotak.teamtalk.data.sync.ServiceSyncScheduler
 import com.ekotak.teamtalk.data.sync.TaskSyncScheduler
 import com.ekotak.teamtalk.service.CallMonitorService
 import com.ekotak.teamtalk.worker.CalendarReminderWorker
+import com.ekotak.teamtalk.worker.LeaveNotifyWorker
 import com.ekotak.teamtalk.worker.MentionsWorker
 import com.ekotak.teamtalk.worker.ServiceSlaWorker
 import com.ekotak.teamtalk.worker.TaskReminderWorker
@@ -41,6 +43,8 @@ class TeamTalkApp : Application(), Configuration.Provider {
 
     @Inject lateinit var orderSyncScheduler: OrderSyncScheduler
 
+    @Inject lateinit var leaveSyncScheduler: LeaveSyncScheduler
+
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)
@@ -53,6 +57,7 @@ class TeamTalkApp : Application(), Configuration.Provider {
         scheduleTaskReminders()
         scheduleSlaAlerts()
         scheduleCalendarReminders()
+        scheduleLeaveNotifications()
         // Proces mógł zginąć z pełną kolejką zmian — przy starcie prosimy
         // o jej opróżnienie. Pusta kolejka kończy robotnika od razu.
         taskSyncScheduler.scheduleSync()
@@ -60,6 +65,7 @@ class TeamTalkApp : Application(), Configuration.Provider {
         calendarSyncScheduler.scheduleSync()
         auditSyncScheduler.scheduleSync()
         orderSyncScheduler.scheduleSync()
+        leaveSyncScheduler.scheduleSync()
     }
 
     /**
@@ -128,6 +134,27 @@ class TeamTalkApp : Application(), Configuration.Provider {
         )
     }
 
+    /**
+     * Powiadomienia urlopowe: decyzja o moim wniosku i wniosek podwładnego do
+     * akceptacji. Co pół godziny, a nie co kwadrans jak wywołania (@) — urlop
+     * to nie rozmowa, pół godziny zwłoki niczego nie psuje, a bateria zostaje
+     * w telefonie. Z warunkiem sieci, bo robotnik dopytuje serwer.
+     */
+    private fun scheduleLeaveNotifications() {
+        val request = PeriodicWorkRequestBuilder<LeaveNotifyWorker>(30, TimeUnit.MINUTES)
+            .setConstraints(
+                Constraints.Builder()
+                    .setRequiredNetworkType(NetworkType.CONNECTED)
+                    .build(),
+            )
+            .build()
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            LeaveNotifyWorker.UNIQUE_NAME,
+            ExistingPeriodicWorkPolicy.KEEP,
+            request,
+        )
+    }
+
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val nm = getSystemService(NotificationManager::class.java)
@@ -183,6 +210,15 @@ class TeamTalkApp : Application(), Configuration.Provider {
                     NotificationManager.IMPORTANCE_DEFAULT,
                 ).apply {
                     description = "Wydarzenie z Twojego kalendarza zaczyna się za pół godziny"
+                }
+            )
+            nm.createNotificationChannel(
+                NotificationChannel(
+                    NotificationHelper.LEAVE_CHANNEL_ID,
+                    "Urlopy",
+                    NotificationManager.IMPORTANCE_DEFAULT,
+                ).apply {
+                    description = "Decyzja o Twoim wniosku urlopowym i wnioski podwładnych do akceptacji"
                 }
             )
             nm.createNotificationChannel(

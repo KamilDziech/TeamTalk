@@ -105,6 +105,53 @@ fun rangeLabel(start: LocalDate, end: LocalDate): String = when {
 /** „5 dni" / „1 dzień" — polska odmiana, bo liczba stoi tu w każdym wierszu. */
 fun daysLabel(days: Int): String = if (days == 1) "1 dzień" else "$days dni"
 
+/**
+ * „1 dzień roboczy" / „2 dni robocze" / „5 dni roboczych" — pełna odmiana,
+ * bo sklejanie [daysLabel] z przymiotnikiem daje „1 dzień roboczych".
+ * Reguła jak w polszczyźnie: 2–4 (poza nastkami) biorą mianownik mnogi.
+ */
+fun workingDaysLabel(days: Int): String {
+    val ones = days % 10
+    val tens = days % 100
+    return when {
+        days == 1 -> "1 dzień roboczy"
+        ones in 2..4 && tens !in 12..14 -> "$days dni robocze"
+        else -> "$days dni roboczych"
+    }
+}
+
+/**
+ * Rola w dopełniaczu liczby mnogiej — do zdania „2 z 5 monterów poza firmą".
+ * Nieznana rola zostaje jako „osób", bo lista ról bywa rozszerzana w panelu.
+ */
+fun roleGenitive(role: String?): String = when (role) {
+    "montaz" -> "monterów"
+    "serwisant" -> "serwisantów"
+    "biuro" -> "osób z biura"
+    "koordynator" -> "koordynatorów"
+    "stazysta" -> "stażystów"
+    "inzynier" -> "inżynierów"
+    else -> "osób"
+}
+
+/** Skrót roli pod nazwiskiem na osi czasu. */
+fun roleShort(role: String?): String = when (role) {
+    "montaz" -> "montaż"
+    "serwisant" -> "serwis"
+    "biuro" -> "biuro"
+    "koordynator" -> "koordynacja"
+    "stazysta" -> "staż"
+    "inzynier" -> "inżynier"
+    "zarzad", "admin" -> "zarząd"
+    else -> role.orEmpty()
+}
+
+/**
+ * Grupa operacyjna pracownika — lustro `hrGroupOf` z panelu: montaż to montaż
+ * i stażyści, wszyscy pozostali (w tym serwis, wedle życzenia) idą do biura.
+ */
+fun isFieldRole(role: String?): Boolean = role == "montaz" || role == "stazysta"
+
 /** Skróty dni tygodnia w nagłówku siatki, od poniedziałku. */
 val WEEKDAY_SHORT = listOf("Pn", "Wt", "Śr", "Cz", "Pt", "So", "Nd")
 

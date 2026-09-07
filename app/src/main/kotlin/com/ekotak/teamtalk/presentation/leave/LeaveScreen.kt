@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -38,7 +39,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -52,6 +55,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.ekotak.teamtalk.domain.leave.countWorkingDays
 import com.ekotak.teamtalk.domain.model.LeaveMode
 import com.ekotak.teamtalk.domain.model.LeaveRequest
+import com.ekotak.teamtalk.domain.model.LeaveStatus
 import com.ekotak.teamtalk.presentation.components.AppTopBar
 import com.ekotak.teamtalk.presentation.service.WarningBar
 import com.ekotak.teamtalk.presentation.theme.SyncBlue
@@ -71,10 +75,22 @@ import com.ekotak.teamtalk.presentation.theme.SyncBlue
 @Composable
 fun LeaveScreen(
     onNavigateBack: () -> Unit,
+    /** Wejście z powiadomienia: „team" otwiera skrzynkę zwierzchnika. */
+    initialTab: String? = null,
     viewModel: LeaveViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // Zakładkę z powiadomienia ustawiamy RAZ — inaczej każde odświeżenie listy
+    // odrzucałoby człowieka z powrotem tam, skąd wszedł.
+    var tabApplied by remember { mutableStateOf(false) }
+    LaunchedEffect(initialTab) {
+        if (!tabApplied && initialTab == "team") {
+            viewModel.setTab(LeaveViewModel.LeaveTab.TEAM)
+            tabApplied = true
+        }
+    }
 
     LaunchedEffect(state.message) {
         state.message?.let {
@@ -119,6 +135,22 @@ fun LeaveScreen(
                     .padding(bottom = 88.dp),
             ) {
                 state.error?.let { WarningBar(it) }
+
+                // Segment pokazujemy dopiero, gdy jest czyj urlop zatwierdzać —
+                // monterowi bez podwładnych zakładka „Zespół" tylko zabierałaby
+                // miejsce. Nieobecności widać wtedy w tle kalendarza.
+                if (state.inbox.isNotEmpty()) {
+                    TabRow(state.tab, state.toDecide.size, viewModel::setTab)
+                }
+
+                if (state.tab == LeaveViewModel.LeaveTab.TEAM) {
+                    LeaveTeamSection(
+                        state = state,
+                        onDecide = { id, approve -> viewModel.decide(id, approve) },
+                        onSetGroup = viewModel::setGroup,
+                    )
+                    return@Column
+                }
 
                 state.balance?.let { balance ->
                     if (balance.mode == LeaveMode.QUOTA) {
@@ -213,12 +245,18 @@ private fun QuotaCounters(state: LeaveViewModel.UiState) {
         Counter("Wymiar", balance.entitled.toString(), Modifier.weight(1f))
         Counter("Użyte", balance.used.toString(), Modifier.weight(1f), LeavePending)
         Counter("Plan", balance.planned.toString(), Modifier.weight(1f), LeaveTeam)
+        // Wymiar bywa przekroczony (przeniesione dni nieuzupełnione w kartotece,
+        // urlop na zapas). Zielone „−13" czytało się jak błąd aplikacji, więc
+        // ujemna reszta zmienia i nazwę, i kolor — zobaczone na urządzeniu
+        // 2026-09-07, przy prawdziwych danych.
+        val over = balance.remaining < 0
         Counter(
-            label = "Zostało",
-            value = balance.remaining.toString(),
+            label = if (over) "Ponad wymiar" else "Zostało",
+            value = if (over) (-balance.remaining).toString() else balance.remaining.toString(),
             modifier = Modifier.weight(1f),
-            valueColor = LeaveMine,
+            valueColor = if (over) MaterialTheme.colorScheme.error else LeaveMine,
             highlighted = true,
+            alarming = over,
         )
     }
 }
@@ -255,13 +293,15 @@ private fun Counter(
     modifier: Modifier = Modifier,
     valueColor: Color? = null,
     highlighted: Boolean = false,
+    /** Stan wymagający uwagi — tło idzie w czerwień zamiast w zieleń. */
+    alarming: Boolean = false,
 ) {
     Surface(
         shape = RoundedCornerShape(10.dp),
-        color = if (highlighted) {
-            LeaveMine.copy(alpha = 0.10f)
-        } else {
-            MaterialTheme.colorScheme.surfaceVariant
+        color = when {
+            alarming -> MaterialTheme.colorScheme.error.copy(alpha = 0.12f)
+            highlighted -> LeaveMine.copy(alpha = 0.10f)
+            else -> MaterialTheme.colorScheme.surfaceVariant
         },
         modifier = modifier,
     ) {
@@ -347,6 +387,36 @@ private fun CalendarLegend() {
 
 // ── Belki nawigacji ──────────────────────────────────────────────────────────
 
+/**
+ * Przełącznik „Moje / Zespół". Licznik przy zakładce zespołu mówi, ile wniosków
+ * czeka na MOJĄ decyzję — nie ile ich w ogóle jest, bo tylko to wymaga reakcji.
+ */
+@Composable
+private fun TabRow(
+    selected: LeaveViewModel.LeaveTab,
+    pendingCount: Int,
+    onSelect: (LeaveViewModel.LeaveTab) -> Unit,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+        LeaveViewModel.LeaveTab.entries.forEach { tab ->
+            FilterChip(
+                selected = tab == selected,
+                onClick = { onSelect(tab) },
+                label = {
+                    Text(
+                        if (tab == LeaveViewModel.LeaveTab.TEAM && pendingCount > 0) {
+                            "${tab.label} ($pendingCount)"
+                        } else {
+                            tab.label
+                        },
+                    )
+                },
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
 @Composable
 private fun ScaleTabs(selected: LeaveScale, onSelect: (LeaveScale) -> Unit) {
     Row(
@@ -422,10 +492,13 @@ private fun SelectionBar(
                 )
                 Text(
                     text = buildString {
-                        append(daysLabel(days))
-                        append(" roboczych")
-                        if (!selection.isComplete) append(" · dotknij dzień końcowy")
-                        else if (remaining != null) append(" · zostanie $remaining")
+                        append(workingDaysLabel(days))
+                        if (!selection.isComplete) {
+                            append(" · dotknij dzień końcowy")
+                        } else if (remaining != null) {
+                            if (remaining < 0) append(" · ponad wymiar o ${-remaining}")
+                            else append(" · zostanie $remaining")
+                        }
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -448,6 +521,39 @@ private fun RequestRow(
     onCancel: () -> Unit,
 ) {
     val accent = if (request.pendingSync) SyncBlue else statusColor(request.status)
+
+    // Potwierdzenie jak w panelu: „Anuluj" stoi tuż obok „Zmień", a anulowania
+    // zatwierdzonego urlopu nie da się cofnąć — trzeba złożyć wniosek od nowa
+    // i czekać na kolejną decyzję.
+    var confirming by remember { mutableStateOf(false) }
+    if (confirming) {
+        AlertDialog(
+            onDismissRequest = { confirming = false },
+            title = { Text("Anulować wniosek?") },
+            text = {
+                Text(
+                    "${request.type.label} · ${rangeLabel(request.start, request.end)} " +
+                        "(${daysLabel(request.workingDays)}). " +
+                        if (request.status == LeaveStatus.ZATWIERDZONY) {
+                            "Urlop jest zatwierdzony — przywrócenie go wymaga nowego wniosku."
+                        } else {
+                            "Wniosek zniknie z listy zwierzchnika."
+                        },
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirming = false
+                        onCancel()
+                    },
+                ) { Text("Anuluj wniosek", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirming = false }) { Text("Zostaw") }
+            },
+        )
+    }
     Surface(
         shape = RoundedCornerShape(11.dp),
         color = MaterialTheme.colorScheme.surfaceVariant,
@@ -487,7 +593,7 @@ private fun RequestRow(
                     Text("Zmień", fontSize = 12.sp)
                 }
                 TextButton(
-                    onClick = onCancel,
+                    onClick = { confirming = true },
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(4.dp),
                     modifier = Modifier.padding(end = 4.dp),
                 ) {

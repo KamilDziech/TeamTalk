@@ -82,6 +82,8 @@ fun TeamTalkNavGraph(
     deepLinkTaskId: String? = null,
     deepLinkServiceJobId: String? = null,
     deepLinkCalendarEventId: String? = null,
+    /** Wejście z powiadomienia o urlopie: „mine" (moje wnioski) albo „team" (skrzynka). */
+    deepLinkLeaveTab: String? = null,
 ) {
     val navController = rememberNavController()
     val sessionState by viewModel.sessionState.collectAsState()
@@ -123,6 +125,7 @@ fun TeamTalkNavGraph(
                 deepLinkTaskId = deepLinkTaskId,
                 deepLinkServiceJobId = deepLinkServiceJobId,
                 deepLinkCalendarEventId = deepLinkCalendarEventId,
+                deepLinkLeaveTab = deepLinkLeaveTab,
             )
         }
     }
@@ -135,6 +138,8 @@ private fun MainScreen(
     deepLinkTaskId: String? = null,
     deepLinkServiceJobId: String? = null,
     deepLinkCalendarEventId: String? = null,
+    /** Wejście z powiadomienia o urlopie: „mine" (moje wnioski) albo „team" (skrzynka). */
+    deepLinkLeaveTab: String? = null,
 ) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -178,6 +183,14 @@ private fun MainScreen(
             navController.navigate("calendar?event=$deepLinkCalendarEventId") {
                 launchSingleTop = true
             }
+        }
+    }
+
+    // Powiadomienie urlopowe prowadzi wprost do właściwej zakładki modułu:
+    // decyzja o moim wniosku — do „Moje", wniosek podwładnego — do skrzynki.
+    LaunchedEffect(deepLinkLeaveTab) {
+        if (deepLinkLeaveTab != null) {
+            navController.navigate("leave?tab=$deepLinkLeaveTab") { launchSingleTop = true }
         }
     }
 
@@ -363,8 +376,16 @@ private fun MainScreen(
             }
 
             // ── Urlop (kafelek pulpitu = zakładka HR → Urlop) ─────────────────
-            composable("leave") {
-                LeaveScreen(onNavigateBack = { navController.popBackStack() })
+            composable(
+                route = "leave?tab={tab}",
+                arguments = listOf(
+                    navArgument("tab") { type = NavType.StringType; defaultValue = "" },
+                ),
+            ) { backStackEntry ->
+                LeaveScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    initialTab = backStackEntry.arguments?.getString("tab")?.takeIf { it.isNotBlank() },
+                )
             }
 
             // ── Kalendarz (kafelek pulpitu) ───────────────────────────────────

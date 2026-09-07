@@ -32,6 +32,9 @@ class NotificationHelper @Inject constructor(
         /** Przypomnienia o wydarzeniach kalendarza (30 min przed). */
         const val CALENDAR_CHANNEL_ID = "calendar_reminders"
 
+        /** Urlopy: decyzja o moim wniosku i wniosek podwładnego do akceptacji. */
+        const val LEAVE_CHANNEL_ID = "hr_leave"
+
         /** Jedno powiadomienie na przypomnienia — kolejne podmienia poprzednie. */
         private const val REMINDER_NOTIFICATION_ID = 4200
         private val idCounter = AtomicInteger(1000)
@@ -189,6 +192,47 @@ class NotificationHelper @Inject constructor(
             .build()
 
         NotificationManagerCompat.from(context).notify(eventId.hashCode(), notification)
+    }
+
+    /**
+     * Powiadomienie modułu Urlop. [team] decyduje, dokąd prowadzi dotknięcie:
+     * do własnych wniosków albo do skrzynki zwierzchnika — bo to dwa różne
+     * powody, dla których człowiek sięga po telefon.
+     *
+     * Treść niesie liczby (ile dni, ile zostało), a nie samo „sprawdź
+     * aplikację": z ekranu blokady ma być widać, czy trzeba w ogóle wchodzić.
+     * [notificationId] liczymy z identyfikatora wniosku, więc kolejna wiadomość
+     * o tym samym urlopie podmienia poprzednią zamiast piętrzyć się w szufladzie.
+     */
+    fun showLeaveNotification(title: String, text: String, notificationId: Int, team: Boolean) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED
+        ) return
+
+        val contentIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra(MainActivity.EXTRA_LEAVE_TAB, if (team) "team" else "mine")
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            notificationId,
+            contentIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+        val notification = NotificationCompat.Builder(context, LEAVE_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_ekotak)
+            .setColor(ContextCompat.getColor(context, R.color.ekotak_green))
+            .setContentTitle(title)
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .build()
+
+        NotificationManagerCompat.from(context).notify(notificationId, notification)
     }
 
     fun showMissedCallNotification(callerLabel: String, callLogId: String? = null) {

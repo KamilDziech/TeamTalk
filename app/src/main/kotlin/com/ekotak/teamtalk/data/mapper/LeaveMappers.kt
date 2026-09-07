@@ -7,6 +7,7 @@ import com.ekotak.teamtalk.data.remote.dto.HrDashboardDto
 import com.ekotak.teamtalk.data.remote.dto.LeaveAbsenceDto
 import com.ekotak.teamtalk.data.remote.dto.LeaveBalanceDto
 import com.ekotak.teamtalk.data.remote.dto.LeaveCreateDto
+import com.ekotak.teamtalk.data.remote.dto.LeaveInboxItemDto
 import com.ekotak.teamtalk.data.remote.dto.LeaveRequestDto
 import com.ekotak.teamtalk.domain.leave.countWorkingDays
 import com.ekotak.teamtalk.domain.model.LeaveAbsence
@@ -53,6 +54,19 @@ fun LeaveRequestDto.toEntity(mine: Boolean, syncedAt: Long): LeaveRequestEntity 
         decisionNote = decisionNote,
         decidedAt = decidedAt,
         syncedAt = syncedAt,
+    )
+
+/**
+ * Pozycja skrzynki. `canDecide` i `awaitingName` przychodzą z serwera — tylko
+ * on wie, czy zwierzchnik jest dziś na urlopie i kto go zastępuje, więc klient
+ * ich nie odtwarza (inaczej pokazałby przycisk oddający 403).
+ */
+fun LeaveInboxItemDto.toEntity(syncedAt: Long): LeaveRequestEntity =
+    request.toEntity(mine = false, syncedAt = syncedAt).copy(
+        employeeRole = employeeRole,
+        canDecide = canDecide,
+        awaitingName = awaitingName,
+        awaitingIsBackup = awaitingIsBackup,
     )
 
 fun LeaveAbsenceDto.toEntity(syncedAt: Long): LeaveAbsenceEntity =

@@ -4,6 +4,7 @@ import com.ekotak.teamtalk.data.local.dao.LeaveDao
 import com.ekotak.teamtalk.data.local.entity.LeaveMutationEntity
 import com.ekotak.teamtalk.data.local.entity.LeaveMutationEntity.Companion.KIND_CANCEL
 import com.ekotak.teamtalk.data.local.entity.LeaveMutationEntity.Companion.KIND_CREATE
+import com.ekotak.teamtalk.data.local.entity.LeaveMutationEntity.Companion.KIND_DECISION
 import com.ekotak.teamtalk.data.local.entity.LeaveMutationEntity.Companion.KIND_UPDATE
 import com.ekotak.teamtalk.data.local.entity.LeaveMutationEntity.Companion.LOCAL_ID_PREFIX
 import com.ekotak.teamtalk.data.local.entity.LeaveRequestEntity
@@ -16,6 +17,8 @@ import com.ekotak.teamtalk.data.mapper.toLocalEntity
 import com.ekotak.teamtalk.data.mapper.withDraft
 import com.ekotak.teamtalk.data.remote.api.TeamTalkApi
 import com.ekotak.teamtalk.data.remote.dto.LeaveCreateDto
+import com.ekotak.teamtalk.data.remote.dto.LeaveDecisionDto
+import com.ekotak.teamtalk.data.sync.LeaveSyncScheduler
 import com.ekotak.teamtalk.domain.model.LeaveDraft
 import com.ekotak.teamtalk.domain.model.LeaveOverlapException
 import com.ekotak.teamtalk.domain.model.LeaveRequest
@@ -23,6 +26,8 @@ import com.ekotak.teamtalk.domain.model.LeaveStatus
 import com.ekotak.teamtalk.domain.model.LeaveTypeNotAllowedException
 import com.ekotak.teamtalk.domain.repository.LeaveRepository
 import com.ekotak.teamtalk.domain.repository.LeaveSnapshot
+import com.ekotak.teamtalk.domain.repository.LeaveSyncRejection
+import com.ekotak.teamtalk.domain.repository.LeaveSyncResult
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
@@ -65,24 +70,37 @@ class LeaveRepositoryImpl @Inject constructor(
     private val api: TeamTalkApi,
     private val dao: LeaveDao,
     private val sessionPreferences: SessionPreferences,
+    private val syncScheduler: LeaveSyncScheduler,
 ) : LeaveRepository {
 
     private val json = Json
     private val syncedAt = MutableStateFlow<Long?>(null)
 
     override fun observe(): Flow<LeaveSnapshot> = combine(
-        dao.observeBalance(LocalDate.now().year),
-        dao.observeMyRequests(),
+        combine(
+            dao.observeBalance(LocalDate.now().year),
+            dao.observeMyRequests(),
+            dao.observeInboxRequests(),
+            dao.observePendingIds(),
+            ::snapshotOf,
+        ),
         dao.observeAbsences(),
-        dao.observePendingIds(),
         syncedAt,
-    ) { balance, requests, absences, pendingIds, at ->
+    ) { snapshot, absences, at ->
+        snapshot.copy(absences = absences.map { it.toDomain() }, syncedAt = at)
+    }
+
+    private fun snapshotOf(
+        balance: com.ekotak.teamtalk.data.local.entity.LeaveBalanceEntity?,
+        mine: List<com.ekotak.teamtalk.data.local.entity.LeaveRequestEntity>,
+        inbox: List<com.ekotak.teamtalk.data.local.entity.LeaveRequestEntity>,
+        pendingIds: List<String>,
+    ): LeaveSnapshot {
         val pending = pendingIds.toSet()
-        LeaveSnapshot(
+        return LeaveSnapshot(
             balance = balance?.toDomain(),
-            myRequests = requests.map { it.toDomain(pendingSync = it.id in pending) },
-            absences = absences.map { it.toDomain() },
-            syncedAt = at,
+            myRequests = mine.map { it.toDomain(pendingSync = it.id in pending) },
+            inbox = inbox.map { it.toDomain(pendingSync = it.id in pending) },
         )
     }
 
@@ -96,8 +114,14 @@ class LeaveRepositoryImpl @Inject constructor(
         dao.upsertBalance(dashboard.toBalanceEntity(now))
         dao.replaceRequests(mine = true, requests = dashboard.requests.map { it.toEntity(mine = true, syncedAt = now) })
 
-        // Nieobecności zespołu są miękkie: brak uprawnienia albo starszy backend
-        // bez tej trasy nie może wywalić całego ekranu — zostaje puste tło.
+        // Skrzynka i nieobecności są MIĘKKIE: obie trasy dopisujemy do board360
+        // dopiero teraz, a aplikacja chodzi też przeciwko starszemu API. Brak
+        // trasy (404) albo brak uprawnienia nie może wywalić własnego urlopu —
+        // po prostu zakładka „Zespół" zostaje pusta.
+        runCatching { api.getLeaveInbox() }
+            .onSuccess { inbox ->
+                dao.replaceRequests(mine = false, requests = inbox.requests.map { it.toEntity(now) })
+            }
         runCatching { api.getLeaveAbsences() }
             .onSuccess { list -> dao.replaceAbsences(list.map { it.toEntity(now) }) }
 
@@ -183,14 +207,63 @@ class LeaveRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun decide(id: String, approve: Boolean, note: String?): LeaveRequest {
+        val now = System.currentTimeMillis()
+        val body = LeaveDecisionDto(
+            status = if (approve) LeaveStatus.ZATWIERDZONY.wire else LeaveStatus.ODRZUCONY.wire,
+            decisionNote = note?.takeIf { it.isNotBlank() },
+        )
+        return try {
+            val entity = api.decideLeaveRequest(id, body).toEntity(mine = false, syncedAt = now)
+            // Odpowiedź serwera nie niesie pól skrzynki (rola, decyzyjność) —
+            // przepisujemy je z cache, żeby wiersz nie zgubił swojego kontekstu.
+            val merged = dao.getRequest(id)?.let { cached ->
+                entity.copy(
+                    employeeRole = cached.employeeRole,
+                    canDecide = false,
+                    awaitingName = cached.awaitingName,
+                    awaitingIsBackup = cached.awaitingIsBackup,
+                )
+            } ?: entity
+            dao.upsertRequest(merged)
+            dao.deleteMutation(id, KIND_DECISION)
+            merged.toDomain()
+        } catch (e: HttpException) {
+            throw e.asLeaveFailure()
+        } catch (e: IOException) {
+            val cached = dao.getRequest(id) ?: throw e
+            val decided = cached.copy(
+                status = if (approve) LeaveStatus.ZATWIERDZONY.wire else LeaveStatus.ODRZUCONY.wire,
+                decisionNote = note?.takeIf { it.isNotBlank() },
+                canDecide = false,
+                syncedAt = now,
+            )
+            dao.upsertRequest(decided)
+            dao.upsertMutation(
+                LeaveMutationEntity(
+                    targetId = id,
+                    kind = KIND_DECISION,
+                    payload = json.encodeToString(LeaveDecisionDto.serializer(), body),
+                    createdAt = now,
+                ),
+            )
+            syncScheduler.scheduleSync()
+            decided.toDomain(pendingSync = true)
+        }
+    }
+
     /**
-     * Opróżnia kolejkę w kolejności zapisu. Brak zasięgu przerywa przebieg
-     * (reszta poczeka), a odmowa serwera zdejmuje wpis z kolejki — wożenie go
-     * w kółko niczego by nie naprawiło, a najbliższe odświeżenie i tak pokaże
-     * stan prawdziwy. Robotnik i powiadomienie o odrzuceniu dochodzą w U4.
+     * Opróżnia kolejkę w kolejności zapisu.
+     *
+     * Brak zasięgu przerywa przebieg — reszta poczeka na kolejne obudzenie.
+     * Odmowa serwera (4xx) zdejmuje wpis z kolejki, bo wożenie go w kółko
+     * niczego nie naprawi; wraca za to w [LeaveSyncResult.rejected], żeby
+     * ktoś powiedział o tym człowiekowi. Cichy zanik wniosku byłby najgorszym
+     * możliwym zachowaniem: ludzie planują wtedy urlop, którego nie mają.
      */
-    override suspend fun syncPendingMutations(): Int {
+    override suspend fun syncPendingMutations(): LeaveSyncResult {
         var sent = 0
+        val rejected = mutableListOf<LeaveSyncRejection>()
         for (mutation in dao.getMutations()) {
             try {
                 when (mutation.kind) {
@@ -212,26 +285,73 @@ class LeaveRepositoryImpl @Inject constructor(
                         dao.deleteMutation(mutation.targetId, KIND_CANCEL)
                         dao.upsertRequest(cancelled.toEntity(mine = true, syncedAt = System.currentTimeMillis()))
                     }
+                    KIND_DECISION -> {
+                        val body = json.decodeFromString(LeaveDecisionDto.serializer(), mutation.payload)
+                        val decided = api.decideLeaveRequest(mutation.targetId, body)
+                        dao.deleteMutation(mutation.targetId, KIND_DECISION)
+                        // Decyzja dotyczy CUDZEGO wniosku — zostaje w skrzynce.
+                        val cached = dao.getRequest(mutation.targetId)
+                        dao.upsertRequest(
+                            decided.toEntity(mine = false, syncedAt = System.currentTimeMillis()).copy(
+                                employeeRole = cached?.employeeRole,
+                                canDecide = false,
+                                awaitingName = cached?.awaitingName,
+                                awaitingIsBackup = cached?.awaitingIsBackup ?: false,
+                            ),
+                        )
+                    }
                     else -> dao.deleteMutation(mutation.targetId, mutation.kind)
                 }
                 sent++
             } catch (_: IOException) {
                 // Nadal bez zasięgu — reszta kolejki poczeka na następny raz.
-                return sent
-            } catch (_: HttpException) {
+                return LeaveSyncResult(sent = sent, rejected = rejected, incomplete = true)
+            } catch (e: HttpException) {
+                val cached = dao.getRequest(mutation.targetId)
+                rejected += LeaveSyncRejection(
+                    label = cached?.let { rejectionLabel(it, mutation.kind) } ?: "Zmiana wniosku",
+                    reason = e.serverMessage(),
+                )
                 if (mutation.kind == KIND_CREATE) {
                     // Wniosek odrzucony przy wysyłce: kasujemy lokalny wiersz,
                     // żeby ekran nie pokazywał urlopu, którego serwer nie przyjął.
                     dao.deleteMutationsFor(mutation.targetId)
                     dao.deleteRequest(mutation.targetId)
                 } else {
+                    // Zmiana, decyzja i anulowanie dotyczą wniosku, który na
+                    // serwerze istnieje — najbliższe odświeżenie przywróci jego
+                    // prawdziwy stan, więc kasujemy sam wpis kolejki.
                     dao.deleteMutation(mutation.targetId, mutation.kind)
                 }
             }
         }
-        return sent
+        return LeaveSyncResult(sent = sent, rejected = rejected)
     }
 
+    /** Opis odrzuconego zapisu — tyle, żeby człowiek poznał, o który urlop chodzi. */
+    private fun rejectionLabel(entity: LeaveRequestEntity, kind: String): String {
+        val what = when (kind) {
+            KIND_CREATE -> "Wniosek"
+            KIND_UPDATE -> "Zmiana wniosku"
+            KIND_CANCEL -> "Anulowanie wniosku"
+            KIND_DECISION -> "Decyzja o wniosku ${entity.employeeName.orEmpty()}".trim()
+            else -> "Zmiana"
+        }
+        return "$what ${entity.startDate} – ${entity.endDate}"
+    }
+
+    /** Komunikat serwera z ciała błędu; bez niego zostaje sam kod odpowiedzi. */
+    private fun HttpException.serverMessage(): String? {
+        val raw = runCatching { response()?.errorBody()?.string() }.getOrNull() ?: return null
+        return runCatching {
+            json.parseToJsonElement(raw).jsonObject["message"]?.jsonPrimitive?.contentOrNull
+        }.getOrNull()
+    }
+
+    /**
+     * Dopisuje zapis do kolejki i zamawia jego wysyłkę. Robotnik ma warunek
+     * sieci, więc nie odpytuje — system obudzi go sam, gdy wróci zasięg.
+     */
     private suspend fun enqueue(targetId: String, kind: String, body: LeaveCreateDto?, now: Long) {
         dao.upsertMutation(
             LeaveMutationEntity(
@@ -241,6 +361,7 @@ class LeaveRepositoryImpl @Inject constructor(
                 createdAt = now,
             ),
         )
+        syncScheduler.scheduleSync()
     }
 
     /**

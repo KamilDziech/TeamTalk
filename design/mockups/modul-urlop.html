@@ -1482,12 +1482,12 @@ footer.end{
               <b>Nowa.</b> Wnioski podwładnych pytającego + ci, dla których jest backupem
               nieobecnego zwierzchnika. Bez kartotek i bez limitów — same wnioski i imiona.
             </td>
-            <td><span class="tag new">do dopisania</span></td>
+            <td><span class="tag new">dopisane 2026-09-06</span></td>
           </tr>
           <tr>
             <td class="mono">POST /hr/leave/:id/decision</td><td class="mono">hr.view</td>
             <td>Zatwierdzenie albo odrzucenie z notatką. Guard schodzi z <code>hr.manage</code>; kto naprawdę może decydować, rozstrzyga <code>canDecideLeave</code> — bez zmian w logice.</td>
-            <td><span class="tag mod">zmiana bramki</span></td>
+            <td><span class="tag mod">zmienione 2026-09-06</span></td>
           </tr>
           <tr>
             <td class="mono">GET /hr/absences</td><td class="mono">hr.view</td>
@@ -1497,7 +1497,7 @@ footer.end{
               <code>hr/overview</code> nie mogło jej podać, bo tam idą pełne dane kadrowe,
               a monter i koordynator mieliby puste tło.
             </td>
-            <td><span class="tag new">do dopisania</span></td>
+            <td><span class="tag new">dopisane 2026-09-06</span></td>
           </tr>
           <tr>
             <td class="mono">GET /hr/overview</td><td class="mono">hr.manage</td>
@@ -1565,7 +1565,7 @@ footer.end{
       <div class="step">
         <div class="no">U3</div>
         <div>
-          <h3>Zespół: skrzynka decyzji i oś czasu</h3>
+          <h3>Zespół: skrzynka decyzji i oś czasu <span class="tag new">zrobione 2026-09-06</span></h3>
           <p>
             Nowa trasa <code>GET /hr/leave/inbox</code> i rozluźniona bramka decyzji po stronie
             board360 (z testem, że obcy wniosek nadal wraca 403). Na telefonie: segment
@@ -1583,7 +1583,7 @@ footer.end{
       <div class="step">
         <div class="no">U4</div>
         <div>
-          <h3>Bez zasięgu i powiadomienia</h3>
+          <h3>Bez zasięgu i powiadomienia <span class="tag new">zrobione 2026-09-06</span></h3>
           <p>
             <code>LeaveSyncWorker</code>: wysyłka kolejki, rozstrzyganie konfliktów, oznaczanie
             wniosków odrzuconych przy wysyłce. Kanał <code>hr_leave</code> i dwa powiadomienia

@@ -146,15 +146,25 @@ fun LeaveRequestSheet(
             }
 
             InfoCard(
-                title = daysLabel(form.workingDays) + " roboczych",
+                title = workingDaysLabel(form.workingDays),
                 body = buildString {
                     append("Weekendy i święta pominięte.")
                     if (remainingAfter != null) {
-                        append(" Po zatwierdzeniu zostanie ")
-                        append(remainingAfter)
-                        append(" z ")
-                        append(state.balance?.entitled ?: 0)
-                        append(" dni wymiaru.")
+                        // Ujemna reszta to nie „zostanie −14", tylko przekroczenie
+                        // wymiaru — tak też trzeba to powiedzieć, bo liczba ze
+                        // znakiem minus czyta się jak błąd aplikacji, nie jak stan
+                        // kartoteki (zobaczone na urządzeniu 2026-09-07).
+                        if (remainingAfter < 0) {
+                            append(" Przekroczysz wymiar o ")
+                            append(daysLabel(-remainingAfter))
+                            append(" — urlop ponad pulę wymaga zgody kadr.")
+                        } else {
+                            append(" Po zatwierdzeniu zostanie ")
+                            append(remainingAfter)
+                            append(" z ")
+                            append(state.balance?.entitled ?: 0)
+                            append(" dni wymiaru.")
+                        }
                     }
                 },
                 warn = form.workingDays == 0 || (remainingAfter != null && remainingAfter < 0),
