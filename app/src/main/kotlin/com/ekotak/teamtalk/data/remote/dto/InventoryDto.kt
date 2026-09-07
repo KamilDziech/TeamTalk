@@ -93,6 +93,12 @@ data class ReservationDto(
     val covered: Double = 0.0,
     val missing: Double = 0.0,
     val productName: String? = null,
+    /**
+     * Klucz linii z zestawienia materiałowego (`instalacja:pozycja`). Po nim
+     * przeliczenie trafia w tę samą linię — i po nim zakładka „Umowa" odtwarza
+     * migawkę materiału, gdy wystawia umowę z telefonu.
+     */
+    val sourceKey: String? = null,
 )
 
 /**

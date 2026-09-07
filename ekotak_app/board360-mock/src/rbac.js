@@ -47,6 +47,11 @@ const ALL_PERMS = [
   // niedowiazane od adresow jego klientow), a `scope=all` konczy sie kodem 403.
   // Skrzynki PERSONALNEJ to prawo nie otwiera nikomu — takze adminowi.
   'email.view_all',
+  // Akceptacja ZMIANY PODPISANEJ UMOWY. W board360 nie ma jej zadna rola poza
+  // ALL (admin/zarzad) — opiekun deala zmiane tylko ZGLASZA, a wysyla ja
+  // klientowi dopiero decyzja zarzadu. Trzymamy to tak samo, bo na tym stoi
+  // caly test zakladki „Umowa" z konta koordynatora.
+  'contract.change.approve',
 ];
 
 const ROLE_PERMS = {

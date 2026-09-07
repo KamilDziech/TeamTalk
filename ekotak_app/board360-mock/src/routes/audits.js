@@ -136,15 +136,4 @@ router.patch('/audits/:id', requireAuth, requirePermission('deal.manage'), (req,
   res.json(view(audit));
 });
 
-/**
- * Umowy deala. Atrapa nie ma modulu Umowy, ale telefon pyta o ta liste, zeby
- * wiedziec, czy oferta jest juz zamknieta podpisem — pusta lista znaczy
- * „nic nie podpisane, audyt otwarty" i to jest tutaj stan docelowy.
- */
-router.get('/deals/:id/contracts', requireAuth, requirePermission('crm.view'), (req, res) => {
-  const deal = dealById(req.user.organizationId, req.params.id);
-  if (!deal) return res.status(404).json({ message: 'Deal nie istnieje' });
-  res.json([]);
-});
-
 module.exports = router;

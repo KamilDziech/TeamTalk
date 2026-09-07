@@ -1009,6 +1009,7 @@ function seed(db) {
   seedCalendar(db, users);
   seedHr(db, users);
   seedSales(db, { dOffer, dSold, kontrahent, wojcik });
+  seedContracts(db, users, { dOffer, dSold, dAudit });
   seedEmail(db, users, { kowalska, wojcik, dQual, dAudit });
 
   return { users, clients, missedNowak };
@@ -2067,6 +2068,222 @@ function seedEmail(db, users, { kowalska, wojcik, dQual, dAudit }) {
         at: daysAgo(0.4),
       },
     ],
+  });
+}
+
+/**
+ * Umowy deala (zakladka „Umowa" karty deala).
+ *
+ * Zestaw dobrany tak, zeby telefon mial co pokazac w KAZDYM stanie karty
+ * i zeby dalo sie przeklikac kazda akcje bez ruszania panelu:
+ *  - `dSold` ma umowe PODPISANA z parafa Zalacznika nr 1 i z zestawieniem
+ *    materialowym — na niej dziala „Wprowadz zmiany i podpisz ponownie"
+ *    oraz „Odtworz zamowienie z umowy",
+ *  - `dOffer` ma umowe WYSLANA z zywym linkiem (licznik terminu odeslania)
+ *    i druga PO TERMINIE — na niej dziala „Wystaw nowa z aktualnymi cenami",
+ *  - `dAudit` ma umowe podpisana BEZ PARAFY zalacznika (ostrzezenie + doslanie
+ *    podpisu) oraz zgloszona do niej zmiane CZEKAJACA NA ZARZAD: z konta
+ *    koordynatora widac wtedy „Zmiana — czeka na zarzad", a z konta admina
+ *    przyciski „Akceptuj zmiane" i „Odrzuc zmiane".
+ */
+function seedContracts(db, users, { dOffer, dSold, dAudit }) {
+  const orgId = db.organization.id;
+  const HOUR = 60 * 60 * 1000;
+  const hoursAgo = (h) => new Date(Date.now() - h * HOUR).toISOString();
+  const hoursAhead = (h) => new Date(Date.now() + h * HOUR).toISOString();
+  const token = () => uuid().replace(/-/g, '');
+
+  const pozycja = (lp, opis, ilosc, jm, cena, klucz) => ({
+    lp,
+    opis,
+    ilosc,
+    jm,
+    cenaNetto: cena,
+    etap: 1,
+    klucz,
+  });
+
+  const tresc = (over) => ({
+    przedmiot: 'Wykonanie instalacji — zakres wg Zalacznika nr 1',
+    termin: daysAhead(45).slice(0, 10),
+    podstawaZalacznika: 'Audyt instalacji',
+    etapy: [{ nr: 1, nazwa: 'Etap 1 — montaz instalacji' }],
+    pozycje: [],
+    vatStawka: 8,
+    zaliczkaProc: 30,
+    terminKoncowyDni: 3,
+    materialy: [],
+    ...over,
+  });
+
+  const contract = (over) => {
+    const row = {
+      id: uuid(),
+      organizationId: orgId,
+      dealId: null,
+      number: '',
+      status: 'sent',
+      kind: 'umowa',
+      revision: 1,
+      supersedesId: null,
+      token: token(),
+      tokenExpiresAt: hoursAhead(48),
+      createdAt: nowIso(),
+      createdBy: users.admin.id,
+      sentAt: nowIso(),
+      signedAt: null,
+      signedIp: null,
+      attachmentSignedAt: null,
+      // Atrapa nie ma SMTP — tak samo jak produkcja bez konfiguracji poczty.
+      emailStatus: 'pending_config',
+      emailSentAt: null,
+      changeReason: null,
+      changeRequestedAt: null,
+      changeRequestedBy: null,
+      changeApprovedAt: null,
+      changeApprovedBy: null,
+      changeRejectedAt: null,
+      changeRejectedBy: null,
+      changeRejectReason: null,
+      data: tresc({}),
+      ...over,
+    };
+    db.contracts.push(row);
+    return row;
+  };
+
+  // 1. `dSold` — umowa podpisana w calosci, z zestawieniem materialowym
+  //    (zrodlo rezerwacji i zamowien zakladanych po podpisie).
+  contract({
+    dealId: dSold.id,
+    number: 'UM/2026/08/014',
+    status: 'signed',
+    createdAt: daysAgo(9),
+    sentAt: daysAgo(9),
+    signedAt: daysAgo(8),
+    signedIp: '83.20.114.7',
+    attachmentSignedAt: daysAgo(8),
+    tokenExpiresAt: daysAgo(7),
+    data: tresc({
+      przedmiot: 'Wykonanie instalacji „Klimatyzacja multi-split" — 4 jednostki wewnetrzne',
+      podstawaZalacznika: `Audyt klimatyzacji z dn. ${daysAgo(12).slice(0, 10)}`,
+      pozycje: [
+        pozycja(1, 'Montaz jednostki zewnetrznej multi 8 kW', 1, 'kpl.', 3200, 'ac:outdoor'),
+        pozycja(2, 'Montaz jednostki wewnetrznej sciennej 2,5 kW', 3, 'szt.', 890, 'ac:indoor'),
+        pozycja(3, 'Instalacja chlodnicza — rura miedziana', 48, 'mb', 65, 'ac:pipe'),
+      ],
+      materialy: [
+        {
+          productId: null,
+          kod: 'AC-OUT-80',
+          nazwa: 'Jednostka zewnetrzna multi 8 kW',
+          ilosc: 1,
+          jm: 'szt',
+          klucz: 'ac:outdoor',
+          uwaga: 'Klimatyzacja multi-split · z umowy',
+          instalacjaId: 'ac',
+          instalacja: 'Klimatyzacja multi-split',
+        },
+        {
+          productId: null,
+          kod: 'CU-1438-25',
+          nazwa: 'Rura miedziana 1/4 + 3/8 (zwoj 25 m)',
+          ilosc: 2,
+          jm: 'zwoj',
+          klucz: 'ac:pipe',
+          uwaga: 'Klimatyzacja multi-split · z umowy',
+          instalacjaId: 'ac',
+          instalacja: 'Klimatyzacja multi-split',
+        },
+      ],
+    }),
+  });
+
+  // 2. `dOffer` — umowa u klienta, link zyje jeszcze kilkanascie godzin
+  //    (licznik „zostalo X h" na karcie).
+  contract({
+    dealId: dOffer.id,
+    number: 'UM/2026/09/001',
+    createdAt: hoursAgo(6),
+    sentAt: hoursAgo(6),
+    tokenExpiresAt: hoursAhead(42),
+    data: tresc({
+      przedmiot: 'Wykonanie instalacji „Ogrzewanie podlogowe" — 118,40 m2 powierzchni ogrzewanej',
+      podstawaZalacznika: `Audyt ogrzewania podlogowego z dn. ${daysAgo(3).slice(0, 10)}`,
+      pozycje: [
+        pozycja(1, 'Wykonanie instalacji — rozstaw 15 cm', 96.4, 'm2', 96, 'ufh:install:15'),
+        pozycja(2, 'Wykonanie instalacji — rozstaw 10 cm', 22, 'm2', 118, 'ufh:install:10'),
+        pozycja(3, 'Rozdzielacz 9-obwodowy z szafka podtynkowa', 1, 'kpl.', 2450, 'ufh:manifold'),
+      ],
+    }),
+  });
+
+  // 3. `dOffer` — umowa PO TERMINIE odeslania: link martwy, ceny sprzed dwoch
+  //    dni. Telefon proponuje na niej wystawienie nowej z aktualnym cennikiem.
+  contract({
+    dealId: dOffer.id,
+    number: 'UM/2026/09/002',
+    status: 'expired',
+    createdAt: daysAgo(4),
+    sentAt: daysAgo(4),
+    tokenExpiresAt: daysAgo(2),
+    data: tresc({
+      przedmiot: 'Wykonanie instalacji „Ogrzewanie podlogowe" — wariant sprzed korekty zakresu',
+      podstawaZalacznika: `Audyt ogrzewania podlogowego z dn. ${daysAgo(6).slice(0, 10)}`,
+      pozycje: [
+        pozycja(1, 'Wykonanie instalacji — rozstaw 15 cm', 96.4, 'm2', 92, 'ufh:install:15'),
+        pozycja(2, 'Rozdzielacz 9-obwodowy z szafka podtynkowa', 1, 'kpl.', 2380, 'ufh:manifold'),
+      ],
+    }),
+  });
+
+  // 4. `dAudit` — umowa podpisana PRZED wprowadzeniem parafy Zalacznika nr 1.
+  const bezParafy = contract({
+    dealId: dAudit.id,
+    number: 'UM/2026/08/007',
+    status: 'signed',
+    createdAt: daysAgo(21),
+    sentAt: daysAgo(21),
+    signedAt: daysAgo(20),
+    signedIp: '178.42.9.61',
+    attachmentSignedAt: null,
+    tokenExpiresAt: daysAgo(19),
+    data: tresc({
+      przedmiot: 'Wykonanie instalacji „Pompa ciepla" — 12 kW, z zasobnikiem 300 l',
+      podstawaZalacznika: `Audyt pompy ciepla z dn. ${daysAgo(24).slice(0, 10)}`,
+      pozycje: [
+        pozycja(1, 'Montaz pompy ciepla 12 kW', 1, 'kpl.', 9800, 'hp:unit'),
+        pozycja(2, 'Zasobnik CWU 300 l z montazem', 1, 'kpl.', 4200, 'hp:dhw'),
+      ],
+    }),
+  });
+
+  // 5. Zmiana tej umowy ZGLOSZONA PRZEZ OPIEKUNA — czeka na decyzje zarzadu.
+  //    Dokument jest szkicem bez linku: link dla klienta powstaje dopiero przy
+  //    akceptacji, i o tym mowi karta na telefonie.
+  contract({
+    dealId: dAudit.id,
+    number: 'UM/2026/08/007/Z2',
+    status: 'draft',
+    revision: 2,
+    supersedesId: bezParafy.id,
+    tokenExpiresAt: null,
+    sentAt: null,
+    createdAt: daysAgo(1),
+    createdBy: users.koordynator.id,
+    emailStatus: null,
+    changeReason: 'Klient dolozyl zasobnik buforowy 100 l po ustaleniach na budowie',
+    changeRequestedAt: daysAgo(1),
+    changeRequestedBy: users.koordynator.id,
+    data: tresc({
+      przedmiot: 'Wykonanie instalacji „Pompa ciepla" — 12 kW, zasobnik 300 l + bufor 100 l',
+      podstawaZalacznika: `Audyt pompy ciepla z dn. ${daysAgo(2).slice(0, 10)}`,
+      pozycje: [
+        pozycja(1, 'Montaz pompy ciepla 12 kW', 1, 'kpl.', 9800, 'hp:unit'),
+        pozycja(2, 'Zasobnik CWU 300 l z montazem', 1, 'kpl.', 4200, 'hp:dhw'),
+        pozycja(3, 'Bufor 100 l z montazem', 1, 'kpl.', 1650, 'hp:buffer'),
+      ],
+    }),
   });
 }
 

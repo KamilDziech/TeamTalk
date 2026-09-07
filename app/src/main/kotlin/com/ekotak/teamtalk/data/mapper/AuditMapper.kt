@@ -4,7 +4,7 @@ import com.ekotak.teamtalk.data.local.entity.AuditEntity
 import com.ekotak.teamtalk.data.local.entity.CatalogCategoryEntity
 import com.ekotak.teamtalk.data.remote.dto.AuditDto
 import com.ekotak.teamtalk.data.remote.dto.CategoryDto
-import com.ekotak.teamtalk.data.remote.dto.ContractSummaryDto
+import com.ekotak.teamtalk.data.remote.dto.ContractDto
 import com.ekotak.teamtalk.domain.model.Audit
 import com.ekotak.teamtalk.domain.model.Category
 import com.ekotak.teamtalk.domain.model.BuildingStandard
@@ -305,7 +305,7 @@ private fun ufhInstallToJson(s: UfhState): JsonObject {
  * przychodzi od najnowszej, a zmianę wystawia się do dokumentu, którego nikt
  * jeszcze nie zmienia. `null` = brak podpisu, audyt otwarty.
  */
-fun offerLockFrom(contracts: List<ContractSummaryDto>): OfferLock? {
+fun offerLockFrom(contracts: List<ContractDto>): OfferLock? {
     val signed = contracts.filter { it.status == "signed" }
     if (signed.isEmpty()) return null
     val target = signed.firstOrNull { it.zastapionaPrzez == null } ?: signed.first()

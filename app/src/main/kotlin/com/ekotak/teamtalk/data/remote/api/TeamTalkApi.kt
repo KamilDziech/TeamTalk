@@ -230,13 +230,98 @@ interface TeamTalkApi {
         @Body body: JsonObject,
     ): AuditDto
 
+    // ── Umowy deala (zakładka „Umowa") ────────────────────────────────────────
+    // Odczyt listy i podglądu idzie na `crm.view`; generowanie, zmiana,
+    // unieważnienie i odtworzenie zamówienia wymagają `deal.manage`, a decyzje
+    // o zmianie — uprawnienia zarządu (`contract.change.approve`). Zakładka
+    // dostaje z serwera gotowe flagi (`zarzad`, `mogeZdecydowac`, `mozeZmienic`)
+    // i nie zgaduje uprawnień sama.
+
     /**
-     * Umowy deala — telefon czyta je WYŁĄCZNIE po to, żeby wiedzieć, czy
-     * oferta jest już zamknięta podpisem (wtedy audyt jest do odczytu).
-     * Zarządzanie umowami zostaje w panelu.
+     * Umowy deala. Czyta je zakładka „Umowa" oraz — po samą blokadę oferty —
+     * zakładki „Audyt" i „Oferta" (podpisana umowa zamyka audyt do odczytu).
      */
     @GET("api/deals/{id}/contracts")
-    suspend fun getDealContracts(@Path("id") id: String): List<ContractSummaryDto>
+    suspend fun getDealContracts(@Path("id") id: String): List<ContractDto>
+
+    /** Nowa umowa z Załącznikiem nr 1 — odpowiedź niesie link do podpisu. */
+    @POST("api/deals/{dealId}/contracts")
+    suspend fun createDealContract(
+        @Path("dealId") dealId: String,
+        @Body body: ContractFillingDto,
+    ): ContractGenerateResponse
+
+    /**
+     * Podgląd dokumentu jako HTML — dokładnie ten, z którego powstaje PDF.
+     * Telefon pokazuje go w `WebView`, bo PDF trzeba najpierw pobrać w całości,
+     * a handlowiec u klienta chce zobaczyć treść od razu.
+     */
+    @GET("api/deals/{dealId}/contracts/{id}/preview")
+    suspend fun getContractPreview(
+        @Path("dealId") dealId: String,
+        @Path("id") id: String,
+    ): ContractPreviewDto
+
+    /** Gotowy PDF do udostępnienia klientowi. `@Streaming` — to kilkaset kB. */
+    @Streaming
+    @GET("api/deals/{dealId}/contracts/{id}/pdf")
+    suspend fun downloadContractPdf(
+        @Path("dealId") dealId: String,
+        @Path("id") id: String,
+    ): ResponseBody
+
+    /** Treść umowy odtworzona jako formularz — prefill edycji przy zmianie. */
+    @GET("api/deals/{dealId}/contracts/{id}/wypelnienie")
+    suspend fun getContractFilling(
+        @Path("dealId") dealId: String,
+        @Path("id") id: String,
+    ): ContractFillingResponse
+
+    /** Nowy link do podpisu (zgubiony link, wygasły token, brakująca parafa). */
+    @POST("api/deals/{dealId}/contracts/{id}/resend")
+    suspend fun resendDealContract(
+        @Path("dealId") dealId: String,
+        @Path("id") id: String,
+        @Body body: EmptyBody = EmptyBody(),
+    ): ContractResendResponse
+
+    /** Zgłoszenie zmiany podpisanej umowy — nowa wersja albo aneks. */
+    @POST("api/deals/{dealId}/contracts/{id}/change")
+    suspend fun requestContractChange(
+        @Path("dealId") dealId: String,
+        @Path("id") id: String,
+        @Body body: ContractChangeRequest,
+    ): ContractChangeResponse
+
+    /** Akceptacja zmiany przez zarząd — to ona wysyła umowę do klienta. */
+    @POST("api/deals/{dealId}/contracts/{id}/change/approve")
+    suspend fun approveContractChange(
+        @Path("dealId") dealId: String,
+        @Path("id") id: String,
+        @Body body: ContractApproveRequest = ContractApproveRequest(),
+    ): ContractResendResponse
+
+    /** Odrzucenie wniosku o zmianę — podpisana umowa zostaje bez zmian. */
+    @POST("api/deals/{dealId}/contracts/{id}/change/reject")
+    suspend fun rejectContractChange(
+        @Path("dealId") dealId: String,
+        @Path("id") id: String,
+        @Body body: ContractRejectRequest,
+    )
+
+    /** Odtworzenie zamówienia z Załącznika nr 1 podpisanej umowy (idempotentne). */
+    @POST("api/deals/{dealId}/contracts/{id}/zamowienie")
+    suspend fun rebuildContractOrder(
+        @Path("dealId") dealId: String,
+        @Path("id") id: String,
+        @Body body: EmptyBody = EmptyBody(),
+    ): ContractOrderResponse
+
+    @DELETE("api/deals/{dealId}/contracts/{id}")
+    suspend fun cancelDealContract(
+        @Path("dealId") dealId: String,
+        @Path("id") id: String,
+    )
 
     // ── Zamówienia deala (zakładka „Zamówienie") ──────────────────────────────
     // Oferty czyta każdy z `crm.view`; zamówienia — także do odczytu — wymagają

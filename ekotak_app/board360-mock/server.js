@@ -65,6 +65,7 @@ app.use('/api', require('./src/routes/calendar'));
 app.use('/api', require('./src/routes/hr'));
 app.use('/api', require('./src/routes/audits'));
 app.use('/api', require('./src/routes/sales'));
+app.use('/api', require('./src/routes/contracts'));
 app.use('/api', require('./src/routes/email'));
 app.use('/api', require('./src/routes/documents'));
 

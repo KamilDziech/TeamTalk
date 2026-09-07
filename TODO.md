@@ -505,6 +505,92 @@ rodzaj wpisu `create_deal_project`.
 4. Konto `serwisant` (bez `projects.manage`): lista widoczna, pole zakładania
    zastąpione wyjaśnieniem.
 
+### Zakładka „Umowa" karty deala
+
+Odpowiednik `DealContractPanel` panelu — pełny obieg dokumentu, nie sam podgląd.
+Handlowiec wystawia umowę tam, gdzie skończył rozmowę z klientem, więc na
+telefonie jest wszystko: wystawienie z Załącznikiem nr 1 policzonym z audytu,
+wystawienie nowej po terminie odesłania, zmiana podpisanej umowy (nowa wersja
+albo aneks), decyzja zarządu, nowy link do podpisu, unieważnienie i odtworzenie
+zamówienia z umowy. Osiem tras `deals/:dealId/contracts…`, każda z tym samym
+kontraktem, co panel.
+
+Rozpis Załącznika nr 1 to PORT, nie przybliżenie: `domain/ufh/ContractScope.kt`
+powtarza w Kotlinie `deal-offer-load.ts` (pozycje z `offerScope`, § 1 opisany
+wielkościami audytu, scalanie po `klucz` z zachowaniem etapu). Te same liczby,
+które zakładka „Oferta" pokazała klientowi, wchodzą na dokument bez przepisywania.
+
+- ✅ Lista umów ze stanem 1:1 z panelem: szkic / wysłana / po terminie /
+  podpisana / unieważniona / zastąpiona, plakietki „Aneks nr N" i „Wersja N
+  (po zmianie)”
+- ✅ Licznik terminu odesłania („zostało 41 h 12 min”) tykający co minutę;
+  po jego upływie karta sama dociąga listę, bo API domyka umowę przy odczycie
+- ✅ Ostrzeżenia z panelu co do słowa: brak parafy Załącznika nr 1, umowa po
+  48 h, „trwa zmiana tej umowy”, „zmieniona podpisanym aneksem”, ślad wniosku
+  o zmianę (kto, kiedy, powód, decyzja)
+- ✅ „Kopiuj link do podpisu” — pełny adres sklejony z bazą board360; bez SMTP
+  na produkcji link i tak wysyła handlowiec
+- ✅ Podgląd dokumentu w `WebView` (ten sam HTML, z którego powstaje PDF)
+  i „PDF — udostępnij” przez `FileProvider` (mail, WhatsApp, chmura)
+- ✅ Formularz umowy pod kciuk: § 1, termin § 2 z kalendarza, podstawa
+  załącznika, VAT / zaliczka / dni płatności, etapy § 7, pozycje rozbite na
+  karty (opis w jednej linii, liczby w drugiej) i sumy liczone jak w API
+- ✅ „↻ Przelicz z audytu” + automatyczne przeliczenie przy każdym wejściu
+  w formularz; braki wyceny (instalacja bez formuły ceny, luki w cenniku)
+  wypisane wprost nad rozpisem
+- ✅ Zmiana podpisanej umowy: wybór „aneks” / „nowa wersja”, obowiązkowy powód,
+  pytanie przed wysłaniem dokumentu klientowi po raz drugi
+- ✅ Decyzja zarządu (`contract.change.approve`): akceptacja z linkiem do
+  ponownego podpisu i odrzucenie z powodem
+- ✅ „Odtwórz zamówienie z umowy” z komunikatem panelu (powstało / zmienione /
+  już było) i odświeżeniem zakładki „Zamówienie”
+- ❌ Zestawienie materiałowe liczone na telefonie — migawkę bierzemy z aktywnej
+  rezerwacji deala (`source = contract`), którą policzył panel. Dobór materiału
+  to kilkaset linijek rachunku po stronie web; druga implementacja tej samej
+  matematyki zamawiałaby zły towar (ta sama decyzja, co przy „Przelicz
+  z audytu” w zakładce „Zamówienie”). Gdy rezerwacji nie ma, formularz mówi
+  wprost, że po podpisie magazyn trzeba ruszyć z panelu
+- ❌ Podpisywanie umowy w telefonie — podpis składa KLIENT na publicznej stronie
+  `/umowa/<token>`, nie pracownik w aplikacji
+
+#### Kolejka offline zakładki „Umowa"
+
+Baza **22 → 23**: `deal_contracts` (cache listy), `contract_fillings` (treść do
+prefillu zmiany), `contract_previews` (HTML podglądu) i `contract_mutations`
+(kolejka). Wpisy z kolejki NIE trafiają do cache'u jako fakt — nakładamy je na
+odpowiedź serwera przy odczycie, tak samo jak w „Zamówieniu" i „Rozliczeniu".
+
+- ✅ Umowa wystawiona bez zasięgu leży w kolejce Z CAŁĄ TREŚCIĄ i widać ją na
+  liście jako „Czeka na wysyłkę”
+- ✅ Karta takiej umowy mówi wprost, że numer, dokument i link do podpisu nadaje
+  serwer — zamiast pokazywać wymyślony numer, którego klient nigdy nie zobaczy
+- ✅ Kolejkowane są też zmiana, decyzja zarządu, nowy link, unieważnienie
+  i odtworzenie zamówienia — każde ze swoim znacznikiem na karcie
+- ✅ Kolejność wysyłki jest zachowana (akceptacja po zmianie, unieważnienie po
+  wystawieniu): pierwsza porażka sieci kończy przebieg, zamiast go przeskakiwać
+- ✅ Unieważnienie umowy, której serwer nigdy nie widział, kasuje wpis z kolejki
+- ✅ Odmowa serwera (403 bez `deal.manage`, 409 „ktoś już to zmienił”) zdejmuje
+  wpis i mówi o tym powiadomieniem — przepadła decyzja o dokumencie do podpisu
+- ✅ Lista, treść umowy i obejrzany raz podgląd czytają się z cache bez zasięgu;
+  PDF wymaga sieci (składa go serwer) i zakładka to pisze
+
+#### Do przeklikania na urządzeniu
+
+Atrapa board360 ma na to komplet seedów (`board360-mock`, moduł umów):
+
+1. Deal „Instal Serwis" → „Umowa": umowa podpisana z parafą → „Podgląd umowy",
+   „PDF — udostępnij", „Odtwórz zamówienie z umowy" (drugie kliknięcie musi
+   powiedzieć „już stało na karcie").
+2. Ten sam deal → „Wprowadź zmiany i podpisz ponownie" → aneks z powodem →
+   po zapisie na liście stoi „UM/…/A1" i link do podpisu w schowku.
+3. Deal na etapie „Oferta": jedna umowa z żywym licznikiem terminu i druga po
+   terminie → „Wystaw nową z aktualnymi cenami" przepisuje treść i daje nowy
+   termin 48 h.
+4. Deal na etapie „Audyt" z konta `koordynator`: zmiana „czeka na zarząd" bez
+   przycisków decyzji; to samo z konta `admin` → „Akceptuj zmianę" i „Odrzuć".
+5. Tryb samolotowy → „+ Nowa umowa" (rozpis wchodzi z audytu) → karta „Czeka na
+   wysyłkę"; wróć w zasięg i sprawdź `GET /api/deals/:id/contracts`.
+
 ### Edycja karty (ekran `deal/{id}/edit`)
 
 Pełen zakres pól przyjmowanych przez `PATCH /api/deals/:id`. Zapis idzie jednym

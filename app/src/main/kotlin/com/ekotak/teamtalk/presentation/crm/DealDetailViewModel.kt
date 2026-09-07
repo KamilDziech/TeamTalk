@@ -18,6 +18,13 @@ import com.ekotak.teamtalk.domain.model.DealDetail
 import com.ekotak.teamtalk.domain.model.DealDocument
 import com.ekotak.teamtalk.domain.model.DealDraft
 import com.ekotak.teamtalk.domain.model.DealSettlement
+import com.ekotak.teamtalk.domain.model.ContractFilling
+import com.ekotak.teamtalk.domain.model.ContractItem
+import com.ekotak.teamtalk.domain.model.ContractKind
+import com.ekotak.teamtalk.domain.model.ContractMaterial
+import com.ekotak.teamtalk.domain.model.ContractPreview
+import com.ekotak.teamtalk.domain.model.ContractStage
+import com.ekotak.teamtalk.domain.model.DealContract
 import com.ekotak.teamtalk.domain.model.DealOffer
 import com.ekotak.teamtalk.domain.model.DealOrder
 import com.ekotak.teamtalk.domain.model.DealStage
@@ -55,6 +62,9 @@ import com.ekotak.teamtalk.domain.repository.AuditRepository
 import com.ekotak.teamtalk.domain.repository.DealDocumentRepository
 import com.ekotak.teamtalk.domain.repository.AuditSaveResult
 import com.ekotak.teamtalk.domain.repository.AuthRepository
+import com.ekotak.teamtalk.domain.repository.ContractOrderRebuild
+import com.ekotak.teamtalk.domain.repository.ContractRepository
+import com.ekotak.teamtalk.domain.repository.ContractSaveResult
 import com.ekotak.teamtalk.domain.repository.OfferPricingRepository
 import com.ekotak.teamtalk.domain.repository.DealProjectSaveResult
 import com.ekotak.teamtalk.domain.repository.OrderRepository
@@ -64,6 +74,12 @@ import com.ekotak.teamtalk.domain.repository.SettlementRepository
 import com.ekotak.teamtalk.domain.repository.SettlementSaveResult
 import com.ekotak.teamtalk.domain.repository.TaskRepository
 import com.ekotak.teamtalk.domain.ufh.OfferPricing
+import com.ekotak.teamtalk.BuildConfig
+import com.ekotak.teamtalk.domain.model.policzPodglad
+import com.ekotak.teamtalk.domain.ufh.ContractScopeInstallation
+import com.ekotak.teamtalk.domain.ufh.contractScopeItems
+import com.ekotak.teamtalk.domain.ufh.przedmiotZAutomatu
+import com.ekotak.teamtalk.domain.ufh.scalPozycje
 import com.ekotak.teamtalk.domain.ufh.PointRate
 import com.ekotak.teamtalk.domain.ufh.ratesForPath
 import com.ekotak.teamtalk.domain.ufh.PlanPrep
@@ -92,6 +108,8 @@ import com.ekotak.teamtalk.domain.usecase.client.GetClientsUseCase
 import com.ekotak.teamtalk.domain.usecase.client.NavigateToClientUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -104,6 +122,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
 import javax.inject.Inject
+import java.io.File
+import java.time.LocalDate
 
 /**
  * Uprawnienie board360 wymagane do zmiany etapu, edycji karty i kontaktów.
@@ -193,6 +213,7 @@ class DealDetailViewModel @Inject constructor(
     private val orderRepository: OrderRepository,
     private val offerPricingRepository: OfferPricingRepository,
     private val settlementRepository: SettlementRepository,
+    private val contractRepository: ContractRepository,
     private val dealDocumentRepository: DealDocumentRepository,
     private val projectRepository: ProjectRepository,
     private val documentFiles: DocumentFileStore,
@@ -614,6 +635,99 @@ class DealDetailViewModel @Inject constructor(
         val error: String? = null,
     )
 
+    /** Umowa, którą właśnie zmieniamy — formularz pracuje wtedy w trybie zmiany. */
+    data class ContractChangeTarget(
+        val id: String,
+        val numer: String,
+        /** Czy TA sesja akceptuje zmiany umów — od tego zależy napis na przycisku. */
+        val zarzad: Boolean,
+    )
+
+    /** Umowa po terminie odesłania, z której przepisaliśmy treść do formularza. */
+    data class ContractExpiredSource(val numer: String, val wystawiona: String)
+
+    /**
+     * Formularz umowy — nowej albo zmiany. Jeden kształt na oba przypadki,
+     * tak jak w panelu: zmiana poprawia treść, którą klient podpisał, więc
+     * pracuje na tych samych polach, co wystawienie.
+     */
+    data class ContractForm(
+        val zmianaDla: ContractChangeTarget? = null,
+        val poTerminie: ContractExpiredSource? = null,
+        /** Co dostaje klient do podpisu: nowa wersja całej umowy czy aneks. */
+        val rodzajZmiany: ContractKind = ContractKind.UMOWA,
+        val powodZmiany: String = "",
+        val filling: ContractFilling = ContractFilling(),
+        /**
+         * Czego automat nie policzył z audytu (instalacja bez formuły ceny, luki
+         * w cenniku). Pokazujemy WPROST — zaniżona kwota na dokumencie, który
+         * klient podpisuje, jest droższa niż komunikat.
+         */
+        val braki: List<String> = emptyList(),
+        /** Trwa przeliczanie Załącznika nr 1 z audytu. */
+        val liczenie: Boolean = false,
+        val zapis: Boolean = false,
+        val blad: String? = null,
+        /**
+         * Czy do dokumentu dołączamy migawkę materiału. `false` = deal nie ma
+         * jeszcze rezerwacji z panelu, więc po podpisie magazyn nie ruszy sam.
+         * Formularz mówi to wprost, zamiast po cichu wystawić umowę bez niej.
+         */
+        val materialZnany: Boolean = false,
+    ) {
+        /** Warunki wystawienia — te same, co w panelu (`gotowe`). */
+        val gotowe: Boolean
+            get() = filling.przedmiot.isNotBlank() &&
+                filling.podstawaZalacznika.isNotBlank() &&
+                filling.pozycje.any { it.opis.isNotBlank() && it.cenaNetto > 0 } &&
+                policzPodglad(
+                    filling.pozycje,
+                    filling.etapy,
+                    filling.vatStawka,
+                    filling.zaliczkaProc,
+                ).sieroty.isEmpty() &&
+                // Zmiana bez uzasadnienia nie przejdzie w API — powód drukuje się
+                // na dokumencie, bo klient musi wiedzieć, co podpisuje drugi raz.
+                (zmianaDla == null || powodZmiany.isNotBlank())
+    }
+
+    /** Otwarty podgląd dokumentu — HTML ten sam, z którego powstaje PDF. */
+    data class ContractPreviewState(
+        val contractId: String,
+        val numer: String = "",
+        val isLoading: Boolean = true,
+        val preview: ContractPreview? = null,
+        val error: String? = null,
+        /** Link do podpisu tej umowy — pod ręką, gdy handlowiec ogląda dokument. */
+        val sciezkaPodpisu: String? = null,
+    )
+
+    /**
+     * Zakładka „Umowa" — 1:1 z `DealContractPanel`. Lista umów z cache Room,
+     * formularz wystawienia i zmiany, podgląd dokumentu.
+     *
+     * [busyId] blokuje akcje JEDNEJ karty (dwuklik w „Wyślij ponownie" wystawia
+     * dwa linki), a nie całej zakładki — zarząd bywa w niej po to, żeby domknąć
+     * kilka wniosków pod rząd.
+     */
+    data class ContractsState(
+        val isLoading: Boolean = false,
+        val loaded: Boolean = false,
+        val contracts: List<DealContract> = emptyList(),
+        /** Lista pochodzi z cache — serwer był nieosiągalny. */
+        val fromCache: Boolean = false,
+        val error: String? = null,
+        val busyId: String? = null,
+        /** Id umowy, której PDF właśnie pobieramy. */
+        val pdfId: String? = null,
+        /** `null` = formularz zwinięty. */
+        val form: ContractForm? = null,
+        val preview: ContractPreviewState? = null,
+    ) {
+        /** Ile zapisów czeka w kolejce na wysyłkę — pasek nad listą. */
+        val pendingCount: Int get() = contracts.count { it.pending.isNotEmpty() }
+    }
+
     data class UiState(
         val isLoading: Boolean = true,
         val isSaving: Boolean = false,
@@ -637,6 +751,7 @@ class DealDetailViewModel @Inject constructor(
         val files: FilesState = FilesState(),
         val schedule: ScheduleState = ScheduleState(),
         val settlement: SettlementState = SettlementState(),
+        val contracts: ContractsState = ContractsState(),
         /**
          * Uprawnienia z `GET /api/me`. Trzymamy CAŁY zestaw, a nie same
          * `deal.manage`: zakładka „Zamówienie" pyta jeszcze o `order.manage`
@@ -816,6 +931,7 @@ class DealDetailViewModel @Inject constructor(
         if (tab == DealTab.PLIKI) loadFiles()
         if (tab == DealTab.HARMONOGRAM) loadSchedule()
         if (tab == DealTab.ROZLICZENIE) loadSettlement()
+        if (tab == DealTab.UMOWA) loadContracts()
     }
 
     // ── Zakładka „LEAD" ──────────────────────────────────────────────────────
@@ -2724,6 +2840,631 @@ class DealDetailViewModel @Inject constructor(
         }
     }
 
+    // ── Zakładka „Umowa" ─────────────────────────────────────────────────────
+
+    /**
+     * Umowy deala. Odczyt idzie przez repozytorium, więc bez zasięgu wraca
+     * ostatnia kopia z nałożoną kolejką — handlowiec u klienta widzi wtedy
+     * także to, co sam przed chwilą wystawił.
+     *
+     * @param force ponowny odczyt po zapisie (wystawienie, zmiana, decyzja).
+     */
+    fun loadContracts(force: Boolean = false) {
+        val contracts = _uiState.value.contracts
+        if (!force && (contracts.loaded || contracts.isLoading)) return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(contracts = it.contracts.copy(isLoading = true)) }
+            val snapshot = contractRepository.getContracts(dealId)
+            _uiState.update { state ->
+                state.copy(
+                    contracts = state.contracts.copy(
+                        isLoading = false,
+                        loaded = true,
+                        contracts = snapshot.contracts,
+                        fromCache = snapshot.fromCache,
+                        error = snapshot.error,
+                    ),
+                )
+            }
+        }
+    }
+
+    /**
+     * Pełny link do podpisu. Panel skleja go z adresu przeglądarki; telefon
+     * z adresu board360, bo strona podpisu (`/umowa/<token>`) stoi na tym samym
+     * hoście co API.
+     */
+    fun contractSignUrl(sciezka: String): String =
+        BuildConfig.API_BASE_URL.trimEnd('/') + sciezka
+
+    /**
+     * „+ Nowa umowa". Rozpis i przedmiot § 1 wchodzą policzone z audytu — to ta
+     * sama wycena, którą handlowiec przed chwilą pokazał klientowi w zakładce
+     * „Oferta".
+     */
+    fun openNewContract() {
+        _uiState.update {
+            it.copy(
+                contracts = it.contracts.copy(
+                    form = ContractForm(filling = ContractFilling(termin = domyslnyTerminUmowy())),
+                ),
+            )
+        }
+        przeliczZalacznik(emptyList(), "")
+        wczytajMaterialDoFormularza(poprzednie = emptyList())
+    }
+
+    /**
+     * Wejście w zmianę podpisanej umowy: zaciągamy treść, którą klient podpisał,
+     * i otwieramy na niej ten sam formularz. Poprawia się to, co jest — pisanie
+     * umowy od zera gubiłoby wszystko, czego nikt nie ruszał.
+     */
+    fun openContractChange(contract: DealContract) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(contracts = it.contracts.copy(busyId = contract.id)) }
+            val tresc = contractRepository.getFilling(dealId, contract.id)
+            if (tresc == null) {
+                _uiState.update {
+                    it.copy(
+                        contracts = it.contracts.copy(busyId = null),
+                        message = "Nie udało się wczytać treści umowy ${contract.numer}.",
+                    )
+                }
+                return@launch
+            }
+            _uiState.update {
+                it.copy(
+                    contracts = it.contracts.copy(
+                        busyId = null,
+                        form = ContractForm(
+                            zmianaDla = ContractChangeTarget(
+                                id = contract.id,
+                                numer = contract.numer,
+                                zarzad = contract.zarzad,
+                            ),
+                            filling = tresc,
+                        ),
+                    ),
+                )
+            }
+            // Zmiana umowy bierze się ze zmiany oferty, więc rozpis MUSI iść
+            // z audytu — inaczej klient podpisałby nowy dokument ze starymi
+            // liczbami. Etapy pozycji i linie dopisane ręcznie zostają.
+            przeliczZalacznik(tresc.pozycje, tresc.przedmiot)
+            wczytajMaterialDoFormularza(poprzednie = tresc.materialy)
+        }
+    }
+
+    /**
+     * Umowa po terminie odesłania → NOWA umowa z aktualnymi cenami.
+     *
+     * Treść przepisujemy z wygasłego dokumentu (zakres i ilości nie
+     * zdezaktualizowały się przez dwa dni), ale powstaje osobna umowa z nowym
+     * numerem i nowym terminem — nie wersja po zmianie, bo nie ma czego
+     * zmieniać: klient tamtej nigdy nie podpisał.
+     */
+    fun openContractAfterExpiry(contract: DealContract) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(contracts = it.contracts.copy(busyId = contract.id)) }
+            val tresc = contractRepository.getFilling(dealId, contract.id)
+            if (tresc == null) {
+                _uiState.update {
+                    it.copy(
+                        contracts = it.contracts.copy(busyId = null),
+                        message = "Nie udało się wczytać treści umowy ${contract.numer}.",
+                    )
+                }
+                return@launch
+            }
+            _uiState.update {
+                it.copy(
+                    contracts = it.contracts.copy(
+                        busyId = null,
+                        form = ContractForm(
+                            poTerminie = ContractExpiredSource(
+                                numer = contract.numer,
+                                wystawiona = contract.wyslana ?: contract.utworzona,
+                            ),
+                            // Nowy termin odesłania liczy się od nowa — po to
+                            // właśnie tamta umowa wygasła.
+                            filling = tresc.copy(termin = domyslnyTerminUmowy()),
+                        ),
+                    ),
+                )
+            }
+            wczytajMaterialDoFormularza(poprzednie = tresc.materialy)
+        }
+    }
+
+    fun closeContractForm() {
+        _uiState.update { it.copy(contracts = it.contracts.copy(form = null)) }
+    }
+
+    // Pola formularza. Osobne settery zamiast jednego „zmień cokolwiek": pola
+    // umowy są przeliczane (rozpis, sumy), a jedna funkcja z lambdą chowałaby,
+    // co dokładnie zmienia ekran.
+
+    fun setContractSubject(text: String) = updateContractFilling { it.copy(przedmiot = text) }
+
+    fun setContractDeadline(date: String) = updateContractFilling { it.copy(termin = date) }
+
+    fun setContractBasis(text: String) =
+        updateContractFilling { it.copy(podstawaZalacznika = text) }
+
+    fun setContractVat(value: Int) =
+        updateContractFilling { it.copy(vatStawka = value.coerceIn(0, 23)) }
+
+    fun setContractAdvance(value: Int) =
+        updateContractFilling { it.copy(zaliczkaProc = value.coerceIn(0, 100)) }
+
+    fun setContractFinalDays(value: Int) =
+        updateContractFilling { it.copy(terminKoncowyDni = value.coerceAtLeast(1)) }
+
+    fun setContractChangeReason(text: String) = updateContractForm { it.copy(powodZmiany = text) }
+
+    fun setContractChangeKind(kind: ContractKind) =
+        updateContractForm { it.copy(rodzajZmiany = kind) }
+
+    fun addContractStage() = updateContractFilling { filling ->
+        val nr = filling.etapy.size + 1
+        filling.copy(etapy = filling.etapy + ContractStage(nr, "Etap $nr"))
+    }
+
+    fun renameContractStage(index: Int, nazwa: String) = updateContractFilling { filling ->
+        filling.copy(
+            etapy = filling.etapy.mapIndexed { i, e -> if (i == index) e.copy(nazwa = nazwa) else e },
+        )
+    }
+
+    /** Skasowany etap przenumerowuje resztę — § 7 nie może mieć dziur. */
+    fun removeContractStage(index: Int) = updateContractFilling { filling ->
+        if (filling.etapy.size <= 1) return@updateContractFilling filling
+        filling.copy(
+            etapy = filling.etapy.filterIndexed { i, _ -> i != index }
+                .mapIndexed { i, e -> e.copy(nr = i + 1) },
+        )
+    }
+
+    fun addContractItem() = updateContractFilling { filling ->
+        filling.copy(
+            pozycje = filling.pozycje + ContractItem(
+                lp = filling.pozycje.size + 1,
+                opis = "",
+                ilosc = 1.0,
+                jm = "szt.",
+                cenaNetto = 0.0,
+                etap = 1,
+            ),
+        )
+    }
+
+    fun updateContractItem(index: Int, item: ContractItem) = updateContractFilling { filling ->
+        filling.copy(pozycje = filling.pozycje.mapIndexed { i, p -> if (i == index) item else p })
+    }
+
+    fun removeContractItem(index: Int) = updateContractFilling { filling ->
+        filling.copy(
+            pozycje = filling.pozycje.filterIndexed { i, _ -> i != index }
+                .mapIndexed { i, p -> p.copy(lp = i + 1) },
+        )
+    }
+
+    /** „↻ Przelicz z audytu" — ręczne wywołanie tego, co robi wejście w formularz. */
+    fun recalcContractItems() {
+        val form = _uiState.value.contracts.form ?: return
+        przeliczZalacznik(form.filling.pozycje, form.filling.przedmiot)
+    }
+
+    /**
+     * PRZELICZENIE ZAŁĄCZNIKA NR 1 Z AUDYTU.
+     *
+     * Ilości i ceny stoją już w zakładce „Oferta" (audyt × formuła ceny węzła) —
+     * przepisywanie ich ręcznie do umowy było jedynym miejscem, w którym oferta
+     * mogła rozjechać się z dokumentem. Rachunek leci poza wątkiem głównym:
+     * geometria rzutu potrafi zająć chwilę.
+     */
+    private fun przeliczZalacznik(biezace: List<ContractItem>, biezacyPrzedmiot: String) {
+        viewModelScope.launch {
+            updateContractForm { it.copy(liczenie = true) }
+            val instalacje = contractScopeInstallations()
+            val wynik = withContext(Dispatchers.Default) { contractScopeItems(instalacje) }
+            updateContractForm { form ->
+                if (!wynik.policzone) {
+                    // Brak audytu albo brak formuły ceny — zostawiamy to, co jest,
+                    // i mówimy wprost dlaczego. Cicha pusta tabela byłaby gorsza.
+                    return@updateContractForm form.copy(liczenie = false, braki = wynik.braki)
+                }
+                val scalone = scalPozycje(biezace, wynik.pozycje)
+                form.copy(
+                    liczenie = false,
+                    braki = wynik.braki,
+                    filling = form.filling.copy(
+                        pozycje = scalone,
+                        // Przedmiot § 1 opisuje zakres, więc idzie za audytem —
+                        // ale wyłącznie wtedy, gdy nikt go nie przepisał po
+                        // swojemu. Własne zdanie handlowca zostaje.
+                        przedmiot = if (
+                            wynik.przedmiot.isNotBlank() && przedmiotZAutomatu(biezacyPrzedmiot)
+                        ) {
+                            wynik.przedmiot
+                        } else {
+                            form.filling.przedmiot
+                        },
+                    ),
+                )
+            }
+        }
+    }
+
+    /**
+     * Instalacje deala z audytem i cennikiem — wejście przeliczenia. Te same
+     * odczyty, co zakładka „Oferta" (repozytoria mają cache, więc drugie wejście
+     * nie dobija do sieci), ale cennik ciągniemy dla WSZYSTKICH instalacji:
+     * Załącznik nr 1 obejmuje cały zakres deala, a nie tylko tę instalację,
+     * którą ktoś ogląda.
+     */
+    private suspend fun contractScopeInstallations(): List<ContractScopeInstallation> {
+        val audits = runCatching { auditRepository.getAudits(dealId) }.getOrDefault(emptyList())
+        val categories = runCatching { auditRepository.getCategories() }.getOrDefault(emptyList())
+        val snapshot = runCatching { auditRepository.getAuditInstallations(dealId) }
+            .getOrDefault(AuditInstallations())
+
+        val byId = categories.associateBy { it.id }
+        val forms = audits.filter { it.installationForm != null }
+
+        return offerInstallationIds(snapshot).map { id ->
+            val owner = resolveAuditForm(id, byId)
+            val record = owner?.let { o ->
+                forms.firstOrNull { it.categoryId == o.id }
+                    ?: forms.firstOrNull { it.categoryId == null }
+            }
+            val pricing = owner?.let {
+                runCatching {
+                    offerPricingRepository.getPricing(
+                        categoryId = it.id,
+                        categoryName = it.name,
+                        categoryIdPath = categoryIdPath(it.id, byId),
+                    )
+                }.getOrNull()
+            }
+            ContractScopeInstallation(
+                ownerId = owner?.id,
+                name = byId[id]?.name ?: "instalacja",
+                form = record?.installationForm,
+                pricing = pricing,
+            )
+        }
+    }
+
+    /**
+     * Migawka materiału do dokumentu. Telefon jej NIE LICZY (dobór materiału to
+     * kilkaset linijek rachunku po stronie panelu) — bierzemy zestawienie
+     * z rezerwacji deala, którą policzył panel z audytu. Gdy rezerwacji nie ma,
+     * zostaje to, co niosła poprzednia wersja umowy; a gdy i tego nie ma,
+     * formularz mówi wprost, że po podpisie magazyn trzeba ruszyć z panelu.
+     */
+    private fun wczytajMaterialDoFormularza(poprzednie: List<ContractMaterial>) {
+        viewModelScope.launch {
+            val swiezy = contractRepository.materialsFromReservation(dealId).map { line ->
+                ContractMaterial(
+                    productId = line.productId,
+                    kod = line.kod,
+                    nazwa = line.nazwa,
+                    ilosc = line.ilosc,
+                    jm = line.jm,
+                    klucz = line.klucz,
+                    uwaga = line.uwaga,
+                    // Klucz linii ma postać `instalacja:pozycja` — nazwę
+                    // instalacji niesie już uwaga, więc jej nie zgadujemy.
+                    instalacjaId = line.klucz?.takeIf { it.contains(':') }?.substringBefore(':'),
+                    instalacja = null,
+                )
+            }
+            val materialy = swiezy.ifEmpty { poprzednie }
+            updateContractForm { form ->
+                form.copy(
+                    materialZnany = materialy.isNotEmpty(),
+                    filling = form.filling.copy(materialy = materialy),
+                )
+            }
+        }
+    }
+
+    /** Wystawienie umowy: PDF, numer i link nadaje serwer — my mamy treść. */
+    fun generateContract() {
+        val form = _uiState.value.contracts.form ?: return
+        if (!form.gotowe || form.zapis) return
+
+        viewModelScope.launch {
+            updateContractForm { it.copy(zapis = true, blad = null) }
+            val result = runCatching { contractRepository.generate(dealId, form.filling) }
+            val saved = result.getOrNull()
+            if (saved == null) {
+                updateContractForm {
+                    it.copy(
+                        zapis = false,
+                        blad = crmErrorMessage(
+                            result.exceptionOrNull() ?: Exception(),
+                            "Nie udało się wygenerować umowy",
+                        ),
+                    )
+                }
+                return@launch
+            }
+            _uiState.update {
+                it.copy(
+                    contracts = it.contracts.copy(form = null),
+                    message = if (saved.queued) {
+                        "Brak zasięgu — umowa czeka w telefonie. Numer, PDF i link do " +
+                            "podpisu powstaną, gdy wróci sieć."
+                    } else {
+                        "Umowa ${saved.numer.orEmpty()} wygenerowana — link do podpisu gotowy."
+                    },
+                )
+            }
+            loadContracts(force = true)
+            // Handlowiec ma od razu zobaczyć, co wygenerował — zanim wyśle link
+            // klientowi. Umowa z kolejki dokumentu jeszcze nie ma.
+            if (!saved.queued && saved.id != null) {
+                openContractPreview(saved.id, saved.numer.orEmpty(), saved.sciezkaPodpisu)
+            }
+        }
+    }
+
+    /**
+     * Zapis zmiany. Zarząd wysyła klientowi od razu, opiekun zostawia wniosek do
+     * akceptacji — pytanie „czy na pewno" zadaje zakładka, bo to ponowny podpis
+     * umowy, którą klient ma już za sobą.
+     */
+    fun saveContractChange() {
+        val form = _uiState.value.contracts.form ?: return
+        val target = form.zmianaDla ?: return
+        if (!form.gotowe || form.zapis) return
+
+        viewModelScope.launch {
+            updateContractForm { it.copy(zapis = true, blad = null) }
+            val result = runCatching {
+                contractRepository.requestChange(
+                    dealId = dealId,
+                    contractId = target.id,
+                    filling = form.filling,
+                    powod = form.powodZmiany,
+                    rodzaj = form.rodzajZmiany,
+                )
+            }
+            val saved = result.getOrNull()
+            if (saved == null) {
+                updateContractForm {
+                    it.copy(
+                        zapis = false,
+                        blad = crmErrorMessage(
+                            result.exceptionOrNull() ?: Exception(),
+                            "Nie udało się zapisać zmiany umowy",
+                        ),
+                    )
+                }
+                return@launch
+            }
+            _uiState.update {
+                it.copy(
+                    contracts = it.contracts.copy(form = null),
+                    message = when {
+                        saved.queued -> "Brak zasięgu — zmiana umowy ${target.numer} czeka " +
+                            "w telefonie i poleci, gdy wróci sieć."
+
+                        saved.stan == "czeka-na-akceptacje" ->
+                            "Zmiana umowy ${target.numer} czeka na akceptację zarządu."
+
+                        else -> "Zmiana umowy ${target.numer} wystawiona — klient ma link " +
+                            "do ponownego podpisu."
+                    },
+                )
+            }
+            loadContracts(force = true)
+            if (!saved.queued && saved.id != null && saved.stan == "do-podpisu") {
+                openContractPreview(saved.id, saved.numer.orEmpty(), saved.sciezkaPodpisu)
+            }
+        }
+    }
+
+    /** Akceptacja wniosku o zmianę — to ona wysyła umowę do klienta po raz drugi. */
+    fun approveContractChange(contract: DealContract) = runContractAction(
+        contract = contract,
+        action = { contractRepository.approveChange(dealId, contract.id) },
+        sent = "Zmiana zaakceptowana — klient ma link do ponownego podpisu.",
+        queued = "Brak zasięgu — akceptacja poleci, gdy wróci sieć.",
+        failure = "Nie udało się zaakceptować zmiany",
+    )
+
+    fun rejectContractChange(contract: DealContract, powod: String?) = runContractAction(
+        contract = contract,
+        action = { contractRepository.rejectChange(dealId, contract.id, powod) },
+        sent = "Zmiana odrzucona — umowa ${contract.numer} zostaje bez zmian.",
+        queued = "Brak zasięgu — odrzucenie poleci, gdy wróci sieć.",
+        failure = "Nie udało się odrzucić zmiany",
+    )
+
+    /**
+     * Nowy link do podpisu dla istniejącej umowy. Poprzedni przestaje działać —
+     * o tym mówi zakładka przed kliknięciem.
+     */
+    fun resendContract(contract: DealContract) = runContractAction(
+        contract = contract,
+        action = { contractRepository.resend(dealId, contract.id) },
+        sent = "Nowy link do podpisu gotowy — skopiuj go klientowi.",
+        queued = "Brak zasięgu — nowy link powstanie, gdy wróci sieć.",
+        failure = "Nie udało się wystawić linku",
+    )
+
+    fun cancelContract(contract: DealContract) = runContractAction(
+        contract = contract,
+        action = { contractRepository.cancel(dealId, contract.id) },
+        sent = if (contract.zastepuje != null) {
+            "Zmiana wycofana — obowiązuje ostatni podpisany dokument."
+        } else {
+            "Umowa unieważniona — link klienta przestał działać."
+        },
+        queued = "Brak zasięgu — unieważnienie poleci, gdy wróci sieć.",
+        failure = "Nie udało się unieważnić umowy",
+    )
+
+    /**
+     * Odtworzenie zamówienia z podpisanej umowy — dla kart, na których automat
+     * po podpisie się nie wykonał. Idempotentne: powtórne kliknięcie tylko
+     * potwierdza stan.
+     */
+    fun rebuildContractOrder(contract: DealContract) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(contracts = it.contracts.copy(busyId = contract.id)) }
+            val result = runCatching { contractRepository.rebuildOrder(dealId, contract.id) }
+            val done = result.getOrNull()
+            _uiState.update {
+                it.copy(
+                    contracts = it.contracts.copy(busyId = null),
+                    message = when {
+                        done == null -> crmErrorMessage(
+                            result.exceptionOrNull() ?: Exception(),
+                            "Nie udało się odtworzyć zamówienia",
+                        )
+
+                        done.queued -> "Brak zasięgu — odtworzenie zamówienia poleci, " +
+                            "gdy wróci sieć."
+
+                        else -> rebuildOrderMessage(contract.numer, done)
+                    },
+                )
+            }
+            if (done?.queued == false) loadOrders(force = true)
+            loadContracts(force = true)
+        }
+    }
+
+    /** Komunikat 1:1 z panelu — powstało, zmieniło się czy już było. */
+    private fun rebuildOrderMessage(numer: String, done: ContractOrderRebuild): String {
+        val ile = if (done.zamowienia > 1) " w ${done.zamowienia} zamówieniach" else ""
+        return when (done.status) {
+            "istnialo" -> "Zamówienie z umowy $numer już stało na karcie — nic nie zdublowaliśmy."
+            "zmienione" -> "Zamówienie z umowy $numer zaktualizowane (${done.pozycje} poz.$ile) " +
+                "— zakładka „Zamówienie”."
+
+            else -> "Zamówienie z umowy $numer odtworzone (${done.pozycje} poz.$ile) " +
+                "— zakładka „Zamówienie”."
+        }
+    }
+
+    /**
+     * Wspólna obsługa akcji na karcie umowy: blokada dwukliku, komunikat
+     * i odświeżenie listy. Kolejka mówi WPROST, że decyzja siedzi w telefonie —
+     * samo „gotowe" znaczyłoby dla handlowca „klient już to dostał".
+     */
+    private fun runContractAction(
+        contract: DealContract,
+        action: suspend () -> ContractSaveResult,
+        sent: String,
+        queued: String,
+        failure: String,
+    ) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(contracts = it.contracts.copy(busyId = contract.id)) }
+            val result = runCatching { action() }
+            val saved = result.getOrNull()
+            _uiState.update {
+                it.copy(
+                    contracts = it.contracts.copy(busyId = null),
+                    message = when {
+                        saved == null -> crmErrorMessage(
+                            result.exceptionOrNull() ?: Exception(),
+                            failure,
+                        )
+
+                        saved.queued -> queued
+                        else -> sent
+                    },
+                )
+            }
+            loadContracts(force = true)
+        }
+    }
+
+    /** Podgląd dokumentu — HTML ten sam, z którego powstaje PDF. */
+    fun openContractPreview(contractId: String, numer: String, sciezkaPodpisu: String?) {
+        _uiState.update {
+            it.copy(
+                contracts = it.contracts.copy(
+                    preview = ContractPreviewState(
+                        contractId = contractId,
+                        numer = numer,
+                        sciezkaPodpisu = sciezkaPodpisu,
+                    ),
+                ),
+            )
+        }
+        viewModelScope.launch {
+            val preview = contractRepository.getPreview(dealId, contractId)
+            _uiState.update { state ->
+                val open = state.contracts.preview ?: return@update state
+                if (open.contractId != contractId) return@update state
+                state.copy(
+                    contracts = state.contracts.copy(
+                        preview = open.copy(
+                            isLoading = false,
+                            preview = preview,
+                            error = if (preview == null) {
+                                "Nie udało się wczytać dokumentu. Bez zasięgu widać tylko " +
+                                    "umowy, które telefon zdążył już pokazać."
+                            } else {
+                                null
+                            },
+                        ),
+                    ),
+                )
+            }
+        }
+    }
+
+    fun closeContractPreview() {
+        _uiState.update { it.copy(contracts = it.contracts.copy(preview = null)) }
+    }
+
+    /**
+     * PDF do udostępnienia klientowi. Składa go serwer, więc bez zasięgu tej
+     * akcji nie ma — podgląd HTML zostaje.
+     */
+    fun downloadContractPdf(contract: DealContract, cacheDir: File, onReady: (File) -> Unit) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(contracts = it.contracts.copy(pdfId = contract.id)) }
+            val nazwa = "umowa-${contract.numer.ifBlank { contract.id }}"
+                .replace(Regex("[^A-Za-z0-9_.-]"), "-") + ".pdf"
+            val result = runCatching {
+                val dir = File(cacheDir, "umowy").apply { mkdirs() }
+                val target = File(dir, nazwa)
+                contractRepository.downloadPdf(dealId, contract.id, target)
+                target
+            }
+            _uiState.update {
+                it.copy(
+                    contracts = it.contracts.copy(pdfId = null),
+                    message = result.exceptionOrNull()?.let { e ->
+                        crmErrorMessage(e, "Nie udało się pobrać PDF-a umowy")
+                    },
+                )
+            }
+            result.getOrNull()?.let(onReady)
+        }
+    }
+
+    private fun updateContractForm(transform: (ContractForm) -> ContractForm) {
+        _uiState.update { state ->
+            val form = state.contracts.form ?: return@update state
+            state.copy(contracts = state.contracts.copy(form = transform(form)))
+        }
+    }
+
+    private fun updateContractFilling(transform: (ContractFilling) -> ContractFilling) {
+        updateContractForm { it.copy(filling = transform(it.filling)) }
+    }
+
     /** Komunikat do snackbara wywołany z zakładki (bez własnej operacji). */
     fun showMessage(text: String) = _uiState.update { it.copy(message = text) }
 
@@ -2748,3 +3489,10 @@ private fun DealDraft.toNumberText() = DealDetailViewModel.NumberText(
     areaM2 = areaM2?.toString().orEmpty(),
     floors = floors?.toString().orEmpty(),
 )
+
+/**
+ * Domyślny termin wykonania (§ 2): koniec przyszłego miesiąca. I tak zwykle do
+ * zmiany, ale nigdy w przeszłości — 1:1 z `domyslnyTermin` panelu.
+ */
+private fun domyslnyTerminUmowy(): String =
+    LocalDate.now().plusMonths(2).withDayOfMonth(1).minusDays(1).toString()

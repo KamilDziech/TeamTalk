@@ -981,3 +981,63 @@ val MIGRATION_21_22 = object : Migration(21, 22) {
         )
     }
 }
+
+/**
+ * Wersja 23 — cache i kolejka zakładki „Umowa". Migracja, nie kasowanie:
+ * w `contract_mutations` leżą umowy wystawione bez zasięgu (u klienta w domu,
+ * gdzie zasięgu zwykle nie ma) razem z całą swoją treścią, a to jedyna ich
+ * kopia do czasu wysłania.
+ */
+val MIGRATION_22_23 = object : Migration(22, 23) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `deal_contracts` (
+                `id` TEXT NOT NULL,
+                `dealId` TEXT NOT NULL,
+                `payload` TEXT NOT NULL,
+                `createdAt` TEXT NOT NULL,
+                `syncedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `contract_fillings` (
+                `contractId` TEXT NOT NULL,
+                `dealId` TEXT NOT NULL,
+                `numer` TEXT NOT NULL,
+                `wersja` INTEGER NOT NULL,
+                `payload` TEXT NOT NULL,
+                `syncedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`contractId`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `contract_previews` (
+                `contractId` TEXT NOT NULL,
+                `numer` TEXT NOT NULL,
+                `podpisana` INTEGER NOT NULL,
+                `html` TEXT NOT NULL,
+                `syncedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`contractId`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `contract_mutations` (
+                `targetId` TEXT NOT NULL,
+                `kind` TEXT NOT NULL,
+                `payload` TEXT NOT NULL,
+                `dealId` TEXT NOT NULL,
+                `createdAt` INTEGER NOT NULL,
+                PRIMARY KEY(`targetId`, `kind`)
+            )
+            """.trimIndent(),
+        )
+    }
+}

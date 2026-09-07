@@ -79,6 +79,7 @@ Trzy konta zamiast jednego, bo tylko tak da się na telefonie sprawdzić, że pr
 - **3 zgłoszenia z leadowni** (kanały `targi` / `www` / `tel`) — pozostałe deale celowo bez zgłoszenia, żeby dało się zobaczyć komunikat „deal spoza leadowni".
 - **Katalog technologii** (5 kategorii głównych + podkategorie), wartości ofert, „deale wspólne", historia zmian, kolejka nieodebranych połączeń i notatka z transkrypcją.
 - **Sprzedaż i magazyn** — deal „Wojcik — PV + magazyn" ma dwie oferty (przegraną i wygraną) i żadnego zamówienia (na nim testuje się ręczne zakładanie); deal „Instal Serwis" ma zamówienie **z umowy** z pozycjami w trzech stanach oraz rezerwację ze wszystkimi wariantami wiersza: pokryty, brak już kupowany, brak nieobjęty zakupem (na nim działa „ZAMÓW braki"), pozycja bez kartoteki i jedna wydana (historia).
+- **Umowy** — deal „Instal Serwis" ma umowę **podpisaną z parafą** i zestawieniem materiałowym (na niej działa zmiana i „Odtwórz zamówienie"); deal „Wojcik" jedną **wysłaną** z żywym licznikiem terminu i jedną **po terminie**; deal na etapie audytu — umowę podpisaną **bez parafy** Załącznika nr 1 oraz zgłoszoną do niej zmianę **czekającą na zarząd** (widać ją inaczej z konta `koordynator`, inaczej z `admin`).
 
 ---
 
@@ -115,10 +116,10 @@ audyt Heizlast (tryb + kW + notatka) i formularz audytu instalacji
   **serwer** z `heatloadInputs` `{area, standard, height?}`; telefon podaje
   wejścia, nie wynik
 - `PATCH /api/audits/:id` (`deal.manage`) — `formData` podmieniane w całości
-- `GET /api/deals/:id/contracts` → **zawsze `[]`**. Atrapa nie ma modułu Umowy,
-  a telefon pyta o tę listę tylko po to, żeby wiedzieć, czy oferta jest zamknięta
-  podpisem. Pusto = audyt otwarty, czyli stan do testowania formularza.
-  Blokady po podpisie (409) na atrapie **nie sprawdzisz**.
+- `GET /api/deals/:id/contracts` → lista umów deala (patrz sekcja „Umowy" niżej).
+  Zakładka „Audyt" czyta ją tylko po to, żeby wiedzieć, czy oferta jest zamknięta
+  podpisem. Deale z seedu **mają** podpisane umowy, więc pasek blokady widać —
+  samego zapisu audytu atrapa jednak nie blokuje (409 po podpisie: tylko board360).
 
 ### Pliki deala (zakładka „Pliki" karty deala)
 Metadane w pamięci, treść na dysku w `UPLOADS_DIR` (w board360 — w MinIO).
@@ -167,6 +168,41 @@ zamówienie powstaje **tylko z wygranej oferty**, a pokrycie rezerwacji
 Uprawnienia w seedzie dobrane tak, żeby dało się przeklikać **wszystkie trzy
 warianty** zakładki: `koordynator`/`biuro`/`admin` widzą całość, `montaz` ma
 sam magazyn (bez zamówień), a `serwisant` żadnego z dwóch bloków (2 × 403).
+
+### Umowy (zakładka „Umowa" karty deala)
+Jeden rekord = jeden **dokument do podpisu**. Zmiana podpisanej umowy nie
+nadpisuje wiersza, tylko dokłada nowy: wersja „…/Z2" **zastępuje** poprzednią,
+aneks „…/A1" **zmienia ją punktowo** (umowa pierwotna obowiązuje dalej).
+- `GET /api/deals/:dealId/contracts` → lista, najnowsze pierwsze (`crm.view`).
+  Umowa `sent`, której minęły 48 h, przechodzi w `expired` **przy odczycie** —
+  tak samo leniwie jak board360. `sciezkaPodpisu` nie wraca dla szkicu,
+  unieważnionej, zastąpionej i po terminie: martwy link prosi się o wysłanie
+- `POST /api/deals/:dealId/contracts` (`deal.manage`) → `{id, numer, status,
+  sciezkaPodpisu}`; numer z licznika miesiąca („UM/2026/09/003"), link żyje 48 h
+- `GET /api/deals/:dealId/contracts/:id/preview` (`crm.view`) → `{numer,
+  podpisana, html}` — dokument jako strona; telefon pokazuje go w `WebView`
+- `GET /api/deals/:dealId/contracts/:id/pdf` (`crm.view`) → **minimalny, ale
+  poprawny PDF** z numerem umowy. Atrapa nie składa prawdziwego dokumentu —
+  chodzi o ścieżkę „pobierz → FileProvider → Udostępnij"
+- `GET /api/deals/:dealId/contracts/:id/wypelnienie` (`crm.view`) → treść umowy
+  w kształcie formularza (prefill przy zmianie i przy wystawieniu po terminie)
+- `POST /api/deals/:dealId/contracts/:id/resend` (`deal.manage`) → nowy link;
+  `zakres: "zalacznik"`, gdy umowa jest podpisana bez parafy Załącznika nr 1
+- `POST /api/deals/:dealId/contracts/:id/change` (`deal.manage`) — wymaga
+  `powod`, `rodzaj` (`umowa`|`aneks`) i `potwierdzam: true`. **Zarząd** dostaje
+  `stan: "do-podpisu"` z linkiem, **opiekun deala** — `"czeka-na-akceptacje"`
+  (szkic bez linku). Druga zmiana tej samej umowy → 422
+- `POST /api/deals/:dealId/contracts/:id/change/approve` i `…/change/reject`
+  (`contract.change.approve` — **tylko admin/zarząd**, jak w board360)
+- `POST /api/deals/:dealId/contracts/:id/zamowienie` (`deal.manage`) — ten sam
+  automat, co po podpisie: z zestawienia materiałowego umowy powstaje po jednym
+  zamówieniu **na instalację**. Idempotentne (`utworzone` / `zmienione` /
+  `istnialo`); umowa bez materiału → 422
+- `DELETE /api/deals/:dealId/contracts/:id` (`deal.manage`) — unieważnienie
+  linku albo wycofanie zmiany; podpisanej umowy nie unieważnisz (422)
+
+Czego atrapa **nie ma**: publicznej strony `/umowa/<token>` i podpisywania.
+Umowy podpisane są w seedzie — podpisu nie złożysz z telefonu ani curlem.
 
 ### Dane pochodne lejka
 - `GET /api/deals/installations/current` → `{dealId: [idKategoriiGłównej]}`
@@ -325,5 +361,6 @@ src/store.js           baza w pamięci i helpery
 src/seed.js            dane startowe
 src/middleware.js      requireAuth / requirePermission / 422
 src/routes/            auth, clients, deals, intake, catalog, telephony, tasks,
-                       discussions, service, calendar, audits, sales, documents
+                       discussions, service, calendar, audits, sales, documents,
+                       contracts
 ```

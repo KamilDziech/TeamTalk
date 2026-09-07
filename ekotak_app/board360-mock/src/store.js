@@ -44,6 +44,12 @@ const db = {
   // magazynu (`to_order` -> `ordered` -> `received`), ktora NIE rusza stanu.
   offers: [],              // {id, organizationId, dealId, number, status, netTotal, ...items}
   orders: [],              // {id, organizationId, dealId, source, contractId, items[]}
+  // ── Umowy deala (zakladka „Umowa") ─────────────────────────────────────────
+  // Jeden rekord = jeden DOKUMENT do podpisu. Zmiana podpisanej umowy nie
+  // nadpisuje wiersza, tylko dokłada nowy (`supersedesId`) — wersje „/Z2"
+  // zastepuja poprzednia, aneksy „/A1" zmieniaja ja punktowo. `data` trzyma
+  // tresc w ksztalcie formularza (§ 1, § 2, etapy, Zalacznik nr 1, materialy).
+  contracts: [],           // {id, organizationId, dealId, number, status, kind, token, data, ...}
   reservations: [],        // {id, organizationId, dealId, productId, quantity, covered, status}
   purchaseOrders: [],      // {id, organizationId, productId, dealId, reservationId, status}
   // ── Serwis (modul Serwis + kafelek Przeglady) ──────────────────────────────

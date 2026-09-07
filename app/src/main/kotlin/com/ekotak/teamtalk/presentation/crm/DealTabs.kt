@@ -40,7 +40,7 @@ enum class DealTab(val key: String, val label: String, val ready: Boolean) {
     ZAMOWIENIE("zamowienia", "Zamówienie", true),
     MONTAZ("montaz", "Montaż", false),
     FAKTURA("faktura", "Faktura", false),
-    UMOWA("umowa", "Umowa", false),
+    UMOWA("umowa", "Umowa", true),
     KOMUNIKACJA("whatsapp", "Komunikacja", false),
     ZADANIA("zadania", "Zadania", false),
     HARMONOGRAM("projekt", "Harmonogram", true),
