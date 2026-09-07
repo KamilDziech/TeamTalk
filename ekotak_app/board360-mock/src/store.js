@@ -14,6 +14,11 @@ const db = {
   devices: [],
   tasks: [],
   projects: [],            // projekty — krok "kogo dotyczy" w kreatorze zadania
+  // ── Modul Projekt (warstwa decyzyjna nad projektami) ───────────────────────
+  // Kamienie milowe i sklad zespolu to w board360 osobne tabele; karta projektu
+  // (`GET /api/projects/:id`) oddaje je jednym strzalem razem z zadaniami.
+  projectMilestones: [],   // {id, organizationId, projectId, name, dueAt, acceptanceCriteria, ownerId, doneAt, position}
+  projectMembers: [],      // {organizationId, projectId, userId, role} — sponsor|manager|worker|observer
   // ── Komentarze zadan i Komunikator wewnetrzny ──────────────────────────────
   // Dyskusja w Komunikatorze = watek komentarzy JEDNEGO zadania (board360 nie
   // ma osobnej tabeli dyskusji). Wzmianki rozwiniete do userow przy zapisie.
@@ -237,6 +242,67 @@ function logActivity(user, dealId, action, diff) {
   return row;
 }
 
+const projectById = (orgId, id) =>
+  db.projects.find((p) => p.id === id && p.organizationId === orgId) || null;
+
+/**
+ * Zadanie zaplanowane w projekcie wchodzi do realizacji samo, gdy nadejdzie
+ * jego `startAt` — board360 przestawia `planned` -> `active` przy kazdym
+ * odczycie listy zadan i listy projektow, wiec robimy to samo.
+ */
+function activateDueTasks(orgId) {
+  const now = Date.now();
+  db.tasks.forEach((t) => {
+    if (
+      t.organizationId === orgId &&
+      t.lifecycle === 'planned' &&
+      t.startAt &&
+      new Date(t.startAt).getTime() <= now
+    ) {
+      t.lifecycle = 'active';
+      t.updatedAt = nowIso();
+    }
+  });
+}
+
+/**
+ * Projekt w postaci, ktora widzi klient API — ten sam ksztalt na liscie
+ * (`GET /api/projects`) i w naglowku karty (`GET /api/projects/:id`), bo w
+ * board360 `ProjectDetail` rozszerza `Project`.
+ *
+ * KWOT tu nie ma i nie bedzie: `budgetPlanned` i wycene board360 wysyla
+ * wylacznie z uprawnieniem `projects.finance`, ktorego mobilka nie prosi.
+ * Liczniki (`taskCount`, `doneCount`, `memberCount`) doklejamy przy odczycie,
+ * tak jak panel — nie sa kolumnami tabeli.
+ */
+function presentProject(orgId, row) {
+  const tasks = db.tasks.filter((t) => t.organizationId === orgId && t.projectId === row.id);
+  const manager = row.managerId ? userById(orgId, row.managerId) : null;
+  const sponsor = row.sponsorId ? userById(orgId, row.sponsorId) : null;
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description || null,
+    color: row.color || null,
+    status: row.status,
+    stage: row.stage || 'active',
+    department: row.department || null,
+    managerId: row.managerId || null,
+    managerEmail: manager ? manager.email : null,
+    sponsorEmail: sponsor ? sponsor.email : null,
+    memberCount: db.projectMembers.filter(
+      (m) => m.organizationId === orgId && m.projectId === row.id,
+    ).length,
+    taskCount: tasks.length,
+    doneCount: tasks.filter((t) => t.status === 'done').length,
+    dueAt: row.dueAt || null,
+    problemStatement: row.problemStatement || null,
+    metricName: row.metricName || null,
+    metricBaseline: row.metricBaseline || null,
+    metricTarget: row.metricTarget || null,
+  };
+}
+
 /** Deale widoczne dla uzytkownika (clientVisibility === 'own' zawezasa do swoich). */
 function visibleDeals(user) {
   let list = db.deals.filter((d) => d.organizationId === user.organizationId);
@@ -252,6 +318,9 @@ module.exports = {
   dealById,
   userById,
   taskById,
+  projectById,
+  activateDueTasks,
+  presentProject,
   userLabel,
   discussionLabel,
   expandMentionTokens,

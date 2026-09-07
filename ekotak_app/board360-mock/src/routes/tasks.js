@@ -10,6 +10,10 @@
  * Sa tu takze komentarze karty zadania z wywolaniami (@) — Komunikator siedzi
  * osobno w `routes/discussions.js`, bo w board360 to inny modul. Czego (jeszcze)
  * nie ma: zalacznikow — wchodza z etapem E5, patrz design/mockups/modul-zadania.html.
+ *
+ * Z projektow zostaly tu tylko dwie trasy kreatora zadania (wybor projektu
+ * i zalozenie w nim zadania). Modul Projekt — karta, pomysly z Poczekalni,
+ * domkniecie zadania z czasem — siedzi w `routes/projects.js`.
  */
 
 const express = require('express');
@@ -24,6 +28,9 @@ const {
   userById,
   dealById,
   clientById,
+  projectById,
+  presentProject,
+  activateDueTasks,
   recordMentions,
   markDiscussionRead,
 } = require('../store');
@@ -71,13 +78,15 @@ function dealLabel(orgId, dealId) {
   return `${client.firstName} ${client.lastName}`.trim();
 }
 
-const projectById = (orgId, id) =>
-  db.projects.find((p) => p.id === id && p.organizationId === orgId) || null;
-
 /** Rekord w postaci, ktora widzi klient API (z doklejonymi nazwami zrodel). */
 function present(orgId, row) {
+  // Kolumny projektowe siedza w tym samym wierszu (jedna tabela `tasks`), ale
+  // modul Zadania ich NIE wystawia — czyta je wylacznie modul Projekt
+  // (`GET /api/projects/:id`). Tak samo w board360: `Task` i `ProjectTask` to
+  // dwa rzuty na ten sam wiersz.
+  const { lifecycle, milestoneId, actualMinutes, startAt, ...task } = row;
   return {
-    ...row,
+    ...task,
     dealName: row.dealId ? dealLabel(orgId, row.dealId) : null,
     projectName: row.projectId ? projectById(orgId, row.projectId)?.name || null : null,
   };
@@ -164,7 +173,13 @@ router.get('/tasks', requireAuth, requirePermission('tasks.view'), (req, res) =>
   const statusF = req.query.status ? String(req.query.status) : null;
   const assigneeF = req.query.assignee === 'me' ? req.user.id : req.query.assignee || null;
 
-  let list = db.tasks.filter((t) => t.organizationId === req.user.organizationId);
+  activateDueTasks(req.user.organizationId);
+  // Lista pokazuje TYLKO zadania przekazane do realizacji. Zaplanowane
+  // w projekcie (`lifecycle='planned'`) zyja wylacznie w karcie projektu,
+  // dokladnie jak w board360 (`prisma-task.repository`).
+  let list = db.tasks.filter(
+    (t) => t.organizationId === req.user.organizationId && (t.lifecycle || 'active') === 'active',
+  );
   if (statusF) list = list.filter((t) => t.status === statusF);
   if (assigneeF) list = list.filter((t) => t.assigneeId === assigneeF);
   list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -333,24 +348,23 @@ router.delete('/tasks/:id', requireAuth, requirePermission('tasks.manage'), (req
 });
 
 // ── Projekty (krok "kogo dotyczy" w kreatorze) ───────────────────────────────
+// Reszta modulu Projekt — karta, pomysly, domkniecie zadania — siedzi
+// w `routes/projects.js`. Te dwie trasy zostaja tutaj, bo obsluguja kreator
+// zadania: wybor projektu i zalozenie w nim zadania.
 router.get('/projects', requireAuth, requirePermission('projects.view'), (req, res) => {
+  // Bez `status` oddajemy WSZYSTKO poza szablonami — tak pyta modul Projekt,
+  // ktory chce widziec takze pomysly z Poczekalni. Kreator zadania woła
+  // `status=active` i dostaje sam zestaw aktywnych.
   const statusF = req.query.status ? String(req.query.status) : null;
   // `templates=0` (domyslnie) chowa szablony projektow — tak pyta mobilka.
   const withTemplates = String(req.query.templates || '0') === '1';
 
+  activateDueTasks(req.user.organizationId);
   let list = db.projects.filter((p) => p.organizationId === req.user.organizationId);
   if (statusF) list = list.filter((p) => p.status === statusF);
   if (!withTemplates) list = list.filter((p) => !p.isTemplate);
 
-  res.json(
-    list.map((p) => ({
-      id: p.id,
-      name: p.name,
-      status: p.status,
-      color: p.color,
-      taskCount: db.tasks.filter((t) => t.projectId === p.id).length,
-    })),
-  );
+  res.json(list.map((p) => presentProject(req.user.organizationId, p)));
 });
 
 router.post('/projects/:id/tasks', requireAuth, requirePermission('projects.manage'), (req, res) => {

@@ -697,23 +697,104 @@ function seed(db) {
   });
 
   // ── Projekty (krok "kogo dotyczy" w kreatorze, zrodlo zadan bez klienta) ───
+  // Od modulu Projekt wiersz niesie takze warstwe decyzyjna: etap, prowadzacego,
+  // sponsora, uzasadnienie i miare. Kwot (`budgetPlanned`) tu nie ma — board360
+  // wysyla je tylko z `projects.finance`, a mobilka o nie nie pyta.
   const project = (name, color, opts = {}) => {
     const row = {
       id: uuid(),
       organizationId: db.organization.id,
       name,
+      description: opts.description || null,
       status: opts.status || 'active',
       color,
       isTemplate: Boolean(opts.isTemplate),
+      stage: opts.stage || 'active',
+      department: opts.department || null,
+      managerId: opts.manager ? opts.manager.id : null,
+      sponsorId: opts.sponsor ? opts.sponsor.id : null,
+      problemStatement: opts.problemStatement || null,
+      metricName: opts.metricName || null,
+      metricBaseline: opts.metricBaseline || null,
+      metricTarget: opts.metricTarget || null,
+      dueAt: opts.dueAt || null,
+      createdBy: (opts.createdBy || users.koordynator).id,
       createdAt: daysAgo(30),
+      updatedAt: daysAgo(30),
     };
     db.projects.push(row);
     return row;
   };
-  const pMontaze = project('Montaze wrzesien', '#44D62C');
-  project('Audyty energetyczne 2026', '#38BDF8');
+  const pMontaze = project('Montaze wrzesien', '#44D62C', {
+    description: 'Osiem instalacji z wrzesniowego harmonogramu, jedna ekipa.',
+    department: 'montaz',
+    manager: users.koordynator,
+    sponsor: users.admin,
+    problemStatement: 'Ekipa montazowa traci dzien na kazdym powrocie po brakujacy material.',
+    metricName: 'Instalacje domkniete za pierwszym wyjazdem',
+    metricBaseline: '5 z 8',
+    metricTarget: '8 z 8',
+    dueAt: daysAhead(21),
+  });
+  project('Audyty energetyczne 2026', '#38BDF8', { manager: users.serwisant });
   project('Szablon: uruchomienie instalacji', '#C084FC', { isTemplate: true }); // ma NIE wracac z GET /projects
-  project('Targi Enex 2026', '#F778BA', { status: 'archived' });
+  project('Targi Enex 2026', '#F778BA', { status: 'archived', stage: 'closed' });
+  // Pomysl w Poczekalni — modul Projekt pyta bez `status`, wiec go widzi;
+  // kreator zadania (`status=active`) NIE, i o to chodzi.
+  project('Skrocic czas audytu o polowe', '#FBBF24', {
+    status: 'idea',
+    stage: 'idea',
+    department: 'serwis',
+    description: 'Formularz audytu wypelniany dwa razy: na kartce i wieczorem w panelu.',
+    createdBy: users.serwisant,
+  });
+
+  // ── Kamienie milowe i zespol projektu ──────────────────────────────────────
+  // Jednostka raportowania postepu w karcie projektu; zadania wieszaja sie na
+  // kamieniu przez `milestoneId`, stad paski postepu w mobilce.
+  const milestone = (proj, name, opts = {}) => {
+    const row = {
+      id: uuid(),
+      organizationId: db.organization.id,
+      projectId: proj.id,
+      name,
+      dueAt: opts.dueAt || null,
+      acceptanceCriteria: opts.acceptanceCriteria || null,
+      ownerId: opts.owner ? opts.owner.id : null,
+      doneAt: opts.doneAt || null,
+      position: db.projectMilestones.filter((m) => m.projectId === proj.id).length,
+    };
+    db.projectMilestones.push(row);
+    return row;
+  };
+  const member = (proj, user, role) => {
+    db.projectMembers.push({
+      organizationId: db.organization.id,
+      projectId: proj.id,
+      userId: user.id,
+      role,
+    });
+  };
+
+  const mMaterial = milestone(pMontaze, 'Material na magazynie', {
+    dueAt: daysAhead(3),
+    acceptanceCriteria: 'Komplet inwerterow i konstrukcji odebrany przez magazyn.',
+    owner: users.koordynator,
+  });
+  const mMontaz = milestone(pMontaze, 'Pierwsze cztery instalacje', {
+    dueAt: daysAhead(12),
+    acceptanceCriteria: 'Cztery instalacje uruchomione i zgloszone do OSD.',
+    owner: users.serwisant,
+  });
+  milestone(pMontaze, 'Odbior i dokumentacja', {
+    dueAt: daysAhead(20),
+    acceptanceCriteria: 'Protokoly podpisane, zdjecia w kartotece.',
+    owner: users.admin,
+  });
+
+  member(pMontaze, users.admin, 'sponsor');
+  member(pMontaze, users.koordynator, 'manager');
+  member(pMontaze, users.serwisant, 'worker');
 
   // ── Zadania zespolu ────────────────────────────────────────────────────────
   // Zestaw dobrany pod moduly listy: kazda sekcja, oba progi SLA, jedno zaległe,
@@ -735,6 +816,13 @@ function seed(db) {
       estimatedMinutes: o.estimatedMinutes || null,
       slaHours: o.slaHours || null,
       commentCount: o.commentCount || 0,
+      // ── Kolumny czytane WYLACZNIE przez modul Projekt ────────────────────
+      // Jedna tabela, dwa rzuty: `GET /api/tasks` ich nie wystawia (patrz
+      // `present()` w routes/tasks.js), karta projektu owszem.
+      lifecycle: o.lifecycle || 'active',
+      milestoneId: o.milestone ? o.milestone.id : null,
+      startAt: o.startAt || null,
+      actualMinutes: o.actualMinutes == null ? null : o.actualMinutes,
       createdBy: (o.createdBy || users.koordynator).id,
       createdAt: o.createdAt || daysAgo(1),
       updatedAt: o.createdAt || daysAgo(1),
@@ -785,6 +873,44 @@ function seed(db) {
     section: 'przed_montazem',
     slaHours: 24,
     createdAt: daysAgo(3),
+    milestone: mMaterial,
+  });
+  // Zadania projektowe serwisanta — na tym koncie testuje sie karte projektu
+  // na telefonie, wiec zakladka "moje" musi miec co pokazac: jedno domkniete
+  // z podanym czasem, jedno otwarte do domkniecia, jedno jeszcze `planned`
+  // (zyje tylko w projekcie i NIE wychodzi na liste zadan).
+  task({
+    projectId: pMontaze.id,
+    title: 'Odebrac konstrukcje z magazynu',
+    assignee: users.serwisant,
+    status: 'done',
+    dueAt: daysAgo(1),
+    section: 'przed_montazem',
+    estimatedMinutes: 60,
+    actualMinutes: 95,
+    createdAt: daysAgo(4),
+    milestone: mMaterial,
+  });
+  task({
+    projectId: pMontaze.id,
+    title: 'Uruchomic instalacje u p. Kowalskiej',
+    assignee: users.serwisant,
+    dueAt: daysAhead(2),
+    priority: 'high',
+    section: 'montaz',
+    estimatedMinutes: 240,
+    startAt: daysAhead(2),
+    milestone: mMontaz,
+  });
+  task({
+    projectId: pMontaze.id,
+    title: 'Zgloszenie do OSD dla czterech instalacji',
+    assignee: users.serwisant,
+    dueAt: daysAhead(10),
+    section: 'po_montazu',
+    estimatedMinutes: 120,
+    lifecycle: 'planned',
+    milestone: mMontaz,
   });
   const tCrew = task({
     dealId: dSold.id,

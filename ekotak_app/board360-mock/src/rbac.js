@@ -61,6 +61,8 @@ const ROLE_PERMS = {
   ],
   // Serwisant widzi projekty, ale nie zaklada w nich zadan — na tym koncie da sie
   // na telefonie sprawdzic, ze krok "projekt" w kreatorze konczy sie kodem 403.
+  // Od poluzowania z 2026-09-06 `projects.view` wystarcza takze do ZGLOSZENIA
+  // POMYSLU i do domkniecia WLASNEGO zadania (cudze nadal 403).
   serwisant: [
     'crm.view', 'telephony.use', 'tasks.view', 'tasks.manage', 'projects.view',
     'service.view', 'service.manage', 'calendar.view', 'hr.view',

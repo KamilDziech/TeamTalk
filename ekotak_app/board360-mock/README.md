@@ -177,6 +177,29 @@ Rekord zadania ma pełny kształt z board360 — `section`, `slaHours`, `estimat
 `createdBy` oraz doklejane przy odczycie `dealName` / `projectName`. Sekcja zadania zakładanego pod dealem
 wyprowadza się z etapu deala, o ile nie podano jej wprost.
 
+Lista zwraca **tylko zadania przekazane do realizacji**. Zadanie zaplanowane w projekcie
+(`lifecycle='planned'`) żyje wyłącznie w karcie projektu i wchodzi na listę samo, gdy nadejdzie jego
+`startAt` — tak jak w board360.
+
+### Projekty (moduł Projekt)
+- `GET /api/projects/:id` — karta projektu **jednym strzałem**: nagłówek, `milestones[]`, `tasks[]`, `members[]`
+- `POST /api/projects` `{name, description?, department?, status?}` → 201 — pomysł do Poczekalni
+  (`status: 'idea'` → `stage: 'idea'` i bez prowadzącego; każdy inny status startuje od `appraisal`
+  z autorem jako prowadzącym)
+- `POST /api/projects/tasks/:taskId/close` `{actualMinutes?}` — domknięcie z podaniem czasu;
+  `actualMinutes` puste = „nie podano", zadanie liczy się po estymacie (celowo bez blokady)
+
+Uprawnienia 1:1 z board360 po **poluzowaniu z 2026-09-06**: wszystkie trzy trasy chodzą pod
+`projects.view`, żeby wykonawca w terenie domknął zadanie i zgłosił pomysł z telefonu. Zostały dwie
+granice — obie do sprawdzenia na koncie `serwisant@ekotak.pl`:
+
+- `POST /api/projects` z czymś innym niż goły pomysł (`status != 'idea'` albo `isTemplate`) → **403**
+- `POST /api/projects/tasks/:id/close` na **cudzym** zadaniu → **403** (własne domyka się normalnie;
+  zadanie bez wykonawcy nie jest niczyje i też wymaga `projects.manage`)
+
+Czego atrapa nie modeluje, bo to zakładki panelu: sekcje, zależności zadań (Gantt), wycena i budżet
+(`projects.finance`), przenoszenie pomysłów w Poczekalni, szablony, obciążenie zespołu, stawki ról.
+
 ### Komentarze i Komunikator wewnętrzny
 - `GET /api/tasks/:id/comments`, `POST /api/tasks/:id/comments` `{body, mentions[]}` — `mentions[]` to
   TOKENY wywołań (`user:<id>`, `role:<rola>`, `watchers`, `all`), nie nazwiska; w tekście komentarza
