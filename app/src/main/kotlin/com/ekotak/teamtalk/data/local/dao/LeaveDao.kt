@@ -22,6 +22,10 @@ interface LeaveDao {
     @Query("SELECT * FROM leave_requests WHERE mine = 1 ORDER BY startDate DESC")
     fun observeMyRequests(): Flow<List<LeaveRequestEntity>>
 
+    /** Skrzynka zwierzchnika — wnioski podwładnych, najpilniejsze na górze. */
+    @Query("SELECT * FROM leave_requests WHERE mine = 0 ORDER BY startDate ASC")
+    fun observeInboxRequests(): Flow<List<LeaveRequestEntity>>
+
     @Query("SELECT * FROM leave_absences ORDER BY startDate ASC")
     fun observeAbsences(): Flow<List<LeaveAbsenceEntity>>
 

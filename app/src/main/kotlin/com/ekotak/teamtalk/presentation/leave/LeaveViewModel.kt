@@ -9,6 +9,7 @@ import com.ekotak.teamtalk.domain.model.LeaveDraft
 import com.ekotak.teamtalk.domain.model.LeaveMode
 import com.ekotak.teamtalk.domain.model.LeaveOverlapException
 import com.ekotak.teamtalk.domain.model.LeaveRequest
+import com.ekotak.teamtalk.domain.model.LeaveStatus
 import com.ekotak.teamtalk.domain.model.LeaveType
 import com.ekotak.teamtalk.domain.model.LeaveTypeNotAllowedException
 import com.ekotak.teamtalk.domain.model.TaskMember
@@ -69,6 +70,12 @@ class LeaveViewModel @Inject constructor(
         val isRefreshing: Boolean = false,
         val error: String? = null,
         val message: String? = null,
+        /** Który zbiór oglądamy: własny urlop czy zespół (skrzynka + oś czasu). */
+        val tab: LeaveTab = LeaveTab.MINE,
+        /** Skrzynka zwierzchnika — wnioski podwładnych. */
+        val inbox: List<LeaveRequest> = emptyList(),
+        /** Filtr działu na osi czasu — jak „Wszyscy / Biuro / Montaż" w panelu. */
+        val group: LeaveGroup = LeaveGroup.ALL,
         val scale: LeaveScale = LeaveScale.MONTH,
         /** Dzień, wokół którego liczymy widoczny zakres. */
         val anchor: LocalDate = LocalDate.now(),
@@ -96,6 +103,39 @@ class LeaveViewModel @Inject constructor(
                 return members.firstOrNull { it.id == id }?.displayName
             }
 
+        /** Wnioski czekające na MOJĄ decyzję — one dostają przyciski i plakietkę. */
+        val toDecide: List<LeaveRequest>
+            get() = inbox.filter { it.status == LeaveStatus.OCZEKUJE && it.canDecide }
+
+        /** Reszta skrzynki: rozpatrzone albo czekające na kogoś innego. */
+        val inboxContext: List<LeaveRequest>
+            get() = inbox.filterNot { it.status == LeaveStatus.OCZEKUJE && it.canDecide }
+
+        /**
+         * Ostrzeżenie o obsadzie: ilu ludzi TEJ SAMEJ roli będzie wtedy poza
+         * firmą. Liczymy z nieobecności, które i tak mamy w cache — zwierzchnik
+         * ma to zobaczyć przy przycisku, a nie w osobnym raporcie, bo to jedyny
+         * moment, w którym ktoś na to spojrzy.
+         */
+        fun coverageWarning(request: LeaveRequest): String? {
+            val role = request.employeeRole ?: return null
+            val teamSize = members.count { it.role == role }
+            if (teamSize < 2) return null
+            val clashing = absences
+                .filter { other ->
+                    other.userId != request.userId &&
+                        other.employeeRole == role &&
+                        other.status == LeaveStatus.ZATWIERDZONY &&
+                        !other.start.isAfter(request.end) &&
+                        !other.end.isBefore(request.start)
+                }
+                .map { it.userId }
+                .distinct()
+                .size
+            if (clashing == 0) return null
+            return "Kolizja: ${clashing + 1} z $teamSize ${roleGenitive(role)} poza firmą"
+        }
+
         /** Ile dni wymiaru zostanie po zatwierdzeniu tego, co w arkuszu. */
         fun remainingAfter(form: LeaveForm): Int? {
             val b = balance ?: return null
@@ -109,6 +149,15 @@ class LeaveViewModel @Inject constructor(
         }
     }
 
+    /** Zakładki ekranu — własny urlop i zespół, jak segment w makiecie. */
+    enum class LeaveTab(val label: String) { MINE("Moje"), TEAM("Zespół") }
+
+    /**
+     * Grupa operacyjna na osi czasu. Podział jak w panelu (`hrGroupOf`):
+     * montaż to montaż i stażyści, reszta — łącznie z serwisem — idzie do biura.
+     */
+    enum class LeaveGroup(val label: String) { ALL("Wszyscy"), OFFICE("Biuro"), FIELD("Montaż") }
+
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
@@ -119,6 +168,7 @@ class LeaveViewModel @Inject constructor(
                     it.copy(
                         balance = snapshot.balance,
                         myRequests = snapshot.myRequests,
+                        inbox = snapshot.inbox,
                         absences = snapshot.absences,
                         syncedAt = snapshot.syncedAt,
                         isLoading = false,
@@ -319,6 +369,40 @@ class LeaveViewModel @Inject constructor(
                 .onFailure { e ->
                     _uiState.update {
                         it.copy(message = crmErrorMessage(e, "Nie udało się anulować wniosku"))
+                    }
+                }
+        }
+    }
+
+    // ── Zespół ────────────────────────────────────────────────────────────────
+
+    fun setTab(tab: LeaveTab) = _uiState.update { it.copy(tab = tab) }
+
+    fun setGroup(group: LeaveGroup) = _uiState.update { it.copy(group = group) }
+
+    /**
+     * Decyzja o wniosku podwładnego. Odmowę zapisujemy z notatką — przy
+     * odrzuceniu to zwykle jedyna informacja, co pracownik ma dalej zrobić.
+     */
+    fun decide(id: String, approve: Boolean, note: String? = null) {
+        viewModelScope.launch {
+            runCatching { repository.decide(id, approve, note) }
+                .onSuccess { decided ->
+                    val who = decided.employeeName ?: "wniosek"
+                    _uiState.update {
+                        it.copy(
+                            message = when {
+                                decided.pendingSync ->
+                                    "Brak zasięgu — decyzja poleci po powrocie sieci."
+                                approve -> "Zatwierdzono: $who."
+                                else -> "Odrzucono: $who."
+                            },
+                        )
+                    }
+                }
+                .onFailure { e ->
+                    _uiState.update {
+                        it.copy(message = crmErrorMessage(e, "Nie udało się zapisać decyzji"))
                     }
                 }
         }

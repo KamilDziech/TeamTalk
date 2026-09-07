@@ -36,6 +36,9 @@ class SessionPreferences @Inject constructor(
         private val KEY_CALENDAR_LAYERS_OFF = stringSetPreferencesKey("calendar_layers_off")
         private val KEY_CALENDAR_OVERLAYS   = stringSetPreferencesKey("calendar_overlays_on")
         private val KEY_CALENDAR_ALERTS = stringSetPreferencesKey("calendar_event_alerts")
+
+        /** Znaczniki `wniosekId:status` — jeden alarm urlopowy na zmianę stanu. */
+        private val KEY_LEAVE_ALERTS = stringSetPreferencesKey("leave_alerts")
     }
 
     /** Token sesji board360 (wysyłany jako cookie `b360_session`). */
@@ -191,6 +194,30 @@ class SessionPreferences @Inject constructor(
             val current = prefs[KEY_CALENDAR_ALERTS] ?: return@edit
             val kept = current intersect markers
             if (kept.size != current.size) prefs[KEY_CALENDAR_ALERTS] = kept
+        }
+    }
+
+    // ── Powiadomienia modułu Urlop ────────────────────────────────────────────
+    // Ten sam wzorzec co przy kalendarzu: znacznik trzyma to, o czym już
+    // zatrąbiliśmy, więc robotnik chodzący co pół godziny nie powtarza alarmu.
+    // W kluczu jest STATUS, żeby wniosek cofnięty do akceptacji i rozpatrzony
+    // ponownie zatrąbił drugi raz — to druga decyzja, nie echo pierwszej.
+
+    val leaveAlertsSent: Flow<Set<String>> =
+        dataStore.data.map { it[KEY_LEAVE_ALERTS] ?: emptySet() }
+
+    suspend fun markLeaveAlertSent(marker: String) {
+        dataStore.edit { prefs ->
+            prefs[KEY_LEAVE_ALERTS] = (prefs[KEY_LEAVE_ALERTS] ?: emptySet()) + marker
+        }
+    }
+
+    /** Sprzątanie znaczników wniosków, których już nie ma na liście. */
+    suspend fun retainLeaveAlerts(markers: Set<String>) {
+        dataStore.edit { prefs ->
+            val current = prefs[KEY_LEAVE_ALERTS] ?: return@edit
+            val kept = current intersect markers
+            if (kept.size != current.size) prefs[KEY_LEAVE_ALERTS] = kept
         }
     }
 
