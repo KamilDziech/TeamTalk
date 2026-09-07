@@ -93,4 +93,9 @@ abstract class RepositoryModule {
 
     @Binds @Singleton
     abstract fun bindEmailRepository(impl: EmailRepositoryImpl): EmailRepository
+
+    @Binds @Singleton
+    abstract fun bindDealDocumentRepository(
+        impl: DealDocumentRepositoryImpl,
+    ): DealDocumentRepository
 }

@@ -120,6 +120,28 @@ audyt Heizlast (tryb + kW + notatka) i formularz audytu instalacji
   podpisem. Pusto = audyt otwarty, czyli stan do testowania formularza.
   Blokady po podpisie (409) na atrapie **nie sprawdzisz**.
 
+### Pliki deala (zakładka „Pliki" karty deala)
+Metadane w pamięci, treść na dysku w `UPLOADS_DIR` (w board360 — w MinIO).
+Sekcje: `projekt`, `dotacja`, `protokol`, `audyt`, `montaz`, `umowa`, `inne`.
+- `GET /api/deals/:id/documents` → lista, najstarsze pierwsze (`crm.view`)
+- `POST /api/deals/:id/documents` (`deal.manage`) — multipart, pole `file`,
+  limit `MAX_UPLOAD_BYTES` (25 MB). Bez pola `category` atrapa **zgaduje sekcję
+  z nazwy** („rzut…" → `projekt`, „protokół…" → `protokol`) — to odpowiednik
+  opcji „automatycznie (wykryj sekcję)" z panelu
+- `GET /api/documents/:id` → treść pliku (`crm.view`)
+- `PATCH /api/documents/:id` `{category}` (`deal.manage`) — przeniesienie sekcji
+- `PATCH /api/documents/:id/plan-data` `{planData}` (`deal.manage`) —
+  przygotowanie rzutu (skala + obrysy). `planData: null` **kasuje** je. Treść
+  jest swobodna, atrapa pilnuje tylko typu i rozmiaru (512 kB), jak board360
+- `DELETE /api/documents/:id` → 204 (`deal.manage`)
+- `GET /api/documents/:id/preview` → **zawsze `{pdf:false, pages:0}`**, a
+  `/preview/:page` oddaje 501. Atrapa nie renderuje PDF-ów; telefon i tak robi
+  to u siebie (`PdfRenderer`), więc pasek stron działa — panel go nie pokaże.
+
+**Slot rzutu** („Rzut parter", „Przekrój") nie jest osobnym polem: siedzi
+w NAZWIE pliku jako prefiks `[[parter]] `. Tak samo robi panel i po tym
+prefiksie audyt OP znajduje rzuty kondygnacji.
+
 ### Sprzedaż i magazyn (zakładka „Zamówienie" karty deala)
 Trzy reguły board360 odwzorowane 1:1: status zamówienia **wynika z pozycji**,
 zamówienie powstaje **tylko z wygranej oferty**, a pokrycie rezerwacji
@@ -297,5 +319,5 @@ src/store.js           baza w pamięci i helpery
 src/seed.js            dane startowe
 src/middleware.js      requireAuth / requirePermission / 422
 src/routes/            auth, clients, deals, intake, catalog, telephony, tasks,
-                       discussions, service, calendar, audits, sales
+                       discussions, service, calendar, audits, sales, documents
 ```

@@ -38,6 +38,9 @@ class NotificationHelper @Inject constructor(
         /** Poczta: wiadomość, której serwer nie przyjął przy wysyłce z kolejki. */
         const val EMAIL_CHANNEL_ID = "email_sync"
 
+        /** Pliki deala: plik z kolejki, którego serwer nie przyjął. */
+        const val DOCUMENTS_CHANNEL_ID = "documents_sync"
+
         /** Jedno powiadomienie na przypomnienia — kolejne podmienia poprzednie. */
         private const val REMINDER_NOTIFICATION_ID = 4200
         private val idCounter = AtomicInteger(1000)
@@ -264,6 +267,45 @@ class NotificationHelper @Inject constructor(
         )
 
         val notification = NotificationCompat.Builder(context, EMAIL_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_ekotak)
+            .setColor(ContextCompat.getColor(context, R.color.ekotak_green))
+            .setContentTitle(title)
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .build()
+
+        NotificationManagerCompat.from(context).notify(notificationId, notification)
+    }
+
+    /**
+     * Odmowa serwera przy wysyłce pliku deala zakolejkowanego bez zasięgu.
+     *
+     * Konieczne z tego samego powodu co przy poczcie: zdjęcie z montażu było
+     * widoczne na karcie, więc jego cichy zanik znaczyłby, że nikt go już nie
+     * zrobi drugi raz — a oryginał z aparatu bywa w międzyczasie skasowany.
+     * Bez wskazania karty w intencji: deal zna dopiero treść powiadomienia,
+     * a wchodzi się do niego z lejka.
+     */
+    fun showDocumentNotification(title: String, text: String, notificationId: Int) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED
+        ) return
+
+        val contentIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            notificationId,
+            contentIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+        val notification = NotificationCompat.Builder(context, DOCUMENTS_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_ekotak)
             .setColor(ContextCompat.getColor(context, R.color.ekotak_green))
             .setContentTitle(title)

@@ -221,6 +221,10 @@ fun DealDetailScreen(
                                 state = state,
                                 viewModel = viewModel,
                             )
+                            DealTab.PLIKI -> DealFilesTab(
+                                state = state,
+                                viewModel = viewModel,
+                            )
                             DealTab.HISTORIA -> DealHistoryTab(detail.activities, state.members)
                             DealTab.PODSUMOWANIE -> DealSummaryTab(detail, state.members)
                             else -> TabPlaceholder(state.tab)

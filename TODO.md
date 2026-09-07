@@ -118,7 +118,7 @@ bez cache Room — etap deala zmienia się często i po stronie panelu.
 - ✅ Termin następnego kontaktu — skróty jutro / 3 dni / tydzień / 2 tygodnie
 - ✅ Akcje zapisu widoczne tylko z uprawnieniem `deal.manage` (świeże z `GET /api/me`)
 - ❌ Cofanie etapu po głównej ścieżce (API dopuszcza — korekta zostaje w panelu)
-- ❌ Tworzenie deala, materiały, rozliczenie, pliki (oferta: patrz zakładka niżej)
+- ❌ Tworzenie deala, materiały, rozliczenie (oferta i pliki: patrz zakładki niżej)
 
 ### Zakładka „LEAD" karty deala
 
@@ -366,6 +366,69 @@ z warunkiem sieci — bez odpytywania.
    z wyjaśnieniem. Konto `serwisant`: oba bloki z wyjaśnieniem.
 4. Deal „Wojcik — PV + magazyn": selektor pokazuje TYLKO ofertę `won`;
    po utworzeniu zamówienie ma 3 pozycje przepisane z oferty.
+
+### Zakładka „Pliki" karty deala
+
+Odpowiednik `DealFilesPanel` panelu — te same sekcje, w tej samej kolejności
+i pod tymi samymi nazwami: „Projekt domu" z nazwanymi slotami rzutów, sekcje
+dokumentowe, wspólna grupa „Zdjęcia" z podgrupami Audyt i Montaż, UMOWA
+i „Pozostałe". Odczyt i pobranie stoją na `crm.view`, każdy zapis na
+`deal.manage`; treść trzyma MinIO po stronie board360.
+
+- ✅ Sloty rzutów wyliczane z danych budynku (piwnica / parter / piętra /
+  poddasze / garaż / Przekrój), z fallbackiem piwnicy i garażu ze zgłoszenia
+  z leadowni; slot z już wgranym plikiem zostaje, nawet gdy wypadł z reguły
+- ✅ Slot dopięty prefiksem `[[klucz]] ` w NAZWIE pliku — ta sama konwencja co
+  w panelu, więc rzut wgrany z telefonu widzi audyt OP zrobiony w web
+- ✅ „Przypisz do rzutu…" zamiast przeciągania miniatury (kopia w slocie,
+  z wyborem strony przy wielostronicowym PDF-ie) — przeciąganie przez
+  przewijaną listę na 360 dp byłoby loterią
+- ✅ Aparat przy sekcjach zdjęciowych i przy każdym slocie: zdjęcie prosto do
+  sekcji, bez uprawnienia `CAMERA` (intencja do systemowego aparatu)
+- ✅ Podgląd w aplikacji: zdjęcia i strony PDF renderowane u siebie
+  (`PdfRenderer`), szczypta i dwuklik do powiększania, „otwórz w innej
+  aplikacji" dla czytnika z zakładkami
+- ✅ „Wykryj sekcję automatycznie" — do wysyłki plik stoi w „Pozostałe",
+  właściwą sekcję zna dopiero serwer
+- ✅ „Przygotuj rzut": kalibracja skali odcinkiem o znanej długości i obrysy
+  pomieszczeń palcem, z nazwami, wycięciami i łatkami zagęszczenia. Zapis do
+  `DealDocument.planData` w formacie panelu — audyt OP wczyta go PRZYCISKIEM
+- ⛔ Przycinanie łatki do obrysu pomieszczenia **zostaje w panelu**: wymagamy,
+  żeby cała łatka leżała w środku. Docinanie wieloboku palcem to zgadywanka,
+  a jej skutek (metraż w cudzym pomieszczeniu) jest gorszy niż drugi obrys
+
+#### Kolejka offline zakładki „Pliki"
+
+Baza **18 → 19**: `deal_documents` (cache metadanych) i `document_mutations`
+(kolejka). Kolejkę opróżnia `DocumentSyncWorker` z warunkiem sieci.
+
+- ✅ Treść pliku wgranego bez zasięgu kopiujemy do `filesDir/deal-docs/outbox`
+  — nie do cache i nie jako `content://`: to JEDYNA kopia zdjęcia z kotłowni,
+  a oryginał z galerii bywa skasowany przed powrotem łączności
+- ✅ Plik z kolejki jest WIERSZEM cache'u (`local-…`, `pending`), a nie samą
+  nakładką: zdjęcie musi być widoczne na karcie od razu po zrobieniu
+- ✅ Przeniesienie sekcji, usunięcie i przygotowanie rzutu nakładane przy
+  odczycie — odświeżenie listy z serwera nie kasuje świeżej decyzji
+- ✅ Przygotowanie rzutu zrobione na pliku z kolejki leci zaraz PO jego
+  wgraniu — dopiero wtedy jest id, pod które ma trafić
+- ✅ Usunięcie pliku, który nigdy nie wyszedł z telefonu, nie rusza serwera
+- ✅ Odmowa serwera (za duży plik, brak `deal.manage`) zdejmuje wiersz z karty
+  i mówi o tym powiadomieniem — cichy zanik wyglądałby na komplet dokumentacji
+- ✅ Limit 25 MB sprawdzany PRZED kolejką: plik odrzucony dopiero przy wysyłce
+  znikałby godzinę po tym, jak ktoś go dodał
+
+#### Do przeklikania na urządzeniu
+
+1. Deal z danymi budynku → zakładka „Pliki": sloty zgodne z liczbą kondygnacji,
+   „Przekrój" na końcu.
+2. Aparat przy „Zdjęcia z montażu" → zdjęcie ląduje w sekcji od razu.
+3. Tryb samolotowy → dwa zdjęcia i przeniesienie trzeciego do innej sekcji →
+   wszystko z podpisem „czeka na wysyłkę"; wróć w zasięg i sprawdź
+   `GET /api/deals/:id/documents`.
+4. PDF z kilkoma stronami w „Pozostałe pliki projektu" → menu → „Przypisz do
+   rzutu…" → strona 2 → „Rzut parter"; slot dostaje kopię, oryginał zostaje.
+5. „Przygotuj rzut" na wgranym rzucie: skala z odcinka o znanej długości,
+   dwa obrysy, wycięcie w jednym z nich → metraż w panelu ten sam.
 
 ### Edycja karty (ekran `deal/{id}/edit`)
 

@@ -232,6 +232,15 @@ class TeamTalkApp : Application(), Configuration.Provider {
             )
             nm.createNotificationChannel(
                 NotificationChannel(
+                    NotificationHelper.DOCUMENTS_CHANNEL_ID,
+                    "Pliki deala",
+                    NotificationManager.IMPORTANCE_DEFAULT,
+                ).apply {
+                    description = "Plik wgrany bez zasięgu, którego serwer nie przyjął"
+                }
+            )
+            nm.createNotificationChannel(
+                NotificationChannel(
                     CallMonitorService.CHANNEL_ID,
                     "Monitorowanie połączenia",
                     NotificationManager.IMPORTANCE_LOW,

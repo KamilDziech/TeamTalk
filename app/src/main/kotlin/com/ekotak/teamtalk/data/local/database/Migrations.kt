@@ -849,3 +849,50 @@ val MIGRATION_17_18 = object : Migration(17, 18) {
         )
     }
 }
+
+/**
+ * v19 — zakładka „Pliki" karty deala.
+ *
+ * Dwie tabele: cache metadanych plików i kolejka niewysłanych decyzji. Wchodzą
+ * migracją, a nie kasowaniem bazy, bo od wersji 6 leży w niej kolejka zmian
+ * zrobionych bez zasięgu — jedyna kopia takich decyzji.
+ *
+ * `deal_documents` trzyma także pliki wgrane offline (id z prefiksem `local-`,
+ * `pending = 1`): treść siedzi wtedy w pamięci aplikacji pod `localPath`,
+ * a wiersz jest jedynym śladem, że zdjęcie w ogóle zrobiono. Dlatego kolejka
+ * NIE dubluje nazwy ani sekcji pliku — bierze je z tego wiersza przy wysyłce.
+ */
+val MIGRATION_18_19 = object : Migration(18, 19) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `deal_documents` (
+                `id` TEXT NOT NULL,
+                `dealId` TEXT NOT NULL,
+                `name` TEXT NOT NULL,
+                `size` INTEGER NOT NULL,
+                `contentType` TEXT NOT NULL,
+                `category` TEXT NOT NULL,
+                `planDataJson` TEXT,
+                `createdAt` TEXT NOT NULL,
+                `pending` INTEGER NOT NULL,
+                `localPath` TEXT,
+                `syncedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `document_mutations` (
+                `targetId` TEXT NOT NULL,
+                `kind` TEXT NOT NULL,
+                `dealId` TEXT NOT NULL,
+                `payload` TEXT NOT NULL,
+                `createdAt` INTEGER NOT NULL,
+                PRIMARY KEY(`targetId`, `kind`)
+            )
+            """.trimIndent(),
+        )
+    }
+}

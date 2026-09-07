@@ -8,4 +8,16 @@
     <cache-path name="task-attachments" path="attachments/" />
     <!-- Certyfikaty ukończonych szkoleń (PDF) otwierane systemowym czytnikiem. -->
     <cache-path name="training-certificates" path="certificates/" />
+    <!--
+      Pliki deala oddawane innej aplikacji z zakładki „Pliki". Wyłącznie
+      podkatalog `open/`: leżą tam KOPIE pod właściwą nazwą pliku, a nie sam
+      cache (tam nazwą jest id dokumentu, więc czytnik pokazywałby „a3f2…").
+    -->
+    <cache-path name="deal-documents" path="deal-docs/open/" />
+    <!--
+      Zdjęcie robione aparatem wprost do sekcji plików deala. Systemowy aparat
+      zapisuje je pod wskazanym `content://`, więc katalog musi być udostępniony
+      DO ZAPISU; po wgraniu plik z niego znika.
+    -->
+    <cache-path name="deal-camera" path="deal-camera/" />
 </paths>

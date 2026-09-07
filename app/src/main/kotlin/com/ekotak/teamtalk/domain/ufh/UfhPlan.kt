@@ -62,7 +62,13 @@ enum class AreaCat(
 /** Kategorie z polem metrażu I rozstawem — z nich składa się powierzchnia OP. */
 val SPACING_CATS: List<AreaCat> = AreaCat.entries.filter { it.field != null && it.spacingM != null }
 
-/** Kalibracja skali rzutu: odcinek o znanej długości. */
+/**
+ * Kalibracja skali rzutu: odcinek o znanej długości.
+ *
+ * Trzy ostatnie pola są czystym podpisem panelu — do rachunku niepotrzebne,
+ * ale telefon też ZAPISUJE skalę (przygotowanie rzutu w zakładce „Pliki"),
+ * więc musi je oddać nietknięte, zamiast kasować autora czyjejś kalibracji.
+ */
 data class PlanScale(
     val a: PlanPoint,
     val b: PlanPoint,
@@ -70,6 +76,11 @@ data class PlanScale(
     val cm: Double,
     /** Proporcja obrazu (szerokość / wysokość) z momentu kalibracji. */
     val aspect: Double,
+    /** Rzut, na którym kalibrowano — panel ostrzega po podmianie pliku. */
+    val planDocId: String = "",
+    /** Kiedy i kto kalibrował (podpis w panelu; puste = dostawi serwer). */
+    val at: String = "",
+    val byName: String = "",
 )
 
 /** Łatka zagęszczenia — fragment pomieszczenia ułożony innym rozstawem. */
@@ -106,8 +117,8 @@ data class FloorPlan(
 )
 
 /** Ile pomieszczeń i łatek przyjmujemy z zapisu — zapory z panelu. */
-private const val ROOMS_MAX = 40
-private const val PATCHES_MAX = 12
+internal const val ROOMS_MAX = 40
+internal const val PATCHES_MAX = 12
 
 private val planJson = Json { ignoreUnknownKeys = true; isLenient = true }
 
@@ -122,17 +133,17 @@ internal fun r1(v: Double): Double = jsRound(v * 10) / 10
 
 internal fun r2(v: Double): Double = jsRound(v * 100) / 100
 
-private fun clamp01(v: Double): Double = minOf(1.0, maxOf(0.0, v))
+internal fun clamp01(v: Double): Double = minOf(1.0, maxOf(0.0, v))
 
-private fun JsonObject.numOrNull(key: String): Double? =
+internal fun JsonObject.numOrNull(key: String): Double? =
     (this[key] as? JsonPrimitive)?.let { p ->
         p.doubleOrNull ?: p.content.trim().replace(',', '.').toDoubleOrNull()
     }
 
-private fun JsonObject.strOrEmpty(key: String): String =
+internal fun JsonObject.strOrEmpty(key: String): String =
     (this[key] as? JsonPrimitive)?.takeIf { it.isString }?.content.orEmpty()
 
-private fun pointsFromJson(v: kotlinx.serialization.json.JsonElement?): List<PlanPoint> {
+internal fun pointsFromJson(v: kotlinx.serialization.json.JsonElement?): List<PlanPoint> {
     val arr = v as? JsonArray ?: return emptyList()
     return arr.mapNotNull { el ->
         val o = el as? JsonObject ?: return@mapNotNull null
@@ -142,7 +153,7 @@ private fun pointsFromJson(v: kotlinx.serialization.json.JsonElement?): List<Pla
     }
 }
 
-private fun scaleFromJson(v: kotlinx.serialization.json.JsonElement?): PlanScale? {
+internal fun scaleFromJson(v: kotlinx.serialization.json.JsonElement?): PlanScale? {
     val o = v as? JsonObject ?: return null
     val a = (o["a"] as? JsonObject)?.let { p ->
         val x = p.numOrNull("x") ?: return@let null
@@ -157,7 +168,15 @@ private fun scaleFromJson(v: kotlinx.serialization.json.JsonElement?): PlanScale
     val cm = o.numOrNull("cm") ?: return null
     val aspect = o.numOrNull("aspect") ?: return null
     if (cm <= 0 || aspect <= 0) return null
-    return PlanScale(a, b, cm, aspect)
+    return PlanScale(
+        a = a,
+        b = b,
+        cm = cm,
+        aspect = aspect,
+        planDocId = o.strOrEmpty("planDocId"),
+        at = o.strOrEmpty("at"),
+        byName = o.strOrEmpty("byName"),
+    )
 }
 
 private fun patchesFromJson(v: kotlinx.serialization.json.JsonElement?): List<AreaPatch> {
@@ -177,7 +196,7 @@ private fun patchesFromJson(v: kotlinx.serialization.json.JsonElement?): List<Ar
     return out
 }
 
-private fun roomsFromJson(v: kotlinx.serialization.json.JsonElement?): List<RoomShape> {
+internal fun roomsFromJson(v: kotlinx.serialization.json.JsonElement?): List<RoomShape> {
     val arr = v as? JsonArray ?: return emptyList()
     val out = ArrayList<RoomShape>()
     for ((i, el) in arr.withIndex()) {

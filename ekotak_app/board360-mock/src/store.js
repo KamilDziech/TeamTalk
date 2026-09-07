@@ -25,6 +25,8 @@ const db = {
   taskComments: [],        // {id, organizationId, taskId, authorId, body, createdAt}
   // Metadane zalacznikow; tresc lezy na dysku w UPLOADS_DIR pod `storageKey`.
   taskAttachments: [],     // {id, organizationId, taskId, name, storageKey, size, contentType, uploadedBy, createdAt}
+  // Pliki deala (zakladka „Pliki"); tresc na dysku, `planData` = przygotowanie rzutu.
+  dealDocuments: [],       // {id, organizationId, dealId, name, storageKey, size, contentType, category, planData, uploadedBy, createdAt}
   taskCommentMentions: [], // {id, organizationId, taskId, commentId, userId, createdAt}
   discussionReads: [],     // {organizationId, userId, taskId, lastReadAt}
   // ── CRM ────────────────────────────────────────────────────────────────────

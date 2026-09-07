@@ -15,10 +15,16 @@ import com.ekotak.teamtalk.domain.model.ClientDraft
 import com.ekotak.teamtalk.domain.model.Deal
 import com.ekotak.teamtalk.domain.model.DealBuildingKind
 import com.ekotak.teamtalk.domain.model.DealDetail
+import com.ekotak.teamtalk.domain.model.DealDocument
 import com.ekotak.teamtalk.domain.model.DealDraft
 import com.ekotak.teamtalk.domain.model.DealOffer
 import com.ekotak.teamtalk.domain.model.DealOrder
 import com.ekotak.teamtalk.domain.model.DealStage
+import com.ekotak.teamtalk.domain.model.DocumentCategory
+import com.ekotak.teamtalk.domain.model.isImageOrPdfUpload
+import com.ekotak.teamtalk.domain.model.slotLabel
+import com.ekotak.teamtalk.domain.model.slotLimit
+import com.ekotak.teamtalk.domain.model.withSlot
 import com.ekotak.teamtalk.domain.model.PurchaseLine
 import com.ekotak.teamtalk.domain.model.StockReservation
 import com.ekotak.teamtalk.domain.model.pruneToSelected
@@ -44,6 +50,7 @@ import com.ekotak.teamtalk.domain.model.nextStages
 import com.ekotak.teamtalk.domain.model.toDraft
 import com.ekotak.teamtalk.domain.repository.AuditInstallations
 import com.ekotak.teamtalk.domain.repository.AuditRepository
+import com.ekotak.teamtalk.domain.repository.DealDocumentRepository
 import com.ekotak.teamtalk.domain.repository.AuditSaveResult
 import com.ekotak.teamtalk.domain.repository.AuthRepository
 import com.ekotak.teamtalk.domain.repository.OfferPricingRepository
@@ -51,6 +58,10 @@ import com.ekotak.teamtalk.domain.repository.OrderRepository
 import com.ekotak.teamtalk.domain.repository.OrderSaveResult
 import com.ekotak.teamtalk.domain.repository.TaskRepository
 import com.ekotak.teamtalk.domain.ufh.OfferPricing
+import com.ekotak.teamtalk.domain.ufh.PlanPrep
+import com.ekotak.teamtalk.domain.ufh.planPrepToJson
+import com.ekotak.teamtalk.domain.ufh.prepEmpty
+import com.ekotak.teamtalk.data.files.DocumentFileStore
 import com.ekotak.teamtalk.domain.usecase.calllog.MakeCallUseCase
 import com.ekotak.teamtalk.domain.usecase.client.UpdateClientUseCase
 import com.ekotak.teamtalk.domain.usecase.deal.AddDealCompanionUseCase
@@ -106,6 +117,13 @@ private const val PERMISSION_INVENTORY_MANAGE = "inventory.manage"
 private const val CONTACT_SEARCH_DEBOUNCE_MS = 250L
 
 /**
+ * Limit pliku deala po stronie board360 (`FileInterceptor` kontrolera
+ * dokumentów). Sprawdzamy go PRZED wrzuceniem do kolejki: plik odrzucony
+ * dopiero przy wysyłce zniknąłby z karty godzinę po tym, jak ktoś go dodał.
+ */
+private const val MAX_DOCUMENT_BYTES = 25 * 1024 * 1024
+
+/**
  * Pompa ciepła w ścieżce katalogu („Pompa ciepła", „Powietrzne pompy ciepła").
  * Rozpoznajemy po NAZWIE, a nie po id węzła — katalog jest budowany osobno
  * w każdej organizacji, więc id niczego nie gwarantuje. Ten sam wzorzec ma
@@ -151,6 +169,8 @@ class DealDetailViewModel @Inject constructor(
     private val auditRepository: AuditRepository,
     private val orderRepository: OrderRepository,
     private val offerPricingRepository: OfferPricingRepository,
+    private val dealDocumentRepository: DealDocumentRepository,
+    private val documentFiles: DocumentFileStore,
     private val makeCallUseCase: MakeCallUseCase,
 ) : ViewModel() {
 
@@ -452,6 +472,32 @@ class DealDetailViewModel @Inject constructor(
             get() = active?.formOwnerId?.let { pricing.containsKey(it) } ?: false
     }
 
+    /**
+     * Zakładka „Pliki". Dociągana przy wejściu w zakładkę, jak pozostałe —
+     * lista plików to osobne zapytanie, a większość wejść w kartę kończy się
+     * na „Dane".
+     *
+     * `offline` znaczy „to, co widzisz, jest z telefonu": lista przyszła
+     * z cache'u, bo serwer był nieosiągalny. Nie jest to błąd — wgrywanie i tak
+     * działa, zapisy czekają w kolejce — ale ma być widoczne, żeby nikt nie
+     * uznał braku cudzego pliku za jego brak w dealu.
+     */
+    data class FilesState(
+        val isLoading: Boolean = false,
+        val loaded: Boolean = false,
+        val documents: List<DealDocument> = emptyList(),
+        /** Piwnica i garaż ze zgłoszenia — fallback slotów, gdy „Dane" milczą. */
+        val leadBasement: Boolean? = null,
+        val leadGarage: Boolean? = null,
+        val offline: Boolean = false,
+        /** Trwa wgrywanie/kasowanie — blokuje przyciski, żeby nie dublować akcji. */
+        val busy: Boolean = false,
+        val error: String? = null,
+    ) {
+        /** Ile plików czeka w kolejce na wysyłkę — pasek nad sekcjami. */
+        val pendingCount: Int get() = documents.count { it.pending }
+    }
+
     data class UiState(
         val isLoading: Boolean = true,
         val isSaving: Boolean = false,
@@ -471,6 +517,7 @@ class DealDetailViewModel @Inject constructor(
         val audit: AuditState = AuditState(),
         val offer: OfferState = OfferState(),
         val orders: OrdersState = OrdersState(),
+        val files: FilesState = FilesState(),
         /**
          * Uprawnienia z `GET /api/me`. Trzymamy CAŁY zestaw, a nie same
          * `deal.manage`: zakładka „Zamówienie" pyta jeszcze o `order.manage`
@@ -635,6 +682,7 @@ class DealDetailViewModel @Inject constructor(
         if (tab == DealTab.AUDYT) loadAudit()
         if (tab == DealTab.OFERTA) loadOffer()
         if (tab == DealTab.ZAMOWIENIE) loadOrders()
+        if (tab == DealTab.PLIKI) loadFiles()
     }
 
     // ── Zakładka „LEAD" ──────────────────────────────────────────────────────
@@ -1879,6 +1927,209 @@ class DealDetailViewModel @Inject constructor(
                     )
                 }
             }
+        }
+    }
+
+    // ── Zakładka „Pliki" ─────────────────────────────────────────────────────
+
+    /**
+     * Pliki deala plus piwnica/garaż ze zgłoszenia. Ten drugi odczyt jest
+     * fallbackiem slotów „Projekt domu": gdy w „Danych" nikt nie zaznaczył
+     * ogrzewanej piwnicy, wiadomo o niej ze zgłoszenia z leadowni i slot ma się
+     * pojawić tak samo jak w panelu.
+     *
+     * @param force ponowny odczyt po zapisie albo po odświeżeniu karty.
+     */
+    fun loadFiles(force: Boolean = false) {
+        val files = _uiState.value.files
+        if (!force && (files.loaded || files.isLoading)) return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(files = it.files.copy(isLoading = true, error = null)) }
+
+            val snapshot = try {
+                dealDocumentRepository.getDocuments(dealId)
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        files = it.files.copy(
+                            isLoading = false,
+                            loaded = true,
+                            error = crmErrorMessage(e, "Nie udało się wczytać plików"),
+                        ),
+                    )
+                }
+                return@launch
+            }
+
+            // Zgłoszenie ciągniemy tylko raz: to dodatkowe zapytanie, a piwnica
+            // i garaż nie zmieniają się w trakcie oglądania plików.
+            val lead = if (files.loaded) null else runCatching { getLeadIntakeUseCase(dealId) }
+                .getOrNull()
+
+            _uiState.update { state ->
+                state.copy(
+                    files = state.files.copy(
+                        isLoading = false,
+                        loaded = true,
+                        documents = snapshot.documents,
+                        leadBasement = lead?.building?.heatedBasement ?: state.files.leadBasement,
+                        leadGarage = lead?.building?.heatedGarage ?: state.files.leadGarage,
+                        offline = snapshot.offline,
+                        error = snapshot.error,
+                    ),
+                )
+            }
+        }
+    }
+
+    /**
+     * Wgranie pliku do wskazanej sekcji. `category = null` znaczy „wykryj sekcję
+     * automatycznie" — rozstrzyga to serwer, więc do wysyłki plik leży
+     * w „Pozostałe".
+     *
+     * Odrzucamy wszystko poza zdjęciami i PDF-ami, dokładnie jak panel. Systemowy
+     * wybór pliku da się obejść (udostępnianie z innej aplikacji), a plik, którego
+     * API i tak nie przyjmie, nie ma po co jechać przez kolejkę.
+     */
+    fun uploadFile(
+        name: String,
+        contentType: String,
+        bytes: ByteArray,
+        category: DocumentCategory?,
+        slot: String? = null,
+    ) {
+        if (!isImageOrPdfUpload(name, contentType)) {
+            _uiState.update { it.copy(message = "Dozwolone są tylko zdjęcia i pliki PDF.") }
+            return
+        }
+        if (bytes.size > MAX_DOCUMENT_BYTES) {
+            _uiState.update { it.copy(message = "Plik jest większy niż 25 MB — board360 go nie przyjmie.") }
+            return
+        }
+        // Slot rzutu jest cechą NAZWY pliku, nie osobnym polem — ta sama
+        // konwencja co w panelu, więc audyt zobaczy rzut wgrany z telefonu.
+        val finalName = slot?.let { withSlot(it, name) } ?: name
+        val finalCategory = if (slot != null) DocumentCategory.PROJEKT else category
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(files = it.files.copy(busy = true)) }
+            val added = runCatching {
+                dealDocumentRepository.upload(dealId, finalName, contentType, finalCategory, bytes)
+            }.getOrNull()
+            _uiState.update {
+                it.copy(
+                    files = it.files.copy(busy = false),
+                    message = if (added == null) "Nie udało się zapisać pliku na telefonie." else null,
+                )
+            }
+            if (added != null) refreshFiles()
+        }
+    }
+
+    /**
+     * „Odbicie" pliku na slot rzutu — kopia dokumentu (albo pojedynczej strony
+     * PDF-a) wgrana jeszcze raz, z prefiksem slotu w nazwie. Oryginał zostaje:
+     * ten sam PDF bywa źródłem kilku rzutów.
+     *
+     * Panel pobiera stronę z `/preview/<n>`; telefon renderuje ją u siebie, więc
+     * odbicie działa też bez zasięgu — a wtedy i tak wszystko idzie kolejką.
+     */
+    fun mirrorToSlot(slotKey: String, document: DealDocument, page: Int? = null) {
+        val inSlot = _uiState.value.files.documents.count { it.slot == slotKey }
+        if (inSlot >= slotLimit(slotKey)) {
+            _uiState.update {
+                it.copy(message = "Slot „${slotLabel(slotKey)}” jest pełny (max ${slotLimit(slotKey)}).")
+            }
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(files = it.files.copy(busy = true)) }
+            val base = document.displayName.removeSuffix(".pdf").removeSuffix(".PDF")
+            val payload: Pair<ByteArray, Pair<String, String>>? = if (page != null) {
+                documentFiles.pageJpeg(document, page)
+                    ?.let { it to ("$base — str. $page.jpg" to "image/jpeg") }
+            } else {
+                documentFiles.content(document)?.readBytes()
+                    ?.let { it to (document.displayName to document.contentType) }
+            }
+
+            if (payload == null) {
+                _uiState.update {
+                    it.copy(
+                        files = it.files.copy(busy = false),
+                        message = "Nie udało się pobrać treści pliku — spróbuj z zasięgiem.",
+                    )
+                }
+                return@launch
+            }
+
+            val (bytes, meta) = payload
+            val added = runCatching {
+                dealDocumentRepository.upload(
+                    dealId = dealId,
+                    name = withSlot(slotKey, meta.first),
+                    contentType = meta.second,
+                    category = DocumentCategory.PROJEKT,
+                    bytes = bytes,
+                )
+            }.getOrNull()
+            _uiState.update {
+                it.copy(
+                    files = it.files.copy(busy = false),
+                    message = if (added == null) "Nie udało się przypisać miniatury." else null,
+                )
+            }
+            if (added != null) refreshFiles()
+        }
+    }
+
+    fun moveFile(document: DealDocument, category: DocumentCategory) {
+        viewModelScope.launch {
+            runCatching { dealDocumentRepository.setCategory(document, category) }
+            _uiState.update { it.copy(message = "Przeniesiono do „${category.label}”.") }
+            refreshFiles()
+        }
+    }
+
+    fun deleteFile(document: DealDocument) {
+        viewModelScope.launch {
+            runCatching { dealDocumentRepository.delete(document) }
+            refreshFiles()
+        }
+    }
+
+    /**
+     * Zapis przygotowania rzutu. Pusty rzut (bez skali i bez obrysów) KASUJE
+     * przygotowanie — tak samo jak `prepEmpty` w panelu.
+     */
+    fun savePlanPrep(document: DealDocument, prep: PlanPrep) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(files = it.files.copy(busy = true)) }
+            runCatching {
+                dealDocumentRepository.setPlanData(
+                    document = document,
+                    planData = if (prepEmpty(prep)) null else planPrepToJson(prep),
+                )
+            }
+            _uiState.update { it.copy(files = it.files.copy(busy = false)) }
+            refreshFiles()
+        }
+    }
+
+    /** Odczyt po zapisie — bez spinnera, karta ma tylko pokazać nowy stan. */
+    private suspend fun refreshFiles() {
+        val snapshot = runCatching { dealDocumentRepository.getDocuments(dealId) }.getOrNull()
+            ?: return
+        _uiState.update {
+            it.copy(
+                files = it.files.copy(
+                    documents = snapshot.documents,
+                    offline = snapshot.offline,
+                    error = snapshot.error,
+                ),
+            )
         }
     }
 

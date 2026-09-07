@@ -142,6 +142,68 @@ interface TeamTalkApi {
         @Body request: SetInstallationsRequest,
     ): DealInstallationsDto
 
+    // ── Pliki deala (zakładka „Pliki") ────────────────────────────────────────
+    // Odczyt i pobranie: `crm.view`; wgranie, usunięcie, zmiana sekcji i zapis
+    // przygotowania rzutu: `deal.manage`. Treść trzyma MinIO po stronie API,
+    // tutaj lecą metadane i strumienie.
+
+    @GET("api/deals/{id}/documents")
+    suspend fun getDealDocuments(@Path("id") dealId: String): List<DealDocumentDto>
+
+    /**
+     * Wgranie pliku (pole `file`, sekcja w polu `category`). Limit board360:
+     * 25 MB. Bez `category` serwer wybiera sekcję sam po nazwie pliku — panel
+     * nazywa to „automatycznie (wykryj sekcję)".
+     */
+    @Multipart
+    @POST("api/deals/{id}/documents")
+    suspend fun uploadDealDocument(
+        @Path("id") dealId: String,
+        @Part file: MultipartBody.Part,
+        @Part("category") category: okhttp3.RequestBody? = null,
+    ): DealDocumentDto
+
+    @PATCH("api/documents/{id}")
+    suspend fun setDocumentCategory(
+        @Path("id") id: String,
+        @Body body: JsonObject,
+    ): DealDocumentDto
+
+    /**
+     * Przygotowanie rzutu (skala + obrysy pomieszczeń). Ciało jako `JsonObject`,
+     * bo `{"planData": null}` KASUJE przygotowanie i musi dojść jako jawny
+     * `null`, a nie jako brak pola.
+     */
+    @PATCH("api/documents/{id}/plan-data")
+    suspend fun setDocumentPlanData(
+        @Path("id") id: String,
+        @Body body: JsonObject,
+    ): DealDocumentDto
+
+    /** Treść pliku. `@Streaming` — rzut z aparatu potrafi mieć kilkanaście MB. */
+    @Streaming
+    @GET("api/documents/{id}")
+    suspend fun downloadDocument(@Path("id") id: String): ResponseBody
+
+    /** Czy plik jest PDF-em i ile ma stron — pasek miniatur pyta o to najpierw. */
+    @GET("api/documents/{id}/preview")
+    suspend fun getDocumentPreview(@Path("id") id: String): DocumentPreviewDto
+
+    /**
+     * Strona PDF-a jako JPEG. Telefon woli renderować strony u siebie
+     * (`PdfRenderer`, działa bez zasięgu), ale gdy PDF-a nie ma jeszcze
+     * w pamięci podręcznej, jedna strona z serwera jest tańsza niż całość.
+     */
+    @Streaming
+    @GET("api/documents/{id}/preview/{page}")
+    suspend fun getDocumentPage(
+        @Path("id") id: String,
+        @Path("page") page: Int,
+    ): ResponseBody
+
+    @DELETE("api/documents/{id}")
+    suspend fun deleteDocument(@Path("id") id: String)
+
     // ── Audyty deala (zakładka „Audyt") ───────────────────────────────────────
     // Jeden endpoint obsługuje dwie rzeczy naraz: audyty Heizlast i formularz
     // audytu instalacji — rozróżnia je `formData.kind`. Odczyt wymaga
