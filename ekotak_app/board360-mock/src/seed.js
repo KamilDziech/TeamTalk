@@ -868,6 +868,7 @@ function seed(db) {
   seedCalendar(db, users);
   seedHr(db, users);
   seedSales(db, { dOffer, dSold, kontrahent, wojcik });
+  seedEmail(db, users, { kowalska, wojcik, dQual, dAudit });
 
   return { users, clients, missedNowak };
 }
@@ -1652,6 +1653,280 @@ function seedHr(db, users) {
   });
 
   return { annaWilk, marek, kasia, grzegorz, ola, ewa, tomasz };
+}
+
+/**
+ * Poczta e-mail dla modulu Email (panel: hub Komunikacja, telefon: kafelek Email).
+ *
+ * Zestaw dobrany tak, zeby na jednym koncie dalo sie zobaczyc KAZDY wariant
+ * wycinka opiekuna. Kontem odniesienia jest koordynator (Piotr) — opiekun deali
+ * Kowalskiej i Wojcik; serwisant (Jan) prowadzi deal Wisniewskiego:
+ *
+ *  1. watek dowiazany do deala koordynatora            -> jego wycinek,
+ *  2. watek dowiazany do deala SERWISANTA              -> nie jego, mimo ze
+ *     w tresci jest adres, ktory koordynator ma w kartotece,
+ *  3. watek niedowiazany, od adresu klienta z jego deala -> jego wycinek
+ *     (dopasowanie po adresie),
+ *  4. watek od zupelnie obcego adresu                  -> niczyj wycinek;
+ *     widzi go tylko konto z email.view_all przez scope=all,
+ *  5. watek w skrzynce PERSONALNEJ koordynatora        -> widzi go wylacznie on,
+ *     takze admin dostaje 404.
+ *
+ * Skrzynka personalna jest tu zalozona z gory (zwykle powstaje przy pierwszym
+ * wejsciu w modul) — inaczej punkt 5 nie mialby gdzie zamieszkac.
+ */
+function seedEmail(db, users, { kowalska, wojcik, dQual, dAudit }) {
+  const orgId = db.organization.id;
+
+  const account = (address, displayName, kind, userId) => {
+    const row = {
+      id: uuid(),
+      organizationId: orgId,
+      address,
+      displayName,
+      kind,
+      userId: userId || null,
+      createdAt: daysAgo(400),
+    };
+    db.emailAccounts.push(row);
+    return row;
+  };
+
+  const kontakt = account('kontakt@ekotak.pl', 'Ekotak — kontakt', 'shared', null);
+  const personal = account(
+    users.koordynator.email,
+    'Piotr Koordynator',
+    'personal',
+    users.koordynator.id,
+  );
+
+  const labels = {};
+  for (const [name, color] of [
+    ['Reklamacja', '#f85149'],
+    ['Oferta', '#f0b429'],
+    ['Faktura', '#58a6ff'],
+    ['Serwis', '#44d62c'],
+  ]) {
+    const row = { id: uuid(), organizationId: orgId, name, color };
+    db.emailLabels.push(row);
+    labels[name] = row;
+  }
+
+  /** Watek + wiadomosci; `messages` idzie od najstarszej. */
+  const thread = (opts) => {
+    const t = {
+      id: uuid(),
+      organizationId: orgId,
+      accountId: opts.account.id,
+      subject: opts.subject,
+      folder: opts.folder || 'inbox',
+      lastAt: opts.messages[opts.messages.length - 1].at,
+      unread: opts.unread || false,
+      starred: opts.starred || false,
+      dealId: opts.dealId || null,
+      clientId: opts.clientId || null,
+    };
+    db.emailThreads.push(t);
+    for (const m of opts.messages) {
+      db.emailMessages.push({
+        id: uuid(),
+        organizationId: orgId,
+        threadId: t.id,
+        direction: m.dir,
+        fromAddr: m.from,
+        fromName: m.fromName || null,
+        toAddrs: m.to,
+        ccAddrs: [],
+        bccAddrs: [],
+        subject: opts.subject,
+        bodyText: m.body,
+        bodyHtml: null,
+        status: t.folder === 'drafts' ? 'draft' : m.dir === 'inbound' ? 'received' : 'pending_config',
+        // Autor wysylki — puste dla poczty przychodzacej (pisze ja klient).
+        sentById: m.dir === 'outbound' ? opts.sentBy || null : null,
+        createdAt: m.at,
+      });
+    }
+    for (const name of opts.labels || []) {
+      db.emailThreadLabels.push({ threadId: t.id, labelId: labels[name].id });
+    }
+    return t;
+  };
+
+  // 1. Dowiazany do deala koordynatora — jego wycinek, nawet gdyby adres byl obcy.
+  thread({
+    account: kontakt,
+    subject: 'Modernizacja — pytanie o termin audytu',
+    unread: true,
+    starred: true,
+    dealId: dQual.id,
+    labels: ['Oferta'],
+    messages: [
+      {
+        dir: 'inbound',
+        from: kowalska.email,
+        fromName: 'Ewa Kowalska',
+        to: ['kontakt@ekotak.pl'],
+        body: 'Dzien dobry, czy audyt uda sie umowic jeszcze w tym tygodniu? Jestem dostepna po 15:00. Pozdrawiam, Ewa Kowalska',
+        at: daysAgo(0.2),
+      },
+    ],
+  });
+
+  // 2. Watek od MOJEJ klientki (Kowalska), ale recznie dowiazany do deala
+  //    SERWISANTA — polecenie sasiada. Koordynator go NIE widzi: dowiazanie ma
+  //    pierwszenstwo nad dopasowaniem po adresie. To jest wariant, na ktorym
+  //    najlatwiej zepsuc wycinek i przeciagnac sobie cudza korespondencje.
+  thread({
+    account: kontakt,
+    subject: 'Polecenie — pompa ciepla u sasiada',
+    unread: true,
+    dealId: dAudit.id,
+    messages: [
+      {
+        dir: 'inbound',
+        from: kowalska.email,
+        fromName: 'Ewa Kowalska',
+        to: ['kontakt@ekotak.pl'],
+        body: 'Dzien dobry, polecilam Panstwa sasiadowi, panu Wisniewskiemu. Prosze o kontakt bezposrednio z nim.',
+        at: daysAgo(1),
+      },
+    ],
+  });
+
+  // 3. Niedowiazany, ale od adresu klienta z deala koordynatora — wpada do jego
+  //    wycinka po samym adresie. To jest ten wariant, dla ktorego decyzja z
+  //    2026-09-06 brzmiala „dowiazanie PLUS adres klienta".
+  thread({
+    account: kontakt,
+    subject: 'Zapytanie o klimatyzacje',
+    unread: true,
+    labels: ['Oferta'],
+    messages: [
+      {
+        dir: 'inbound',
+        from: wojcik.email,
+        fromName: 'Katarzyna Wojcik',
+        to: ['kontakt@ekotak.pl'],
+        body: 'Dzien dobry, przy okazji montazu chcialabym doliczyc klimatyzacje na pietrze. Prosze o oferte.',
+        at: daysAgo(0.5),
+      },
+    ],
+  });
+
+  // 4. Obcy adres, nikt tego nie dowiazal — nie nalezy do zadnego wycinka.
+  //    Widac go wylacznie z email.view_all, po przelaczeniu na „Wszystkie".
+  thread({
+    account: kontakt,
+    subject: 'Oferta wspolpracy — hurtownia instalacyjna',
+    unread: true,
+    messages: [
+      {
+        dir: 'inbound',
+        from: 'handel@hurtownia.example',
+        fromName: 'Hurtownia Instal',
+        to: ['kontakt@ekotak.pl'],
+        body: 'Dzien dobry, przesylamy warunki wspolpracy dla instalatorow. Rabat 12% przy pierwszym zamowieniu.',
+        at: daysAgo(2),
+      },
+    ],
+  });
+
+  // Watek dwuwiadomosciowy w „Wyslane" — lista musi umiec pokazac licznik
+  // wiadomosci i adres ODBIORCY zamiast nadawcy.
+  thread({
+    account: kontakt,
+    subject: 'Re: Modernizacja — oferta',
+    folder: 'sent',
+    dealId: dQual.id,
+    labels: ['Oferta'],
+    messages: [
+      {
+        dir: 'outbound',
+        from: 'kontakt@ekotak.pl',
+        fromName: 'Ekotak — kontakt',
+        to: [kowalska.email],
+        body: 'Dzien dobry, w zalaczeniu oferta na modernizacje kotlowni. Pozdrawiam, Piotr Koordynator.',
+        at: daysAgo(3),
+      },
+      {
+        dir: 'inbound',
+        from: kowalska.email,
+        fromName: 'Ewa Kowalska',
+        to: ['kontakt@ekotak.pl'],
+        body: 'Dziekuje, przeanalizuje i odezwe sie w tym tygodniu.',
+        at: daysAgo(2.5),
+      },
+    ],
+  });
+
+  // Wysylka koordynatora z kontakt@ do adresu SPOZA kartoteki. Nalezy do jego
+  // wycinka wylacznie dlatego, ze to on ja napisal — na tym watku sprawdza sie
+  // punkt 0 reguly (autorstwo bije brak dowiazania i brak adresu klienta).
+  thread({
+    account: kontakt,
+    subject: 'Zapytanie o rury PERT 16 i 20',
+    folder: 'sent',
+    sentBy: users.koordynator.id,
+    messages: [
+      {
+        dir: 'outbound',
+        from: 'kontakt@ekotak.pl',
+        fromName: 'Ekotak — kontakt',
+        to: ['handel@hurtownia.example'],
+        body: 'Dzien dobry, prosze o cennik rur PERT w srednicach 16 i 20 oraz dostepnosc.',
+        at: daysAgo(1.5),
+      },
+    ],
+  });
+
+  // 5. Skrzynka PERSONALNA koordynatora — cala jest jego, bez wycinka, i nikt
+  //    inny (takze admin) nie zobaczy z niej ani jednego watku.
+  thread({
+    account: personal,
+    subject: 'Grafik montazy — wrzesien',
+    unread: true,
+    messages: [
+      {
+        dir: 'inbound',
+        from: 'biuro@instal-serwis.example',
+        fromName: 'Instal Serwis',
+        to: [users.koordynator.email],
+        body: 'Czesc Piotr, przesylam wolne terminy ekipy na wrzesien. Daj znac, ktore rezerwujemy.',
+        at: daysAgo(0.8),
+      },
+    ],
+  });
+  thread({
+    account: personal,
+    subject: 'Szkolenie Panasonic — potwierdzenie',
+    folder: 'archive',
+    messages: [
+      {
+        dir: 'inbound',
+        from: 'szkolenia@panasonic.example',
+        fromName: 'Panasonic Training',
+        to: [users.koordynator.email],
+        body: 'Potwierdzamy udzial w szkoleniu serwisowym. Materialy do pobrania po zalogowaniu.',
+        at: daysAgo(20),
+      },
+    ],
+  });
+  thread({
+    account: personal,
+    subject: 'Wersja robocza — odpowiedz do hurtowni',
+    folder: 'drafts',
+    messages: [
+      {
+        dir: 'outbound',
+        from: users.koordynator.email,
+        fromName: 'Piotr Koordynator',
+        to: ['handel@hurtownia.example'],
+        body: 'Dzien dobry, prosze o cennik rur PERT w srednicach 16 i 20…',
+        at: daysAgo(0.4),
+      },
+    ],
+  });
 }
 
 module.exports = { seed, daysAgo, daysAhead, nowIso };

@@ -90,4 +90,7 @@ abstract class RepositoryModule {
 
     @Binds @Singleton
     abstract fun bindLeaveRepository(impl: LeaveRepositoryImpl): LeaveRepository
+
+    @Binds @Singleton
+    abstract fun bindEmailRepository(impl: EmailRepositoryImpl): EmailRepository
 }

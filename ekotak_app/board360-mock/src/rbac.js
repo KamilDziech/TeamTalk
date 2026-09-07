@@ -42,6 +42,11 @@ const ALL_PERMS = [
   // `hr.view`; `GET /api/hr/overview` musi mu oddac 403.
   'hr.view',
   'hr.manage',
+  // Modul Email — PELNY wglad we wspoldzielona skrzynke kontakt@ekotak.pl.
+  // Bez tego prawa kazdy widzi w niej tylko SWOJ WYCINEK (watki jego deali plus
+  // niedowiazane od adresow jego klientow), a `scope=all` konczy sie kodem 403.
+  // Skrzynki PERSONALNEJ to prawo nie otwiera nikomu — takze adminowi.
+  'email.view_all',
 ];
 
 const ROLE_PERMS = {
@@ -68,6 +73,8 @@ const ROLE_PERMS = {
     'calendar.view', 'calendar.override_busy',
     'offer.manage', 'order.manage', 'inventory.view', 'inventory.manage',
     'hr.view', 'hr.manage',
+    // Biuro obsluguje kontakt@ekotak.pl na co dzien — widzi cala skrzynke.
+    'email.view_all',
   ],
   // Montaz widzi magazyn, ale nie zaklada zamowien — na tym koncie sprawdza sie
   // zakladka „Zamowienie" w wariancie „rezerwacja jest, zamowien nie widac".

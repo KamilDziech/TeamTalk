@@ -1,0 +1,1029 @@
+<title>Email w TeamTalku</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Roboto:wght@400;500;700&display=swap">
+
+<style>
+/* ── Tokeny strony (te same co modul-urlop.html / modul-serwis.html) ─ */
+:root{
+  --bg:#EEF3F9; --bg-2:#DBE6F2; --surface:#FFFFFF;
+  --fg:#0F1720; --muted:#5A6B7C; --border:#C3CBD4;
+  --brand:#2FA84F; --brand-loud:#44D62C; --ink:#080808;
+  --warn:#B4680A; --danger:#C5343A; --info:#2563EB;
+  --shadow:0 1px 2px rgba(15,23,32,.06), 0 10px 30px rgba(15,23,32,.08);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0B1220; --bg-2:#12161F; --surface:#12161F;
+    --fg:#E6EDF3; --muted:#9FB0C3; --border:#2A3441;
+    --brand:#44D62C; --brand-loud:#44D62C; --ink:#080808;
+    --warn:#F59E0B; --danger:#E5484D; --info:#5B8DEF;
+    --shadow:0 1px 2px rgba(0,0,0,.5), 0 14px 40px rgba(0,0,0,.45);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0B1220; --bg-2:#12161F; --surface:#12161F;
+  --fg:#E6EDF3; --muted:#9FB0C3; --border:#2A3441;
+  --brand:#44D62C; --brand-loud:#44D62C; --ink:#080808;
+  --warn:#F59E0B; --danger:#E5484D; --info:#5B8DEF;
+  --shadow:0 1px 2px rgba(0,0,0,.5), 0 14px 40px rgba(0,0,0,.45);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--fg);
+  font-family:"Archivo","Segoe UI",system-ui,sans-serif;
+  font-size:16px; line-height:1.55; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px 96px}
+h1,h2,h3{text-wrap:balance;margin:0}
+a{color:inherit}
+code{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.88em;
+  background:var(--bg-2);border:1px solid var(--border);border-radius:5px;padding:1px 5px;
+}
+
+.masthead{padding:52px 0 32px;border-bottom:1px solid var(--border);display:grid;gap:18px}
+.eyebrow{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
+  display:flex;flex-wrap:wrap;align-items:center;gap:10px;
+}
+.eyebrow b{color:var(--brand);font-weight:600}
+.masthead h1{font-size:clamp(34px,5.4vw,58px);font-weight:800;letter-spacing:-.025em;line-height:1.02}
+.lede{font-size:17px;color:var(--muted);max-width:62ch;margin:0}
+.lede b{color:var(--fg);font-weight:600}
+
+section{padding:52px 0 0}
+.shead{display:grid;gap:8px;margin-bottom:26px;max-width:70ch}
+.shead h2{font-size:clamp(22px,2.6vw,30px);font-weight:700;letter-spacing:-.015em}
+.shead p{margin:0;color:var(--muted);font-size:15px}
+.snum{
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--brand);font-weight:600;
+}
+
+.cards{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(268px,1fr))}
+.card{
+  background:var(--surface);border:1px solid var(--border);border-radius:14px;
+  padding:15px 17px;display:grid;gap:7px;align-content:start;
+}
+.card h3{font-size:14.5px;font-weight:700;display:flex;align-items:center;gap:8px}
+.card p{margin:0;font-size:13.5px;color:var(--muted)}
+.card p b{color:var(--fg);font-weight:600}
+.dot{width:9px;height:9px;border-radius:50%;flex:none;display:inline-block}
+.dot.ok{background:var(--brand)}
+.dot.part{background:var(--warn)}
+.dot.no{background:var(--danger)}
+
+.tablewrap{overflow-x:auto;border:1px solid var(--border);border-radius:14px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:780px;font-size:13.5px}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:top}
+th{
+  font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--muted);font-weight:600;white-space:nowrap;
+}
+tbody tr:last-child td{border-bottom:none}
+td.mono{font-family:"IBM Plex Mono",monospace;font-size:12px;white-space:nowrap}
+.tag{
+  font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--border);
+  color:var(--muted);white-space:nowrap;display:inline-block;
+}
+.tag.new{color:var(--brand);border-color:color-mix(in srgb,var(--brand) 45%,var(--border))}
+.tag.mod{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 45%,var(--border))}
+
+/* ── Ekrany telefonu ──────────────────────────────────────────────── */
+.screens{display:grid;gap:44px}
+.shot{display:flex;gap:28px;align-items:flex-start;flex-wrap:wrap}
+.caption{max-width:34ch;display:grid;gap:6px}
+.caption h3{font-size:15.5px;font-weight:700;display:flex;gap:9px;align-items:baseline}
+.caption h3 i{font-style:normal;font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--brand)}
+.caption p{margin:0;font-size:13px;color:var(--muted)}
+.caption p + p{margin-top:2px}
+.caption p b{color:var(--fg);font-weight:600}
+
+.phone{
+  width:340px;padding:11px;border-radius:38px;
+  background:linear-gradient(160deg,#3a4152,#161a22);box-shadow:var(--shadow);flex:none;
+}
+.device{
+  --d-bg:#0B1220;--d-surface:#12161F;--d-panel:#1A212E;
+  --d-fg:#E6EDF3;--d-muted:#9FB0C3;--d-border:#2A3441;
+  --d-brand:#44D62C;--d-ink:#080808;
+  --d-danger:#F85149;--d-warn:#E3A008;--d-info:#4AA3FF;
+  /* akcent kafelka „Email" na pulpicie = kolor Komunikacji z panelu */
+  --d-mail:#22D3EE;
+  /* kolory etykiet 1:1 z seeda board360 (email_labels) */
+  --l-rekl:#F85149;--l-ofer:#F0B429;--l-fakt:#58A6FF;--l-serw:#44D62C;
+  width:318px;height:664px;border-radius:28px;overflow:hidden;
+  background:var(--d-bg);color:var(--d-fg);
+  font-family:"Roboto",system-ui,sans-serif;font-size:14px;line-height:1.4;
+  display:flex;flex-direction:column;position:relative;
+}
+.statusbar{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:8px 16px 2px;font-size:11px;color:var(--d-muted);
+  font-variant-numeric:tabular-nums;flex:none;
+}
+.topbar{display:flex;align-items:center;gap:6px;padding:6px 10px;flex:none}
+.iconbtn{
+  width:32px;height:32px;border-radius:50%;border:none;background:transparent;
+  color:var(--d-fg);display:grid;place-items:center;flex:none;position:relative;
+}
+.iconbtn svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.toptitle{font-size:16px;font-weight:500;flex:1;min-width:0}
+.toptitle span{display:block;font-size:10.5px;color:var(--d-muted);font-weight:400}
+.screen{flex:1;overflow:hidden;padding:0 10px 8px;display:flex;flex-direction:column;gap:7px}
+
+/* zakładki skrzynek */
+.boxtabs{display:flex;gap:7px;flex:none}
+.boxtab{
+  flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:4px;
+  font-size:11.5px;padding:6px 8px;border-radius:999px;white-space:nowrap;overflow:hidden;
+  background:var(--d-panel);color:var(--d-muted);border:1px solid var(--d-border);
+}
+.boxtab[data-on]{background:var(--d-mail);color:var(--d-ink);border-color:transparent;font-weight:700}
+.boxtab u{text-decoration:none;font-weight:700}
+
+/* przełącznik Moje / Wszystkie */
+.scopes{display:flex;gap:6px;flex:none}
+.scope{
+  font-size:11.5px;padding:4px 12px;border-radius:999px;
+  border:1px solid var(--d-border);color:var(--d-muted);
+}
+.scope[data-on]{background:color-mix(in srgb,var(--d-mail) 18%,transparent);
+  border-color:var(--d-mail);color:var(--d-mail);font-weight:600}
+
+/* pole szukania */
+.searchbox{
+  display:flex;align-items:center;gap:7px;flex:none;padding:7px 10px;border-radius:999px;
+  background:var(--d-surface);border:1px solid var(--d-border);font-size:12.5px;color:var(--d-muted);
+}
+.searchbox svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round}
+
+/* ── Wiersz wątku ─────────────────────────────────────────────────── */
+.mails{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden}
+.mail{display:flex;gap:9px;padding:9px 2px;border-bottom:1px solid var(--d-border);align-items:flex-start}
+.av{
+  width:36px;height:36px;border-radius:50%;flex:none;display:grid;place-items:center;
+  font-size:12.5px;font-weight:700;color:#fff;
+}
+.mail .body{flex:1;min-width:0;display:grid;gap:1px}
+.mail .r1{display:flex;align-items:baseline;gap:6px}
+.mail .who{font-size:13px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mail .cnt{font-size:9.5px;color:var(--d-muted);border:1px solid var(--d-border);border-radius:999px;padding:0 5px;flex:none}
+.mail .when{font-size:10.5px;color:var(--d-muted);flex:none;font-variant-numeric:tabular-nums}
+.mail .subj{font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mail .snip{font-size:11.5px;color:var(--d-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mail .chips{display:flex;gap:5px;flex-wrap:wrap;margin-top:2px}
+.mail.unread .who,.mail.unread .subj,.mail.unread .when{font-weight:700}
+.mail .star{width:26px;flex:none;display:grid;place-items:center;color:var(--d-muted)}
+.mail .star svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linejoin:round}
+.mail .star.on{color:var(--d-warn)}
+.mail .star.on svg{fill:currentColor;stroke:currentColor}
+.chip{font-size:9.5px;padding:1px 7px;border-radius:999px;white-space:nowrap}
+.chip.rekl{background:color-mix(in srgb,var(--l-rekl) 18%,transparent);color:var(--l-rekl)}
+.chip.ofer{background:color-mix(in srgb,var(--l-ofer) 18%,transparent);color:var(--l-ofer)}
+.chip.fakt{background:color-mix(in srgb,var(--l-fakt) 18%,transparent);color:var(--l-fakt)}
+.chip.serw{background:color-mix(in srgb,var(--l-serw) 18%,transparent);color:var(--l-serw)}
+.chip.deal{background:transparent;border:1px solid var(--d-border);color:var(--d-muted)}
+.chip.queue{background:color-mix(in srgb,var(--d-info) 18%,transparent);color:var(--d-info)}
+
+/* FAB */
+.fab{
+  position:absolute;right:14px;bottom:16px;width:52px;height:52px;border-radius:17px;
+  background:var(--d-mail);color:var(--d-ink);display:grid;place-items:center;
+  box-shadow:0 6px 18px rgba(0,0,0,.45);
+}
+.fab svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+
+/* ── Szuflada folderów ────────────────────────────────────────────── */
+.drawer{
+  position:absolute;inset:0;background:rgba(0,0,0,.55);display:flex;
+}
+.drawer .sheet{
+  width:74%;height:100%;background:var(--d-surface);border-right:1px solid var(--d-border);
+  padding:14px 0;display:flex;flex-direction:column;gap:2px;
+}
+.drawer .addr{font-size:12px;font-weight:700;padding:4px 16px 10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fold{display:flex;align-items:center;gap:10px;padding:9px 16px;font-size:13px;border-radius:0 999px 999px 0;margin-right:12px}
+.fold[data-on]{background:color-mix(in srgb,var(--d-mail) 20%,transparent);color:var(--d-mail);font-weight:600}
+.fold b{margin-left:auto;font-size:11.5px;font-variant-numeric:tabular-nums;font-weight:700}
+.fold b.dim{color:var(--d-muted);font-weight:400}
+.drawer .sep{height:1px;background:var(--d-border);margin:8px 16px}
+.drawer .lbl{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--d-muted);padding:2px 16px 4px;font-weight:700}
+.labelrow{display:flex;align-items:center;gap:8px;padding:6px 16px;font-size:12.5px}
+.labelrow i{width:10px;height:10px;border-radius:50%;display:inline-block;flex:none}
+
+/* ── Otwarty wątek ────────────────────────────────────────────────── */
+.dealbar{display:flex;align-items:center;gap:7px;flex:none}
+.dealchip{
+  flex:1;min-width:0;font-size:11.5px;padding:7px 12px;border-radius:999px;
+  background:var(--d-panel);border:1px solid var(--d-border);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.dealbar .unlink{font-size:11.5px;color:var(--d-muted);flex:none;padding:0 4px}
+.msgs{display:flex;flex-direction:column;gap:10px;flex:1;min-height:0;overflow:hidden}
+.msg{display:grid;gap:6px;padding-bottom:9px;border-bottom:1px solid var(--d-border)}
+.msg .head{display:flex;gap:9px;align-items:flex-start}
+.msg .who{flex:1;min-width:0;display:grid;gap:1px}
+.msg .who b{font-size:12.5px;font-weight:600}
+.msg .who span{font-size:10px;color:var(--d-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.msg .when{font-size:10px;color:var(--d-muted);flex:none}
+.msg .txt{font-size:12.5px;color:var(--d-fg)}
+.msg .status{font-size:10px}
+.msg .status.q{color:var(--d-info)}
+.msg .status.p{color:var(--d-warn)}
+.file{
+  display:flex;align-items:center;gap:6px;font-size:11px;padding:6px 9px;border-radius:9px;
+  background:var(--d-panel);border:1px solid var(--d-border);color:var(--d-fg);
+}
+.file span{color:var(--d-muted)}
+.actions{display:flex;gap:5px;flex:none;padding-top:2px}
+.act{
+  flex:1;font-size:11px;padding:8px 4px;border-radius:10px;text-align:center;
+  border:1px solid var(--d-border);color:var(--d-fg);
+}
+.act.primary{background:var(--d-mail);color:var(--d-ink);border-color:transparent;font-weight:700}
+
+/* ── Okno pisania ─────────────────────────────────────────────────── */
+.sheetup{
+  position:absolute;left:0;right:0;bottom:0;background:var(--d-surface);
+  border-top:1px solid var(--d-border);border-radius:20px 20px 0 0;
+  padding:12px 14px 16px;display:grid;gap:9px;
+}
+.sheetup .grab{width:34px;height:4px;border-radius:999px;background:var(--d-border);justify-self:center}
+.sheetup h4{margin:0;font-size:14px;font-weight:700}
+.from{font-size:10.5px;color:var(--d-muted)}
+.field{
+  border:1px solid var(--d-border);border-radius:10px;background:var(--d-panel);
+  padding:7px 10px;font-size:12.5px;display:grid;gap:1px;
+}
+.field u{text-decoration:none;font-size:9px;letter-spacing:.05em;text-transform:uppercase;color:var(--d-muted);font-weight:700}
+.field.area{min-height:74px;align-content:start}
+.field .ph{color:var(--d-muted)}
+.sheetup .row{display:flex;gap:6px;align-items:center}
+.sheetup .row .spacer{flex:1}
+.btn{font-size:11.5px;padding:7px 13px;border-radius:999px;border:1px solid var(--d-border);color:var(--d-fg)}
+.btn.send{background:var(--d-mail);color:var(--d-ink);border-color:transparent;font-weight:700}
+.hint{font-size:9.5px;color:var(--d-muted)}
+
+/* pusty stan */
+.empty{
+  flex:1;display:grid;place-items:center;text-align:center;gap:10px;align-content:center;
+  padding:0 18px;font-size:12.5px;color:var(--d-muted);
+}
+.empty .go{
+  font-size:11.5px;font-weight:700;padding:7px 14px;border-radius:999px;
+  background:color-mix(in srgb,var(--d-mail) 18%,transparent);color:var(--d-mail);
+  border:1px solid var(--d-mail);
+}
+
+.foot{margin-top:64px;padding-top:22px;border-top:1px solid var(--border);font-size:13px;color:var(--muted)}
+.foot b{color:var(--fg)}
+</style>
+
+<div class="wrap">
+
+<header class="masthead">
+  <div class="eyebrow">
+    <span>TeamTalk · moduł</span><span>·</span><b>Email</b><span>·</span>
+    <span>ustalenia 2026-09-06</span><span>·</span>
+    <span>panel: /app/communication</span>
+  </div>
+  <h1>Poczta w telefonie</h1>
+  <p class="lede">
+    Dwie skrzynki, tak jak w panelu: <b>firmowa kontakt@ekotak.pl</b> i <b>własna
+    pracownika</b>. Różnica polega na tym, że teraz ten podział jest prawdziwy —
+    we wspólnej skrzynce każdy widzi domyślnie <b>swój wycinek</b>, czyli wątki
+    swoich deali i pocztę swoich klientów. Układ wzięty z Gmaila, bo tak wygląda
+    poczta, którą ci ludzie znają.
+  </p>
+</header>
+
+<section>
+  <div class="shead">
+    <div class="snum">Punkt wyjścia</div>
+    <h2>Panel miał dwie zakładki, ale jedne dane</h2>
+    <p>
+      W <code>page.tsx</code> siedziały dwa adresy wpisane na sztywno, a
+      <code>CommunicationView</code> renderował pod nimi ten sam komponent z tą
+      samą listą wątków. API filtrowało wyłącznie po organizacji — nie znało ani
+      pojęcia skrzynki, ani opiekuna. Podział trzeba było dopiero zbudować, więc
+      powstał raz, wspólnie dla panelu i telefonu.
+    </p>
+  </div>
+  <div class="cards">
+    <div class="card">
+      <h3><span class="dot no"></span>Było: zakładki bez treści</h3>
+      <p>
+        Dwie zakładki różniły się napisem. Ta sama lista, te same liczniki, ten
+        sam adres personalny dla całego zespołu.
+      </p>
+    </div>
+    <div class="card">
+      <h3><span class="dot ok"></span>Jest: skrzynki z bazy</h3>
+      <p>
+        <b>email_accounts</b> dostało <code>kind</code> i <code>userId</code>.
+        Skrzynka personalna powstaje sama, przy pierwszym wejściu, pod adresem
+        z konta pracownika.
+      </p>
+    </div>
+    <div class="card">
+      <h3><span class="dot ok"></span>Jest: wycinek opiekuna</h3>
+      <p>
+        We wspólnej skrzynce widać wątki <b>swoich deali</b> i — spośród
+        niedowiązanych — pocztę od <b>adresów swoich klientów</b>. Liczy to
+        serwer, nie telefon.
+      </p>
+    </div>
+    <div class="card">
+      <h3><span class="dot part"></span>Jest: przełącznik dla biura</h3>
+      <p>
+        Nowe uprawnienie <code>email.view_all</code> (zarząd, admin, biuro)
+        daje w kontakt@ przełącznik <b>Moje / Wszystkie</b>. Skrzynki
+        personalnej nie otwiera nikomu.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="shead">
+    <div class="snum">Makiety</div>
+    <h2>Osiem ekranów na 360 dp</h2>
+    <p>
+      Sidebar folderów z panelu zjeżdża do szuflady spod hamburgera, zakładki
+      skrzynek zostają na wierzchu — bo to jedyny przełącznik, którego używa się
+      kilka razy dziennie.
+    </p>
+  </div>
+
+  <div class="screens">
+
+    <!-- 01 ────────────────────────────────────────────────────────── -->
+    <div class="shot">
+      <div class="phone"><div class="device">
+        <div class="statusbar"><span>9:41</span><span>▮▮▮ ▲ 84%</span></div>
+        <div class="topbar">
+          <button class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"/></svg></button>
+          <div class="toptitle">Odebrane<span>kontakt@ekotak.pl · Moje</span></div>
+          <button class="iconbtn"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></button>
+          <button class="iconbtn"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+        </div>
+        <div class="screen">
+          <div class="boxtabs">
+            <div class="boxtab" data-on>🏢 kontakt <u>2</u></div>
+            <div class="boxtab">👤 koordynator <u>1</u></div>
+          </div>
+          <div class="scopes">
+            <span class="scope" data-on>Moje</span>
+            <span class="scope">Wszystkie</span>
+          </div>
+          <div class="mails">
+            <div class="mail unread">
+              <div class="av" style="background:#2FA84F">EK</div>
+              <div class="body">
+                <div class="r1"><span class="who">Ewa Kowalska</span><span class="when">9:12</span></div>
+                <div class="subj">Modernizacja — pytanie o termin audytu</div>
+                <div class="snip">Dzień dobry, czy audyt uda się umówić jeszcze…</div>
+                <div class="chips"><span class="chip ofer">Oferta</span><span class="chip deal">🔗 deal</span></div>
+              </div>
+              <div class="star on"><svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 17l-5.2 2.7 1-5.9L3.5 9.7l5.9-.8z"/></svg></div>
+            </div>
+            <div class="mail unread">
+              <div class="av" style="background:#B4680A">KW</div>
+              <div class="body">
+                <div class="r1"><span class="who">Katarzyna Wójcik</span><span class="when">wcz.</span></div>
+                <div class="subj">Zapytanie o klimatyzację</div>
+                <div class="snip">Przy okazji montażu chciałabym doliczyć klima…</div>
+                <div class="chips"><span class="chip ofer">Oferta</span></div>
+              </div>
+              <div class="star"><svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 17l-5.2 2.7 1-5.9L3.5 9.7l5.9-.8z"/></svg></div>
+            </div>
+            <div class="mail">
+              <div class="av" style="background:#2563EB">MZ</div>
+              <div class="body">
+                <div class="r1"><span class="who">Marek Zieliński</span><span class="cnt">2</span><span class="when">2 wrz</span></div>
+                <div class="subj">Re: Faktura FV/2026/09/114</div>
+                <div class="snip">📎 Płatność zrealizowana dziś rano, proszę o po…</div>
+                <div class="chips"><span class="chip fakt">Faktura</span><span class="chip deal">🔗 deal</span></div>
+              </div>
+              <div class="star on"><svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 17l-5.2 2.7 1-5.9L3.5 9.7l5.9-.8z"/></svg></div>
+            </div>
+            <div class="mail">
+              <div class="av" style="background:#C5343A">KL</div>
+              <div class="body">
+                <div class="r1"><span class="who">Katarzyna Lis</span><span class="when">30 sie</span></div>
+                <div class="subj">Reklamacja — hałas jednostki zewnętrznej</div>
+                <div class="snip">Po ostatnim serwisie jednostka pracuje głośniej…</div>
+                <div class="chips"><span class="chip rekl">Reklamacja</span></div>
+              </div>
+              <div class="star"><svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 17l-5.2 2.7 1-5.9L3.5 9.7l5.9-.8z"/></svg></div>
+            </div>
+          </div>
+        </div>
+        <div class="fab"><svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14.5 5.5l4 4"/></svg></div>
+      </div></div>
+      <div class="caption">
+        <h3><i>01</i> Skrzynka firmowa, widok „Moje"</h3>
+        <p>
+          Cztery wątki, bo tyle należy do tego opiekuna: dwa dowiązane do jego
+          deali, dwa od adresów jego klientów. Reszty poczty kontakt@ tu nie ma
+          i to nie jest usterka — to sedno modułu.
+        </p>
+        <p>
+          Hierarchia wiersza jest Gmailowa: <b>nadawca, temat, fragment</b>,
+          data po prawej. Nieprzeczytane pogrubione, gwiazdka osobnym celem
+          dotknięcia.
+        </p>
+        <p>
+          <b>Chip „🔗 deal"</b> to jedyna rzecz, której Gmail nie ma: wątek jest
+          przypięty do karty w CRM.
+        </p>
+      </div>
+    </div>
+
+    <!-- 02 ────────────────────────────────────────────────────────── -->
+    <div class="shot">
+      <div class="phone"><div class="device">
+        <div class="statusbar"><span>9:41</span><span>▮▮▮ ▲ 84%</span></div>
+        <div class="topbar">
+          <button class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"/></svg></button>
+          <div class="toptitle">Odebrane<span>kontakt@ekotak.pl · Wszystkie</span></div>
+          <button class="iconbtn"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></button>
+          <button class="iconbtn"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+        </div>
+        <div class="screen">
+          <div class="boxtabs">
+            <div class="boxtab" data-on>🏢 kontakt <u>7</u></div>
+            <div class="boxtab">👤 biuro <u>0</u></div>
+          </div>
+          <div class="scopes">
+            <span class="scope">Moje</span>
+            <span class="scope" data-on>Wszystkie</span>
+          </div>
+          <div class="mails">
+            <div class="mail unread">
+              <div class="av" style="background:#2FA84F">EK</div>
+              <div class="body">
+                <div class="r1"><span class="who">Ewa Kowalska</span><span class="when">9:12</span></div>
+                <div class="subj">Modernizacja — pytanie o termin audytu</div>
+                <div class="snip">Dzień dobry, czy audyt uda się umówić jeszcze…</div>
+                <div class="chips"><span class="chip ofer">Oferta</span><span class="chip deal">🔗 Kowalska · kwalifikacja</span></div>
+              </div>
+              <div class="star on"><svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 17l-5.2 2.7 1-5.9L3.5 9.7l5.9-.8z"/></svg></div>
+            </div>
+            <div class="mail unread">
+              <div class="av" style="background:#2FA84F">EK</div>
+              <div class="body">
+                <div class="r1"><span class="who">Ewa Kowalska</span><span class="when">wcz.</span></div>
+                <div class="subj">Polecenie — pompa ciepła u sąsiada</div>
+                <div class="snip">Poleciłam Państwa sąsiadowi, panu Wiśniewskiemu…</div>
+                <div class="chips"><span class="chip deal">🔗 Wiśniewski · audyt</span></div>
+              </div>
+              <div class="star"><svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 17l-5.2 2.7 1-5.9L3.5 9.7l5.9-.8z"/></svg></div>
+            </div>
+            <div class="mail unread">
+              <div class="av" style="background:#7C3AED">HI</div>
+              <div class="body">
+                <div class="r1"><span class="who">Hurtownia Instal</span><span class="when">4 wrz</span></div>
+                <div class="subj">Oferta współpracy — hurtownia instalacyjna</div>
+                <div class="snip">Przesyłamy warunki współpracy dla instalatorów…</div>
+              </div>
+              <div class="star"><svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 17l-5.2 2.7 1-5.9L3.5 9.7l5.9-.8z"/></svg></div>
+            </div>
+            <div class="mail unread">
+              <div class="av" style="background:#0E7490">SE</div>
+              <div class="body">
+                <div class="r1"><span class="who">Serwis Ekotak</span><span class="when">3 wrz</span></div>
+                <div class="subj">Przegląd roczny — przypomnienie</div>
+                <div class="snip">Przegląd pompy ciepła przy ul. Lipowej 4 przypa…</div>
+                <div class="chips"><span class="chip serw">Serwis</span></div>
+              </div>
+              <div class="star"><svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 17l-5.2 2.7 1-5.9L3.5 9.7l5.9-.8z"/></svg></div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+      <div class="caption">
+        <h3><i>02</i> Ten sam folder, widok „Wszystkie"</h3>
+        <p>
+          Przełącznik pokazuje się <b>tylko przy uprawnieniu</b>
+          <code>email.view_all</code> i <b>tylko w skrzynce firmowej</b>. Bez
+          niego <code>scope=all</code> kończy się kodem 403 — telefon nie
+          próbuje tego obejść.
+        </p>
+        <p>
+          Dochodzą wątki niczyje (hurtownia, automat serwisowy) i cudze. Widać
+          też różnicę, o którą chodziło: mail od Kowalskiej dowiązany do deala
+          <b>Wiśniewskiego</b> należy do serwisanta, nie do niej.
+        </p>
+        <p>
+          W tym widoku chip deala niesie pełną etykietę — po niej poznaje się,
+          czyja to sprawa.
+        </p>
+      </div>
+    </div>
+
+    <!-- 03 ────────────────────────────────────────────────────────── -->
+    <div class="shot">
+      <div class="phone"><div class="device">
+        <div class="statusbar"><span>9:41</span><span>▮▮▮ ▲ 84%</span></div>
+        <div class="topbar">
+          <button class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"/></svg></button>
+          <div class="toptitle">Odebrane<span>kontakt@ekotak.pl · Moje</span></div>
+          <button class="iconbtn"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+        </div>
+        <div class="screen"></div>
+        <div class="drawer">
+          <div class="sheet">
+            <div class="addr">kontakt@ekotak.pl</div>
+            <div class="fold" data-on>📥 Odebrane <b>2</b></div>
+            <div class="fold">➤ Wysłane <b class="dim">6</b></div>
+            <div class="fold">📝 Wersje robocze <b class="dim">1</b></div>
+            <div class="fold">🗄 Archiwum <b class="dim">14</b></div>
+            <div class="fold">⚠ Spam <b class="dim">3</b></div>
+            <div class="fold">🗑 Kosz <b class="dim">2</b></div>
+            <div class="sep"></div>
+            <div class="lbl">Etykiety</div>
+            <div class="labelrow"><i style="background:#F85149"></i> Reklamacja</div>
+            <div class="labelrow"><i style="background:#F0B429"></i> Oferta</div>
+            <div class="labelrow"><i style="background:#58A6FF"></i> Faktura</div>
+            <div class="labelrow"><i style="background:#44D62C"></i> Serwis</div>
+          </div>
+        </div>
+      </div></div>
+      <div class="caption">
+        <h3><i>03</i> Szuflada folderów</h3>
+        <p>
+          Odpowiednik sidebara panelu. Na 360 dp sidebar zjadłby pół szerokości
+          listy, a folder zmienia się kilka razy dziennie, nie co minutę.
+        </p>
+        <p>
+          Liczniki są liczone <b>w bieżącym widoku</b>: w „Moje" pokazują wycinek
+          opiekuna. Plakietka, która obiecuje pocztę niewidoczną po wejściu,
+          byłaby gorsza niż jej brak.
+        </p>
+        <p>
+          Etykiety pokazujemy do czytania. <b>Nadawanie ich zostaje w panelu</b> —
+          na telefonie porządkuje się skrzynkę folderem i gwiazdką.
+        </p>
+      </div>
+    </div>
+
+    <!-- 04 ────────────────────────────────────────────────────────── -->
+    <div class="shot">
+      <div class="phone"><div class="device">
+        <div class="statusbar"><span>9:41</span><span>▮▮▮ ▲ 84%</span></div>
+        <div class="topbar">
+          <button class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"/></svg></button>
+          <div class="toptitle">Odebrane<span>koordynator@ekotak.pl</span></div>
+          <button class="iconbtn"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></button>
+          <button class="iconbtn"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+        </div>
+        <div class="screen">
+          <div class="boxtabs">
+            <div class="boxtab">🏢 kontakt <u>2</u></div>
+            <div class="boxtab" data-on>👤 koordynator <u>1</u></div>
+          </div>
+          <div class="mails">
+            <div class="mail unread">
+              <div class="av" style="background:#0E7490">IS</div>
+              <div class="body">
+                <div class="r1"><span class="who">Instal Serwis</span><span class="when">8:20</span></div>
+                <div class="subj">Grafik montaży — wrzesień</div>
+                <div class="snip">Przesyłam wolne terminy ekipy na wrzesień. Daj…</div>
+              </div>
+              <div class="star"><svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 17l-5.2 2.7 1-5.9L3.5 9.7l5.9-.8z"/></svg></div>
+            </div>
+            <div class="mail">
+              <div class="av" style="background:#7C3AED">PT</div>
+              <div class="body">
+                <div class="r1"><span class="who">Panasonic Training</span><span class="when">17 sie</span></div>
+                <div class="subj">Szkolenie serwisowe — potwierdzenie</div>
+                <div class="snip">📎 Potwierdzamy udział, materiały po zalogowaniu…</div>
+              </div>
+              <div class="star"><svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 17l-5.2 2.7 1-5.9L3.5 9.7l5.9-.8z"/></svg></div>
+            </div>
+          </div>
+        </div>
+        <div class="fab"><svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14.5 5.5l4 4"/></svg></div>
+      </div></div>
+      <div class="caption">
+        <h3><i>04</i> Skrzynka personalna</h3>
+        <p>
+          Adres bierze się z konta pracownika, a skrzynka zakłada się sama przy
+          pierwszym wejściu w moduł. Nie ma osobnego ekranu konfiguracji, bo nie
+          ma czego konfigurować.
+        </p>
+        <p>
+          <b>Bez przełącznika widoku.</b> Ta skrzynka jest w całości moja i nie
+          widzi jej nikt inny — także zarząd i admin, mimo
+          <code>email.view_all</code>. Wejście po samym identyfikatorze wątku
+          oddaje 404, nie 403: odpowiedź nie ma potwierdzać, że taki wątek
+          w firmie istnieje.
+        </p>
+      </div>
+    </div>
+
+    <!-- 05 ────────────────────────────────────────────────────────── -->
+    <div class="shot">
+      <div class="phone"><div class="device">
+        <div class="statusbar"><span>9:41</span><span>▮▮▮ ▲ 84%</span></div>
+        <div class="topbar">
+          <button class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"/></svg></button>
+          <div class="toptitle">Modernizacja — pytanie o termin audytu</div>
+          <button class="iconbtn" style="color:#E3A008"><svg viewBox="0 0 24 24" style="fill:currentColor"><path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 17l-5.2 2.7 1-5.9L3.5 9.7l5.9-.8z"/></svg></button>
+          <button class="iconbtn"><svg viewBox="0 0 24 24"><path d="M4 7h16v12H4z"/><path d="M4 7l8 6 8-6"/></svg></button>
+          <button class="iconbtn"><svg viewBox="0 0 24 24"><path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13"/></svg></button>
+        </div>
+        <div class="screen">
+          <div class="dealbar">
+            <div class="dealchip">🔗 Ewa Kowalska · kwalifikacja</div>
+            <span class="unlink">Odłącz</span>
+          </div>
+          <div class="msgs">
+            <div class="msg">
+              <div class="head">
+                <div class="av" style="background:#2FA84F;width:32px;height:32px;font-size:11px">EK</div>
+                <div class="who"><b>Ewa Kowalska</b><span>do: kontakt@ekotak.pl</span></div>
+                <div class="when">6 wrz, 9:12</div>
+              </div>
+              <div class="txt">
+                Dzień dobry, czy audyt uda się umówić jeszcze w tym tygodniu?
+                Jestem dostępna po 15:00. Pozdrawiam, Ewa Kowalska
+              </div>
+            </div>
+            <div class="msg">
+              <div class="head">
+                <div class="av" style="background:#2563EB;width:32px;height:32px;font-size:11px">EK</div>
+                <div class="who"><b>Ekotak — kontakt</b><span>do: ewa.kowalska@example.com</span></div>
+                <div class="when">6 wrz, 9:40</div>
+              </div>
+              <div class="status p">Oczekuje na wysyłkę (skrzynka bez kredencji SMTP)</div>
+              <div class="txt">
+                Dzień dobry, proponuję czwartek o 15:30. W załączeniu wstępny
+                zakres audytu.
+              </div>
+              <div class="file">📎 audyt-zakres.pdf <span>· 240 kB</span></div>
+            </div>
+          </div>
+          <div class="actions">
+            <div class="act primary">↩ Odpowiedz</div>
+            <div class="act">↩↩ Wszystkim</div>
+            <div class="act">➤ Przekaż</div>
+          </div>
+        </div>
+      </div></div>
+      <div class="caption">
+        <h3><i>05</i> Otwarty wątek</h3>
+        <p>
+          Wiadomości idą jedna pod drugą <b>w całości</b>, bez zwijania: wątki
+          w tej firmie mają po dwie–trzy wiadomości, a rozwijanie każdej to dwa
+          dotknięcia więcej za każdym razem.
+        </p>
+        <p>
+          Treść pokazujemy jako <b>tekst, nigdy jako HTML</b>. Renderowanie
+          HTML-a z poczty przychodzącej wpuszczałoby na ekran piksele śledzące
+          i cudzy układ; gdy wiadomość przyszła sama w HTML-u, zamieniamy ją na
+          tekst przy zapisie.
+        </p>
+        <p>
+          Chip u góry prowadzi do <b>karty deala</b> w aplikacji, a „Odłącz"
+          zrywa powiązanie. To ta sama operacja co w panelu.
+        </p>
+      </div>
+    </div>
+
+    <!-- 06 ────────────────────────────────────────────────────────── -->
+    <div class="shot">
+      <div class="phone"><div class="device">
+        <div class="statusbar"><span>9:41</span><span>▮▮▮ ▲ 84%</span></div>
+        <div class="topbar">
+          <button class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"/></svg></button>
+          <div class="toptitle">Odebrane<span>kontakt@ekotak.pl · Moje</span></div>
+        </div>
+        <div class="screen" style="opacity:.35">
+          <div class="boxtabs">
+            <div class="boxtab" data-on>🏢 kontakt <u>2</u></div>
+            <div class="boxtab">👤 koordynator <u>1</u></div>
+          </div>
+        </div>
+        <div class="sheetup">
+          <div class="grab"></div>
+          <h4>Odpowiedź</h4>
+          <div class="from">Od: kontakt@ekotak.pl</div>
+          <div class="field"><u>Do</u>ewa.kowalska@example.com</div>
+          <div class="field"><u>Temat</u>Re: Modernizacja — pytanie o termin audytu</div>
+          <div class="field area"><u>Treść</u>Dzień dobry, proponuję czwartek o 15:30. W załączeniu wstępny zakres audytu.</div>
+          <div class="file">📎 audyt-zakres.pdf <span>· 240 kB</span> <span style="margin-left:auto">✕</span></div>
+          <div class="row">
+            <span class="btn">📎 Załącz</span>
+            <span class="btn">Zapisz roboczą</span>
+            <span class="spacer"></span>
+            <span class="btn send">Wyślij</span>
+          </div>
+          <div class="hint">Bez zasięgu wiadomość czeka w kolejce i poleci po powrocie łączności.</div>
+        </div>
+      </div></div>
+      <div class="caption">
+        <h3><i>06</i> Okno pisania</h3>
+        <p>
+          Pole <b>„Od" jest tylko do odczytu</b> — adres bierze się z zakładki,
+          w której człowiek jest. To nie oszczędność: wysyłka z cudzej skrzynki
+          i tak kończy się na serwerze kodem 403, a picker nadawcy sugerowałby
+          wybór, którego nie ma.
+        </p>
+        <p>
+          Załącznik wybiera systemowy <code>OpenDocument</code> i bierzemy do
+          niego <b>trwałe prawo</b>. Zwykły wybór pliku daje dostęp do końca
+          ekranu, a wiadomość napisana bez zasięgu czeka w kolejce — z wygasłym
+          uprawnieniem załącznik nie miałby jak polecieć.
+        </p>
+      </div>
+    </div>
+
+    <!-- 07 ────────────────────────────────────────────────────────── -->
+    <div class="shot">
+      <div class="phone"><div class="device">
+        <div class="statusbar"><span>10:04</span><span>✈ ▲ 79%</span></div>
+        <div class="topbar">
+          <button class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"/></svg></button>
+          <div class="toptitle">Wysłane<span>kontakt@ekotak.pl · Moje</span></div>
+          <button class="iconbtn"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></button>
+          <button class="iconbtn"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+        </div>
+        <div class="screen">
+          <div class="boxtabs">
+            <div class="boxtab" data-on>🏢 kontakt <u>2</u></div>
+            <div class="boxtab">👤 koordynator <u>1</u></div>
+          </div>
+          <div class="mails">
+            <div class="mail">
+              <div class="av" style="background:#2FA84F">EK</div>
+              <div class="body">
+                <div class="r1"><span class="who">ewa.kowalska@example.com</span><span class="when">10:03</span></div>
+                <div class="subj">Re: Modernizacja — pytanie o termin audytu</div>
+                <div class="snip">📎 Dzień dobry, proponuję czwartek o 15:30…</div>
+                <div class="chips"><span class="chip queue">W kolejce</span></div>
+              </div>
+              <div class="star"><svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 17l-5.2 2.7 1-5.9L3.5 9.7l5.9-.8z"/></svg></div>
+            </div>
+            <div class="mail">
+              <div class="av" style="background:#B4680A">KW</div>
+              <div class="body">
+                <div class="r1"><span class="who">k.wojcik@example.com</span><span class="when">wcz.</span></div>
+                <div class="subj">Oferta — klimatyzacja 2×3,5 kW</div>
+                <div class="snip">W załączeniu oferta na dwie jednostki wewnętrz…</div>
+              </div>
+              <div class="star"><svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 17l-5.2 2.7 1-5.9L3.5 9.7l5.9-.8z"/></svg></div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+      <div class="caption">
+        <h3><i>07</i> Wysłane bez zasięgu</h3>
+        <p>
+          Wiadomość napisana w kotłowni ląduje w „Wysłanych" <b>od razu</b>,
+          z plakietką <b>W kolejce</b>. Bez tego człowiek patrzyłby na pusty
+          folder i pisał to samo drugi raz.
+        </p>
+        <p>
+          Kolejka jest jedna dla wszystkiego (<code>email_mutations</code>), bo
+          kolejność ma znaczenie: odpowiedź musi polecieć po tym, jak wątek
+          zostanie przeniesiony, a nie odwrotnie.
+        </p>
+        <p>
+          Gdy serwer wiadomości <b>nie przyjmie</b>, znika ona z folderu, ale
+          człowiek dostaje powiadomienie. Cichy zanik byłby najgorszy: poczta
+          wygląda wtedy na dostarczoną, a druga strona czeka.
+        </p>
+      </div>
+    </div>
+
+    <!-- 08 ────────────────────────────────────────────────────────── -->
+    <div class="shot">
+      <div class="phone"><div class="device">
+        <div class="statusbar"><span>9:41</span><span>▮▮▮ ▲ 84%</span></div>
+        <div class="topbar">
+          <button class="iconbtn"><svg viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"/></svg></button>
+          <div class="toptitle">Odebrane<span>kontakt@ekotak.pl · Moje</span></div>
+          <button class="iconbtn"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+          <button class="iconbtn"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+        </div>
+        <div class="screen">
+          <div class="boxtabs">
+            <div class="boxtab" data-on>🏢 kontakt <u>2</u></div>
+            <div class="boxtab">👤 koordynator <u>1</u></div>
+          </div>
+          <div class="searchbox">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+            <span style="color:var(--d-fg)">audyt</span>
+          </div>
+          <div class="scopes">
+            <span class="scope" data-on>Moje</span>
+            <span class="scope">Wszystkie</span>
+          </div>
+          <div class="empty">
+            <div>Pusto — w tym folderze nie ma wątków przypisanych do Ciebie.</div>
+            <div class="go">Pokaż całą skrzynkę</div>
+          </div>
+        </div>
+      </div></div>
+      <div class="caption">
+        <h3><i>08</i> Pusty wycinek u kogoś z pełnym wglądem</h3>
+        <p>
+          Osoba z biura często nie prowadzi żadnego deala — jej wycinek bywa
+          pusty przy pełnej skrzynce firmowej. Bez tego zdania wyglądałoby to na
+          awarię modułu, więc pusta lista mówi <b>dlaczego</b> jest pusta
+          i proponuje przejście.
+        </p>
+        <p>
+          <b>Szukanie chodzi wyłącznie po sieci.</b> Serwer przeszukuje też
+          treść wiadomości, których telefon nigdy nie pobrał; szukanie po samym
+          cache dawałoby wyniki wyglądające na kompletne, a takimi nie będące.
+        </p>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section>
+  <div class="shead">
+    <div class="snum">Ustalenia — 2026-09-06</div>
+    <h2>Cztery decyzje</h2>
+    <p>
+      Wszystkie cztery padły na wariant najszerszy. Zapisane tutaj, bo z samego
+      kodu nie widać, dlaczego akurat tak.
+    </p>
+  </div>
+  <div class="cards">
+    <div class="card">
+      <h3><span class="dot ok"></span>1. Wycinek: dowiązanie <i>plus</i> adres</h3>
+      <p>
+        Wątek jest mój, gdy jest dowiązany do <b>mojego deala</b>, albo — jeśli
+        nikt go nie dowiązał — gdy nadawca lub odbiorca to <b>adres mojego
+        klienta</b>. Dzięki temu świeży mail od klienta trafia do opiekuna,
+        zanim ktokolwiek go przypnie.
+      </p>
+      <p>
+        <b>Ręczne dowiązanie ma pierwszeństwo.</b> Wątek przypięty do cudzego
+        deala nie wraca do mnie tylnymi drzwiami przez adres — inaczej dwie
+        osoby przeciągałyby sobie korespondencję.
+      </p>
+      <p>
+        Przed tym wszystkim jest jednak <b>autorstwo</b>: wątek, w którym sam
+        cokolwiek napisałem, jest mój zawsze. Bez tego mail wysłany z kontakt@
+        do hurtowni albo urzędu nie należałby do nikogo i znikałby autorowi
+        z „Wysłanych".
+      </p>
+    </div>
+    <div class="card">
+      <h3><span class="dot ok"></span>2. Personalna z konta</h3>
+      <p>
+        Adres = <code>users.email</code> zalogowanej osoby, koniec z wpisanym na
+        sztywno jednym adresem dla całego zespołu. Skrzynka powstaje leniwie,
+        przy pierwszym wejściu w moduł.
+      </p>
+    </div>
+    <div class="card">
+      <h3><span class="dot ok"></span>3. Pełne 1:1 + offline z kolejką</h3>
+      <p>
+        Dwie skrzynki, sześć folderów z licznikami, wątek, wysyłka i odpowiedź,
+        gwiazdka, przeczytane, przenoszenie, kosz, załączniki, dowiązanie do
+        deala. Offline jak w Zadaniach, Serwisie i Zamówieniu: kolejka mutacji,
+        nie sam cache do odczytu.
+      </p>
+    </div>
+    <div class="card">
+      <h3><span class="dot part"></span>4. Pełny wgląd dla biura</h3>
+      <p>
+        Nowe uprawnienie <code>email.view_all</code> — zarząd, admin (mają ALL)
+        i <b>biuro</b>, bo to ono obsługuje kontakt@ na co dzień. Wycinek zostaje
+        domyślny <b>dla każdego</b>, także dla nich; prawo daje wyłącznie
+        przełącznik.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="shead">
+    <div class="snum">Kontrakt</div>
+    <h2>Co dołożyliśmy do board360</h2>
+    <p>
+      Poczta w API istniała, ale nie znała ani skrzynek, ani opiekuna. Zmiany są
+      wspólne dla panelu i telefonu.
+    </p>
+  </div>
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr><th>Miejsce</th><th>Zmiana</th><th>Po co</th><th></th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="mono">email_accounts</td>
+          <td>kolumny <code>kind</code> i <code>userId</code></td>
+          <td>Rozróżnienie skrzynki firmowej od personalnej; właściciel tej drugiej.</td>
+          <td><span class="tag mod">migracja</span></td>
+        </tr>
+        <tr>
+          <td class="mono">GET /email/accounts</td>
+          <td>nowa trasa</td>
+          <td>Zakładki modułu + licznik nieprzeczytanych <b>w domyślnym widoku osoby</b>.</td>
+          <td><span class="tag new">nowe</span></td>
+        </tr>
+        <tr>
+          <td class="mono">GET /email/threads</td>
+          <td>parametry <code>accountId</code>, <code>scope</code></td>
+          <td>Wybór skrzynki i widoku. <code>scope=all</code> bez uprawnienia → 403.</td>
+          <td><span class="tag mod">zmiana</span></td>
+        </tr>
+        <tr>
+          <td class="mono">GET /email/folders</td>
+          <td>te same parametry</td>
+          <td>Liczniki muszą zgadzać się z listą, którą człowiek zobaczy po wejściu.</td>
+          <td><span class="tag mod">zmiana</span></td>
+        </tr>
+        <tr>
+          <td class="mono">POST /email/messages</td>
+          <td>pole <code>accountId</code></td>
+          <td>Z której skrzynki wychodzi wiadomość. Cudza = 403.</td>
+          <td><span class="tag mod">zmiana</span></td>
+        </tr>
+        <tr>
+          <td class="mono">threads/:id, PATCH, DELETE</td>
+          <td>kontrola widoczności</td>
+          <td>Wątek spoza wycinka oddaje <b>404</b>, nie 403 — odpowiedź nie ma zdradzać, że istnieje.</td>
+          <td><span class="tag mod">zmiana</span></td>
+        </tr>
+        <tr>
+          <td class="mono">email_messages.sentById</td>
+          <td>nowa kolumna</td>
+          <td>Autor wysyłki. Wątek z moją wiadomością jest mój także wtedy, gdy odbiorcy nie ma w kartotece.</td>
+          <td><span class="tag new">nowe</span></td>
+        </tr>
+        <tr>
+          <td class="mono">email.view_all</td>
+          <td>nowe uprawnienie</td>
+          <td>Pełny wgląd w skrzynkę firmową. Personalnej nie otwiera nikomu.</td>
+          <td><span class="tag new">nowe</span></td>
+        </tr>
+        <tr>
+          <td class="mono">board360-mock</td>
+          <td>trasy <code>/api/email/*</code> + seed</td>
+          <td>Telefon testuje się offline; seed pokrywa wszystkie warianty wycinka.</td>
+          <td><span class="tag new">nowe</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div class="shead">
+    <div class="snum">Granice</div>
+    <h2>Czego świadomie nie ma na telefonie</h2>
+  </div>
+  <div class="cards">
+    <div class="card">
+      <h3><span class="dot no"></span>Nadawania etykiet</h3>
+      <p>
+        Etykiety są do czytania. Porządkowanie skrzynki kolorami to robota
+        biurkowa; na telefonie wystarczają folder i gwiazdka.
+      </p>
+    </div>
+    <div class="card">
+      <h3><span class="dot no"></span>Renderowania HTML-a</h3>
+      <p>
+        Poczta pokazuje się jako tekst. HTML z wiadomości przychodzącej to
+        piksele śledzące i cudzy układ na naszym ekranie.
+      </p>
+    </div>
+    <div class="card">
+      <h3><span class="dot no"></span>Wyboru nadawcy</h3>
+      <p>
+        Wysyłka idzie z tej skrzynki, w której jesteś. Picker sugerowałby wybór,
+        którego serwer i tak nie przyjmie.
+      </p>
+    </div>
+    <div class="card">
+      <h3><span class="dot part"></span>Szukania bez zasięgu</h3>
+      <p>
+        Wyszukiwarka chodzi po sieci. Bez zasięgu jest wyłączona — zamiast
+        udawać, że przeszukała całą skrzynkę.
+      </p>
+    </div>
+  </div>
+</section>
+
+<div class="foot">
+  <b>Makieta modułu Email</b> — TeamTalk, 2026-09-06. Kolory ekranów 1:1 z motywem
+  ciemnym aplikacji; etykiety w kolorach z seeda board360. Panel:
+  <code>web/src/app/app/communication</code>, API: <code>api/src/modules/email</code>,
+  telefon: <code>presentation/email</code>.
+</div>
+
+</div>

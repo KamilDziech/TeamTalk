@@ -35,6 +35,9 @@ class NotificationHelper @Inject constructor(
         /** Urlopy: decyzja o moim wniosku i wniosek podwładnego do akceptacji. */
         const val LEAVE_CHANNEL_ID = "hr_leave"
 
+        /** Poczta: wiadomość, której serwer nie przyjął przy wysyłce z kolejki. */
+        const val EMAIL_CHANNEL_ID = "email_sync"
+
         /** Jedno powiadomienie na przypomnienia — kolejne podmienia poprzednie. */
         private const val REMINDER_NOTIFICATION_ID = 4200
         private val idCounter = AtomicInteger(1000)
@@ -222,6 +225,45 @@ class NotificationHelper @Inject constructor(
         )
 
         val notification = NotificationCompat.Builder(context, LEAVE_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_ekotak)
+            .setColor(ContextCompat.getColor(context, R.color.ekotak_green))
+            .setContentTitle(title)
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .build()
+
+        NotificationManagerCompat.from(context).notify(notificationId, notification)
+    }
+
+    /**
+     * Odmowa serwera przy wysyłce poczty zakolejkowanej bez zasięgu.
+     *
+     * To jedyne powiadomienie tego modułu i jest konieczne: człowiek widział na
+     * ekranie wiadomość jako wysłaną, więc jej cichy zanik oznaczałby, że
+     * czeka na odpowiedź na pismo, które nigdy nie wyszło. [notificationId]
+     * liczymy z opisu wiadomości, żeby kolejna próba podmieniała poprzednią.
+     */
+    fun showEmailNotification(title: String, text: String, notificationId: Int) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED
+        ) return
+
+        val contentIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra(MainActivity.EXTRA_OPEN_EMAIL, true)
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            notificationId,
+            contentIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+        val notification = NotificationCompat.Builder(context, EMAIL_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_ekotak)
             .setColor(ContextCompat.getColor(context, R.color.ekotak_green))
             .setContentTitle(title)

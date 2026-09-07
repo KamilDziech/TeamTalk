@@ -724,3 +724,128 @@ val MIGRATION_16_17 = object : Migration(16, 17) {
         )
     }
 }
+
+/**
+ * v18 — moduł Email (poczta w układzie Gmaila).
+ *
+ * Siedem tabel dochodzi migracją, a nie kasowaniem bazy, bo od wersji 6 leży
+ * w niej kolejka niewysłanych zmian — jedyna kopia decyzji podjętych bez
+ * zasięgu. Nowa kolejka poczty (`email_mutations`) dołącza do tego zbioru.
+ *
+ * Klucze złożone są tu celowo. `email_threads` trzyma ten sam wątek osobno dla
+ * widoku „Moje" i „Wszystkie" (kolumna `scope`), bo wycinek opiekuna liczy
+ * serwer i telefon nie ma z czego go odtworzyć; jeden worek oznaczałby, że po
+ * wejściu w „Moje" bez zasięgu widać cudzą korespondencję pobraną wcześniej
+ * w widoku „Wszystkie". Tak samo `email_folders`: liczniki są inne w każdym
+ * widoku, więc para (skrzynka, widok) wchodzi do klucza.
+ */
+val MIGRATION_17_18 = object : Migration(17, 18) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `email_accounts` (
+                `id` TEXT NOT NULL,
+                `address` TEXT NOT NULL,
+                `displayName` TEXT,
+                `kind` TEXT NOT NULL,
+                `canViewAll` INTEGER NOT NULL,
+                `unread` INTEGER NOT NULL,
+                `position` INTEGER NOT NULL,
+                `syncedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `email_folders` (
+                `accountId` TEXT NOT NULL,
+                `scope` TEXT NOT NULL,
+                `folder` TEXT NOT NULL,
+                `total` INTEGER NOT NULL,
+                `unread` INTEGER NOT NULL,
+                `syncedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`accountId`, `scope`, `folder`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `email_threads` (
+                `id` TEXT NOT NULL,
+                `accountId` TEXT NOT NULL,
+                `scope` TEXT NOT NULL,
+                `subject` TEXT NOT NULL,
+                `folder` TEXT NOT NULL,
+                `lastAt` TEXT NOT NULL,
+                `unread` INTEGER NOT NULL,
+                `starred` INTEGER NOT NULL,
+                `dealId` TEXT,
+                `dealLabel` TEXT,
+                `fromName` TEXT,
+                `fromAddr` TEXT NOT NULL,
+                `snippet` TEXT NOT NULL,
+                `messageCount` INTEGER NOT NULL,
+                `hasAttachment` INTEGER NOT NULL,
+                `labelsRaw` TEXT NOT NULL,
+                `syncedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`id`, `accountId`, `scope`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `email_messages` (
+                `id` TEXT NOT NULL,
+                `threadId` TEXT NOT NULL,
+                `outbound` INTEGER NOT NULL,
+                `fromAddr` TEXT NOT NULL,
+                `fromName` TEXT,
+                `toAddrs` TEXT NOT NULL,
+                `ccAddrs` TEXT NOT NULL,
+                `subject` TEXT NOT NULL,
+                `bodyText` TEXT,
+                `status` TEXT NOT NULL,
+                `createdAt` TEXT NOT NULL,
+                `syncedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `email_attachments` (
+                `id` TEXT NOT NULL,
+                `messageId` TEXT NOT NULL,
+                `filename` TEXT NOT NULL,
+                `mimeType` TEXT NOT NULL,
+                `sizeBytes` INTEGER NOT NULL,
+                `localUri` TEXT,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `email_labels` (
+                `id` TEXT NOT NULL,
+                `name` TEXT NOT NULL,
+                `color` TEXT NOT NULL,
+                `syncedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `email_mutations` (
+                `targetId` TEXT NOT NULL,
+                `kind` TEXT NOT NULL,
+                `payload` TEXT NOT NULL,
+                `createdAt` INTEGER NOT NULL,
+                PRIMARY KEY(`targetId`, `kind`)
+            )
+            """.trimIndent(),
+        )
+    }
+}

@@ -114,6 +114,23 @@ val HOME_MODULES: List<HomeModule> = listOf(
             "M18.9 8.5h.4A1.8 1.8 0 0 1 21 10.3v7a1.8 1.8 0 0 1-1.3 1.8v3l-2.6-2.3",
         ),
     ),
+    // Drugi kafelek z huba Komunikacja: w panelu poczta jest ZAKŁADKĄ modułu
+    // Komunikacja (/app/communication), obok Komunikatora, WhatsAppa i telefonu.
+    // Na telefonie dostaje własne wejście, bo skrzynkę otwiera się dziesięć razy
+    // dziennie i nikt nie chce po drodze wybierać kanału (ustalenie 2026-09-06,
+    // ten sam zabieg co przy parach Serwis / Przeglądy i Urlop / Szkolenia).
+    // Kolor cyjanowy jak kafelek Komunikacji — to ten sam moduł panelu.
+    HomeModule(
+        key = "email",
+        label = "Email",
+        desc = "Skrzynka firmowa i Twoja własna",
+        color = Color(0xFF22D3EE),
+        icon = moduleIcon(
+            // Koperta: prostokąt i „daszek" zaklejenia.
+            rect(3f, 5.5f, 18f, 13f, 2f),
+            "M3.6 7 12 13.2 20.4 7",
+        ),
+    ),
     HomeModule(
         key = "installations",
         label = "Montaże",
