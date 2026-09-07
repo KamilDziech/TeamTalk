@@ -69,6 +69,8 @@ class LessonViewModel @Inject constructor(
         /** Czy odtwarzacz w ogóle raportuje postęp (YouTube tak, Loom nie). */
         val trackable: Boolean = false,
         val manualWatched: Boolean = false,
+        /** Kod błędu odtwarzacza YouTube (101/150 = zakaz osadzania, 100 = brak filmu). */
+        val videoError: Int? = null,
         /** Sekundy spędzone na etapie filmu — otwiera ręczne potwierdzenie. */
         val dwellSeconds: Int = 0,
         val questionIndex: Int = 0,
@@ -86,10 +88,18 @@ class LessonViewModel @Inject constructor(
         /** Bramka testu: obejrzane albo potwierdzone tam, gdzie mierzyć się nie da. */
         val videoDone: Boolean get() = when {
             questions.isEmpty() -> true
+            videoError != null -> manualWatched
             trackable -> watched >= WATCHED_THRESHOLD || manualWatched
             else -> manualWatched
         }
-        val canConfirmManually: Boolean get() = dwellSeconds >= MANUAL_CONFIRM_AFTER_SECONDS
+
+        /**
+         * Gdy odtwarzacz zgłosił błąd, nie ma na co czekać — filmu w aplikacji
+         * nie da się obejrzeć, więc potwierdzenie otwieramy od razu (ekran
+         * podsuwa obok link do YouTube).
+         */
+        val canConfirmManually: Boolean get() =
+            videoError != null || dwellSeconds >= MANUAL_CONFIRM_AFTER_SECONDS
         val totalSeconds: Int get() = questions.size * SECONDS_PER_QUESTION
     }
 
@@ -142,6 +152,9 @@ class LessonViewModel @Inject constructor(
     }
 
     fun onVideoEnded() = _state.update { it.copy(watched = 1f) }
+
+    /** Odtwarzacz odmówił (zakaz osadzania, film zdjęty, brak sieci w WebView). */
+    fun onVideoFailed(code: Int) = _state.update { it.copy(videoError = code) }
 
     fun confirmWatchedManually() = _state.update { it.copy(manualWatched = true) }
 

@@ -148,11 +148,27 @@ private fun VideoStep(state: LessonViewModel.UiState, viewModel: LessonViewModel
                 lesson = lesson,
                 onProgress = viewModel::onWatchProgress,
                 onEnded = viewModel::onVideoEnded,
+                onFailed = viewModel::onVideoFailed,
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(16f / 9f)
                     .clip(RoundedCornerShape(12.dp)),
             )
+            // Odtwarzacz pokazuje wtedy własny komunikat po angielsku i nic
+            // więcej — bez tej karty nie wiadomo, że test odblokuje ptaszek.
+            state.videoError?.let { code ->
+                Card {
+                    Text(
+                        "Tego filmu nie da się odtworzyć w aplikacji " +
+                            "(YouTube, kod $code). Obejrzyj go na YouTube " +
+                            "i potwierdź poniżej — test się odblokuje.",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    TextButton(onClick = { context.openLink(lesson.videoUrl) }) {
+                        Text("Otwórz film na YouTube")
+                    }
+                }
+            }
         } else {
             // Link spoza YouTube/Loom — osadzenie nie ma jak zadziałać, więc
             // oddajemy film przeglądarce zamiast pokazywać czarny prostokąt.

@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
+import com.ekotak.teamtalk.BuildConfig
 import com.ekotak.teamtalk.domain.model.TrainingLesson
 import java.net.URI
 
@@ -56,6 +57,18 @@ fun canEmbed(lesson: TrainingLesson): Boolean =
     youtubeId(lesson.videoUrl) != null || loomEmbedUrl(lesson.videoUrl) != null
 
 /**
+ * Ramka odtwarzacza. Wysokość MUSI być w `vw`, nie w procentach: Compose tworzy
+ * `WebView` w `factory` i od razu ładuje stronę, więc dokument dostaje wysokość
+ * okna 0 i cała kaskada `height:100%` (html → body → iframe) pada do zera.
+ * Sprawdzone na SM-S928B 2026-09-07: iframe miał 352×0 px, czyli w aplikacji
+ * widać było czarny prostokąt. `vw` liczy się od szerokości, która jest znana
+ * od pierwszego layoutu, a ramka na ekranie lekcji jest 16:9 (`56.25vw`).
+ */
+private const val PLAYER_CSS =
+    "html,body{margin:0;background:#000;overflow:hidden}" +
+        "#p{display:block;border:0;width:100vw;height:56.25vw}"
+
+/**
  * Strona odtwarzacza. Dla YouTube z mostkiem raportującym postęp, dla reszty
  * gołe `iframe` — bez API dostawcy nie ma czego mierzyć.
  */
@@ -65,7 +78,7 @@ private fun playerHtml(lesson: TrainingLesson): String {
         return """
             <!doctype html><html><head>
             <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-            <style>html,body{margin:0;height:100%;background:#000}#p{width:100%;height:100%}</style>
+            <style>$PLAYER_CSS</style>
             </head><body><div id="p"></div>
             <script src="https://www.youtube.com/iframe_api"></script>
             <script>
@@ -74,13 +87,17 @@ private fun playerHtml(lesson: TrainingLesson): String {
                 player = new YT.Player('p', {
                   videoId: '$videoId',
                   playerVars: { playsinline: 1, rel: 0, modestbranding: 1 },
-                  events: { onStateChange: onState }
+                  events: { onStateChange: onState, onError: onError }
                 });
               }
               function onState(e) {
                 if (e.data === YT.PlayerState.PLAYING) { start(); } else { stop(); }
                 if (e.data === YT.PlayerState.ENDED) { Bridge.ended(); }
               }
+              /* 101/150 = właściciel zabronił osadzania, 100 = film zdjęty,
+                 152/153 = YouTube odrzucił stronę osadzającą. Bez tego sygnału
+                 ekran zostawał z zablokowanym testem i zero wyjaśnienia. */
+              function onError(e) { stop(); Bridge.failed(e.data | 0); }
               /* Liczymy CZAS ODTWARZANIA, nie pozycję — przewijanie do przodu
                  nie może liczyć się jako obejrzane. */
               function start() {
@@ -100,9 +117,9 @@ private fun playerHtml(lesson: TrainingLesson): String {
     return """
         <!doctype html><html><head>
         <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-        <style>html,body{margin:0;height:100%;background:#000}iframe{border:0;width:100%;height:100%}</style>
+        <style>$PLAYER_CSS</style>
         </head><body>
-        <iframe src="$embed" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
+        <iframe id="p" src="$embed" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
         </body></html>
     """.trimIndent()
 }
@@ -111,6 +128,7 @@ private fun playerHtml(lesson: TrainingLesson): String {
 private class VideoBridge(
     private val onProgress: (Float) -> Unit,
     private val onEnded: () -> Unit,
+    private val onFailed: (Int) -> Unit,
 ) {
     private val main = Handler(Looper.getMainLooper())
 
@@ -123,7 +141,22 @@ private class VideoBridge(
     fun ended() {
         main.post { onEnded() }
     }
+
+    @JavascriptInterface
+    fun failed(code: Int) {
+        main.post { onFailed(code) }
+    }
 }
+
+/**
+ * Pochodzenie strony odtwarzacza. NIE może to być `https://www.youtube.com`:
+ * YouTube odrzuca osadzenie, które podaje się za jego własną domenę, i zwraca
+ * „Ten film jest niedostępny, kod błędu 152" — nawet dla filmu, który normalnie
+ * osadza się bez problemu (sprawdzone 2026-09-07 na tym samym filmie ze strony
+ * na `localhost:3000`). Bierzemy więc adres naszego API: to prawdziwa domena,
+ * a IFrame API i tak samo dopisze `origin` z `location.origin`.
+ */
+private val playerBaseUrl: String = BuildConfig.API_BASE_URL.trimEnd('/')
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -131,6 +164,7 @@ fun LessonVideo(
     lesson: TrainingLesson,
     onProgress: (Float) -> Unit,
     onEnded: () -> Unit,
+    onFailed: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     // HTML zależy wyłącznie od linku — przebudowa przy każdej rekompozycji
@@ -146,11 +180,12 @@ fun LessonVideo(
                 // Bez tego pełny ekran YouTube nie ma gdzie się otworzyć.
                 webChromeClient = WebChromeClient()
                 setBackgroundColor(android.graphics.Color.BLACK)
-                addJavascriptInterface(VideoBridge(onProgress, onEnded), "Bridge")
-                // Baza `youtube.com` jest wymagana przez IFrame API — z `about:blank`
-                // player zgłasza błąd pochodzenia i nie startuje.
+                addJavascriptInterface(VideoBridge(onProgress, onEnded, onFailed), "Bridge")
+                // Baza musi być prawdziwym adresem https — z `about:blank` IFrame
+                // API zgłasza błąd pochodzenia i nie startuje, a z `youtube.com`
+                // YouTube odrzuca osadzenie (kod 152). Stąd domena naszego API.
                 loadDataWithBaseURL(
-                    "https://www.youtube.com",
+                    playerBaseUrl,
                     html,
                     "text/html",
                     "utf-8",
