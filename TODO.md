@@ -430,6 +430,54 @@ Baza **18 → 19**: `deal_documents` (cache metadanych) i `document_mutations`
 5. „Przygotuj rzut" na wgranym rzucie: skala z odcinka o znanej długości,
    dwa obrysy, wycięcie w jednym z nich → metraż w panelu ten sam.
 
+### Zakładka „Harmonogram" karty deala
+
+Odpowiednik `DealProjectPanel` panelu (w web chodzi pod kluczem `projekt`).
+Zakres 1:1 z web: projekty rozwojowe przypięte do tego deala i pole zakładania
+nowego. Kamienie milowe, Gantt i planowanie zadań zostają w module Projekty —
+zakładka jest wejściem do nich z karty klienta, dokładnie jak link w panelu.
+
+- ✅ Lista projektów deala z `GET /api/projects/by-deal/:id`: nazwa, pasek
+  koloru, plakietka etapu, „X/Y zadań · Z%" — kafel taki sam jak w module
+  Projekty, żeby ten sam projekt wyglądał tak samo z obu wejść
+- ✅ Zarchiwizowane zostają na liście z plakietką „archiwum" (panelowe
+  „· archiwum") i idą pod aktywnymi — historia projektu to historia deala
+- ✅ Wejście w projekt otwiera tę samą kartę co kafelek „Projekty"
+  (`projects/{id}`), zamiast drugiego, osobnego widoku
+- ✅ „+ Projekt" tylko z `projects.manage`; bez niego zakładka pokazuje
+  wyjaśnienie — board360 puszcza na `projects.view` wyłącznie POMYSŁ do
+  Poczekalni, a projekt deala pomysłem nie jest
+- ❌ Planowanie zadań, kamienie i decyzje etapowe — zostają w module Projekty
+  (w panelu tak samo: zakładka deala tylko listuje i zakłada)
+
+#### Kolejka offline zakładki „Harmonogram"
+
+Baza **20 → 21**: `projects` dostaje `dealId` i `status` (`ALTER TABLE`, nie
+odtworzenie — w tabeli leżą pomysły zgłoszone bez zasięgu). Kolejka i worker są
+te same co w module Projekty (`project_mutations`, `ProjectSyncWorker`), doszedł
+rodzaj wpisu `create_deal_project`.
+
+- ✅ Lista czyta się z cache Room — zakładka otwiera się bez zasięgu, z paskiem
+  „lista z telefonu"
+- ✅ Projekt założony bez zasięgu jest WIERSZEM cache'u (`local:…`) z etapem
+  `appraisal` — tym samym, który nada mu serwer — i plakietką „czeka na wysyłkę"
+- ✅ Wejście w projekt z kolejki mówi, na co czeka, zamiast otwierać pustą kartę
+  nieistniejącego jeszcze rekordu
+- ✅ Odświeżenie listy z serwera nie kasuje wierszy z kolejki; po wysyłce wiersz
+  lokalny ustępuje miejsca temu z serwera (inaczej projekt byłby dwa razy)
+- ✅ Odmowa serwera (brak `projects.manage`, skasowany deal) zdejmuje wpis
+  z kolejki — ponowienie nic by nie zmieniło
+
+#### Do przeklikania na urządzeniu
+
+1. Deal „Instal Serwis" → „Harmonogram": projekt aktywny z paskiem postępu
+   i drugi z plakietką „archiwum" pod nim (atrapa ma na to seed).
+2. Dotknięcie kafla → karta projektu z kamieniami; „Wróć" wraca na zakładkę.
+3. Tryb samolotowy → „+ Projekt" z nazwą → kafel „czeka na wysyłkę"; wróć
+   w zasięg i sprawdź `GET /api/projects/by-deal/:id`.
+4. Konto `serwisant` (bez `projects.manage`): lista widoczna, pole zakładania
+   zastąpione wyjaśnieniem.
+
 ### Edycja karty (ekran `deal/{id}/edit`)
 
 Pełen zakres pól przyjmowanych przez `PATCH /api/deals/:id`. Zapis idzie jednym

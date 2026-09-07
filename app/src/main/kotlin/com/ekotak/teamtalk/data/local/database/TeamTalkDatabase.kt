@@ -56,7 +56,7 @@ import com.ekotak.teamtalk.data.local.entity.*
         DealSettlementEntity::class,
         SettlementMutationEntity::class,
     ],
-    version = 20,
+    version = 21,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)

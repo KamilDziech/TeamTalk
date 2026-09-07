@@ -35,6 +35,7 @@ import com.ekotak.teamtalk.domain.model.KnowledgeArticle
 import com.ekotak.teamtalk.domain.model.LeadIntake
 import com.ekotak.teamtalk.domain.model.MeetingKind
 import com.ekotak.teamtalk.domain.model.OfferLock
+import com.ekotak.teamtalk.domain.model.Project
 import com.ekotak.teamtalk.domain.model.TaskMember
 import com.ekotak.teamtalk.domain.model.UfhState
 import com.ekotak.teamtalk.domain.model.ancestorsOfSelected
@@ -55,7 +56,9 @@ import com.ekotak.teamtalk.domain.repository.DealDocumentRepository
 import com.ekotak.teamtalk.domain.repository.AuditSaveResult
 import com.ekotak.teamtalk.domain.repository.AuthRepository
 import com.ekotak.teamtalk.domain.repository.OfferPricingRepository
+import com.ekotak.teamtalk.domain.repository.DealProjectSaveResult
 import com.ekotak.teamtalk.domain.repository.OrderRepository
+import com.ekotak.teamtalk.domain.repository.ProjectRepository
 import com.ekotak.teamtalk.domain.repository.OrderSaveResult
 import com.ekotak.teamtalk.domain.repository.SettlementRepository
 import com.ekotak.teamtalk.domain.repository.SettlementSaveResult
@@ -126,6 +129,13 @@ private const val PERMISSION_INVENTORY_MANAGE = "inventory.manage"
  */
 private const val PERMISSION_FINANCIAL_MANAGE = "financial.terms.manage"
 
+/**
+ * Założenie projektu pod dealem (zakł. „Harmonogram"). Board360 puszcza na
+ * `projects.view` wyłącznie ZGŁOSZENIE POMYSŁU do Poczekalni — projekt wprost,
+ * a taki jest projekt deala, wymaga zarządzania (`ProjectsController.create`).
+ */
+private const val PERMISSION_PROJECTS_MANAGE = "projects.manage"
+
 /** Odstęp między znakiem a zapytaniem do kartoteki przy szukaniu kontaktu. */
 private const val CONTACT_SEARCH_DEBOUNCE_MS = 250L
 
@@ -184,6 +194,7 @@ class DealDetailViewModel @Inject constructor(
     private val offerPricingRepository: OfferPricingRepository,
     private val settlementRepository: SettlementRepository,
     private val dealDocumentRepository: DealDocumentRepository,
+    private val projectRepository: ProjectRepository,
     private val documentFiles: DocumentFileStore,
     private val makeCallUseCase: MakeCallUseCase,
 ) : ViewModel() {
@@ -513,6 +524,27 @@ class DealDetailViewModel @Inject constructor(
     }
 
     /**
+     * Zakładka „Harmonogram" (klucz `projekt` w panelu) — projekty rozwojowe
+     * przypięte do tego deala. 1:1 z `DealProjectPanel`: lista z postępem
+     * i pole zakładania nowego, a planowanie zadań zostaje w module Projekty.
+     */
+    data class ScheduleState(
+        val isLoading: Boolean = false,
+        val loaded: Boolean = false,
+        val projects: List<Project> = emptyList(),
+        /** Nazwa wpisywana w polu „Nazwa nowego projektu…". */
+        val newName: String = "",
+        /** Lista pochodzi z cache — serwer był nieosiągalny. */
+        val offline: Boolean = false,
+        /** Trwa zakładanie projektu — blokuje przycisk, żeby nie dublować. */
+        val busy: Boolean = false,
+        val error: String? = null,
+    ) {
+        /** Ile projektów czeka w kolejce na wysyłkę — pasek nad listą. */
+        val pendingCount: Int get() = projects.count { it.localOnly }
+    }
+
+    /**
      * Instalacja do rozliczenia: zapisany audyt (skąd ILOŚCI) i stawki punktowe
      * ze ścieżki węzła w katalogu (skąd PUNKTY). Rachunku tu nie ma — robi go
      * zakładka poza wątkiem głównym, tak samo jak przy ofercie.
@@ -573,6 +605,7 @@ class DealDetailViewModel @Inject constructor(
         val offer: OfferState = OfferState(),
         val orders: OrdersState = OrdersState(),
         val files: FilesState = FilesState(),
+        val schedule: ScheduleState = ScheduleState(),
         val settlement: SettlementState = SettlementState(),
         /**
          * Uprawnienia z `GET /api/me`. Trzymamy CAŁY zestaw, a nie same
@@ -590,6 +623,13 @@ class DealDetailViewModel @Inject constructor(
 
         /** Zatwierdzanie i cofanie rozliczeń (`financial.terms.manage`). */
         val canManageSettlements: Boolean get() = PERMISSION_FINANCIAL_MANAGE in permissions
+
+        /**
+         * Zakładanie projektu pod dealem (`projects.manage`). Sam podgląd listy
+         * chodzi na `projects.view`, więc zakładka jest dla każdego, kto widzi
+         * moduł Projekty — tylko pole „+ Projekt" się bez tego nie pokaże.
+         */
+        val canManageProjects: Boolean get() = PERMISSION_PROJECTS_MANAGE in permissions
 
         /** Etapy, na które wolno przejść z bieżącego (maszyna stanów board360). */
         val availableStages: List<DealStage>
@@ -742,6 +782,7 @@ class DealDetailViewModel @Inject constructor(
         if (tab == DealTab.OFERTA) loadOffer()
         if (tab == DealTab.ZAMOWIENIE) loadOrders()
         if (tab == DealTab.PLIKI) loadFiles()
+        if (tab == DealTab.HARMONOGRAM) loadSchedule()
         if (tab == DealTab.ROZLICZENIE) loadSettlement()
     }
 
@@ -2393,6 +2434,77 @@ class DealDetailViewModel @Inject constructor(
             )
         }
     }
+
+    // ── Zakładka „Harmonogram" ───────────────────────────────────────────────
+
+    /**
+     * Projekty przypięte do deala. Odczyt idzie przez repozytorium modułu
+     * Projekty, więc lista otwiera się z cache także bez zasięgu — a projekt
+     * założony w terenie widać na niej od razu, z podpisem o kolejce.
+     *
+     * @param force ponowny odczyt po założeniu projektu albo po „Spróbuj ponownie".
+     */
+    fun loadSchedule(force: Boolean = false) {
+        val schedule = _uiState.value.schedule
+        if (!force && (schedule.loaded || schedule.isLoading)) return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(schedule = it.schedule.copy(isLoading = true, error = null)) }
+            val snapshot = projectRepository.getDealProjects(dealId)
+            _uiState.update {
+                it.copy(
+                    schedule = it.schedule.copy(
+                        isLoading = false,
+                        loaded = true,
+                        projects = snapshot.projects,
+                        offline = snapshot.offline,
+                        error = snapshot.error,
+                    ),
+                )
+            }
+        }
+    }
+
+    fun onNewProjectNameChange(name: String) {
+        _uiState.update { it.copy(schedule = it.schedule.copy(newName = name)) }
+    }
+
+    /**
+     * Nowy projekt pod dealem — odpowiednik „+ Projekt" z panelu. Bez zasięgu
+     * zapis ląduje w kolejce i mówimy o tym wprost, zamiast udawać wysyłkę.
+     */
+    fun createDealProject() {
+        val name = _uiState.value.schedule.newName.trim()
+        if (name.isEmpty() || _uiState.value.schedule.busy) return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(schedule = it.schedule.copy(busy = true)) }
+            val result = runCatching { projectRepository.createDealProject(dealId, name) }
+            _uiState.update { state ->
+                state.copy(
+                    schedule = state.schedule.copy(
+                        busy = false,
+                        // Nazwę czyścimy tylko po udanym zapisie — po odmowie
+                        // serwera człowiek ma poprawić wpis, a nie pisać od nowa.
+                        newName = if (result.isSuccess) "" else state.schedule.newName,
+                    ),
+                    message = when (result.getOrNull()) {
+                        DealProjectSaveResult.SENT -> "Utworzono projekt dla deala."
+                        DealProjectSaveResult.QUEUED ->
+                            "Brak zasięgu — projekt poleci, gdy wróci sieć."
+                        null -> crmErrorMessage(
+                            result.exceptionOrNull() ?: Exception(),
+                            "Nie udało się utworzyć projektu",
+                        )
+                    },
+                )
+            }
+            if (result.isSuccess) loadSchedule(force = true)
+        }
+    }
+
+    /** Komunikat do snackbara wywołany z zakładki (bez własnej operacji). */
+    fun showMessage(text: String) = _uiState.update { it.copy(message = text) }
 
     fun clearMessage() = _uiState.update { it.copy(message = null) }
 

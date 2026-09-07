@@ -933,3 +933,19 @@ val MIGRATION_19_20 = object : Migration(19, 20) {
         )
     }
 }
+
+/**
+ * Wersja 21 — zakładka „Harmonogram" karty deala. Dwie kolumny w `projects`:
+ * `dealId` (po czym zakładka wybiera projekty tego deala) i `status` (panel
+ * dopisuje przy nazwie „· archiwum").
+ *
+ * `ALTER TABLE`, a nie odtworzenie tabeli: w `projects` leżą pomysły zgłoszone
+ * bez zasięgu (`localOnly = 1`) czekające w `project_mutations`, a to jedyna
+ * ich kopia do czasu wysłania.
+ */
+val MIGRATION_20_21 = object : Migration(20, 21) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.addColumnIfMissing(table = "projects", column = "dealId", type = "TEXT")
+        db.addColumnIfMissing(table = "projects", column = "status", type = "TEXT")
+    }
+}

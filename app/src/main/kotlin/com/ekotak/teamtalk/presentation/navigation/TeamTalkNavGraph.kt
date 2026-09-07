@@ -498,6 +498,9 @@ private fun MainScreen(
                         val label = Uri.encode(pathLabel)
                         navController.navigate("deal/$dealId/article/$cat?path=$label")
                     },
+                    // Zakładka „Harmonogram" wchodzi w tę samą kartę projektu
+                    // co kafelek „Projekty" — jeden ekran, jedno źródło prawdy.
+                    onOpenProject = { projectId -> navController.navigate("projects/$projectId") },
                 )
             }
 

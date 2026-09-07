@@ -32,6 +32,8 @@ fun ProjectDto.toEntity(cachedAt: Long): ProjectEntity = ProjectEntity(
     metricName = metricName,
     metricBaseline = metricBaseline,
     metricTarget = metricTarget,
+    dealId = dealId,
+    status = status,
     membersJson = null,
     localOnly = false,
     cachedAt = cachedAt,
@@ -58,6 +60,8 @@ fun ProjectDetailDto.toEntity(cachedAt: Long): ProjectEntity = ProjectEntity(
     metricName = metricName,
     metricBaseline = metricBaseline,
     metricTarget = metricTarget,
+    dealId = dealId,
+    status = status,
     membersJson = null,
     localOnly = false,
     cachedAt = cachedAt,
@@ -108,6 +112,7 @@ fun ProjectEntity.toDomain(): Project = Project(
     metricName = metricName,
     metricBaseline = metricBaseline,
     metricTarget = metricTarget,
+    archived = status == "archived",
     localOnly = localOnly,
 )
 

@@ -58,6 +58,12 @@ data class ProjectDetailDto(
     val description: String? = null,
     val color: String? = null,
     val status: String? = null,
+    /**
+     * Deal, do którego projekt jest przypięty. Czytamy go także tutaj, bo karta
+     * projektu nadpisuje wiersz w cache — bez tego pola projekt otwarty
+     * z zakładki „Harmonogram" wypadłby z listy tego deala.
+     */
+    val dealId: String? = null,
     val stage: String? = null,
     val department: String? = null,
     val managerEmail: String? = null,
@@ -86,4 +92,18 @@ data class IdeaCreateDto(
     val description: String? = null,
     val department: String? = null,
     val status: String = "idea",
+)
+
+/**
+ * Body `POST /api/projects` dla projektu zakładanego z karty deala (zakładka
+ * „Harmonogram"). To samo żądanie co przycisk „+ Projekt" panelu: sama nazwa
+ * i `dealId`, reszta zostaje domyślna po stronie board360.
+ *
+ * `status` CELOWO nie jest wysyłany — projekt deala to nie pomysł z Poczekalni,
+ * więc board360 wymaga tu `projects.manage` (`ProjectsController.create`).
+ */
+@Serializable
+data class DealProjectCreateDto(
+    val name: String,
+    val dealId: String,
 )

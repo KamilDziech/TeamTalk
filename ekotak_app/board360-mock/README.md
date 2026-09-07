@@ -210,6 +210,12 @@ Lista zwraca **tylko zadania przekazane do realizacji**. Zadanie zaplanowane w p
   z autorem jako prowadzącym)
 - `POST /api/projects/tasks/:taskId/close` `{actualMinutes?}` — domknięcie z podaniem czasu;
   `actualMinutes` puste = „nie podano", zadanie liczy się po estymacie (celowo bez blokady)
+- `GET /api/projects/by-deal/:dealId` — projekty przypięte do deala (zakładka „Harmonogram" karty).
+  Trasa stoi **przed** `/projects/:id`, tak jak w board360; wracają też projekty zarchiwizowane
+  (najpierw aktywne, potem archiwum). Seed: deal „Instal Serwis" ma projekt aktywny („Montaże
+  wrzesień", z kamieniami i zadaniami) i jeden archiwalny
+- `POST /api/projects` `{name, dealId}` — projekt pod dealem („+ Projekt" panelu). Nieznany `dealId`
+  → **422** `{message, missing:['deal']}`; wymaga `projects.manage` (to nie jest pomysł)
 
 Uprawnienia 1:1 z board360 po **poluzowaniu z 2026-09-06**: wszystkie trzy trasy chodzą pod
 `projects.view`, żeby wykonawca w terenie domknął zadanie i zgłosił pomysł z telefonu. Zostały dwie

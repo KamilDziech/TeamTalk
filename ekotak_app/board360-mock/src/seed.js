@@ -709,6 +709,9 @@ function seed(db) {
       status: opts.status || 'active',
       color,
       isTemplate: Boolean(opts.isTemplate),
+      // Projekt przypiety do deala wraca z `GET /projects/by-deal/:dealId` —
+      // to jedyne zrodlo zakladki "Harmonogram" karty deala.
+      dealId: opts.deal ? opts.deal.id : null,
       stage: opts.stage || 'active',
       department: opts.department || null,
       managerId: opts.manager ? opts.manager.id : null,
@@ -725,8 +728,12 @@ function seed(db) {
     db.projects.push(row);
     return row;
   };
+  // Przypiety do deala "Instal Serwis" — zakladka "Harmonogram" karty deala ma
+  // pokazac projekt z realnym postepem (ma kamienie i zadania nizej), a nie
+  // sama pusta liste.
   const pMontaze = project('Montaze wrzesien', '#44D62C', {
     description: 'Osiem instalacji z wrzesniowego harmonogramu, jedna ekipa.',
+    deal: dSold,
     department: 'montaz',
     manager: users.koordynator,
     sponsor: users.admin,
@@ -739,6 +746,14 @@ function seed(db) {
   project('Audyty energetyczne 2026', '#38BDF8', { manager: users.serwisant });
   project('Szablon: uruchomienie instalacji', '#C084FC', { isTemplate: true }); // ma NIE wracac z GET /projects
   project('Targi Enex 2026', '#F778BA', { status: 'archived', stage: 'closed' });
+  // Drugi projekt tego samego deala, zarchiwizowany — zakladka "Harmonogram"
+  // ma go pokazac z plakietka "archiwum", pod aktywnym (kolejnosc `listByDeal`).
+  project('Instal Serwis — wymiana agregatu', '#94A3B8', {
+    status: 'archived',
+    stage: 'closed',
+    deal: dSold,
+    manager: users.serwisant,
+  });
   // Pomysl w Poczekalni — modul Projekt pyta bez `status`, wiec go widzi;
   // kreator zadania (`status=active`) NIE, i o to chodzi.
   project('Skrocic czas audytu o polowe', '#FBBF24', {

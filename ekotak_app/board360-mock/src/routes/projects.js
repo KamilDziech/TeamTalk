@@ -30,6 +30,7 @@ const {
   db,
   userById,
   taskById,
+  dealById,
   projectById,
   presentProject,
   activateDueTasks,
@@ -96,6 +97,31 @@ function presentMember(orgId, row) {
   };
 }
 
+// ── Projekty deala (zakladka "Harmonogram" karty) ────────────────────────────
+// MUSI stac PRZED `/projects/:id`, inaczej Express wzialby "by-deal" za id
+// projektu i oddal 404 — dokladnie ta sama kolejnosc co w board360.
+//
+// Zwracamy takze projekty ZARCHIWIZOWANE: panel pokazuje je z dopiskiem
+// "· archiwum", bo historia projektu jest czescia historii deala. Kolejnosc jak
+// w `listByDeal` board360: najpierw aktywne, potem archiwum.
+router.get(
+  '/projects/by-deal/:dealId',
+  requireAuth,
+  requirePermission('projects.view'),
+  (req, res) => {
+    const orgId = req.user.organizationId;
+    activateDueTasks(orgId);
+    const rows = db.projects
+      .filter((p) => p.organizationId === orgId && p.dealId === req.params.dealId)
+      .sort(
+        (a, b) =>
+          String(a.status).localeCompare(String(b.status)) ||
+          String(b.updatedAt).localeCompare(String(a.updatedAt)),
+      );
+    return res.json(rows.map((p) => presentProject(orgId, p)));
+  },
+);
+
 // ── Karta projektu ───────────────────────────────────────────────────────────
 // Jeden strzal na cala karte: naglowek, kamienie, zadania i zespol. Mobilka nie
 // dopytuje o nic wiecej, bo w kotlowni kazdy dodatkowy request to kolejna szansa
@@ -144,6 +170,15 @@ router.post('/projects', requireAuth, requirePermission('projects.view'), (req, 
       .status(403)
       .json({ message: 'Bez uprawnienia do projektow mozesz zglosic tylko pomysl.' });
   }
+  // Projekt zakladany z zakladki "Harmonogram" karty deala przychodzi z `dealId`.
+  // Nieznany deal odrzucamy tak jak board360 (obce id nie moze zawisnac w bazie),
+  // ale zostawiamy przy tym 422 z nazwa pola — mobilka umie to pokazac po polsku.
+  let dealId = null;
+  if (b.dealId != null && b.dealId !== '') {
+    const deal = dealById(req.user.organizationId, String(b.dealId));
+    if (!deal) return unprocessable(res, 'Deal nie istnieje.', ['deal']);
+    dealId = deal.id;
+  }
   const row = {
     id: uuid(),
     organizationId: req.user.organizationId,
@@ -151,6 +186,7 @@ router.post('/projects', requireAuth, requirePermission('projects.view'), (req, 
     description: b.description ? String(b.description) : null,
     color: b.color ? String(b.color) : null,
     status,
+    dealId,
     isTemplate: Boolean(b.isTemplate),
     stage: isIdea ? 'idea' : 'appraisal',
     department: b.department ? String(b.department) : null,

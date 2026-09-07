@@ -21,6 +21,17 @@ interface ProjectDao {
     @Query("SELECT * FROM projects WHERE id = :id")
     fun observeProject(id: String): Flow<ProjectEntity?>
 
+    /**
+     * Projekty jednego deala — zakładka „Harmonogram" karty.
+     *
+     * Kolejność jak w `listByDeal` board360: najpierw aktywne, potem archiwum
+     * (`status` rośnie alfabetycznie). Drugim kluczem jest nazwa, a nie data
+     * zmiany jak na serwerze — cache jej nie trzyma, a lista projektów deala
+     * jest krótka, więc kolejność alfabetyczna czyta się lepiej niż losowa.
+     */
+    @Query("SELECT * FROM projects WHERE dealId = :dealId ORDER BY status, name")
+    suspend fun getDealProjects(dealId: String): List<ProjectEntity>
+
     @Query("SELECT * FROM project_milestones WHERE projectId = :projectId ORDER BY position")
     fun observeMilestones(projectId: String): Flow<List<ProjectMilestoneEntity>>
 
@@ -56,6 +67,10 @@ interface ProjectDao {
     @Query("DELETE FROM projects WHERE localOnly = 0")
     suspend fun deleteSyncedProjects()
 
+    /** Jak wyżej, ale tylko projekty jednego deala — reszta cache'u zostaje. */
+    @Query("DELETE FROM projects WHERE dealId = :dealId AND localOnly = 0")
+    suspend fun deleteSyncedDealProjects(dealId: String)
+
     @Query("DELETE FROM project_milestones WHERE projectId = :projectId")
     suspend fun deleteMilestones(projectId: String)
 
@@ -65,6 +80,16 @@ interface ProjectDao {
     @Transaction
     suspend fun replaceProjects(projects: List<ProjectEntity>) {
         deleteSyncedProjects()
+        upsertProjects(projects)
+    }
+
+    /**
+     * Podmiana listy projektów jednego deala. Projekt założony bez zasięgu
+     * (`localOnly`) zostaje — serwer o nim jeszcze nie wie, a to jedyna kopia.
+     */
+    @Transaction
+    suspend fun replaceDealProjects(dealId: String, projects: List<ProjectEntity>) {
+        deleteSyncedDealProjects(dealId)
         upsertProjects(projects)
     }
 

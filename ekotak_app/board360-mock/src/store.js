@@ -287,6 +287,10 @@ function presentProject(orgId, row) {
     description: row.description || null,
     color: row.color || null,
     status: row.status,
+    // Deal, do ktorego projekt jest przypiety. Mobilka czyta to pole w zakladce
+    // "Harmonogram" karty deala — bez niego projekt otwarty z zakladki wypadlby
+    // z listy tego deala po odswiezeniu cache'u.
+    dealId: row.dealId || null,
     stage: row.stage || 'active',
     department: row.department || null,
     managerId: row.managerId || null,

@@ -59,6 +59,8 @@ data class ProjectDto(
     val name: String,
     val status: String? = null,
     val color: String? = null,
+    /** Deal, do którego projekt jest przypięty — zakładka „Harmonogram" karty. */
+    val dealId: String? = null,
     val taskCount: Int? = null,
     val description: String? = null,
     /** idea | appraisal | approval | planning | active | closed. */

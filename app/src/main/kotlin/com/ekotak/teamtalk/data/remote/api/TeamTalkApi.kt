@@ -919,6 +919,19 @@ interface TeamTalkApi {
     @POST("api/projects")
     suspend fun createIdea(@Body body: IdeaCreateDto): ProjectDto
 
+    /**
+     * Projekty przypięte do deala — zakładka „Harmonogram" karty. Osobna trasa,
+     * a nie filtr po `GET /api/projects`: board360 nie przyjmuje `dealId` jako
+     * parametru listy, a archiwalne projekty deala mają tu wrócić razem z
+     * aktywnymi (`ProjectsController.byDeal`).
+     */
+    @GET("api/projects/by-deal/{dealId}")
+    suspend fun getDealProjects(@Path("dealId") dealId: String): List<ProjectDto>
+
+    /** Nowy projekt pod dealem — odpowiednik „+ Projekt" z panelu. */
+    @POST("api/projects")
+    suspend fun createDealProject(@Body body: DealProjectCreateDto): ProjectDto
+
     // ── Szkolenia (kafelek „Szkolenia" = zakładka HR → Szkolenia w panelu) ──────
     // Trasy pracownika stoją za `training.view`, które ma KAŻDA rola — serwisant
     // i montaż też, więc token mobilny wystarcza i po stronie board360 nic nie

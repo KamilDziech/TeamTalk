@@ -5,11 +5,13 @@ import com.ekotak.teamtalk.data.local.dao.ProjectMutationDao
 import com.ekotak.teamtalk.data.local.entity.ProjectEntity
 import com.ekotak.teamtalk.data.local.entity.ProjectMutationEntity
 import com.ekotak.teamtalk.data.local.entity.ProjectMutationEntity.Companion.KIND_CLOSE_TASK
+import com.ekotak.teamtalk.data.local.entity.ProjectMutationEntity.Companion.KIND_CREATE_DEAL_PROJECT
 import com.ekotak.teamtalk.data.local.entity.ProjectMutationEntity.Companion.KIND_CREATE_IDEA
 import com.ekotak.teamtalk.data.local.entity.ProjectMutationEntity.Companion.LOCAL_ID_PREFIX
 import com.ekotak.teamtalk.data.mapper.toDomain
 import com.ekotak.teamtalk.data.mapper.toEntity
 import com.ekotak.teamtalk.data.remote.api.TeamTalkApi
+import com.ekotak.teamtalk.data.remote.dto.DealProjectCreateDto
 import com.ekotak.teamtalk.data.remote.dto.IdeaCreateDto
 import com.ekotak.teamtalk.data.remote.dto.ProjectMemberDto
 import com.ekotak.teamtalk.data.remote.dto.TaskCloseDto
@@ -17,6 +19,8 @@ import com.ekotak.teamtalk.data.sync.ProjectSyncScheduler
 import com.ekotak.teamtalk.domain.model.IdeaDraft
 import com.ekotak.teamtalk.domain.model.Project
 import com.ekotak.teamtalk.domain.model.ProjectDetail
+import com.ekotak.teamtalk.domain.repository.DealProjectSaveResult
+import com.ekotak.teamtalk.domain.repository.DealProjectsSnapshot
 import com.ekotak.teamtalk.domain.repository.ProjectRepository
 import com.ekotak.teamtalk.domain.repository.ProjectSyncResult
 import kotlinx.coroutines.flow.Flow
@@ -207,6 +211,87 @@ class ProjectRepositoryImpl @Inject constructor(
         syncScheduler.scheduleSync()
     }
 
+    // ── Zakładka „Harmonogram" karty deala ──────────────────────────────────
+
+    override suspend fun getDealProjects(dealId: String): DealProjectsSnapshot {
+        var offline = false
+        var error: String? = null
+        try {
+            val remote = api.getDealProjects(dealId)
+            val now = System.currentTimeMillis()
+            dao.replaceDealProjects(dealId, remote.map { it.toEntity(now) })
+        } catch (e: IOException) {
+            // Brak zasięgu — zostaje cache, a zakładka to napisze wprost.
+            offline = true
+        } catch (e: Exception) {
+            // Odmowa serwera (brak `projects.view`, 5xx) to co innego niż brak
+            // sieci: cache i tak pokazujemy, ale z powodem obok.
+            error = e.message
+        }
+        return DealProjectsSnapshot(
+            projects = dao.getDealProjects(dealId).map { it.toDomain() },
+            offline = offline,
+            error = error,
+        )
+    }
+
+    override suspend fun createDealProject(dealId: String, name: String): DealProjectSaveResult {
+        val body = DealProjectCreateDto(name = name, dealId = dealId)
+        return try {
+            val created = api.createDealProject(body)
+            // `dealId` z odpowiedzi bywa pusty na starszym backendzie — wtedy
+            // dopisujemy go sami, inaczej projekt zniknąłby z zakładki do
+            // pierwszego odświeżenia z serwera.
+            val entity = created.toEntity(System.currentTimeMillis())
+            dao.upsertProject(entity.copy(dealId = entity.dealId ?: dealId))
+            DealProjectSaveResult.SENT
+        } catch (e: IOException) {
+            queueDealProject(dealId, body)
+            DealProjectSaveResult.QUEUED
+        }
+    }
+
+    private suspend fun queueDealProject(dealId: String, body: DealProjectCreateDto) {
+        val localId = LOCAL_ID_PREFIX + UUID.randomUUID()
+        dao.upsertProject(
+            ProjectEntity(
+                id = localId,
+                name = body.name,
+                description = null,
+                // Projekt zakładany wprost startuje od Oceny, nie od Poczekalni
+                // (board360 `CreateProject`) — pokazujemy to samo, co zobaczymy
+                // po wysłaniu, zamiast etapu, którego serwer nigdy nie nada.
+                stage = "appraisal",
+                color = null,
+                department = null,
+                managerEmail = null,
+                sponsorEmail = null,
+                memberCount = 0,
+                taskCount = 0,
+                doneCount = 0,
+                dueAt = null,
+                problemStatement = null,
+                metricName = null,
+                metricBaseline = null,
+                metricTarget = null,
+                dealId = dealId,
+                status = "active",
+                membersJson = null,
+                localOnly = true,
+                cachedAt = System.currentTimeMillis(),
+            ),
+        )
+        mutationDao.upsert(
+            ProjectMutationEntity(
+                targetId = localId,
+                kind = KIND_CREATE_DEAL_PROJECT,
+                payload = json.encodeToString(DealProjectCreateDto.serializer(), body),
+                createdAt = System.currentTimeMillis(),
+            ),
+        )
+        syncScheduler.scheduleSync()
+    }
+
     override suspend fun syncPendingMutations(): ProjectSyncResult {
         val queue = mutationDao.getAll()
         if (queue.isEmpty()) return ProjectSyncResult.DONE
@@ -256,6 +341,32 @@ class ProjectRepositoryImpl @Inject constructor(
                     } catch (e: Exception) {
                         // Odmowa serwera: zostawiamy wiersz w cache oznaczony
                         // jako lokalny, ale zdejmujemy go z kolejki.
+                        mutationDao.delete(entry.targetId, entry.kind)
+                    }
+                }
+
+                KIND_CREATE_DEAL_PROJECT -> {
+                    val body = runCatching {
+                        json.decodeFromString(DealProjectCreateDto.serializer(), entry.payload)
+                    }.getOrNull()
+                    if (body == null) {
+                        mutationDao.delete(entry.targetId, entry.kind)
+                        continue
+                    }
+                    try {
+                        val created = api.createDealProject(body)
+                        // Wiersz lokalny ustępuje miejsca temu z serwera —
+                        // inaczej projekt byłby na liście deala dwa razy.
+                        dao.deleteProject(entry.targetId)
+                        val entity = created.toEntity(System.currentTimeMillis())
+                        dao.upsertProject(entity.copy(dealId = entity.dealId ?: body.dealId))
+                        mutationDao.delete(entry.targetId, entry.kind)
+                    } catch (e: IOException) {
+                        return ProjectSyncResult.RETRY
+                    } catch (e: Exception) {
+                        // Odmowa serwera (brak `projects.manage`, skasowany
+                        // deal): wiersz zostaje w cache jako lokalny, ale
+                        // z kolejki schodzi — ponowienie nic nie zmieni.
                         mutationDao.delete(entry.targetId, entry.kind)
                     }
                 }

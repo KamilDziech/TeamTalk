@@ -29,6 +29,18 @@ data class ProjectEntity(
     val metricBaseline: String?,
     val metricTarget: String?,
     /**
+     * Deal, do którego projekt jest przypięty (`null` = projekt firmowy).
+     * Zakładka „Harmonogram" karty deala czyta po tej kolumnie, więc lista
+     * projektów deala otwiera się bez zasięgu tak samo jak reszta karty.
+     */
+    val dealId: String? = null,
+    /**
+     * `active` | `archived` | `idea` — panel dopisuje przy nazwie „· archiwum".
+     * Etap (`stage`) tego nie zastąpi: projekt bywa zarchiwizowany na dowolnym
+     * etapie, a zamknięty (`closed`) nie musi być zarchiwizowany.
+     */
+    val status: String? = null,
+    /**
      * Zespół jako JSON, nie osobna tabela: lista jest krótka, tylko do odczytu
      * i zawsze czytana razem z projektem. Osobna tabela kosztowałaby migrację
      * i join, nie dając nic w zamian.
@@ -76,15 +88,16 @@ data class ProjectTaskEntity(
 )
 
 /**
- * Kolejka zmian zrobionych bez zasięgu. Dwie operacje, bo tylko te robi się
- * w terenie: domknięcie zadania z godzinami i zgłoszenie pomysłu.
+ * Kolejka zmian zrobionych bez zasięgu. Trzy operacje, bo tylko te robi się
+ * w terenie: domknięcie zadania z godzinami, zgłoszenie pomysłu i założenie
+ * projektu pod dealem z zakładki „Harmonogram".
  *
  * `payload` trzyma JSON żądania — dzięki temu kolejka nie musi znać kształtu
  * API, a wysyłka jest jednym przepisaniem.
  */
 @Entity(tableName = "project_mutations", primaryKeys = ["targetId", "kind"])
 data class ProjectMutationEntity(
-    /** Id zadania (domknięcie) albo lokalne id pomysłu (utworzenie). */
+    /** Id zadania (domknięcie) albo lokalne id projektu/pomysłu (utworzenie). */
     val targetId: String,
     val kind: String,
     val payload: String,
@@ -93,6 +106,7 @@ data class ProjectMutationEntity(
     companion object {
         const val KIND_CLOSE_TASK = "close_task"
         const val KIND_CREATE_IDEA = "create_idea"
+        const val KIND_CREATE_DEAL_PROJECT = "create_deal_project"
 
         /** Prefiks identyfikatora nadawanego lokalnie do czasu wysłania. */
         const val LOCAL_ID_PREFIX = "local:"

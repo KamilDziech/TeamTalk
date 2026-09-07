@@ -46,6 +46,12 @@ data class Project(
     val metricName: String?,
     val metricBaseline: String?,
     val metricTarget: String?,
+    /**
+     * Zarchiwizowany (`status = archived`). Panel dopisuje wtedy przy nazwie
+     * „· archiwum" — projekt zostaje na liście deala, bo jego historia jest
+     * częścią tego, co się z dealem działo.
+     */
+    val archived: Boolean = false,
     /** Zgłoszony bez zasięgu i wciąż w kolejce. */
     val localOnly: Boolean,
 ) {

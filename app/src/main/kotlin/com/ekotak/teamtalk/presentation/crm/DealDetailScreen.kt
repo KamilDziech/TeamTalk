@@ -79,6 +79,7 @@ fun DealDetailScreen(
     onCreateTask: (phone: String, name: String?) -> Unit,
     onEdit: () -> Unit,
     onOpenArticle: (categoryId: String, pathLabel: String) -> Unit,
+    onOpenProject: (projectId: String) -> Unit,
     viewModel: DealDetailViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -223,6 +224,11 @@ fun DealDetailScreen(
                             )
                             DealTab.PLIKI -> DealFilesTab(
                                 state = state,
+                                viewModel = viewModel,
+                            )
+                            DealTab.HARMONOGRAM -> DealScheduleTab(
+                                state = state,
+                                onOpenProject = onOpenProject,
                                 viewModel = viewModel,
                             )
                             DealTab.ROZLICZENIE -> DealSettlementTab(
