@@ -46,7 +46,7 @@ enum class DealTab(val key: String, val label: String, val ready: Boolean) {
     HARMONOGRAM("projekt", "Harmonogram", false),
     PLIKI("pliki", "Pliki", true),
     HISTORIA("historia", "Historia", true),
-    ROZLICZENIE("rozliczenie", "Rozliczenie", false),
+    ROZLICZENIE("rozliczenie", "Rozliczenie", true),
     PODSUMOWANIE("podsumowanie", "Podsumowanie", true),
 }
 

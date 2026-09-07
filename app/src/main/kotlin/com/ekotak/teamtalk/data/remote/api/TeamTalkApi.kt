@@ -351,6 +351,32 @@ interface TeamTalkApi {
     @GET("api/financial-terms/schemes")
     suspend fun getFinancialSchemes(): List<FinancialSchemeDto>
 
+    // ── Rozliczenia deala (zakładka „Rozliczenie") ────────────────────────────
+    // Odczyt migawek jest tak samo szeroki jak odczyt zestawów
+    // (`financial.terms.view`); zatwierdzanie i cofanie wymaga
+    // `financial.terms.manage` — odmowa (403) to nie brak sieci, więc leci dalej.
+
+    @GET("api/financial-terms/settlements/{dealId}")
+    suspend fun getDealSettlements(@Path("dealId") dealId: String): List<DealSettlementDto>
+
+    /**
+     * Zatwierdzenie zamraża wynik policzony przez telefon. Ciało jako
+     * `JsonObject`, bo `breakdown` to migawka rozbicia o kształcie ustalanym
+     * przez wzór punktowy, a nie stała struktura DTO.
+     */
+    @PUT("api/financial-terms/settlements/{dealId}/{categoryId}")
+    suspend fun approveDealSettlement(
+        @Path("dealId") dealId: String,
+        @Path("categoryId") categoryId: String,
+        @Body body: JsonObject,
+    ): DealSettlementDto
+
+    @DELETE("api/financial-terms/settlements/{dealId}/{categoryId}")
+    suspend fun revokeDealSettlement(
+        @Path("dealId") dealId: String,
+        @Path("categoryId") categoryId: String,
+    )
+
     // ── Call logs ─────────────────────────────────────────────────────────────
 
     @POST("api/call-logs")

@@ -17,6 +17,7 @@ import com.ekotak.teamtalk.domain.model.DealBuildingKind
 import com.ekotak.teamtalk.domain.model.DealDetail
 import com.ekotak.teamtalk.domain.model.DealDocument
 import com.ekotak.teamtalk.domain.model.DealDraft
+import com.ekotak.teamtalk.domain.model.DealSettlement
 import com.ekotak.teamtalk.domain.model.DealOffer
 import com.ekotak.teamtalk.domain.model.DealOrder
 import com.ekotak.teamtalk.domain.model.DealStage
@@ -56,8 +57,12 @@ import com.ekotak.teamtalk.domain.repository.AuthRepository
 import com.ekotak.teamtalk.domain.repository.OfferPricingRepository
 import com.ekotak.teamtalk.domain.repository.OrderRepository
 import com.ekotak.teamtalk.domain.repository.OrderSaveResult
+import com.ekotak.teamtalk.domain.repository.SettlementRepository
+import com.ekotak.teamtalk.domain.repository.SettlementSaveResult
 import com.ekotak.teamtalk.domain.repository.TaskRepository
 import com.ekotak.teamtalk.domain.ufh.OfferPricing
+import com.ekotak.teamtalk.domain.ufh.PointRate
+import com.ekotak.teamtalk.domain.ufh.ratesForPath
 import com.ekotak.teamtalk.domain.ufh.PlanPrep
 import com.ekotak.teamtalk.domain.ufh.planPrepToJson
 import com.ekotak.teamtalk.domain.ufh.prepEmpty
@@ -94,6 +99,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonObject
 import javax.inject.Inject
 
 /**
@@ -112,6 +118,13 @@ private const val PERMISSION_ORDER_MANAGE = "order.manage"
 
 /** Zmiany w rezerwacji materiału i dokładanie braków na listę zakupową. */
 private const val PERMISSION_INVENTORY_MANAGE = "inventory.manage"
+
+/**
+ * Zatwierdzanie i cofanie rozliczeń punktowych (zakł. „Rozliczenie"). Sam
+ * RACHUNEK widzi każdy, kto widzi kartę — tak samo jak w panelu, gdzie punkty
+ * z audytu pokazują się bez tego uprawnienia. Zamraża je zarząd.
+ */
+private const val PERMISSION_FINANCIAL_MANAGE = "financial.terms.manage"
 
 /** Odstęp między znakiem a zapytaniem do kartoteki przy szukaniu kontaktu. */
 private const val CONTACT_SEARCH_DEBOUNCE_MS = 250L
@@ -169,6 +182,7 @@ class DealDetailViewModel @Inject constructor(
     private val auditRepository: AuditRepository,
     private val orderRepository: OrderRepository,
     private val offerPricingRepository: OfferPricingRepository,
+    private val settlementRepository: SettlementRepository,
     private val dealDocumentRepository: DealDocumentRepository,
     private val documentFiles: DocumentFileStore,
     private val makeCallUseCase: MakeCallUseCase,
@@ -498,6 +512,47 @@ class DealDetailViewModel @Inject constructor(
         val pendingCount: Int get() = documents.count { it.pending }
     }
 
+    /**
+     * Instalacja do rozliczenia: zapisany audyt (skąd ILOŚCI) i stawki punktowe
+     * ze ścieżki węzła w katalogu (skąd PUNKTY). Rachunku tu nie ma — robi go
+     * zakładka poza wątkiem głównym, tak samo jak przy ofercie.
+     */
+    data class SettlementInstallation(
+        val categoryId: String,
+        val name: String,
+        val path: List<String>,
+        val formOwnerId: String?,
+        /** Zapisany audyt tej instalacji; `null` = nie ma z czego liczyć. */
+        val form: UfhState?,
+        /** Pozycje zestawów punktowych („Montaż", „Biuro") wzdłuż ścieżki węzła. */
+        val rates: List<PointRate>,
+    )
+
+    /**
+     * Zakładka „Rozliczenie" — ile punktów za pracę należy się za tego deala,
+     * w rozbiciu na instalacje i zestawy punktowe. 1:1 z `DealSettlementPanel`.
+     *
+     * [stage] mówi, z którego etapu wzięliśmy zakres instalacji (montaż, a gdy
+     * pusty — najdalszy wypełniony wcześniejszy); zakładka pisze to wprost, bo
+     * inaczej lista instalacji wygląda na wziętą znikąd.
+     */
+    data class SettlementState(
+        val isLoading: Boolean = false,
+        val loaded: Boolean = false,
+        val stage: InstallationStage? = null,
+        val installations: List<SettlementInstallation> = emptyList(),
+        /** Zatwierdzone migawki; `pending` = decyzja czeka w kolejce. */
+        val snapshots: List<DealSettlement> = emptyList(),
+        /** Rozwinięte instalacje (id węzła) — rozbicie na pozycje. */
+        val expanded: Set<String> = emptySet(),
+        /** Trwa zatwierdzanie/cofanie — blokuje przyciski, żeby nie dublować. */
+        val busy: Boolean = false,
+        val error: String? = null,
+    ) {
+        fun snapshotFor(categoryId: String): DealSettlement? =
+            snapshots.firstOrNull { it.categoryId == categoryId }
+    }
+
     data class UiState(
         val isLoading: Boolean = true,
         val isSaving: Boolean = false,
@@ -518,6 +573,7 @@ class DealDetailViewModel @Inject constructor(
         val offer: OfferState = OfferState(),
         val orders: OrdersState = OrdersState(),
         val files: FilesState = FilesState(),
+        val settlement: SettlementState = SettlementState(),
         /**
          * Uprawnienia z `GET /api/me`. Trzymamy CAŁY zestaw, a nie same
          * `deal.manage`: zakładka „Zamówienie" pyta jeszcze o `order.manage`
@@ -531,6 +587,9 @@ class DealDetailViewModel @Inject constructor(
 
         /** Zmiany w rezerwacji materiału i lista zakupowa (`inventory.manage`). */
         val canManageInventory: Boolean get() = PERMISSION_INVENTORY_MANAGE in permissions
+
+        /** Zatwierdzanie i cofanie rozliczeń (`financial.terms.manage`). */
+        val canManageSettlements: Boolean get() = PERMISSION_FINANCIAL_MANAGE in permissions
 
         /** Etapy, na które wolno przejść z bieżącego (maszyna stanów board360). */
         val availableStages: List<DealStage>
@@ -683,6 +742,7 @@ class DealDetailViewModel @Inject constructor(
         if (tab == DealTab.OFERTA) loadOffer()
         if (tab == DealTab.ZAMOWIENIE) loadOrders()
         if (tab == DealTab.PLIKI) loadFiles()
+        if (tab == DealTab.ROZLICZENIE) loadSettlement()
     }
 
     // ── Zakładka „LEAD" ──────────────────────────────────────────────────────
@@ -1032,6 +1092,10 @@ class DealDetailViewModel @Inject constructor(
                         // klientowi zakres sprzed poprawki. Cennik zostaje:
                         // zmienił się audyt, a nie stawki węzła.
                         offer = it.offer.copy(loaded = false),
+                        // Rozliczenie liczy ILOŚCI z tego samego audytu — po
+                        // poprawce musi przeliczyć punkty od nowa, inaczej
+                        // zarząd zatwierdziłby wynik sprzed zmiany zakresu.
+                        settlement = it.settlement.copy(loaded = false),
                     )
                 }
                 // Rekord wraca z serwera z własnym id — bez tego drugi zapis
@@ -1265,6 +1329,203 @@ class DealDetailViewModel @Inject constructor(
                         pricingLoading = false,
                     ),
                 )
+            }
+        }
+    }
+
+    // ── Zakładka „Rozliczenie" ───────────────────────────────────────────────
+
+    /**
+     * Etapy od montażu w dół — rozliczamy zakres MONTAŻOWY. Gdy migawka etapu
+     * „Montaż" jest pusta, schodzimy niżej: deal przed montażem rozliczy się
+     * z tego, co ustalono na sprzedaży/ofercie. Kolejność 1:1 z panelem
+     * (`STAGES_FROM_MONTAGE` w `deal-settlement.ts`).
+     */
+    private val stagesFromMontage = listOf(
+        InstallationStage.MONTAZ,
+        InstallationStage.SOLD,
+        InstallationStage.ANGEBOT,
+        InstallationStage.AUDIT,
+        InstallationStage.EDUKACJA,
+        InstallationStage.LEAD,
+    )
+
+    /** Zakres do rozliczenia + etap, z którego go wzięliśmy (do pokazania). */
+    private fun settlementScope(
+        snapshot: AuditInstallations,
+    ): Pair<InstallationStage?, List<String>> {
+        for (stage in stagesFromMontage) {
+            val ids = snapshot.byStage[stage.wire].orEmpty()
+            if (ids.isNotEmpty()) return stage to ids
+        }
+        // Migawka sprzed dopisania `byStage` (cache starszego wydania) — zostają
+        // etapy, które trzymamy w osobnych polach.
+        val legacy = snapshot.soldStage.ifEmpty { snapshot.auditStage }
+        return null to legacy
+    }
+
+    /**
+     * Materiał zakładki: audyty deala, katalog, migawka instalacji, zestawy
+     * punktowe i zatwierdzone rozliczenia. Pierwsze trzy odczyty są te same, co
+     * w „Audycie" i „Ofercie", więc drugie wejście idzie już z cache.
+     *
+     * Rachunku tu NIE ma — geometria rzutu potrafi zająć chwilę, więc liczy go
+     * zakładka poza wątkiem głównym, tak samo jak przy ofercie.
+     *
+     * @param force ponowny odczyt (po zapisie audytu w sąsiedniej zakładce).
+     */
+    fun loadSettlement(force: Boolean = false) {
+        val settlement = _uiState.value.settlement
+        if (!force && (settlement.loaded || settlement.isLoading)) return
+
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(settlement = it.settlement.copy(isLoading = true, error = null))
+            }
+
+            var error: String? = null
+            val audits = try {
+                auditRepository.getAudits(dealId)
+            } catch (e: Exception) {
+                error = crmErrorMessage(e, "Nie udało się wczytać danych rozliczenia")
+                emptyList()
+            }
+            val categories = try {
+                auditRepository.getCategories()
+            } catch (_: Exception) {
+                emptyList()
+            }
+            val snapshot = try {
+                auditRepository.getAuditInstallations(dealId)
+            } catch (_: Exception) {
+                AuditInstallations()
+            }
+            // Cisza przy błędzie cennika: pusty cennik znaczy rachunek bez
+            // stawek z wypisanymi brakami, a nie zakładkę bez treści.
+            val schemes = try {
+                settlementRepository.getSchemes()
+            } catch (_: Exception) {
+                emptyList()
+            }
+            val snapshots = try {
+                settlementRepository.getSettlements(dealId)
+            } catch (_: Exception) {
+                emptyList()
+            }
+
+            val byId = categories.associateBy { it.id }
+            val forms = audits.filter { it.installationForm != null }
+            val (stage, categoryIds) = settlementScope(snapshot)
+            val installations = categoryIds.map { id ->
+                val owner = resolveAuditForm(id, byId)
+                val record = owner?.let { o ->
+                    forms.firstOrNull { it.categoryId == o.id }
+                        ?: forms.firstOrNull { it.categoryId == null }
+                }
+                SettlementInstallation(
+                    categoryId = id,
+                    name = byId[id]?.name ?: "(nieznana instalacja)",
+                    path = categoryPath(id, byId),
+                    formOwnerId = owner?.id,
+                    form = record?.installationForm,
+                    // Zestawy dziedziczą się w dół drzewa — „Montaż" wisi zwykle
+                    // pod korzeniem technologii, a audyt niżej.
+                    rates = ratesForPath(schemes, categoryIdPath(id, byId)),
+                )
+            }
+
+            _uiState.update { state ->
+                state.copy(
+                    settlement = state.settlement.copy(
+                        isLoading = false,
+                        loaded = true,
+                        stage = stage,
+                        installations = installations,
+                        snapshots = snapshots,
+                        error = error,
+                    ),
+                )
+            }
+        }
+    }
+
+    /** Rozwinięcie/zwinięcie rozbicia instalacji na pozycje. */
+    fun toggleSettlementDetails(categoryId: String) {
+        _uiState.update { state ->
+            val open = state.settlement.expanded
+            state.copy(
+                settlement = state.settlement.copy(
+                    expanded = if (categoryId in open) open - categoryId else open + categoryId,
+                ),
+            )
+        }
+    }
+
+    /**
+     * Zatwierdzenie zamraża wynik policzony przez telefon — dlatego suma
+     * i rozbicie przychodzą z zakładki, a nie liczą się tu drugi raz. Inaczej
+     * człowiek zatwierdzałby liczbę, której nie widział na ekranie.
+     */
+    fun approveSettlement(
+        categoryId: String,
+        totalPoints: Double,
+        breakdown: JsonObject,
+    ) {
+        val name = _uiState.value.settlement.installations
+            .firstOrNull { it.categoryId == categoryId }?.name.orEmpty()
+        runSettlement(
+            action = {
+                settlementRepository.approve(dealId, categoryId, totalPoints, breakdown)
+            },
+            sent = "Zatwierdzono rozliczenie: $name.",
+            failure = "Nie udało się zatwierdzić rozliczenia",
+        )
+    }
+
+    fun revokeSettlement(categoryId: String) {
+        runSettlement(
+            action = { settlementRepository.revoke(dealId, categoryId) },
+            sent = "Cofnięto zatwierdzenie — rozliczenie znów liczy się na żywo.",
+            failure = "Nie udało się cofnąć zatwierdzenia",
+        )
+    }
+
+    /**
+     * Wspólna obsługa obu decyzji: blokada przycisków, komunikat i odświeżenie
+     * migawek. Kolejka mówi WPROST, że decyzja siedzi w telefonie — samo
+     * „zatwierdzono" znaczyłoby dla zarządu „panel już to ma".
+     */
+    private fun runSettlement(
+        action: suspend () -> SettlementSaveResult,
+        sent: String,
+        failure: String,
+    ) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(settlement = it.settlement.copy(busy = true)) }
+            try {
+                val result = action()
+                val snapshots = try {
+                    settlementRepository.getSettlements(dealId)
+                } catch (_: Exception) {
+                    _uiState.value.settlement.snapshots
+                }
+                _uiState.update {
+                    it.copy(
+                        settlement = it.settlement.copy(busy = false, snapshots = snapshots),
+                        message = when (result) {
+                            SettlementSaveResult.SENT -> sent
+                            SettlementSaveResult.QUEUED ->
+                                "$sent Zapisane w telefonie — wyślemy, gdy wróci zasięg."
+                        },
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        settlement = it.settlement.copy(busy = false),
+                        message = crmErrorMessage(e, failure),
+                    )
+                }
             }
         }
     }

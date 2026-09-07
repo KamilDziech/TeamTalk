@@ -53,8 +53,10 @@ import com.ekotak.teamtalk.data.local.entity.*
         EmailMutationEntity::class,
         DealDocumentEntity::class,
         DocumentMutationEntity::class,
+        DealSettlementEntity::class,
+        SettlementMutationEntity::class,
     ],
-    version = 19,
+    version = 20,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -81,4 +83,5 @@ abstract class TeamTalkDatabase : RoomDatabase() {
     abstract fun leaveDao(): LeaveDao
     abstract fun emailDao(): EmailDao
     abstract fun documentDao(): DocumentDao
+    abstract fun settlementDao(): SettlementDao
 }

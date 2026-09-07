@@ -8,11 +8,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -31,40 +33,33 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.ekotak.teamtalk.presentation.components.AppTopBar
 
 /**
  * Pulpit — ekran startowy aplikacji ekotak. Siatka kafelków modułów przeniesiona
  * z pulpitu board360 (płaska „szyba": tło panelu, cienka obwódka, kolor modułu
  * punktowo w badge'u ikony — bez gradientów i poświat).
+ *
+ * Bez nagłówka: pulpit nie ma paska „ekotak · Pulpit" ani podpisu „Wybierz moduł…"
+ * (ustalenie 2026-09-07) — kafelki zaczynają się tuż pod paskiem statusu.
+ * Dlatego Scaffold odhacza tu inset paska statusu sam (na innych ekranach robi to
+ * AppTopBar, wpuszczając gradient pod pasek).
  */
 @Composable
 fun HomeScreen(onOpenModule: (HomeModule) -> Unit) {
     Scaffold(
-        topBar = { AppTopBar(title = "Pulpit") },
+        contentWindowInsets = WindowInsets.statusBars,
     ) { padding ->
-        Column(
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(minSize = 108.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            Text(
-                text = "Wybierz moduł, aby przejść dalej",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp),
-            )
-
-            LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 108.dp),
-                contentPadding = PaddingValues(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.fillMaxSize(),
-            ) {
-                items(HOME_MODULES, key = { it.key }) { module ->
-                    ModuleTile(module = module, onClick = { onOpenModule(module) })
-                }
+            items(HOME_MODULES, key = { it.key }) { module ->
+                ModuleTile(module = module, onClick = { onOpenModule(module) })
             }
         }
     }

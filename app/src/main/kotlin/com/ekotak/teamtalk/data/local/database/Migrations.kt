@@ -896,3 +896,40 @@ val MIGRATION_18_19 = object : Migration(18, 19) {
         )
     }
 }
+
+/**
+ * Wersja 20 — cache i kolejka zakładki „Rozliczenie". Migracja, nie kasowanie:
+ * w `settlement_mutations` leżą zatwierdzenia rozliczeń podjęte bez zasięgu
+ * (rozliczenie domyka się na budowie, po odbiorze), a to jedyna ich kopia do
+ * czasu wysłania.
+ */
+val MIGRATION_19_20 = object : Migration(19, 20) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `deal_settlements` (
+                `dealId` TEXT NOT NULL,
+                `categoryId` TEXT NOT NULL,
+                `totalPoints` REAL NOT NULL,
+                `breakdownJson` TEXT NOT NULL,
+                `approvedById` TEXT,
+                `approvedAt` TEXT NOT NULL,
+                `syncedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`dealId`, `categoryId`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `settlement_mutations` (
+                `dealId` TEXT NOT NULL,
+                `categoryId` TEXT NOT NULL,
+                `kind` TEXT NOT NULL,
+                `payload` TEXT NOT NULL,
+                `createdAt` INTEGER NOT NULL,
+                PRIMARY KEY(`dealId`, `categoryId`)
+            )
+            """.trimIndent(),
+        )
+    }
+}

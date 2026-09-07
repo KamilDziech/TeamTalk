@@ -98,4 +98,9 @@ abstract class RepositoryModule {
     abstract fun bindDealDocumentRepository(
         impl: DealDocumentRepositoryImpl,
     ): DealDocumentRepository
+
+    @Binds @Singleton
+    abstract fun bindSettlementRepository(
+        impl: SettlementRepositoryImpl,
+    ): SettlementRepository
 }
