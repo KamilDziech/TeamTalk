@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import com.ekotak.teamtalk.domain.model.ArticleGate
 import com.ekotak.teamtalk.domain.model.Deal
 import com.ekotak.teamtalk.domain.model.DealBuildingKind
+import com.ekotak.teamtalk.domain.model.DealStage
 import com.ekotak.teamtalk.domain.model.KnowledgeArticle
 import com.ekotak.teamtalk.domain.model.LeadBuilding
 import com.ekotak.teamtalk.domain.model.LeadChannel
@@ -206,7 +207,7 @@ private fun QualificationBanner(deal: Deal) {
  * go nie przyjmują.
  */
 @Composable
-private fun BuildingKindCard(
+fun BuildingKindCard(
     deal: Deal,
     canManage: Boolean,
     isSaving: Boolean,
@@ -437,9 +438,14 @@ private fun SendArticleDialog(
  * w trakcie rozmowy, więc zmieniają się tutaj, jednym dotknięciem. Reszta
  * formularza (prowadzący, czas trwania, link) została na ekranie „pozostałych
  * pól"; nagłówek prowadzi tam skrótem, żeby nie szukać go po menu karty.
+ *
+ * Edytowalne wyłącznie w fazie BOW (LEAD / Kwalifikacja / Remarketing) — tak
+ * jak w panelu, gdzie od etapu „Audyt" wzwyż zostaje sam podgląd umówionego
+ * terminu. Spotkanie wstępne po audycie jest już historią, a wyjazd audytowy
+ * ma własne pola na zakładce „Audyt".
  */
 @Composable
-private fun MeetingCard(
+fun MeetingCard(
     deal: Deal,
     members: List<TaskMember>,
     canManage: Boolean,
@@ -452,12 +458,13 @@ private fun MeetingCard(
         label = "Termin spotkania",
         millis = parseIsoMillis(deal.meetingAt),
     ) { onTermChange(it) }
+    val editable = canManage && isPreMeetingStage(deal.stage)
 
     SectionCard {
         SectionTitle(
             text = "Spotkanie wstępne",
-            action = if (canManage) "pozostałe pola" else null,
-            onAction = if (canManage) onEdit else null,
+            action = if (editable) "pozostałe pola" else null,
+            onAction = if (editable) onEdit else null,
         )
         SectionGap()
 
@@ -466,7 +473,7 @@ private fun MeetingCard(
             selected = deal.meetingKind,
             optionLabel = { it.label },
             onSelect = onKindSelect,
-            enabled = canManage && !isSaving,
+            enabled = editable && !isSaving,
         )
 
         Spacer(Modifier.height(12.dp))
@@ -475,7 +482,7 @@ private fun MeetingCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(8.dp))
-                .clickable(enabled = canManage && !isSaving, onClick = pickTerm)
+                .clickable(enabled = editable && !isSaving, onClick = pickTerm)
                 .padding(vertical = 6.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
@@ -487,10 +494,11 @@ private fun MeetingCard(
             )
             Spacer(Modifier.width(12.dp))
             Text(
-                text = formatDateTime(deal.meetingAt) ?: "Ustal termin",
+                text = formatDateTime(deal.meetingAt)
+                    ?: if (editable) "Ustal termin" else "Nie umówiono",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
-                color = if (deal.meetingAt != null) {
+                color = if (deal.meetingAt != null || !editable) {
                     MaterialTheme.colorScheme.onSurface
                 } else {
                     MaterialTheme.colorScheme.primary
@@ -504,8 +512,25 @@ private fun MeetingCard(
         InfoRow("Czas trwania", deal.meetingDurationMin?.let { "$it min" })
         InfoRow("Prowadzi", deal.meetingOwnerId?.let { byId[it]?.displayName ?: it })
         InfoRow("Link", deal.meetingUrl)
+
+        if (canManage && !editable) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "Deal jest za fazą spotkania wstępnego — termin zostaje " +
+                    "do wglądu. Wyjazd audytowy ustawia się na zakładce „Audyt”.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
+
+/**
+ * Faza BOW (Biuro Obsługi Wstępnej) — etapy, na których spotkanie wstępne wciąż
+ * się umawia. Ta sama reguła co `canPreMeeting` w `DealDrawer` panelu.
+ */
+private fun isPreMeetingStage(stage: DealStage): Boolean =
+    stage == DealStage.LEAD || stage == DealStage.QUALIFIKACJA || stage == DealStage.EDUKACJA
 
 // ── Zgłoszenie z leadowni ────────────────────────────────────────────────────
 

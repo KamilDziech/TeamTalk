@@ -32,7 +32,10 @@ const detailShape = (deal, orgId) => ({
 
 // ── Instalacje: os etapow i dziedziczenie ────────────────────────────────────
 
-const INSTALL_STAGES = ['lead', 'audit', 'angebot', 'sold'];
+// Pelna os instalacyjna board360 (`INSTALLATION_STAGES` w api). Remarketing
+// (`edukacja`) ma WLASNA migawke, dziedziczona z LEAD-a i edytowalna osobno —
+// bez niego zakladka "Remarketing" na telefonie nie mialaby czego zapisac.
+const INSTALL_STAGES = ['lead', 'edukacja', 'audit', 'angebot', 'sold', 'montaz', 'fertig'];
 const stageIndex = (stage) => STAGES.indexOf(stage);
 
 /** Etap osi instalacyjnej, na ktorym stoi deal (lost/zakonczony -> ostatni przebyty). */
@@ -348,6 +351,50 @@ router.get('/deals/:id/installations', requireAuth, requirePermission('crm.view'
     };
   });
   return res.json({ current, stages });
+});
+
+/**
+ * Nadpisanie migawki JEDNEGO etapu. Cialo niesie PELNY wybor po zmianie —
+ * nie scalamy list, tylko podmieniamy (tak jak board360). Wolno ruszac
+ * wylacznie etap, na ktorym deal stoi; probe zapisu innego zbijamy 409, zeby
+ * dalo sie przecwiczyc ten komunikat na telefonie.
+ */
+router.put('/deals/:id/installations/:stage', requireAuth, requirePermission('deal.manage'), (req, res) => {
+  const deal = dealById(req.user.organizationId, req.params.id);
+  if (!deal) return res.status(404).json({ message: 'Nie znaleziono deala.' });
+
+  const stage = String(req.params.stage);
+  if (!INSTALL_STAGES.includes(stage)) {
+    return res.status(422).json({ message: 'Nieznany etap instalacyjny.' });
+  }
+  const current = currentInstallStage(deal.stage);
+  if (stage !== current) {
+    return res.status(409).json({
+      message: `Migawke mozna zmieniac tylko na etapie biezacym (${STAGE_LABEL[deal.stage]}).`,
+    });
+  }
+
+  const ids = ((req.body || {}).categoryIds || []).map(String);
+  const unknown = ids.filter((id) => !db.categories.some((c) => c.id === id));
+  if (unknown.length) {
+    return res.status(422).json({ message: 'Nieznana kategoria w wyborze instalacji.' });
+  }
+
+  db.dealInstallations[deal.id] = { ...(db.dealInstallations[deal.id] || {}), [stage]: ids };
+  deal.updatedAt = nowIso();
+  logActivity(req.user, deal.id, 'installations_set', { stage, count: ids.length });
+
+  const editable = can(req.user, 'deal.manage');
+  const currentIdx = stageIndex(current);
+  return res.json({
+    current,
+    stages: INSTALL_STAGES.map((s) => ({
+      stage: s,
+      categories: effectiveCategories(deal.id, s),
+      editable: editable && s === current,
+      state: stageIndex(s) === currentIdx ? 'current' : stageIndex(s) < currentIdx ? 'past' : 'future',
+    })),
+  });
 });
 
 // ── Asystent karty deala (grounding tylko na tym dealu) ──────────────────────

@@ -147,6 +147,33 @@ Dociągane dopiero przy wejściu w zakładkę — reszta karty ich nie potrzebuj
 - ❌ Ikonografika budynku i ręczna korekta danych budynku ze zgłoszenia
   (`PATCH …/lead/building`) — te same wartości stoją niżej wypisane
 
+### Zakładka „Remarketing" karty deala
+
+Odpowiednik zakładki `edukacja` z `DealDrawer` panelu — ten sam układ co LEAD,
+ale bez artykułów wiedzy i bez ikonografiki budynku (w panelu `detailMode:
+"none"`). Remarketing to przystanek dla leada, którego automat lejka przesunął
+z „Kwalifikacji" po upływie okna bez ustaleń audytu; zakres instalacji ma tu
+WŁASNĄ migawkę — dziedziczoną z LEAD-a, ale edytowalną niezależnie.
+
+- ✅ Rodzaj budynku (dom nowy / modernizacja) — zapis jednym dotknięciem
+- ✅ Zakres instalacji etapu `edukacja`: drzewo katalogu z drill-downem, zapis
+  po każdym zaznaczeniu (`PUT /api/deals/:id/installations/edukacja`)
+- ✅ Podgląd zakresu także wtedy, gdy deal poszedł dalej (migawka zamknięta —
+  `editable: false` z API)
+- ✅ „+ Projekt domu": wybór pliku ORAZ aparat → sekcja „Projekt domu" zakładki
+  Pliki, z przełączeniem na nią po wgraniu
+- ✅ „+ OZC": okno z mocami z cieplo.app, checkerem 40–50 W/m² i potwierdzeniem
+  wyniku poza zakresem; widoczne tylko przy ogrzewaniu w zakresie
+- ✅ Powierzchnia ogrzewana wpisana w oknie OZC dopisuje się do „Danych budynku"
+  (jedno źródło prawdy), gdy jej tam nie było
+- ✅ Spotkanie wstępne — miejsce i termin, edytowalne tylko w fazie BOW
+  (LEAD / Kwalifikacja / Remarketing), dalej sam podgląd (jak w panelu)
+- ✅ Pełny offline: cache migawek (`deal_installations`) + kolejka zmian
+  (`deal_mutations`, `DealSyncWorker`) — zakres i pola karty zapisane bez
+  zasięgu jadą, gdy telefon wróci w zasięg; wiersz „czeka na wysyłkę"
+- ❌ Podpis „kto potwierdził OZC" — mobilny model `DealOzcData` nie niesie
+  `confirmedById`/`confirmedAt` (stempluje je API, karta ich nie czyta)
+
 ### Zakładka „Audyt" karty deala
 
 Odpowiednik zakładki `audyt` z `DealDrawer` panelu. Trzy bloki, w kolejności

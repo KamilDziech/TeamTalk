@@ -38,6 +38,13 @@ data class StageInstallations(
     val categoryIds: List<String> = emptyList(),
     val editable: Boolean = false,
     val state: InstallationStageState = InstallationStageState.PAST,
+    /**
+     * `true` = ten wybór czeka w kolejce na wysyłkę (zapisany bez zasięgu).
+     * Serwer o nim jeszcze nie wie, więc zakładka mówi o tym wprost — inaczej
+     * handlowiec nie odróżniłby zapisanego zakresu od takiego, który dopiero
+     * pojedzie, a to on odpowiada za to, co zobaczy audytor.
+     */
+    val pending: Boolean = false,
 )
 
 /**

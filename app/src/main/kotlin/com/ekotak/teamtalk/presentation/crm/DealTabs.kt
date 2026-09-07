@@ -34,7 +34,7 @@ import androidx.compose.ui.unit.dp
 enum class DealTab(val key: String, val label: String, val ready: Boolean) {
     DANE("dane", "Dane", true),
     LEAD("lead", "LEAD", true),
-    EDUKACJA("edukacja", "Remarketing", false),
+    EDUKACJA("edukacja", "Remarketing", true),
     AUDYT("audyt", "Audyt", true),
     OFERTA("oferta", "Oferta", true),
     ZAMOWIENIE("zamowienia", "Zamówienie", true),

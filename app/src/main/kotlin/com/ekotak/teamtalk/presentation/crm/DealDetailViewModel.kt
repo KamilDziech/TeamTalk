@@ -585,6 +585,35 @@ class DealDetailViewModel @Inject constructor(
             snapshots.firstOrNull { it.categoryId == categoryId }
     }
 
+    /**
+     * Zakładka „Remarketing" (etap instalacyjny `edukacja`): własna migawka
+     * zakresu instalacji, dziedziczona z LEAD-a i edytowalna niezależnie od
+     * niego. Trzymamy ją osobno od `LeadState`, bo to DWIE różne migawki tego
+     * samego katalogu — wspólny stan pokazywałby na obu zakładkach ten sam
+     * wybór i kasował sens Remarketingu.
+     *
+     * Dociągana przy wejściu w zakładkę: to dwa zapytania, a większość wejść
+     * w kartę kończy się na „Dane".
+     */
+    data class RemarketingState(
+        val isLoading: Boolean = false,
+        val loaded: Boolean = false,
+        /** Katalog technologii jako drzewo; pusty = katalogu nie udało się wczytać. */
+        val catalog: List<CategoryNode> = emptyList(),
+        /** Zaznaczone węzły migawki `edukacja`; `null` = odczyt się nie udał. */
+        val selected: Set<String>? = null,
+        /** Rozwinięte gałęzie drzewa — stan widoku, ale przeżywa obrót ekranu. */
+        val expanded: Set<String> = emptySet(),
+        /** Czy API pozwala zmieniać tę migawkę (`editable` z odpowiedzi). */
+        val editable: Boolean = false,
+        /** Migawka zapisana bez zasięgu — czeka w kolejce na wysyłkę. */
+        val pendingSync: Boolean = false,
+        val isSaving: Boolean = false,
+        /** Zapis OZC w toku — blokuje przycisk okna, żeby nie poszedł dwa razy. */
+        val isSavingOzc: Boolean = false,
+        val error: String? = null,
+    )
+
     data class UiState(
         val isLoading: Boolean = true,
         val isSaving: Boolean = false,
@@ -601,6 +630,7 @@ class DealDetailViewModel @Inject constructor(
         val members: List<TaskMember> = emptyList(),
         val assistant: AssistantState = AssistantState(),
         val lead: LeadState = LeadState(),
+        val remarketing: RemarketingState = RemarketingState(),
         val audit: AuditState = AuditState(),
         val offer: OfferState = OfferState(),
         val orders: OrdersState = OrdersState(),
@@ -709,6 +739,7 @@ class DealDetailViewModel @Inject constructor(
                 // Zakładka „LEAD" raz wczytana ma być tak samo świeża jak reszta
                 // karty — instalacje i notatka mogły się zmienić w panelu.
                 if (_uiState.value.lead.loaded) loadLead(force = true)
+                if (_uiState.value.remarketing.loaded) loadRemarketing(force = true)
             } catch (e: Exception) {
                 val text = crmErrorMessage(e, "Nie udało się wczytać karty deala")
                 _uiState.update {
@@ -778,6 +809,7 @@ class DealDetailViewModel @Inject constructor(
         }
         _uiState.update { it.copy(tab = tab) }
         if (tab == DealTab.LEAD) loadLead()
+        if (tab == DealTab.EDUKACJA) loadRemarketing()
         if (tab == DealTab.AUDYT) loadAudit()
         if (tab == DealTab.OFERTA) loadOffer()
         if (tab == DealTab.ZAMOWIENIE) loadOrders()
@@ -988,6 +1020,195 @@ class DealDetailViewModel @Inject constructor(
                     it.copy(
                         lead = it.lead.copy(isSendingArticle = false, sendingArticleFor = null),
                         message = crmErrorMessage(e, "Nie udało się wysłać artykułu"),
+                    )
+                }
+            }
+        }
+    }
+
+    // ── Zakładka „Remarketing" ───────────────────────────────────────────────
+
+    /**
+     * Migawka instalacji etapu `edukacja` plus katalog technologii. Bez katalogu
+     * nie ma czego rysować (sama lista id niczego handlowcowi nie mówi), więc
+     * jego brak traktujemy jak brak odczytu.
+     *
+     * Repozytorium odpowiada z cache, gdy sieci nie ma, i dokłada zmiany
+     * czekające w kolejce — zakładka nie musi o tym wiedzieć poza znacznikiem
+     * `pendingSync`, którym mówi o tym człowiekowi.
+     *
+     * @param force ponowny odczyt po zapisie/odświeżeniu karty.
+     */
+    fun loadRemarketing(force: Boolean = false) {
+        val state = _uiState.value.remarketing
+        if (!force && (state.loaded || state.isLoading)) return
+
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(remarketing = it.remarketing.copy(isLoading = true, error = null))
+            }
+
+            val loaded = try {
+                val snapshot = getDealInstallationsUseCase(dealId)
+                    .forStage(InstallationStage.EDUKACJA)
+                buildCategoryTree(getCategoriesUseCase()) to snapshot
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        remarketing = it.remarketing.copy(
+                            isLoading = false,
+                            loaded = true,
+                            error = crmErrorMessage(e, "Nie udało się wczytać zakresu instalacji"),
+                        ),
+                    )
+                }
+                return@launch
+            }
+
+            val (catalog, snapshot) = loaded
+            val selected = snapshot?.categoryIds.orEmpty().toSet()
+            _uiState.update { s ->
+                s.copy(
+                    remarketing = s.remarketing.copy(
+                        isLoading = false,
+                        loaded = true,
+                        catalog = catalog,
+                        selected = selected,
+                        // Gałęzie z wyborem rozwijamy same — wybór schowany dwa
+                        // poziomy w głąb wyglądałby jak brak wyboru.
+                        expanded = s.remarketing.expanded +
+                            ancestorsOfSelected(catalog, selected),
+                        editable = snapshot?.editable ?: false,
+                        pendingSync = snapshot?.pending ?: false,
+                        error = null,
+                    ),
+                )
+            }
+        }
+    }
+
+    /** Rozwinięcie/zwinięcie gałęzi drzewa Remarketingu. Nic nie zapisuje. */
+    fun toggleRemarketingBranch(categoryId: String) {
+        _uiState.update { state ->
+            val expanded = state.remarketing.expanded
+            state.copy(
+                remarketing = state.remarketing.copy(
+                    expanded = if (categoryId in expanded) {
+                        expanded - categoryId
+                    } else {
+                        expanded + categoryId
+                    },
+                ),
+            )
+        }
+    }
+
+    /**
+     * Zaznaczenie/odznaczenie węzła w migawce etapu `edukacja`. Jak w LEAD:
+     * API przyjmuje pełną listę po zmianie, a zapis leci od razu, bez przycisku
+     * — to jedno kliknięcie ustalane przy kliencie, a zakres wchodzi dalej do
+     * audytu i oferty.
+     *
+     * Bez zasięgu repozytorium odkłada zapis do kolejki i oddaje migawkę
+     * z naniesioną zmianą, więc ekran zachowuje się tak samo jak z siecią —
+     * różnicę widać wyłącznie po znaczniku „czeka na wysyłkę".
+     */
+    fun toggleRemarketingInstallation(categoryId: String) {
+        val state = _uiState.value.remarketing
+        val current = state.selected ?: return
+        if (state.isSaving || !state.editable) return
+
+        val next = if (categoryId in current) current - categoryId else current + categoryId
+
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    remarketing = it.remarketing.copy(selected = next, isSaving = true),
+                    message = null,
+                )
+            }
+            try {
+                val saved = setDealInstallationsUseCase(
+                    dealId,
+                    InstallationStage.EDUKACJA,
+                    next.toList(),
+                ).forStage(InstallationStage.EDUKACJA)
+                val ids = saved?.categoryIds.orEmpty().toSet()
+                _uiState.update {
+                    it.copy(
+                        remarketing = it.remarketing.copy(
+                            selected = ids,
+                            expanded = it.remarketing.expanded +
+                                ancestorsOfSelected(it.remarketing.catalog, ids),
+                            pendingSync = saved?.pending ?: false,
+                            isSaving = false,
+                        ),
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        // Cofamy do stanu sprzed kliknięcia — inaczej ekran
+                        // pokazywałby wybór, którego serwer nie przyjął.
+                        remarketing = it.remarketing.copy(selected = current, isSaving = false),
+                        message = crmErrorMessage(e, "Nie udało się zapisać zakresu instalacji"),
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * Zapis OZC z okna „+ OZC" — port `LeadOzcModal` panelu. Moce przepisuje się
+     * ręcznie z cieplo.app; walidację 40–50 W/m² robi ekran, tutaj zostaje sam
+     * zapis.
+     *
+     * `areaM2` przychodzi TYLKO wtedy, gdy w „Danych budynku" go brakowało:
+     * wpisany w oknie ma dopisać się do bloku budynku, żeby powierzchnia miała
+     * jedno źródło prawdy — dokładnie tak jak w panelu.
+     */
+    fun saveOzc(
+        buildingKw: Double,
+        dhwKw: Double?,
+        sourceUrl: String?,
+        confirmed: Boolean,
+        areaM2: Int?,
+        onSaved: () -> Unit,
+    ) {
+        val deal = _uiState.value.detail?.deal ?: return
+        if (!_uiState.value.canManage || _uiState.value.remarketing.isSavingOzc) return
+
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(remarketing = it.remarketing.copy(isSavingOzc = true), message = null)
+            }
+            try {
+                val draft = deal.toDraft().copy(
+                    ozcBuildingKw = buildingKw,
+                    ozcDhwKw = dhwKw,
+                    ozcSourceUrl = sourceUrl,
+                    ozcConfirmed = confirmed,
+                    areaM2 = areaM2 ?: deal.buildingData?.areaM2?.toInt(),
+                )
+                val updated = updateDealUseCase(deal, draft)
+                _uiState.update { state ->
+                    state.copy(
+                        remarketing = state.remarketing.copy(isSavingOzc = false),
+                        message = "Zapisano OZC.",
+                        detail = state.detail?.copy(deal = updated),
+                        // Formularz „pozostałych pól" czyta z draftu karty —
+                        // po zapisie z okna musi widzieć nowe moce, inaczej
+                        // pierwsze wejście w edycję cofnęłoby je.
+                        dealDraft = if (state.editing) state.dealDraft else updated.toDraft(),
+                        numbers = if (state.editing) state.numbers else updated.toDraft().toNumberText(),
+                    )
+                }
+                onSaved()
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        remarketing = it.remarketing.copy(isSavingOzc = false),
+                        message = crmErrorMessage(e, "Nie udało się zapisać OZC"),
                     )
                 }
             }

@@ -14,6 +14,7 @@ import androidx.work.WorkManager
 import com.ekotak.teamtalk.data.notification.NotificationHelper
 import com.ekotak.teamtalk.data.sync.AuditSyncScheduler
 import com.ekotak.teamtalk.data.sync.CalendarSyncScheduler
+import com.ekotak.teamtalk.data.sync.DealSyncScheduler
 import com.ekotak.teamtalk.data.sync.LeaveSyncScheduler
 import com.ekotak.teamtalk.data.sync.OrderSyncScheduler
 import com.ekotak.teamtalk.data.sync.ServiceSyncScheduler
@@ -48,6 +49,8 @@ class TeamTalkApp : Application(), Configuration.Provider {
 
     @Inject lateinit var settlementSyncScheduler: SettlementSyncScheduler
 
+    @Inject lateinit var dealSyncScheduler: DealSyncScheduler
+
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)
@@ -70,6 +73,7 @@ class TeamTalkApp : Application(), Configuration.Provider {
         orderSyncScheduler.scheduleSync()
         leaveSyncScheduler.scheduleSync()
         settlementSyncScheduler.scheduleSync()
+        dealSyncScheduler.scheduleSync()
     }
 
     /**

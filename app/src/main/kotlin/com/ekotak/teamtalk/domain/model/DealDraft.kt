@@ -141,3 +141,78 @@ private fun parseIso(iso: String?): Long? {
         null
     }
 }
+
+/**
+ * Draft nałożony na deala — kopia „jak po zapisie", robiona U SIEBIE, gdy
+ * `PATCH` nie doleciał (brak zasięgu) i żądanie poszło do kolejki.
+ *
+ * Odwrotność `toDraft()` i musi trzymać się tych samych reguł co ciało żądania
+ * (`buildDealPatch`): `buildingData` i `ozcData` API podmienia w CAŁOŚCI, a blok
+ * pusty czyści nullem — więc tak samo składamy je tutaj. Dzięki temu karta po
+ * zapisie offline pokazuje dokładnie to, co za chwilę zobaczy serwer, i kolejne
+ * porównanie draftu z dealem nie zgłasza fałszywej różnicy.
+ *
+ * Pól stemplowanych przez serwer (`updatedAt`, `rodoConsentAt`, podpis OZC) nie
+ * zgadujemy — dopisze je odpowiedź na wysłane żądanie.
+ */
+fun Deal.applyDraft(draft: DealDraft): Deal = copy(
+    source = draft.source,
+    description = draft.description,
+    projectName = draft.projectName,
+    discountCode = draft.discountCode,
+    driveFolder = draft.driveFolder,
+    segment = draft.segment,
+    buildingKind = draft.buildingKind,
+    difficulty = draft.difficulty,
+    buyerPersona = draft.buyerPersona,
+    rodoConsent = draft.rodoConsent,
+    elderlyContactException = draft.elderlyContactException,
+    nextContactAt = draft.nextContactAt?.let(::formatIso),
+    buildingData = if (draft.buildingDataEmpty) {
+        null
+    } else {
+        DealBuildingData(
+            people = draft.people,
+            areaM2 = draft.areaM2?.toDouble(),
+            floors = draft.floors,
+            shape = draft.shape,
+            construction = draft.construction,
+            stage = draft.buildingStage,
+            windows = draft.windows,
+            heatedBasement = draft.heatedBasement,
+            heatedGarage = draft.heatedGarage,
+        )
+    },
+    ozcData = if (draft.ozcEmpty) {
+        null
+    } else {
+        DealOzcData(
+            buildingKw = draft.ozcBuildingKw,
+            dhwKw = draft.ozcDhwKw,
+            sourceUrl = draft.ozcSourceUrl,
+            confirmed = draft.ozcConfirmed,
+        )
+    },
+    meetingKind = draft.meetingKind,
+    meetingAt = draft.meetingAt?.let(::formatIso),
+    meetingOwnerId = draft.meetingOwnerId,
+    meetingDurationMin = draft.meetingDurationMin,
+    meetingUrl = draft.meetingUrl,
+    auditAddressKind = draft.auditAddressKind,
+    auditAddress = draft.auditAddress,
+    auditMeetingAt = draft.auditMeetingAt?.let(::formatIso),
+    auditOwnerId = draft.auditOwnerId,
+    ownerId = draft.ownerId.ifBlank { ownerId },
+    stageOwnerId = draft.stageOwnerId,
+    billingSameAsInstall = draft.billingSameAsInstall,
+    billingName = draft.billingName,
+    billingCompany = draft.billingCompany,
+    billingNip = draft.billingNip,
+    billingAddress = draft.billingAddress,
+)
+
+/** millis → ISO 8601 w UTC, w formacie, który czyta z powrotem `parseIso`. */
+private fun formatIso(millis: Long): String =
+    java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US)
+        .apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
+        .format(java.util.Date(millis))

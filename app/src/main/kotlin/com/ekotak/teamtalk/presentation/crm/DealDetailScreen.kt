@@ -209,6 +209,14 @@ fun DealDetailScreen(
                                 },
                                 viewModel = viewModel,
                             )
+                            DealTab.EDUKACJA -> DealRemarketingTab(
+                                state = state,
+                                onEdit = onEdit,
+                                // Wgrany projekt domu ląduje w „Plikach" —
+                                // przełączamy tam, tak jak panel po „+ Projekt".
+                                onUploaded = { viewModel.selectTab(DealTab.PLIKI) },
+                                viewModel = viewModel,
+                            )
                             DealTab.AUDYT -> DealAuditTab(
                                 state = state,
                                 onEdit = onEdit,

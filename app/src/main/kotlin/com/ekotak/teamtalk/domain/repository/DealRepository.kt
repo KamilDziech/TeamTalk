@@ -11,9 +11,15 @@ import com.ekotak.teamtalk.domain.model.DealStage
 import com.ekotak.teamtalk.domain.model.InstallationStage
 
 /**
- * Lejek sprzedaży board360. Świadomie bez cache Room: etap deala zmienia się
- * często i po stronie panelu, więc nieświeża kopia w telefonie myliłaby bardziej
- * niż pomagała. Klientów doklejamy z kartoteki, która cache Roomowy ma.
+ * Lejek sprzedaży board360. Lista i karta idą wyłącznie z sieci: etap deala
+ * zmienia się często i po stronie panelu, więc nieświeża kopia w telefonie
+ * myliłaby bardziej niż pomagała. Klientów doklejamy z kartoteki, która cache
+ * Roomowy ma.
+ *
+ * Wyjątkiem są ZMIANY robione przy kliencie — zakres instalacji i pola karty
+ * (rodzaj budynku, spotkanie, OZC). Te ustala się w domu w budowie, gdzie
+ * zasięg bywa żaden, więc mają cache migawek i kolejkę: zapis bez sieci ląduje
+ * w bazie i wychodzi, gdy telefon wróci w zasięg.
  */
 interface DealRepository {
     /** Lista dealów lejka. `overdue = true` → tylko z zaległym kontaktem. */
@@ -38,6 +44,9 @@ interface DealRepository {
      * Zapisuje zmiany karty. Wysyła wyłącznie pola różniące się od `original`,
      * dzięki czemu nie nadpisuje zmian zrobionych równolegle w panelu.
      * Gdy nic się nie zmieniło, zwraca `original` bez ruchu po sieci.
+     *
+     * Bez zasięgu żądanie ląduje w kolejce, a metoda zwraca deala z nałożonym
+     * draftem — ekran pokazuje wtedy stan, który za chwilę pojedzie na serwer.
      */
     suspend fun updateDeal(original: Deal, draft: DealDraft): Deal
 
@@ -78,4 +87,13 @@ interface DealRepository {
         stage: InstallationStage,
         categoryIds: List<String>,
     ): DealInstallations
+
+    /**
+     * Opróżnia kolejkę zmian karty (zakres instalacji, `PATCH` pól). Woła to
+     * `DealSyncWorker` — po powrocie zasięgu i przy starcie aplikacji.
+     */
+    suspend fun syncPendingMutations(): DealSyncResult
 }
+
+/** Wynik opróżniania kolejki karty deala. */
+enum class DealSyncResult { DONE, RETRY }

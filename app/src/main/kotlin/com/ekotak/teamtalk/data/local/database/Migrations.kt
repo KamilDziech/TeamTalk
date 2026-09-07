@@ -949,3 +949,35 @@ val MIGRATION_20_21 = object : Migration(20, 21) {
         db.addColumnIfMissing(table = "projects", column = "status", type = "TEXT")
     }
 }
+
+/**
+ * Wersja 22 — cache i kolejka karty deala (zakładka „Remarketing").
+ * W `deal_mutations` leżą zakresy instalacji i ustalenia spotkania zapisane bez
+ * zasięgu, u klienta — to jedyna ich kopia do czasu wysłania, więc migracja,
+ * a nie skasowanie bazy.
+ */
+val MIGRATION_21_22 = object : Migration(21, 22) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `deal_installations` (
+                `dealId` TEXT NOT NULL,
+                `payload` TEXT NOT NULL,
+                `syncedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`dealId`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `deal_mutations` (
+                `dealId` TEXT NOT NULL,
+                `kind` TEXT NOT NULL,
+                `payload` TEXT NOT NULL,
+                `createdAt` INTEGER NOT NULL,
+                PRIMARY KEY(`dealId`, `kind`)
+            )
+            """.trimIndent(),
+        )
+    }
+}
