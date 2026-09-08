@@ -12,6 +12,7 @@ import com.ekotak.teamtalk.domain.model.TaskLink
 import com.ekotak.teamtalk.domain.model.TaskMember
 import com.ekotak.teamtalk.domain.model.TaskPriority
 import com.ekotak.teamtalk.domain.model.TaskProject
+import com.ekotak.teamtalk.domain.model.TaskSection
 import com.ekotak.teamtalk.domain.model.TaskTeam
 import com.ekotak.teamtalk.domain.model.membersFrom
 import com.ekotak.teamtalk.domain.repository.ClientRepository
@@ -93,6 +94,23 @@ class CreateTaskViewModel @Inject constructor(
     /** `short` = wejście po rozmowie: cztery plansze zamiast siedmiu. */
     private val isShort: Boolean = savedStateHandle.get<String>("mode") == MODE_SHORT
 
+    /**
+     * Deal ustalony z góry — wejście z zakładki „Zadania" karty deala. Klient
+     * i deal są wtedy znane, więc plansza „kogo dotyczy" wypada z kreatora
+     * (ustalenie 2026-09-08); zamiast niej pierwsza plansza pokazuje, pod kogo
+     * zadanie idzie, bez możliwości zmiany.
+     */
+    private val presetDealId: String? =
+        (savedStateHandle["dealId"] as String?)?.takeIf { it.isNotBlank() }
+
+    /** Nazwa klienta do belki „Deal: …" — kreator nie dociąga jej po sieci. */
+    private val presetDealLabel: String? =
+        (savedStateHandle["dealLabel"] as String?)?.takeIf { it.isNotBlank() }
+
+    /** Sekcja z „+" przy nagłówku albo wyprowadzona z etapu deala. */
+    private val presetSection: TaskSection? =
+        TaskSection.fromWire((savedStateHandle["section"] as String?)?.takeIf { it.isNotBlank() })
+
     /** Ręcznie wpisany kontakt z kroku „kogo dotyczy". Zakłada klienta w kartotece. */
     data class NewContact(
         val firstName: String = "",
@@ -139,6 +157,13 @@ class CreateTaskViewModel @Inject constructor(
         val clientDeals: List<Deal> = emptyList(),
         val isLoadingDeals: Boolean = false,
         val selectedDealId: String? = null,
+        /**
+         * Nazwa klienta, gdy deal przyszedł z karty deala — belka „Deal: …"
+         * zamiast planszy wyboru. `null` = zwykły kreator z wyszukiwarką.
+         */
+        val lockedDealLabel: String? = null,
+        /** Sekcja nowego zadania (etap lejka); tylko wejście z karty deala. */
+        val section: TaskSection? = null,
         val newContact: NewContact = NewContact(),
         val projects: List<TaskProject> = emptyList(),
         val projectQuery: String = "",
@@ -160,6 +185,8 @@ class CreateTaskViewModel @Inject constructor(
         val dueAtMillis: Long? = null,
         // ── Zapis ─────────────────────────────────────────────────────────────
         val isSaving: Boolean = false,
+        /** Zadanie poszło do kolejki offline — plansza końcowa mówi o tym wprost. */
+        val queuedOffline: Boolean = false,
         val error: String? = null,
     ) {
         /** Osoby pasujące do wybranego kafelka. */
@@ -231,7 +258,12 @@ class CreateTaskViewModel @Inject constructor(
     }
 
     /** Komplet plansz tego przebiegu, zanim kafelek zespołu którąś z nich zdejmie. */
-    private val baseSteps: List<WizardStep> = if (isShort) WizardStep.SHORT else WizardStep.WIZARD
+    private val baseSteps: List<WizardStep> = when {
+        isShort -> WizardStep.SHORT
+        // Deal z góry = nie ma czego wybierać na planszy „kogo dotyczy".
+        presetDealId != null -> WizardStep.WIZARD - WizardStep.SUBJECT
+        else -> WizardStep.WIZARD
+    }
 
     /**
      * Plansze do pokazania przy danym kafelku. „Moje" nie pyta o wykonawcę —
@@ -248,6 +280,11 @@ class CreateTaskViewModel @Inject constructor(
             steps = baseSteps,
             title = defaultTitle(),
             description = presetNote.orEmpty(),
+            // Wejście z karty deala: powiązanie jest gotowe od pierwszej planszy,
+            // więc `linkFor` ma co wysłać nawet bez kroku „kogo dotyczy".
+            selectedDealId = presetDealId,
+            lockedDealLabel = presetDealLabel,
+            section = presetSection,
         ),
     )
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
@@ -719,15 +756,22 @@ class CreateTaskViewModel @Inject constructor(
                 // Ręcznie wpisany kontakt zakłada klienta w kartotece; zadanie idzie
                 // wtedy bez powiązania, bo świeży klient nie ma jeszcze deala.
                 val createdClient = createContactIfNeeded(state)
-                taskRepository.createTask(
+                val created = taskRepository.createTask(
                     title = title,
                     description = buildDescription(state, createdClient),
                     assigneeId = state.assigneeId,
                     dueAt = state.dueAtMillis?.let(::toIsoDate),
                     priority = state.priority,
                     link = linkFor(state),
+                    section = state.section,
                 )
-                _uiState.update { it.copy(isSaving = false, step = WizardStep.DONE) }
+                // Bez zasięgu zadanie dostaje identyfikator lokalny i czeka
+                // w kolejce — plansza końcowa musi to powiedzieć wprost,
+                // zamiast pokazywać zwykłe „zapisano".
+                val queued = created.id.startsWith(LOCAL_TASK_PREFIX)
+                _uiState.update {
+                    it.copy(isSaving = false, step = WizardStep.DONE, queuedOffline = queued)
+                }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isSaving = false, error = friendlyError(e)) }
             }
@@ -829,5 +873,8 @@ class CreateTaskViewModel @Inject constructor(
 
         /** Lista klientów w kroku 3 — tyle mieści się bez przewijania w nieskończoność. */
         private const val MAX_CLIENT_RESULTS = 25
+
+        /** Prefiks id zadania, które czeka w kolejce offline (patrz repozytorium). */
+        private const val LOCAL_TASK_PREFIX = "local:"
     }
 }

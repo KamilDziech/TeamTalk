@@ -43,7 +43,15 @@ import com.ekotak.teamtalk.domain.model.LeadIntake
 import com.ekotak.teamtalk.domain.model.MeetingKind
 import com.ekotak.teamtalk.domain.model.OfferLock
 import com.ekotak.teamtalk.domain.model.Project
+import com.ekotak.teamtalk.domain.model.NO_SECTION_LABEL
+import com.ekotak.teamtalk.domain.model.Edit
+import com.ekotak.teamtalk.domain.model.Task
 import com.ekotak.teamtalk.domain.model.TaskMember
+import com.ekotak.teamtalk.domain.model.TaskPatch
+import com.ekotak.teamtalk.domain.model.TaskPriority
+import com.ekotak.teamtalk.domain.model.TaskSection
+import com.ekotak.teamtalk.domain.model.TaskStatus
+import com.ekotak.teamtalk.domain.model.sectionFromStage
 import com.ekotak.teamtalk.domain.model.UfhState
 import com.ekotak.teamtalk.domain.model.ancestorsOfSelected
 import com.ekotak.teamtalk.domain.model.applyBuildingToUfh
@@ -109,6 +117,7 @@ import com.ekotak.teamtalk.domain.usecase.client.NavigateToClientUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -155,6 +164,12 @@ private const val PERMISSION_FINANCIAL_MANAGE = "financial.terms.manage"
  * a taki jest projekt deala, wymaga zarządzania (`ProjectsController.create`).
  */
 private const val PERMISSION_PROJECTS_MANAGE = "projects.manage"
+
+/**
+ * Zakładanie i zmiana zadań (zakł. „Zadania"). Odczyt listy chodzi na
+ * `tasks.view` — to samo rozróżnienie, co w `TasksController` board360.
+ */
+private const val PERMISSION_TASKS_MANAGE = "tasks.manage"
 
 /** Odstęp między znakiem a zapytaniem do kartoteki przy szukaniu kontaktu. */
 private const val CONTACT_SEARCH_DEBOUNCE_MS = 250L
@@ -221,6 +236,19 @@ class DealDetailViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val dealId: String = savedStateHandle["dealId"] ?: ""
+
+    /** Surowe zadania deala z cache — filtrujemy i grupujemy je lokalnie. */
+    private var dealTasks: List<Task> = emptyList()
+
+    /** Strumień zadań; zakładany raz, przy pierwszym wejściu w zakładkę. */
+    private var tasksJob: Job? = null
+
+    /**
+     * Ręczna kolejność zadań (preferencja `tasks.order`, wspólna z panelem).
+     * Trzymamy ją poza `UiState`, bo obejmuje CAŁY zespół, a nie ten deal —
+     * do widoku trafia już jako ułożona lista sekcji.
+     */
+    private var manualOrder: List<String> = emptyList()
 
     /**
      * Surowy tekst pól liczbowych zakładki „Dane". Osobno od draftu, bo w
@@ -728,11 +756,49 @@ class DealDetailViewModel @Inject constructor(
         val pendingCount: Int get() = contracts.count { it.pending.isNotEmpty() }
     }
 
+    /**
+     * Zakładka „Zadania" — zadania tego jednego deala, pogrupowane sekcjami
+     * (etapami lejka). 1:1 z `TasksBoard` w trybie `sections`: lewa kolumna
+     * panelu to u nas nagłówki sekcji, a lista jest ta sama co w module Zadania.
+     *
+     * Pasek filtrów jest krótszy niż w panelu (ustalenie 2026-09-08): pod jednym
+     * dealem zadań są jednostki, więc zostaje „Moje", „Wykonane" i szukajka —
+     * pełny arkusz filtrów zostaje w module.
+     */
+    data class TasksState(
+        val isLoading: Boolean = false,
+        val loaded: Boolean = false,
+        /** Lista pochodzi z cache — serwer był nieosiągalny. */
+        val offline: Boolean = false,
+        val error: String? = null,
+        val query: String = "",
+        /**
+         * Domyślnie WSZYSTKIE zadania deala, nie tylko własne (ustalenie
+         * 2026-09-08): w karcie klienta chodzi o to, co się na nim dzieje,
+         * także u innych osób. Panel startuje od „Moje", telefon nie.
+         */
+        val mineOnly: Boolean = false,
+        /** Wykonane są domyślnie schowane; włączone lądują na dole sekcji. */
+        val showDone: Boolean = false,
+        val sections: List<TaskGroup> = emptyList(),
+        /** Zadania z trwającym zapisem — wiersz pokazuje kręciołek zamiast kółka. */
+        val busyIds: Set<String> = emptySet(),
+        /** Zadania ze zmianą czekającą w kolejce offline. */
+        val queuedIds: Set<String> = emptySet(),
+        val visibleCount: Int = 0,
+        val totalCount: Int = 0,
+    )
+
+    /** Sekcja zadań w zakładce; `section == null` to kubełek „Bez sekcji". */
+    data class TaskGroup(val section: TaskSection?, val label: String, val items: List<Task>)
+
     data class UiState(
         val isLoading: Boolean = true,
         val isSaving: Boolean = false,
         val detail: DealDetail? = null,
         val canManage: Boolean = false,
+        /** Zalogowany — filtr „Moje" w zakładce „Zadania" i podpisy wierszy. */
+        val currentUserId: String? = null,
         val error: String? = null,
         /** Komunikat operacji (błąd / potwierdzenie) do snackbara. */
         val message: String? = null,
@@ -752,6 +818,7 @@ class DealDetailViewModel @Inject constructor(
         val schedule: ScheduleState = ScheduleState(),
         val settlement: SettlementState = SettlementState(),
         val contracts: ContractsState = ContractsState(),
+        val tasks: TasksState = TasksState(),
         /**
          * Uprawnienia z `GET /api/me`. Trzymamy CAŁY zestaw, a nie same
          * `deal.manage`: zakładka „Zamówienie" pyta jeszcze o `order.manage`
@@ -775,6 +842,13 @@ class DealDetailViewModel @Inject constructor(
          * moduł Projekty — tylko pole „+ Projekt" się bez tego nie pokaże.
          */
         val canManageProjects: Boolean get() = PERMISSION_PROJECTS_MANAGE in permissions
+
+        /**
+         * Zakładanie i zmiana zadań (`tasks.manage`). Sam podgląd chodzi na
+         * `tasks.view`, więc zakładkę widzi każdy, kto widzi moduł Zadania —
+         * bez tego uprawnienia znikają tylko „+" przy sekcjach i odhaczanie.
+         */
+        val canManageTasks: Boolean get() = PERMISSION_TASKS_MANAGE in permissions
 
         /** Etapy, na które wolno przejść z bieżącego (maszyna stanów board360). */
         val availableStages: List<DealStage>
@@ -885,15 +959,19 @@ class DealDetailViewModel @Inject constructor(
 
     /** Brak odpowiedzi z `/api/me` nie blokuje podglądu — chowamy tylko akcje. */
     private suspend fun loadPermissions() {
-        val permissions = try {
-            authRepository.getCurrentUser().permissions.toSet()
+        // Stąd bierze się też id zalogowanego — filtr „Moje" w zakładce
+        // „Zadania" musi wiedzieć, czyje zadania zostawić na liście.
+        val me = try {
+            authRepository.getCurrentUser()
         } catch (_: Exception) {
-            emptySet()
+            null
         }
+        val permissions = me?.permissions?.toSet().orEmpty()
         _uiState.update {
             it.copy(
                 permissions = permissions,
                 canManage = PERMISSION_DEAL_MANAGE in permissions,
+                currentUserId = me?.id ?: it.currentUserId,
             )
         }
     }
@@ -930,6 +1008,7 @@ class DealDetailViewModel @Inject constructor(
         if (tab == DealTab.ZAMOWIENIE) loadOrders()
         if (tab == DealTab.PLIKI) loadFiles()
         if (tab == DealTab.HARMONOGRAM) loadSchedule()
+        if (tab == DealTab.ZADANIA) loadTasks()
         if (tab == DealTab.ROZLICZENIE) loadSettlement()
         if (tab == DealTab.UMOWA) loadContracts()
     }
@@ -2839,6 +2918,222 @@ class DealDetailViewModel @Inject constructor(
             if (result.isSuccess) loadSchedule(force = true)
         }
     }
+
+    // ── Zakładka „Zadania" ───────────────────────────────────────────────────
+
+    /**
+     * Zadania tego deala. Lista idzie ze strumienia z cache Room, więc otwiera
+     * się bez zasięgu (także z zadaniami spisanymi w terenie), a odświeżenie
+     * z board360 dochodzi po chwili. Strumień zakładamy raz — kolejne wejścia
+     * w zakładkę tylko odświeżają dane.
+     *
+     * @param force ponowne pobranie po zapisie albo po „Spróbuj ponownie".
+     */
+    fun loadTasks(force: Boolean = false) {
+        val tasks = _uiState.value.tasks
+        if (!force && (tasks.loaded || tasks.isLoading)) return
+        if (tasksJob == null) observeTasks()
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(tasks = it.tasks.copy(isLoading = true, error = null)) }
+            val fresh = runCatching { taskRepository.refreshDealTasks(dealId) }
+            _uiState.update {
+                it.copy(
+                    tasks = it.tasks.copy(
+                        isLoading = false,
+                        loaded = true,
+                        // `false` = brak sieci (mamy ostatnią kopię), wyjątek =
+                        // odmowa serwera i wtedy trzeba powiedzieć wprost.
+                        offline = fresh.getOrNull() == false,
+                        error = fresh.exceptionOrNull()
+                            ?.let { e -> crmErrorMessage(e, "Nie udało się pobrać zadań") },
+                    ),
+                )
+            }
+        }
+        // Ręczna kolejność mieszka w preferencjach użytkownika, wspólnych
+        // z panelem — bez zasięgu wraca pusta i zostaje kolejność domyślna.
+        viewModelScope.launch {
+            manualOrder = runCatching { taskRepository.getTasksOrder() }.getOrDefault(emptyList())
+            recomputeTasks()
+        }
+    }
+
+    private fun observeTasks() {
+        tasksJob = viewModelScope.launch {
+            taskRepository.observeDealTasks(dealId).collect { list ->
+                dealTasks = list
+                _uiState.update { it.copy(tasks = it.tasks.copy(totalCount = list.size)) }
+                recomputeTasks()
+            }
+        }
+        viewModelScope.launch {
+            taskRepository.observePendingTaskIds().collect { ids ->
+                _uiState.update { it.copy(tasks = it.tasks.copy(queuedIds = ids)) }
+            }
+        }
+    }
+
+    fun onTaskQueryChange(query: String) = updateTasks { it.copy(query = query) }
+
+    fun onTaskMineOnlyToggle() = updateTasks { it.copy(mineOnly = !it.mineOnly) }
+
+    fun onTaskShowDoneToggle() = updateTasks { it.copy(showDone = !it.showDone) }
+
+    /** Odhaczenie z wiersza — bez zasięgu ląduje w kolejce zadań. */
+    fun onTaskToggleDone(task: Task) = runTaskAction(task.id) {
+        val done = task.status != TaskStatus.DONE
+        taskRepository.updateTask(
+            task.id,
+            TaskPatch(status = Edit(if (done) TaskStatus.DONE else TaskStatus.OPEN)),
+        )
+        if (done) "Zadanie wykonane." else "Przywrócono zadanie."
+    }
+
+    fun onTaskTogglePriority(task: Task) = runTaskAction(task.id) {
+        val high = task.priority != TaskPriority.HIGH
+        taskRepository.updateTask(
+            task.id,
+            TaskPatch(priority = Edit(if (high) TaskPriority.HIGH else TaskPriority.NORMAL)),
+        )
+        if (high) "Oznaczono jako wysoki priorytet." else "Zdjęto priorytet."
+    }
+
+    /**
+     * Przeniesienie zadania w obrębie jego sekcji (przeciąganie po długim
+     * przytrzymaniu). Ruch pokazujemy od razu, a zapis do preferencji idzie
+     * dopiero po puszczeniu palca — [commitTaskOrder] — bo w trakcie
+     * przeciągania kolejność zmienia się co kilka pikseli.
+     *
+     * Przenosimy tylko wewnątrz sekcji: sekcja to etap lejka, więc wyrzucenie
+     * zadania do sąsiedniej znaczyłoby zmianę etapu, a nie kolejności. Sekcję
+     * zmienia się w karcie zadania, tak samo jak w panelu.
+     */
+    fun onTaskMove(section: TaskSection?, from: Int, to: Int) {
+        val group = _uiState.value.tasks.sections.firstOrNull { it.section == section } ?: return
+        if (from !in group.items.indices || to !in group.items.indices || from == to) return
+        val ids = group.items.map { it.id }.toMutableList()
+        ids.add(to, ids.removeAt(from))
+        manualOrder = mergeManualOrder(manualOrder, ids)
+        recomputeTasks()
+    }
+
+    /**
+     * Zapis ułożonej kolejności. Kolejka offline jej NIE wozi — to preferencja
+     * widoku, nie praca do wykonania — więc bez zasięgu ułożenie zostaje na
+     * ekranie do wyjścia z karty i mówimy o tym wprost.
+     */
+    fun commitTaskOrder() {
+        val order = manualOrder
+        if (order.isEmpty()) return
+        viewModelScope.launch {
+            runCatching { taskRepository.saveTasksOrder(order) }
+                .onFailure {
+                    _uiState.update {
+                        it.copy(message = "Brak zasięgu — kolejność zostaje tylko na tym ekranie.")
+                    }
+                }
+        }
+    }
+
+    /**
+     * Wplata nową kolejność jednej sekcji w zapisaną kolejność WSZYSTKICH zadań.
+     * Klucz `tasks.order` jest wspólny z panelem i obejmuje cały zespół, więc
+     * telefon nie może go nadpisać samym wycinkiem jednego deala — pozycje
+     * pozostałych zadań zostają nietknięte, podmieniamy tylko te przestawiane.
+     * Zadania bez zapisanej pozycji (świeże) idą na początek, jak w panelu.
+     */
+    private fun mergeManualOrder(saved: List<String>, moved: List<String>): List<String> {
+        val movedSet = moved.toSet()
+        val base = moved.filter { it !in saved } + saved
+        var next = 0
+        return base.map { id -> if (id in movedSet) moved[next++] else id }
+    }
+
+    /**
+     * Zapis pojedynczego zadania. Wiersz dostaje znacznik „w trakcie", a wynik
+     * wraca strumieniem z Rooma — nie ma więc ręcznego podmieniania listy.
+     */
+    private fun runTaskAction(taskId: String, block: suspend () -> String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(tasks = it.tasks.copy(busyIds = it.tasks.busyIds + taskId)) }
+            try {
+                val message = block()
+                _uiState.update { it.copy(message = message) }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(message = crmErrorMessage(e, "Nie udało się zapisać zmiany"))
+                }
+            } finally {
+                _uiState.update {
+                    it.copy(tasks = it.tasks.copy(busyIds = it.tasks.busyIds - taskId))
+                }
+            }
+        }
+    }
+
+    private fun updateTasks(block: (TasksState) -> TasksState) {
+        _uiState.update { it.copy(tasks = block(it.tasks)) }
+        recomputeTasks()
+    }
+
+    /**
+     * Filtrowanie i grupowanie listy. WSZYSTKIE sekcje zostają widoczne, także
+     * puste (ustalenie 2026-09-08) — na karcie deala nagłówki niosą cały proces
+     * i mają gdzie przyjąć nowe zadanie. „Bez sekcji" dokładamy tylko wtedy, gdy
+     * coś w nim jest, bo pustego kubełka nie da się w panelu nawet wybrać.
+     *
+     * W obrębie sekcji: aktywne najpierw (ręczna kolejność z panelu, a przy jej
+     * braku najnowsze u góry), wykonane na dole — dokładnie jak w `TasksBoard`.
+     */
+    private fun recomputeTasks() {
+        val state = _uiState.value
+        val filters = state.tasks
+        val me = state.currentUserId
+        val query = filters.query.trim().lowercase()
+
+        val visible = dealTasks.filter { task ->
+            val mine = !filters.mineOnly || me == null ||
+                task.assigneeId == me || task.createdBy == me
+            val status = filters.showDone || task.status != TaskStatus.DONE
+            val matches = query.isEmpty() || listOfNotNull(
+                task.title,
+                task.description,
+                task.assigneeId?.let { id -> state.members.firstOrNull { m -> m.id == id }?.displayName }
+                    ?: task.assigneeEmail,
+            ).any { it.lowercase().contains(query) }
+            mine && status && matches
+        }
+
+        val rank = manualOrder.withIndex().associate { (index, id) -> id to index }
+        val buckets = visible.groupBy { it.section }
+        fun order(items: List<Task>): List<Task> {
+            val active = items.filter { it.status != TaskStatus.DONE }
+                .sortedWith(
+                    // Zadanie bez zapisanej pozycji (świeże) idzie na samą górę,
+                    // a między takimi decyduje data — najnowsze najwyżej.
+                    compareBy<Task> { rank[it.id] ?: -1 }
+                        .thenByDescending { it.createdAt },
+                )
+            val done = items.filter { it.status == TaskStatus.DONE }
+                .sortedByDescending { it.updatedAt ?: it.createdAt }
+            return active + done
+        }
+
+        val groups = TaskSection.entries.map { section ->
+            TaskGroup(section, section.label, order(buckets[section].orEmpty()))
+        }
+        val none = buckets[null].orEmpty()
+        val all = if (none.isEmpty()) groups else groups + TaskGroup(null, NO_SECTION_LABEL, order(none))
+
+        _uiState.update {
+            it.copy(tasks = it.tasks.copy(sections = all, visibleCount = visible.size))
+        }
+    }
+
+    /** Sekcja podpowiadana nowemu zadaniu — z etapu deala, jak w panelu. */
+    fun defaultTaskSection(): TaskSection? = sectionFromStage(_uiState.value.detail?.deal?.stage)
+
 
     // ── Zakładka „Umowa" ─────────────────────────────────────────────────────
 

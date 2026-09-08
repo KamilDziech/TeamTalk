@@ -31,6 +31,27 @@ enum class TaskSection(val wire: String, val label: String) {
 const val NO_SECTION_LABEL = "Bez sekcji"
 
 /**
+ * Etap lejka → sekcja, czyli „auto" z hybrydy board360: zadanie zakładane pod
+ * dealem dostaje sekcję z jego etapu, ale człowiek może ją nadpisać ręcznie.
+ * Lustro `sectionFromStage` z `web/src/app/app/tasks/task-sections.ts`.
+ *
+ * Etapy sprzed sprzedaży (lead, kwalifikacja, remarketing) oraz `lost`
+ * i `zakonczony` sekcji nie mają — takie zadania lądują w „Bez sekcji".
+ * „Dotacja" nie odpowiada żadnemu etapowi: ustawia się ją wyłącznie ręcznie.
+ */
+fun sectionFromStage(stage: DealStage?): TaskSection? = when (stage) {
+    DealStage.AUDIT -> TaskSection.AUDYT
+    DealStage.ANGEBOT -> TaskSection.OFERTA
+    DealStage.ON_HOLD -> TaskSection.WSTRZYMANE
+    DealStage.SOLD -> TaskSection.SPRZEDANE
+    DealStage.PRZED_MONTAZEM -> TaskSection.PRZED_MONTAZEM
+    DealStage.OCZEKIWANIE_NA_MONTAZ -> TaskSection.OCZEKIWANIE
+    DealStage.MONTAZ -> TaskSection.MONTAZ
+    DealStage.FERTIG -> TaskSection.PO_MONTAZU
+    else -> null
+}
+
+/**
  * SLA zadania — czas na realizację liczony od utworzenia karty (nie mylić
  * z „Terminem", który ustawia się ręcznie). W board360 trzymane w godzinach,
  * dozwolone są tylko te trzy wartości — inne API odrzuca kodem 422.

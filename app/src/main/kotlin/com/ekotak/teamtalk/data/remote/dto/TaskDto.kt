@@ -2,7 +2,13 @@ package com.ekotak.teamtalk.data.remote.dto
 
 import kotlinx.serialization.Serializable
 
-/** Body POST /api/tasks (board360). `dueAt` jako ISO-8601 (board360 = z.coerce.date). */
+/**
+ * Body POST /api/tasks (board360). `dueAt` jako ISO-8601 (board360 = z.coerce.date).
+ *
+ * `section` wysyłamy z karty deala: tam kreator zna etap lejka, z którego
+ * sekcja się wyprowadza. W module zadań pole zostaje puste i zadanie ląduje
+ * w kubełku „Bez sekcji" — dokładnie jak w panelu.
+ */
 @Serializable
 data class CreateTaskRequest(
     val title: String,
@@ -10,7 +16,28 @@ data class CreateTaskRequest(
     val assigneeId: String? = null,
     val dueAt: String? = null,
     val priority: String? = null,
+    val section: String? = null,
 )
+
+/**
+ * Zadanie zapisane bez zasięgu — całe `POST` odłożone do kolejki. Adres zależy
+ * od powiązania (`/tasks`, `/deals/{id}/tasks`, `/projects/{id}/tasks`), więc
+ * obok ciała trzymamy id deala albo projektu; oba puste = zadanie bez powiązania.
+ */
+@Serializable
+data class QueuedTaskCreate(
+    val request: CreateTaskRequest,
+    val dealId: String? = null,
+    val projectId: String? = null,
+)
+
+/** Preferencja UI zalogowanego (`GET /api/me/preferences/:key`). */
+@Serializable
+data class PreferenceDto(val key: String, val value: String? = null)
+
+/** Body `PUT /api/me/preferences/:key` — wartość zawsze jako tekst. */
+@Serializable
+data class PreferenceSetRequest(val value: String)
 
 /**
  * Odpowiedź board360 dla zadania — pełny kształt z `domain/task.ts`. Większość

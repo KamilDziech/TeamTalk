@@ -8,6 +8,7 @@ import com.ekotak.teamtalk.domain.model.TaskMember
 import com.ekotak.teamtalk.domain.model.TaskPatch
 import com.ekotak.teamtalk.domain.model.TaskPriority
 import com.ekotak.teamtalk.domain.model.TaskProject
+import com.ekotak.teamtalk.domain.model.TaskSection
 import kotlinx.coroutines.flow.Flow
 import java.io.File
 
@@ -23,6 +24,31 @@ interface TaskRepository {
 
     /** Pobranie z board360 i podmiana cache. Błąd leci dalej (pull-to-refresh). */
     suspend fun refreshTasks()
+
+    /**
+     * Zadania jednego deala z cache — zakładka „Zadania" karty klienta. Wycinek
+     * czytamy po `dealId`, więc pokazuje też zadania innych osób i te założone
+     * w terenie, których serwer jeszcze nie widział.
+     */
+    fun observeDealTasks(dealId: String): Flow<List<Task>>
+
+    /**
+     * Odświeżenie wycinka jednego deala (`GET /api/deals/:id/tasks`). Zwraca
+     * `false`, gdy serwer był nieosiągalny — zakładka pisze wtedy wprost, że
+     * pokazuje ostatnią kopię, zamiast udawać świeże dane. Odmowa serwera leci
+     * dalej wyjątkiem.
+     */
+    suspend fun refreshDealTasks(dealId: String): Boolean
+
+    /**
+     * Ręczna kolejność zadań z preferencji `tasks.order` — ta sama, którą
+     * układa się myszą w panelu. Brak zapisanej kolejności albo brak zasięgu
+     * daje pustą listę: wtedy zostaje kolejność domyślna (najnowsze u góry).
+     */
+    suspend fun getTasksOrder(): List<String>
+
+    /** Zapis ręcznej kolejności. Wymaga sieci — bez niej kolejność zostaje lokalna. */
+    suspend fun saveTasksOrder(ids: List<String>)
 
     /**
      * Jedno zadanie (`GET /api/tasks/:id`) z odświeżeniem cache. Karta otwiera
@@ -88,7 +114,11 @@ interface TaskRepository {
 
     /**
      * Tworzy zadanie zespołu (board360). [link] decyduje o endpoincie: bez
-     * powiązania, pod dealem klienta albo w projekcie.
+     * powiązania, pod dealem klienta albo w projekcie. [section] wysyła tylko
+     * karta deala — tam sekcja wyprowadza się z etapu lejka.
+     *
+     * Bez zasięgu zadanie dostaje identyfikator lokalny, ląduje w cache i czeka
+     * w kolejce (`__create`); wynik ma wtedy `id` z prefiksem `local:`.
      */
     suspend fun createTask(
         title: String,
@@ -97,5 +127,6 @@ interface TaskRepository {
         dueAt: String? = null,
         priority: TaskPriority = TaskPriority.NORMAL,
         link: TaskLink = TaskLink.None,
+        section: TaskSection? = null,
     ): Task
 }

@@ -19,6 +19,13 @@ interface TaskDao {
     @Query("SELECT * FROM tasks ORDER BY dueAt IS NULL, dueAt ASC, createdAt DESC")
     fun observeAll(): Flow<List<TaskEntity>>
 
+    /** Zadania jednego deala — zakładka „Zadania" karty klienta. */
+    @Query(
+        "SELECT * FROM tasks WHERE dealId = :dealId " +
+            "ORDER BY dueAt IS NULL, dueAt ASC, createdAt DESC",
+    )
+    fun observeForDeal(dealId: String): Flow<List<TaskEntity>>
+
     @Query("SELECT * FROM tasks WHERE id = :id LIMIT 1")
     fun observeById(id: String): Flow<TaskEntity?>
 
@@ -34,6 +41,17 @@ interface TaskDao {
     @Query("DELETE FROM tasks WHERE id = :id")
     suspend fun deleteById(id: String)
 
+    /**
+     * Kasujemy tylko to, co serwer już zna. Zadanie założone bez zasięgu ma
+     * identyfikator z prefiksem `local:` i czeka w kolejce — odświeżenie listy
+     * nie może go zmieść, bo zniknęłaby praca, której serwer jeszcze nie widział.
+     */
+    @Query("DELETE FROM tasks WHERE id NOT LIKE 'local:%'")
+    suspend fun deleteSynced()
+
+    @Query("DELETE FROM tasks WHERE dealId = :dealId AND id NOT LIKE 'local:%'")
+    suspend fun deleteSyncedForDeal(dealId: String)
+
     @Query("DELETE FROM tasks")
     suspend fun deleteAll()
 
@@ -44,7 +62,18 @@ interface TaskDao {
      */
     @Transaction
     suspend fun replaceAll(tasks: List<TaskEntity>) {
-        deleteAll()
+        deleteSynced()
+        upsertAll(tasks)
+    }
+
+    /**
+     * Podmiana zadań jednego deala — zakładka odświeża wycinek, a nie całość,
+     * więc kasuje tylko wiersze tego deala. Zadania innych klientów zostają
+     * w cache nietknięte.
+     */
+    @Transaction
+    suspend fun replaceForDeal(dealId: String, tasks: List<TaskEntity>) {
+        deleteSyncedForDeal(dealId)
         upsertAll(tasks)
     }
 }

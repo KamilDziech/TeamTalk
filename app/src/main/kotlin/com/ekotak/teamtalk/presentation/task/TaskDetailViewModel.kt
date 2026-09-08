@@ -92,7 +92,11 @@ class TaskDetailViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
                 val task = getTask(taskId)
-                val comments = getComments(taskId)
+                // Zadanie otwiera się także bez zasięgu (i świeżo założone
+                // w terenie, którego serwer jeszcze nie zna) — wtedy wątku
+                // komentarzy po prostu nie ma czym wypełnić. Brak dyskusji nie
+                // jest powodem, żeby schować całą kartę za komunikatem błędu.
+                val comments = runCatching { getComments(taskId) }.getOrDefault(emptyList())
                 _uiState.update {
                     it.copy(isLoading = false, task = task, comments = comments)
                 }

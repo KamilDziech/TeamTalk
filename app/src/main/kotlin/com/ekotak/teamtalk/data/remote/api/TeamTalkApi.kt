@@ -556,6 +556,21 @@ interface TeamTalkApi {
         @Body request: CreateTaskRequest,
     ): TaskResponseDto
 
+    /**
+     * Preferencja UI zalogowanego. Zakładka „Zadania" karty deala czyta stąd
+     * ręczną kolejność zadań (`tasks.order`) — tę samą, którą układa się myszą
+     * w panelu. Klucze są po stronie API na zamkniętej liście, więc nieznany
+     * wraca kodem 400, a nie pustą wartością.
+     */
+    @GET("api/me/preferences/{key}")
+    suspend fun getPreference(@Path("key") key: String): PreferenceDto
+
+    @PUT("api/me/preferences/{key}")
+    suspend fun putPreference(
+        @Path("key") key: String,
+        @Body request: PreferenceSetRequest,
+    ): PreferenceDto
+
     /** Zadanie w projekcie. Wymaga uprawnienia `projects.manage`. */
     @POST("api/projects/{id}/tasks")
     suspend fun createProjectTask(

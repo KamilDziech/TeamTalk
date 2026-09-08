@@ -230,6 +230,7 @@ Umowy podpisane są w seedzie — podpisu nie złożysz z telefonu ani curlem.
 - `PATCH /api/tasks/:id` — pojedyncze pola (`status`, `dueAt`, `assigneeId`, `priority`, `section`, `estimatedMinutes`, `slaHours`), `DELETE /api/tasks/:id` → 204
 - `GET /api/deals/:id/tasks`, `POST /api/deals/:id/tasks` — tak zadanie wiąże się z klientem (`Task` nie ma `clientId`)
 - `GET /api/projects?status=active&templates=0`, `POST /api/projects/:id/tasks` (wymaga `projects.manage`)
+- `GET|PUT /api/me/preferences/tasks.order` — ręczna kolejność zadań, wspólna dla panelu i dla przeciągania w zakładce „Zadania" karty deala; klucze z zamkniętej listy (nieznany → 400)
 
 Rekord zadania ma pełny kształt z board360 — `section`, `slaHours`, `estimatedMinutes`, `commentCount`,
 `createdBy` oraz doklejane przy odczycie `dealName` / `projectName`. Sekcja zadania zakładanego pod dealem

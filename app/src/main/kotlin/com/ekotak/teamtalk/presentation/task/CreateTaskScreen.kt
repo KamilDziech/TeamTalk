@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -194,6 +195,14 @@ fun CreateTaskScreen(
                         .padding(bottom = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
+                    // Wejście z zakładki „Zadania" karty deala: klient jest
+                    // przesądzony i nie da się go tu zmienić, więc zamiast
+                    // planszy „kogo dotyczy" niesie go belka nad krokami.
+                    val lockedDeal = state.lockedDealLabel
+                    if (!isDone && lockedDeal != null) {
+                        LockedDealBar(client = lockedDeal, section = state.section?.label)
+                    }
+
                     when (state.step) {
                         WizardStep.TITLE -> StepTitle(state, viewModel, onVoice)
                         WizardStep.DESCRIPTION -> StepDescription(state, viewModel, onVoice)
@@ -867,7 +876,13 @@ private fun StepDone(state: CreateTaskViewModel.UiState, vm: CreateTaskViewModel
             Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color.White)
             Spacer(Modifier.width(10.dp))
             Text(
-                text = "Zadanie utworzone",
+                // Bez zasięgu zadanie istnieje na telefonie i czeka w kolejce —
+                // mówimy to wprost, żeby nikt nie szukał go zaraz w panelu.
+                text = if (state.queuedOffline) {
+                    "Zadanie zapisane — czeka na wysyłkę"
+                } else {
+                    "Zadanie utworzone"
+                },
                 color = Color.White,
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
@@ -875,9 +890,19 @@ private fun StepDone(state: CreateTaskViewModel.UiState, vm: CreateTaskViewModel
         }
     }
 
+    if (state.queuedOffline) {
+        Text(
+            text = "Brak zasięgu. Zadanie poleci samo, gdy wróci sieć — do tego czasu " +
+                "widać je na liście ze znacznikiem „czeka na wysyłkę”.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+
     SummaryLine("Tytuł", state.title)
     SummaryLine("Opis", state.description.ifBlank { "—" })
-    SummaryLine("Dotyczy", vm.subjectLabel(state))
+    SummaryLine("Dotyczy", state.lockedDealLabel ?: vm.subjectLabel(state))
+    state.section?.let { SummaryLine("Sekcja", it.label) }
     SummaryLine("Zespół", state.team?.label ?: "—")
     SummaryLine(
         "Osoba",
@@ -889,6 +914,46 @@ private fun StepDone(state: CreateTaskViewModel.UiState, vm: CreateTaskViewModel
 }
 
 // ── Elementy wspólne ─────────────────────────────────────────────────────────
+
+/**
+ * Belka „pod kogo idzie to zadanie" dla kreatora wywołanego z karty deala.
+ * Wygląda jak informacja, nie jak pole: deal jest tu przesądzony i zmienia się
+ * go, wychodząc do innej karty — tak samo jak w panelu, gdzie zakładka „Zadania"
+ * po prostu nie ma wyboru klienta.
+ */
+@Composable
+private fun LockedDealBar(client: String, section: String?) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                Icons.Default.Person,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp),
+            )
+            Spacer(Modifier.width(8.dp))
+            Column {
+                Text(
+                    text = client,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                )
+                Text(
+                    text = section?.let { "Zadanie deala · sekcja $it" } ?: "Zadanie deala",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
 
 @Composable
 private fun Question(text: String, subtitle: String? = null) {

@@ -35,6 +35,10 @@ interface TaskMutationDao {
     @Query("DELETE FROM task_mutations WHERE taskId = :taskId")
     suspend fun deleteForTask(taskId: String)
 
+    /** Po wysłaniu zadania założonego offline reszta jego kolejki dostaje id serwera. */
+    @Query("UPDATE task_mutations SET taskId = :newId WHERE taskId = :oldId")
+    suspend fun rekeyTask(oldId: String, newId: String)
+
     @Query("DELETE FROM task_mutations")
     suspend fun deleteAll()
 }

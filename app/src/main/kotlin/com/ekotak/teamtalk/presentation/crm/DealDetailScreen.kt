@@ -80,6 +80,13 @@ fun DealDetailScreen(
     onEdit: () -> Unit,
     onOpenArticle: (categoryId: String, pathLabel: String) -> Unit,
     onOpenProject: (projectId: String) -> Unit,
+    /** Karta zadania z zakładki „Zadania" — ten sam ekran co w module. */
+    onOpenTask: (taskId: String) -> Unit,
+    /**
+     * Kreator zadania z tym dealem wpisanym na sztywno. Sekcja idzie z „+"
+     * przy nagłówku, a gdy jej nie ma — z etapu deala (ustalenie 2026-09-08).
+     */
+    onCreateDealTask: (clientLabel: String?, section: String?) -> Unit,
     viewModel: DealDetailViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -232,6 +239,17 @@ fun DealDetailScreen(
                             )
                             DealTab.PLIKI -> DealFilesTab(
                                 state = state,
+                                viewModel = viewModel,
+                            )
+                            DealTab.ZADANIA -> DealTasksTab(
+                                state = state,
+                                onOpenTask = onOpenTask,
+                                onCreateTask = { section ->
+                                    onCreateDealTask(
+                                        detail.client?.displayName,
+                                        (section ?: viewModel.defaultTaskSection())?.wire,
+                                    )
+                                },
                                 viewModel = viewModel,
                             )
                             DealTab.HARMONOGRAM -> DealScheduleTab(

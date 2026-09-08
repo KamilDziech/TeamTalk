@@ -501,6 +501,17 @@ private fun MainScreen(
                     // Zakładka „Harmonogram" wchodzi w tę samą kartę projektu
                     // co kafelek „Projekty" — jeden ekran, jedno źródło prawdy.
                     onOpenProject = { projectId -> navController.navigate("projects/$projectId") },
+                    // Zakładka „Zadania" korzysta z ekranów modułu Zadania:
+                    // ta sama karta zadania i ten sam kreator, tylko z dealem
+                    // wpisanym na sztywno (ustalenie 2026-09-08).
+                    onOpenTask = { taskId -> navController.navigate("task/$taskId") },
+                    onCreateDealTask = { clientLabel, section ->
+                        val label = Uri.encode(clientLabel ?: "")
+                        val sec = Uri.encode(section ?: "")
+                        navController.navigate(
+                            "create_task?dealId=$dealId&dealLabel=$label&section=$sec",
+                        )
+                    },
                 )
             }
 
@@ -728,9 +739,21 @@ private fun MainScreen(
             // ── Nowe zadanie (pełny kreator albo skrót po rozmowie) ─────────────
             composable(
                 route = "create_task?phone={phone}&name={name}&clientId={clientId}" +
-                    "&note={note}&mode={mode}",
+                    "&note={note}&mode={mode}&dealId={dealId}&dealLabel={dealLabel}" +
+                    "&section={section}",
                 arguments = listOf(
                     navArgument("phone") {
+                        type = NavType.StringType; nullable = true; defaultValue = null
+                    },
+                    // Wejście z karty deala: deal jest ustalony i nie da się go
+                    // w kreatorze zmienić, więc plansza „kogo dotyczy" odpada.
+                    navArgument("dealId") {
+                        type = NavType.StringType; nullable = true; defaultValue = null
+                    },
+                    navArgument("dealLabel") {
+                        type = NavType.StringType; nullable = true; defaultValue = null
+                    },
+                    navArgument("section") {
                         type = NavType.StringType; nullable = true; defaultValue = null
                     },
                     navArgument("name") {
