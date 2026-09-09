@@ -7,7 +7,6 @@ import com.ekotak.teamtalk.domain.model.ArticleGate
 import com.ekotak.teamtalk.domain.model.AssistantMessage
 import com.ekotak.teamtalk.domain.model.Audit
 import com.ekotak.teamtalk.domain.model.AuditAddressKind
-import com.ekotak.teamtalk.domain.model.BuildingStandard
 import com.ekotak.teamtalk.domain.model.Category
 import com.ekotak.teamtalk.domain.model.CategoryNode
 import com.ekotak.teamtalk.domain.model.Client
@@ -39,7 +38,6 @@ import com.ekotak.teamtalk.domain.model.withSlot
 import com.ekotak.teamtalk.domain.model.PurchaseLine
 import com.ekotak.teamtalk.domain.model.StockReservation
 import com.ekotak.teamtalk.domain.model.pruneToSelected
-import com.ekotak.teamtalk.domain.model.HeatloadMode
 import com.ekotak.teamtalk.domain.model.InstallationStage
 import com.ekotak.teamtalk.domain.model.KnowledgeArticle
 import com.ekotak.teamtalk.domain.model.LeadIntake
@@ -61,9 +59,7 @@ import com.ekotak.teamtalk.domain.model.applyBuildingToUfh
 import com.ekotak.teamtalk.domain.model.buildCategoryTree
 import com.ekotak.teamtalk.domain.model.categoryIdPath
 import com.ekotak.teamtalk.domain.model.categoryPath
-import com.ekotak.teamtalk.domain.model.previewHeatloadKw
 import com.ekotak.teamtalk.domain.model.resolveAuditForm
-import com.ekotak.teamtalk.domain.model.toM2
 import com.ekotak.teamtalk.domain.model.ufhMissingAnswers
 import com.ekotak.teamtalk.domain.model.hasChangesFrom
 import com.ekotak.teamtalk.domain.model.nextStages
@@ -348,39 +344,9 @@ class DealDetailViewModel @Inject constructor(
     )
 
     /**
-     * Formularz nowego audytu Heizlast. Pola liczbowe trzymamy jako tekst
-     * z tego samego powodu co `NumberText` wyżej — w trakcie pisania bywają
-     * niesparsowalne.
-     */
-    data class HeatloadDraft(
-        val mode: HeatloadMode? = null,
-        val areaM2: String = "",
-        val heightM: String = "",
-        val standard: BuildingStandard? = null,
-        val kw: String = "",
-        val note: String = "",
-    ) {
-        /** Podgląd wyniku szybkiego szacunku; `null` = za mało danych. */
-        val preview: Double?
-            get() = if (mode == HeatloadMode.SZYBKI) {
-                previewHeatloadKw(areaM2.toM2(), standard, heightM.toM2())
-            } else {
-                null
-            }
-
-        /** Czy da się z tego zbudować zapis (walidacja jak w panelu). */
-        val isSubmittable: Boolean
-            get() = when (mode) {
-                HeatloadMode.SZYBKI -> (areaM2.toM2() ?: 0.0) > 0 && standard != null
-                HeatloadMode.DIN -> (kw.toM2() ?: 0.0) > 0
-                null -> note.isNotBlank()
-            }
-    }
-
-    /**
-     * Zakładka „Audyt". Trzy niezależne bloki, każdy z własnym błędem — jak
+     * Zakładka „Audyt". Niezależne bloki, każdy z własnym błędem — jak
      * w panelu: awaria odczytu umów nie może schować formularza, a brak
-     * katalogu nie może schować listy Heizlast.
+     * katalogu nie może schować spotkania audytowego.
      */
     data class AuditState(
         val isLoading: Boolean = false,
@@ -405,16 +371,8 @@ class DealDetailViewModel @Inject constructor(
         /** Podpisana umowa zamykająca ofertę; `null` = audyt otwarty. */
         val lock: OfferLock? = null,
         val isSavingForm: Boolean = false,
-        val draft: HeatloadDraft = HeatloadDraft(),
-        val isSavingHeatload: Boolean = false,
         val error: String? = null,
     ) {
-        /**
-         * Lista Heizlast — bez rekordów formularza instalacji. Jeden endpoint
-         * zwraca oba rodzaje, a wymieszane na jednej liście nic by nie mówiły.
-         */
-        val heatloads: List<Audit> get() = records.filter { it.installationForm == null }
-
         /** Pytania bez odpowiedzi — sterują kolorem „Zapisz" i wypisem braków. */
         val missing: List<String> get() = form?.let(::ufhMissingAnswers).orEmpty()
 
@@ -1618,63 +1576,6 @@ class DealDetailViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         audit = it.audit.copy(isSavingForm = false),
-                        message = crmErrorMessage(e, "Nie udało się zapisać audytu"),
-                    )
-                }
-            }
-        }
-    }
-
-    fun editHeatloadDraft(edit: (HeatloadDraft) -> HeatloadDraft) {
-        _uiState.update { it.copy(audit = it.audit.copy(draft = edit(it.audit.draft))) }
-    }
-
-    /** Nowy wpis Heizlast. Wejścia szybkiego szacunku przelicza serwer. */
-    fun saveHeatload() {
-        val audit = _uiState.value.audit
-        val draft = audit.draft
-        if (audit.isSavingHeatload || !_uiState.value.canManage) return
-        if (!draft.isSubmittable) {
-            _uiState.update {
-                it.copy(
-                    message = when (draft.mode) {
-                        HeatloadMode.SZYBKI -> "Podaj powierzchnię i standard budynku"
-                        HeatloadMode.DIN -> "Podaj dodatni wynik Heizlast (kW)"
-                        null -> "Wybierz tryb Heizlast albo wpisz notatkę"
-                    },
-                )
-            }
-            return
-        }
-
-        viewModelScope.launch {
-            _uiState.update {
-                it.copy(audit = it.audit.copy(isSavingHeatload = true), message = null)
-            }
-            try {
-                val result = auditRepository.createHeatload(
-                    dealId = dealId,
-                    mode = draft.mode,
-                    areaM2 = draft.areaM2.toM2(),
-                    standard = draft.standard,
-                    heightM = draft.heightM.toM2(),
-                    kw = draft.kw.toM2(),
-                    note = draft.note,
-                )
-                _uiState.update {
-                    it.copy(
-                        message = savedMessage(result, "Zapisano audyt"),
-                        audit = it.audit.copy(
-                            isSavingHeatload = false,
-                            draft = HeatloadDraft(),
-                        ),
-                    )
-                }
-                loadAudit(force = true)
-            } catch (e: Exception) {
-                _uiState.update {
-                    it.copy(
-                        audit = it.audit.copy(isSavingHeatload = false),
                         message = crmErrorMessage(e, "Nie udało się zapisać audytu"),
                     )
                 }

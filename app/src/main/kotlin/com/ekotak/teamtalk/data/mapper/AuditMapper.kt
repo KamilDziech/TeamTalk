@@ -7,8 +7,6 @@ import com.ekotak.teamtalk.data.remote.dto.CategoryDto
 import com.ekotak.teamtalk.data.remote.dto.ContractDto
 import com.ekotak.teamtalk.domain.model.Audit
 import com.ekotak.teamtalk.domain.model.Category
-import com.ekotak.teamtalk.domain.model.BuildingStandard
-import com.ekotak.teamtalk.domain.model.HeatloadMode
 import com.ekotak.teamtalk.domain.model.OfferLock
 import com.ekotak.teamtalk.domain.model.UFH_AUDIT_KIND
 import com.ekotak.teamtalk.domain.model.UFH_BOX_TYPES
@@ -68,8 +66,6 @@ fun AuditEntity.toDomain(): Audit {
     return Audit(
         id = id,
         dealId = dealId,
-        heatloadMode = HeatloadMode.fromWire(heatloadMode),
-        heatloadKw = heatloadKw,
         createdAt = createdAt,
         note = parsed?.str("note").takeIf { !it.isNullOrBlank() },
         formKind = parsed?.str("kind"),
@@ -102,8 +98,6 @@ fun CatalogCategoryEntity.toDomain(): Category = Category(
 fun AuditDto.toDomain(): Audit = Audit(
     id = id,
     dealId = dealId,
-    heatloadMode = HeatloadMode.fromWire(heatloadMode),
-    heatloadKw = heatloadKw,
     createdAt = createdAt,
     note = formData?.str("note").takeIf { !it.isNullOrBlank() },
     formKind = formData?.str("kind"),
@@ -112,45 +106,6 @@ fun AuditDto.toDomain(): Audit = Audit(
         ?.takeIf { it.str("kind") == UFH_AUDIT_KIND }
         ?.let { ufhFromFormData(it) },
 )
-
-/**
- * Ciało nowego audytu Heizlast. `heatloadInputs` liczy SERWER — telefon podaje
- * wejścia (metraż, standard, wysokość), a nie wynik: gdyby liczył sam,
- * wskaźniki rozjechałyby się z panelem przy pierwszej korekcie domeny.
- */
-fun buildHeatloadBody(
-    mode: HeatloadMode?,
-    areaM2: Double?,
-    standard: BuildingStandard?,
-    heightM: Double?,
-    kw: Double?,
-    note: String?,
-): JsonObject = buildJsonObject {
-    when (mode) {
-        HeatloadMode.SZYBKI -> {
-            put("heatloadMode", JsonPrimitive(mode.wire))
-            put(
-                "heatloadInputs",
-                buildJsonObject {
-                    put("area", JsonPrimitive(areaM2))
-                    put("standard", JsonPrimitive(standard?.wire))
-                    if (heightM != null) put("height", JsonPrimitive(heightM))
-                },
-            )
-        }
-        HeatloadMode.DIN -> {
-            put("heatloadMode", JsonPrimitive(mode.wire))
-            put("heatloadKw", JsonPrimitive(kw))
-        }
-        // Sam wpis do dziennika audytu — bez Heizlast. Panel dopuszcza to samo
-        // (tryb pusty + notatka), więc telefon nie jest tu bardziej wymagający.
-        null -> Unit
-    }
-    val trimmed = note?.trim().orEmpty()
-    if (trimmed.isNotEmpty()) {
-        put("formData", buildJsonObject { put("note", JsonPrimitive(trimmed)) })
-    }
-}
 
 // ── Formularz audytu instalacji (OP) ─────────────────────────────────────────
 

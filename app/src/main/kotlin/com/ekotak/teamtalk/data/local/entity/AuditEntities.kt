@@ -20,6 +20,12 @@ data class AuditEntity(
     /** Id serwerowe albo lokalne (`local:…`) do czasu wysłania rekordu. */
     @PrimaryKey val id: String,
     val dealId: String,
+    /**
+     * Heizlast rekordu — telefon go NIE prowadzi (wpisy zakłada i pokazuje
+     * panel), ale kopia ma być wierna odpowiedzi serwera, więc obie kolumny
+     * zostają jako czysty passthrough. Kasowanie ich znaczyłoby przebudowę
+     * tabeli w migracji za zero pożytku.
+     */
     val heatloadMode: String?,
     val heatloadKw: Double?,
     val formData: String?,
@@ -94,7 +100,7 @@ data class AuditInstallationsEntity(
 data class AuditMutationEntity(
     val auditId: String,
     val field: String,
-    /** Gotowe ciało żądania (`{"formData":{…}}` albo pełne ciało Heizlast). */
+    /** Gotowe ciało żądania (`{"formData":{…}}`). */
     val payload: String,
     val dealId: String,
     val createdAt: Long,

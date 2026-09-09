@@ -8,7 +8,6 @@ import com.ekotak.teamtalk.data.local.entity.AuditMutationEntity.Companion.FIELD
 import com.ekotak.teamtalk.data.local.entity.AuditMutationEntity.Companion.FIELD_FORM
 import com.ekotak.teamtalk.data.local.entity.AuditMutationEntity.Companion.LOCAL_ID_PREFIX
 import com.ekotak.teamtalk.data.local.preferences.SessionPreferences
-import com.ekotak.teamtalk.data.mapper.buildHeatloadBody
 import com.ekotak.teamtalk.data.mapper.offerLockFrom
 import com.ekotak.teamtalk.data.mapper.toCatalogEntity
 import com.ekotak.teamtalk.data.mapper.toDomain
@@ -17,9 +16,7 @@ import com.ekotak.teamtalk.data.mapper.ufhToFormData
 import com.ekotak.teamtalk.data.remote.api.TeamTalkApi
 import com.ekotak.teamtalk.data.sync.AuditSyncScheduler
 import com.ekotak.teamtalk.domain.model.Audit
-import com.ekotak.teamtalk.domain.model.BuildingStandard
 import com.ekotak.teamtalk.domain.model.Category
-import com.ekotak.teamtalk.domain.model.HeatloadMode
 import com.ekotak.teamtalk.domain.model.InstallationStage
 import com.ekotak.teamtalk.domain.model.OfferLock
 import com.ekotak.teamtalk.domain.model.UfhState
@@ -121,44 +118,6 @@ class AuditRepositoryImpl @Inject constructor(
     private fun decodeStages(raw: String): Map<String, List<String>> =
         runCatching { json.decodeFromString(STAGES_SERIALIZER, raw) }.getOrDefault(emptyMap())
 
-    override suspend fun createHeatload(
-        dealId: String,
-        mode: HeatloadMode?,
-        areaM2: Double?,
-        standard: BuildingStandard?,
-        heightM: Double?,
-        kw: Double?,
-        note: String?,
-    ): AuditSaveResult {
-        val body = buildHeatloadBody(mode, areaM2, standard, heightM, kw, note)
-        return try {
-            val created = api.createDealAudit(dealId, body)
-            dao.upsert(created.toEntity(dealId))
-            AuditSaveResult.SENT
-        } catch (_: IOException) {
-            // Wpis dostaje lokalne id i od razu ląduje w cache — bez tego
-            // audytor po zapisie zobaczyłby pustą listę i wpisał go drugi raz.
-            val localId = LOCAL_ID_PREFIX + UUID.randomUUID()
-            val now = System.currentTimeMillis()
-            dao.upsert(
-                AuditEntity(
-                    id = localId,
-                    dealId = dealId,
-                    heatloadMode = mode?.wire,
-                    // kW szybkiego szacunku liczy serwer — do czasu wysyłki
-                    // pokazujemy wpis bez wyniku, zamiast zgadywać za niego.
-                    heatloadKw = if (mode == HeatloadMode.DIN) kw else null,
-                    formData = note?.trim()?.takeIf { it.isNotEmpty() }
-                        ?.let { buildJsonObject { put("note", JsonPrimitive(it)) }.toString() },
-                    createdAt = nowIso(),
-                    pendingSince = now,
-                ),
-            )
-            enqueue(localId, FIELD_CREATE, body, dealId, now)
-            AuditSaveResult.QUEUED
-        }
-    }
-
     override suspend fun saveInstallationAudit(
         dealId: String,
         auditId: String?,
@@ -216,7 +175,10 @@ class AuditRepositoryImpl @Inject constructor(
             ?.id
     }
 
-    /** `formData.categoryId` rekordu z cache; `null` = wpis Heizlast albo śmieć. */
+    /**
+     * `formData.categoryId` rekordu z cache; `null` = wpis spoza formularza
+     * (np. Heizlast założony w panelu) albo śmieć.
+     */
     private fun AuditEntity.formCategoryId(): String? = formData
         ?.let { runCatching { json.parseToJsonElement(it) as? JsonObject }.getOrNull() }
         ?.get("categoryId")

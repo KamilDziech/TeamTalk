@@ -19,7 +19,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -30,17 +29,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.ekotak.teamtalk.domain.model.Audit
 import com.ekotak.teamtalk.domain.model.AuditAddressKind
-import com.ekotak.teamtalk.domain.model.BuildingStandard
 import com.ekotak.teamtalk.domain.model.Deal
-import com.ekotak.teamtalk.domain.model.HeatloadMode
 import com.ekotak.teamtalk.domain.model.OfferLock
 import com.ekotak.teamtalk.domain.model.TaskMember
 
 /**
  * Zakładka „Audyt" karty deala — mobilny odpowiednik zakładki `audyt`
- * z `DealDrawer`. Trzy bloki, w kolejności, w jakiej audytor ich używa:
+ * z `DealDrawer`. Dwa bloki, w kolejności, w jakiej audytor ich używa:
  *
  *  1. **Spotkanie audytowe** — termin, miejsce i nawigacja. To jedyna rzecz,
  *     której się szuka JADĄC do klienta, więc stoi na górze (w panelu jest tak
@@ -48,10 +44,10 @@ import com.ekotak.teamtalk.domain.model.TaskMember
  *  2. **Audyt instalacji** — formularz dziedziczony z katalogu Technologia,
  *     wypełniany NA MIEJSCU. To on jest podstawą oferty, więc to on ma tu
  *     najwięcej miejsca.
- *  3. **Heizlast** — zapotrzebowanie budynku na ciepło; osobna lista wpisów,
- *     dokładana zwykle po obejściu domu.
  *
  * Czego świadomie NIE ma na telefonie:
+ *  • wpisów Heizlast (zapotrzebowanie budynku na ciepło) — zostają w panelu;
+ *    telefon ich nie pokazuje ani nie zakłada,
  *  • rysowania po rzucie kondygnacji (kropki rozdzielaczy, pomiar metrażu) —
  *    patrz `UfhAudit.kt`; zapisane wartości przechodzą przez telefon nietknięte,
  *  • automatu zmiany oferty po podpisie umowy (nowa umowa / aneks). Formularz
@@ -87,11 +83,7 @@ fun DealAuditTab(
             contentAlignment = Alignment.Center,
         ) { CircularProgressIndicator() }
 
-        else -> {
-            InstallationAuditCard(state = state, viewModel = viewModel)
-            SectionGap()
-            HeatloadCard(state = state, viewModel = viewModel)
-        }
+        else -> InstallationAuditCard(state = state, viewModel = viewModel)
     }
 
     if (audit.loaded && audit.error != null) {
@@ -393,184 +385,5 @@ private fun MissingAnswers(missing: List<String>) {
                 )
             }
         }
-    }
-}
-
-// ── Heizlast ─────────────────────────────────────────────────────────────────
-
-/**
- * Zapotrzebowanie budynku na ciepło. Deal może mieć kilka wpisów (kolejne
- * pomiary, korekta po projekcie), więc to lista, a nie jedno pole — pokazujemy
- * je od najnowszego, tak jak API je zwraca.
- */
-@Composable
-private fun HeatloadCard(
-    state: DealDetailViewModel.UiState,
-    viewModel: DealDetailViewModel,
-) {
-    val audit = state.audit
-    val draft = audit.draft
-
-    SectionCard {
-        SectionTitle("Heizlast", accent = audit.heatloads.size.takeIf { it > 0 }?.toString())
-        SectionGap()
-
-        if (audit.heatloads.isEmpty()) {
-            Text(
-                text = "Brak audytów.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        } else {
-            audit.heatloads.forEachIndexed { index, entry ->
-                if (index > 0) {
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 8.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant,
-                    )
-                }
-                HeatloadRow(entry)
-            }
-        }
-
-        if (!state.canManage) return@SectionCard
-
-        Spacer(Modifier.height(16.dp))
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        Spacer(Modifier.height(16.dp))
-
-        Text(
-            text = "Nowy audyt / Heizlast",
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        Spacer(Modifier.height(8.dp))
-
-        PillChoiceRow(
-            options = HeatloadMode.entries,
-            selected = draft.mode,
-            optionLabel = { it.label },
-            onSelect = { mode ->
-                // Powtórne dotknięcie wybranego trybu go zdejmuje — bez tego
-                // nie dałoby się wrócić do samej notatki bez Heizlast.
-                viewModel.editHeatloadDraft {
-                    it.copy(mode = if (it.mode == mode) null else mode)
-                }
-            },
-            enabled = !audit.isSavingHeatload,
-        )
-        Spacer(Modifier.height(12.dp))
-
-        when (draft.mode) {
-            HeatloadMode.SZYBKI -> {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FormNumberField(
-                        label = "Powierzchnia m²",
-                        text = draft.areaM2,
-                        onTextChange = { v -> viewModel.editHeatloadDraft { it.copy(areaM2 = v) } },
-                        modifier = Modifier.weight(1f),
-                        decimal = true,
-                    )
-                    FormNumberField(
-                        label = "Wys. m (opc.)",
-                        text = draft.heightM,
-                        onTextChange = { v -> viewModel.editHeatloadDraft { it.copy(heightM = v) } },
-                        modifier = Modifier.weight(1f),
-                        decimal = true,
-                    )
-                }
-                Spacer(Modifier.height(8.dp))
-                AuditChoiceField(
-                    label = "Standard budynku",
-                    options = BuildingStandard.entries,
-                    selected = draft.standard,
-                    optionLabel = { it.label },
-                    onSelect = { v -> viewModel.editHeatloadDraft { it.copy(standard = v) } },
-                    enabled = !audit.isSavingHeatload,
-                )
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    // Wynik zapisuje serwer ze swojej domeny — to tylko podgląd,
-                    // żeby audytor wiedział, czego się spodziewać.
-                    text = "Szacunek: ${draft.preview?.let { "$it kW" } ?: "—"} " +
-                        "(wskaźnikowy, nie pełny DIN)",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            HeatloadMode.DIN -> FormNumberField(
-                label = "Heizlast kW (z obliczenia DIN)",
-                text = draft.kw,
-                onTextChange = { v -> viewModel.editHeatloadDraft { it.copy(kw = v) } },
-                decimal = true,
-            )
-
-            null -> Unit
-        }
-
-        Spacer(Modifier.height(8.dp))
-        AuditTextField(
-            label = "Notatka z audytu",
-            value = draft.note,
-            singleLine = false,
-            minLines = 2,
-            enabled = !audit.isSavingHeatload,
-            onValueChange = { v -> viewModel.editHeatloadDraft { it.copy(note = v) } },
-        )
-        Spacer(Modifier.height(12.dp))
-        Button(
-            onClick = viewModel::saveHeatload,
-            enabled = !audit.isSavingHeatload && draft.isSubmittable,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(if (audit.isSavingHeatload) "Zapisuję…" else "Zapisz audyt")
-        }
-    }
-}
-
-@Composable
-private fun HeatloadRow(entry: Audit) {
-    Column(Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = "Audyt",
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Text(
-                text = when {
-                    // Wpis z kolejki: kW szybkiego szacunku liczy serwer, więc
-                    // do wysyłki nie ma czego pokazać — mówimy o tym wprost,
-                    // zamiast udawać „bez Heizlast".
-                    entry.pendingSince != null -> "czeka na wysyłkę"
-                    entry.heatloadKw != null -> "Heizlast ${entry.heatloadKw} kW"
-                    else -> "bez Heizlast"
-                },
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = if (entry.heatloadKw != null && entry.pendingSince == null) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-            )
-        }
-        Spacer(Modifier.height(2.dp))
-        Text(
-            text = listOfNotNull(
-                "tryb: ${entry.heatloadMode?.wire ?: "—"}",
-                formatDate(entry.createdAt),
-                entry.note,
-            ).joinToString(" · "),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }

@@ -1,9 +1,7 @@
 package com.ekotak.teamtalk.domain.repository
 
 import com.ekotak.teamtalk.domain.model.Audit
-import com.ekotak.teamtalk.domain.model.BuildingStandard
 import com.ekotak.teamtalk.domain.model.Category
-import com.ekotak.teamtalk.domain.model.HeatloadMode
 import com.ekotak.teamtalk.domain.model.OfferLock
 import com.ekotak.teamtalk.domain.model.UfhState
 
@@ -32,22 +30,6 @@ interface AuditRepository {
 
     /** Instalacje deala potrzebne zakładce; bez zasięgu z ostatniego pobrania. */
     suspend fun getAuditInstallations(dealId: String): AuditInstallations
-
-    /**
-     * Nowy audyt Heizlast. `mode = null` zapisuje sam wpis z notatką (tak samo
-     * dopuszcza panel). Wejścia szybkiego szacunku liczy serwer, więc bez
-     * zasięgu wpis czeka w kolejce BEZ wyliczonych kW — dopisze je serwer przy
-     * wysyłce.
-     */
-    suspend fun createHeatload(
-        dealId: String,
-        mode: HeatloadMode?,
-        areaM2: Double? = null,
-        standard: BuildingStandard? = null,
-        heightM: Double? = null,
-        kw: Double? = null,
-        note: String? = null,
-    ): AuditSaveResult
 
     /**
      * Formularz audytu instalacji dla pary (deal + węzeł katalogu). Gdy deal
