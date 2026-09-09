@@ -81,6 +81,8 @@ Trzy konta zamiast jednego, bo tylko tak da się na telefonie sprawdzić, że pr
 - **Sprzedaż i magazyn** — deal „Wojcik — PV + magazyn" ma dwie oferty (przegraną i wygraną) i żadnego zamówienia (na nim testuje się ręczne zakładanie); deal „Instal Serwis" ma zamówienie **z umowy** z pozycjami w trzech stanach oraz rezerwację ze wszystkimi wariantami wiersza: pokryty, brak już kupowany, brak nieobjęty zakupem (na nim działa „ZAMÓW braki"), pozycja bez kartoteki i jedna wydana (historia).
 - **Umowy** — deal „Instal Serwis" ma umowę **podpisaną z parafą** i zestawieniem materiałowym (na niej działa zmiana i „Odtwórz zamówienie"); deal „Wojcik" jedną **wysłaną** z żywym licznikiem terminu i jedną **po terminie**; deal na etapie audytu — umowę podpisaną **bez parafy** Załącznika nr 1 oraz zgłoszoną do niej zmianę **czekającą na zarząd** (widać ją inaczej z konta `koordynator`, inaczej z `admin`).
 
+- **Faktury KSeF** — deal „Instal Serwis" (B2B, NIP w danych do faktury) ma dwie faktury trafiane **po NIP-ie**; deal „Nowak A." (osoba prywatna) — jedną trafianą **po nazwie**, czyli dopasowaniem prawdopodobnym. W bazie leżą też faktura **zakupowa** i sprzedażowa **obcego nabywcy** — bez nich nie widać, czy filtr działa, czy tylko oddaje wszystko. Montaże (`GET /api/installations`) trasa oddaje z `db.installations`; wypełnia je seed zakładki „Montaż".
+
 ---
 
 ## Endpointy
@@ -204,6 +206,21 @@ aneks „…/A1" **zmienia ją punktowo** (umowa pierwotna obowiązuje dalej).
 Czego atrapa **nie ma**: publicznej strony `/umowa/<token>` i podpisywania.
 Umowy podpisane są w seedzie — podpisu nie złożysz z telefonu ani curlem.
 
+### Faktury i montaże (zakładka „Faktura" karty deala)
+KSeF nie wie nic o dealach: pobrana faktura zna **nabywcę**, a nie kartę
+w lejku. Dopasowanie idzie więc po NIP-ie z danych do faktury, a przy jego
+braku po nazwie nabywcy — i każdy wiersz mówi, **które to było dopasowanie**.
+- `GET /api/installations?dealId=` (`installation.view`) → montaże deala.
+  Zwraca też rezerwacje terminu (`status: "reserved"`) — tak jak board360;
+  odsiewa je dopiero klient (panel w `listDealInstallations`, telefon
+  w `InvoiceRepositoryImpl`)
+- `GET /api/ksef/deals/:dealId/invoices` (`ksef.view`) → `{buyer: {nip, label},
+  invoices: [{…, match: "nip" | "name"}]}`. Tylko faktury **sprzedażowe**:
+  kosztowa od dostawcy nie jest fakturą deala, choćby nabywca się zgadzał
+
+`ksef.view` ma **admin / zarząd / biuro** — konto `koordynator` dostaje tu 403
+i na tym sprawdza się, że telefon pokazuje wtedy rachunek z umowy i montaże,
+a nie pustą zakładkę.
 ### Dane pochodne lejka
 - `GET /api/deals/installations/current` → `{dealId: [idKategoriiGłównej]}`
 - `GET /api/deals/contacts` → `[{dealId, clientId}]`
@@ -363,5 +380,5 @@ src/seed.js            dane startowe
 src/middleware.js      requireAuth / requirePermission / 422
 src/routes/            auth, clients, deals, intake, catalog, telephony, tasks,
                        discussions, service, calendar, audits, sales, documents,
-                       contracts
+                       contracts, invoices
 ```

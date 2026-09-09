@@ -17,6 +17,8 @@ import com.ekotak.teamtalk.domain.model.DealBuildingKind
 import com.ekotak.teamtalk.domain.model.DealDetail
 import com.ekotak.teamtalk.domain.model.DealDocument
 import com.ekotak.teamtalk.domain.model.DealDraft
+import com.ekotak.teamtalk.domain.model.DealInvoices
+import com.ekotak.teamtalk.domain.model.InvoiceRachunek
 import com.ekotak.teamtalk.domain.model.DealSettlement
 import com.ekotak.teamtalk.domain.model.ContractFilling
 import com.ekotak.teamtalk.domain.model.ContractItem
@@ -24,6 +26,7 @@ import com.ekotak.teamtalk.domain.model.ContractKind
 import com.ekotak.teamtalk.domain.model.ContractMaterial
 import com.ekotak.teamtalk.domain.model.ContractPreview
 import com.ekotak.teamtalk.domain.model.ContractStage
+import com.ekotak.teamtalk.domain.model.ContractStatus
 import com.ekotak.teamtalk.domain.model.DealContract
 import com.ekotak.teamtalk.domain.model.DealOffer
 import com.ekotak.teamtalk.domain.model.DealOrder
@@ -72,6 +75,7 @@ import com.ekotak.teamtalk.domain.repository.AuditSaveResult
 import com.ekotak.teamtalk.domain.repository.AuthRepository
 import com.ekotak.teamtalk.domain.repository.ContractOrderRebuild
 import com.ekotak.teamtalk.domain.repository.ContractRepository
+import com.ekotak.teamtalk.domain.repository.InvoiceRepository
 import com.ekotak.teamtalk.domain.repository.ContractSaveResult
 import com.ekotak.teamtalk.domain.repository.OfferPricingRepository
 import com.ekotak.teamtalk.domain.repository.DealProjectSaveResult
@@ -159,6 +163,14 @@ private const val PERMISSION_INVENTORY_MANAGE = "inventory.manage"
 private const val PERMISSION_FINANCIAL_MANAGE = "financial.terms.manage"
 
 /**
+ * Podgląd faktur pobranych z KSeF (zakł. „Faktura"). To księgowość, więc
+ * board360 daje je adminowi, zarządowi i biuru. Handlowiec BEZ tego prawa
+ * widzi na zakładce rachunek z umowy i montaże — sama lista wystawionych
+ * dokumentów jest dla niego zamknięta, i zakładka mówi to wprost.
+ */
+private const val PERMISSION_KSEF_VIEW = "ksef.view"
+
+/**
  * Założenie projektu pod dealem (zakł. „Harmonogram"). Board360 puszcza na
  * `projects.view` wyłącznie ZGŁOSZENIE POMYSŁU do Poczekalni — projekt wprost,
  * a taki jest projekt deala, wymaga zarządzania (`ProjectsController.create`).
@@ -229,6 +241,7 @@ class DealDetailViewModel @Inject constructor(
     private val offerPricingRepository: OfferPricingRepository,
     private val settlementRepository: SettlementRepository,
     private val contractRepository: ContractRepository,
+    private val invoiceRepository: InvoiceRepository,
     private val dealDocumentRepository: DealDocumentRepository,
     private val projectRepository: ProjectRepository,
     private val documentFiles: DocumentFileStore,
@@ -792,6 +805,44 @@ class DealDetailViewModel @Inject constructor(
     /** Sekcja zadań w zakładce; `section == null` to kubełek „Bez sekcji". */
     data class TaskGroup(val section: TaskSection?, val label: String, val items: List<Task>)
 
+    /**
+     * Dane do faktury w trybie edycji. Pola są te same, co w formularzu karty
+     * deala — zakładka nie zakłada własnych: faktura idzie na dane deala, a nie
+     * na kopię trzymaną obok.
+     */
+    data class BillingForm(
+        val jakInstalacji: Boolean = true,
+        val odbiorca: String = "",
+        val firma: String = "",
+        val nip: String = "",
+        val adres: String = "",
+    )
+
+    /**
+     * Zakładka „Faktura" karty deala.
+     *
+     * Panel ma tu dziś atrapę (drzewo etapu „montaz" + lista montaży) i tyle
+     * telefon powtarza 1:1 — [scopeTree] i montaże w [data]. Reszta zakładki
+     * odpowiada na pytania, dla których handlowiec w nią wchodzi u klienta:
+     * ile jest do zafakturowania ([rachunek], z podpisanej umowy), na kogo
+     * idzie faktura ([form], zapisywane wspólną kolejką karty) i czy dokument
+     * już wyszedł ([data] — faktury z KSeF).
+     */
+    data class InvoicesState(
+        val isLoading: Boolean = false,
+        val loaded: Boolean = false,
+        val data: DealInvoices? = null,
+        /** Rachunek z aktualnej umowy; `null` = deal jeszcze jej nie ma. */
+        val rachunek: InvoiceRachunek? = null,
+        /** Zakres z etapu „montaz" — to samo drzewo, co pokazuje panel. */
+        val scopeTree: List<CategoryNode> = emptyList(),
+        val scope: Set<String> = emptySet(),
+        val expanded: Set<String> = emptySet(),
+        /** `null` = dane do faktury tylko do odczytu. */
+        val form: BillingForm? = null,
+        val error: String? = null,
+    )
+
     data class UiState(
         val isLoading: Boolean = true,
         val isSaving: Boolean = false,
@@ -818,6 +869,7 @@ class DealDetailViewModel @Inject constructor(
         val schedule: ScheduleState = ScheduleState(),
         val settlement: SettlementState = SettlementState(),
         val contracts: ContractsState = ContractsState(),
+        val invoices: InvoicesState = InvoicesState(),
         val tasks: TasksState = TasksState(),
         /**
          * Uprawnienia z `GET /api/me`. Trzymamy CAŁY zestaw, a nie same
@@ -835,6 +887,9 @@ class DealDetailViewModel @Inject constructor(
 
         /** Zatwierdzanie i cofanie rozliczeń (`financial.terms.manage`). */
         val canManageSettlements: Boolean get() = PERMISSION_FINANCIAL_MANAGE in permissions
+
+        /** Podgląd faktur pobranych z KSeF (`ksef.view`) — księgowość. */
+        val canViewInvoices: Boolean get() = PERMISSION_KSEF_VIEW in permissions
 
         /**
          * Zakładanie projektu pod dealem (`projects.manage`). Sam podgląd listy
@@ -1011,6 +1066,7 @@ class DealDetailViewModel @Inject constructor(
         if (tab == DealTab.ZADANIA) loadTasks()
         if (tab == DealTab.ROZLICZENIE) loadSettlement()
         if (tab == DealTab.UMOWA) loadContracts()
+        if (tab == DealTab.FAKTURA) loadInvoices()
     }
 
     // ── Zakładka „LEAD" ──────────────────────────────────────────────────────
@@ -2317,7 +2373,11 @@ class DealDetailViewModel @Inject constructor(
      * w panelu. Po zapisie odświeżamy kartę cicho — deal wraca z serwera i to on
      * jest źródłem prawdy, a nie nasze założenie o wyniku.
      */
-    private fun patchDeal(success: String, edit: (DealDraft) -> DealDraft) {
+    private fun patchDeal(
+        success: String,
+        onSaved: () -> Unit = {},
+        edit: (DealDraft) -> DealDraft,
+    ) {
         val deal = _uiState.value.detail?.deal ?: return
         if (!_uiState.value.canManage || _uiState.value.isSaving) return
 
@@ -2332,6 +2392,7 @@ class DealDetailViewModel @Inject constructor(
                         detail = state.detail?.copy(deal = updated),
                     )
                 }
+                onSaved()
             } catch (e: Exception) {
                 _uiState.update {
                     it.copy(isSaving = false, message = crmErrorMessage(e, "Nie udało się zapisać"))
@@ -3758,6 +3819,176 @@ class DealDetailViewModel @Inject constructor(
 
     private fun updateContractFilling(transform: (ContractFilling) -> ContractFilling) {
         updateContractForm { it.copy(filling = transform(it.filling)) }
+    }
+
+    // ── Zakładka „Faktura" ───────────────────────────────────────────────────
+
+    /**
+     * Trzy niezależne odczyty: faktury z KSeF razem z montażami (jedno
+     * repozytorium), zakres etapu „montaz" na drzewo i umowy na rachunek.
+     * Każdy ma własną obsługę błędu, bo każdy bywa niedostępny osobno —
+     * handlowiec bez `ksef.view` ma zobaczyć rachunek i montaże, a nie pustą
+     * zakładkę z jednym komunikatem o odmowie.
+     */
+    fun loadInvoices(force: Boolean = false) {
+        val invoices = _uiState.value.invoices
+        if (!force && (invoices.loaded || invoices.isLoading)) return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(invoices = it.invoices.copy(isLoading = true, error = null)) }
+
+            var error: String? = null
+            val dane = try {
+                invoiceRepository.getInvoices(dealId)
+            } catch (e: Exception) {
+                error = crmErrorMessage(e, "Nie udało się wczytać faktur")
+                null
+            }
+
+            val categories = try {
+                auditRepository.getCategories()
+            } catch (_: Exception) {
+                emptyList()
+            }
+            val scope = try {
+                auditRepository.getAuditInstallations(dealId)
+                    .byStage[InstallationStage.MONTAZ.wire]
+                    .orEmpty()
+                    .toSet()
+            } catch (_: Exception) {
+                emptySet()
+            }
+            val tree = pruneToSelected(buildCategoryTree(categories), scope)
+
+            _uiState.update { state ->
+                state.copy(
+                    invoices = state.invoices.copy(
+                        isLoading = false,
+                        loaded = true,
+                        data = dane,
+                        scopeTree = tree,
+                        scope = scope,
+                        // Zakres jest tu PODGLĄDEM, tak jak w panelu — rozwijamy
+                        // gałęzie z zaznaczeniem, żeby był czytelny bez dotknięcia.
+                        expanded = state.invoices.expanded + ancestorsOfSelected(tree, scope),
+                        error = error,
+                    ),
+                )
+            }
+
+            loadRachunek()
+        }
+    }
+
+    /**
+     * Rachunek z AKTUALNEJ umowy: kwoty liczy ten sam kod, co podgląd umowy
+     * (`policzPodglad`), więc na telefonie nie może wyjść inna kwota niż na
+     * dokumencie, który klient trzyma w ręku.
+     *
+     * Aktualna = najnowsza umowa, której nic nie zastąpiło i której nie
+     * unieważniono. Podpisana ma pierwszeństwo przed szkicem: fakturuje się to,
+     * co klient podpisał, a nie to, co ktoś właśnie pisze.
+     */
+    private suspend fun loadRachunek() {
+        val snapshot = runCatching { contractRepository.getContracts(dealId) }.getOrNull() ?: return
+        val umowa = snapshot.contracts
+            .filter { it.status != ContractStatus.CANCELLED && it.status != ContractStatus.SUPERSEDED }
+            .minByOrNull { if (it.status == ContractStatus.SIGNED) 0 else 1 }
+            ?: return
+
+        val filling = runCatching { contractRepository.getFilling(dealId, umowa.id) }.getOrNull() ?: return
+        val kwoty = policzPodglad(
+            pozycje = filling.pozycje,
+            etapy = filling.etapy,
+            vatStawka = filling.vatStawka,
+            zaliczkaProc = filling.zaliczkaProc,
+        )
+        _uiState.update { state ->
+            state.copy(
+                invoices = state.invoices.copy(
+                    rachunek = InvoiceRachunek(
+                        numerUmowy = umowa.numer,
+                        podpisana = umowa.status == ContractStatus.SIGNED,
+                        kwoty = kwoty,
+                        vatStawka = filling.vatStawka,
+                        zaliczkaProc = filling.zaliczkaProc,
+                        terminKoncowyDni = filling.terminKoncowyDni,
+                    ),
+                ),
+            )
+        }
+    }
+
+    /** Rozwinięcie gałęzi drzewa zakresu. Wyboru NIE zmieniamy — to podgląd. */
+    fun toggleInvoiceScopeBranch(categoryId: String) {
+        _uiState.update { state ->
+            val open = state.invoices.expanded
+            state.copy(
+                invoices = state.invoices.copy(
+                    expanded = if (categoryId in open) open - categoryId else open + categoryId,
+                ),
+            )
+        }
+    }
+
+    /** Wejście w edycję danych do faktury — formularz startuje z danych karty. */
+    fun openBillingForm() {
+        val deal = _uiState.value.detail?.deal ?: return
+        _uiState.update {
+            it.copy(
+                invoices = it.invoices.copy(
+                    form = BillingForm(
+                        jakInstalacji = deal.billingSameAsInstall,
+                        odbiorca = deal.billingName.orEmpty(),
+                        firma = deal.billingCompany.orEmpty(),
+                        nip = deal.billingNip.orEmpty(),
+                        adres = deal.billingAddress.orEmpty(),
+                    ),
+                ),
+            )
+        }
+    }
+
+    fun closeBillingForm() {
+        _uiState.update { it.copy(invoices = it.invoices.copy(form = null)) }
+    }
+
+    fun editBillingForm(transform: (BillingForm) -> BillingForm) {
+        _uiState.update { state ->
+            val form = state.invoices.form ?: return@update state
+            state.copy(invoices = state.invoices.copy(form = transform(form)))
+        }
+    }
+
+    /**
+     * Zapis danych do faktury. Idzie tą samą drogą, co każda inna zmiana karty
+     * (`PATCH` z różnicy draftu, bez zasięgu do kolejki `deal_mutations`) —
+     * osobna kolejka na te same pola rozjeżdżałaby się z formularzem karty.
+     *
+     * „Adres jak instalacji" CZYŚCI pozostałe pola, tak samo jak board360
+     * (`UpdateDeal`): zostawienie ich zapisanych „na później" kończy się tym,
+     * że po ponownym odznaczeniu wracają dane sprzed roku.
+     */
+    fun saveBilling() {
+        val form = _uiState.value.invoices.form ?: return
+        val puste = form.jakInstalacji
+        patchDeal(
+            success = "Zapisano dane do faktury",
+            // Nabywcę na fakturach szukamy po NIP-ie i nazwie z tych właśnie
+            // pól, więc lista musi zostać zadana od nowa — ale dopiero PO
+            // zapisie. Bez zasięgu zapis idzie do kolejki i odczyt też się
+            // wykona: pokaże wtedy kopię z telefonu, a nie pustkę.
+            onSaved = { loadInvoices(force = true) },
+        ) { draft ->
+            draft.copy(
+                billingSameAsInstall = form.jakInstalacji,
+                billingName = if (puste) null else form.odbiorca.trim().ifBlank { null },
+                billingCompany = if (puste) null else form.firma.trim().ifBlank { null },
+                billingNip = if (puste) null else form.nip.trim().ifBlank { null },
+                billingAddress = if (puste) null else form.adres.trim().ifBlank { null },
+            )
+        }
+        closeBillingForm()
     }
 
     /** Komunikat do snackbara wywołany z zakładki (bez własnej operacji). */

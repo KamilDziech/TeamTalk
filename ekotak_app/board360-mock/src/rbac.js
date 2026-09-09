@@ -52,6 +52,13 @@ const ALL_PERMS = [
   // klientowi dopiero decyzja zarzadu. Trzymamy to tak samo, bo na tym stoi
   // caly test zakladki „Umowa" z konta koordynatora.
   'contract.change.approve',
+  // Montaze deala (`GET /api/installations?dealId=`) — zakladka „Faktura"
+  // pokazuje je pod drzewem zakresu, tak samo jak panel. W board360 czyta je
+  // `installation.view`; montaz i serwisant maja to prawo, bo jada w teren.
+  'installation.view',
+  // Faktury pobrane z KSeF. To ksiegowosc, wiec prawo ma admin/zarzad/biuro —
+  // handlowiec widzi na karcie kwoty z umowy, ale nie wystawione faktury.
+  'ksef.view',
 ];
 
 const ROLE_PERMS = {
@@ -62,7 +69,7 @@ const ROLE_PERMS = {
     'tasks.view', 'tasks.manage', 'projects.view', 'projects.manage',
     'service.view', 'service.manage', 'calendar.view', 'calendar.override_busy',
     'offer.manage', 'order.manage', 'inventory.view', 'inventory.manage',
-    'hr.view',
+    'hr.view', 'installation.view',
   ],
   // Serwisant widzi projekty, ale nie zaklada w nich zadan — na tym koncie da sie
   // na telefonie sprawdzic, ze krok "projekt" w kreatorze konczy sie kodem 403.
@@ -71,6 +78,7 @@ const ROLE_PERMS = {
   serwisant: [
     'crm.view', 'telephony.use', 'tasks.view', 'tasks.manage', 'projects.view',
     'service.view', 'service.manage', 'calendar.view', 'hr.view',
+    'installation.view',
   ],
   // Biuro celowo BEZ serwisu — tak samo jak w board360, gdzie modul Serwis ma
   // role admin / koordynator / serwisant / montaz. Konta biurowego seed nie
@@ -82,13 +90,14 @@ const ROLE_PERMS = {
     'hr.view', 'hr.manage',
     // Biuro obsluguje kontakt@ekotak.pl na co dzien — widzi cala skrzynke.
     'email.view_all',
+    'installation.view', 'ksef.view',
   ],
   // Montaz widzi magazyn, ale nie zaklada zamowien — na tym koncie sprawdza sie
   // zakladka „Zamowienie" w wariancie „rezerwacja jest, zamowien nie widac".
   montaz: [
     'crm.view', 'tasks.view', 'tasks.manage', 'projects.view',
     'service.view', 'service.manage', 'calendar.view', 'inventory.view',
-    'hr.view',
+    'hr.view', 'installation.view',
   ],
   stazysta: ['hr.view'],
 };

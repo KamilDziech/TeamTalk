@@ -1041,3 +1041,35 @@ val MIGRATION_22_23 = object : Migration(22, 23) {
         )
     }
 }
+
+/**
+ * Wersja 24 — cache zakładki „Faktura" (faktury z KSeF i montaże deala).
+ * Migracja, nie kasowanie: obok leżą kolejki niewysłanych zmian (umowy,
+ * rozliczenia, karta deala), a te są jedyną kopią decyzji zrobionych offline.
+ * Same nowe tabele to czysty cache — gdyby ich zabrakło, zakładka pokazałaby
+ * po prostu pusto do pierwszego pobrania.
+ */
+val MIGRATION_23_24 = object : Migration(23, 24) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `deal_invoices` (
+                `dealId` TEXT NOT NULL,
+                `payload` TEXT NOT NULL,
+                `syncedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`dealId`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `deal_montaze` (
+                `dealId` TEXT NOT NULL,
+                `payload` TEXT NOT NULL,
+                `syncedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`dealId`)
+            )
+            """.trimIndent(),
+        )
+    }
+}

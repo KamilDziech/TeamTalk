@@ -591,6 +591,88 @@ Atrapa board360 ma na to komplet seedów (`board360-mock`, moduł umów):
 5. Tryb samolotowy → „+ Nowa umowa" (rozpis wchodzi z audytu) → karta „Czeka na
    wysyłkę"; wróć w zasięg i sprawdź `GET /api/deals/:id/contracts`.
 
+### Zakładka „Faktura" karty deala
+
+**Panel ma tu atrapę.** `DealDrawer` rysuje na tej zakładce drzewo instalacji
+z etapu „montaz" i listę montaży deala — to samo, co karta „Montaż" — a
+prawdziwe faktury żyją w osobnym module „Faktury KSeF": na poziomie
+organizacji, bez związku z kartą. Telefon powtarza ten kształt 1:1 (sekcje
+„Montaże" i „Zakres montażu"), ale nie kończy na nim, bo handlowiec wchodzi tu
+u klienta po trzy odpowiedzi, których atrapa nie daje: ile zafakturować, na
+kogo idzie faktura i czy już wyszła.
+
+Dopasowanie faktur do deala robi **board360**, nie telefon
+(`ListDealKsefInvoices` + `GET /api/ksef/deals/:dealId/invoices`, `ksef.view`):
+po NIP-ie z danych do faktury, a przy jego braku po nazwie nabywcy. Druga
+implementacja tej reguły w Kotlinie pokazywałaby przy kliencie inny zestaw
+faktur niż panel w biurze.
+
+- ✅ „Do zafakturowania" — kwoty z AKTUALNEJ umowy: netto, VAT wg stawki
+  z dokumentu, brutto, zaliczka `zaliczkaProc`%, płatność końcowa i termin
+  `terminKoncowyDni` dni. Liczy je `policzPodglad`, czyli ten sam kod, co § 7
+  umowy — przy kliencie nie może paść inna kwota niż na jego papierze
+- ✅ Rachunek z umowy NIEPODPISANEJ jest oznaczony („to propozycja, nie
+  podstawa faktury"); aktualna umowa = najnowsza nieunieważniona
+  i niezastąpiona, z pierwszeństwem podpisanej
+- ✅ „Dane do faktury" edytowalne na miejscu: przełącznik „adres jak
+  instalacji" plus odbiorca / firma / NIP / adres. Te same pola, co formularz
+  karty — zakładka nie zakłada własnych
+- ✅ Deal B2B bez NIP-u dostaje ostrzeżenie wprost: jego faktury rozpoznamy
+  wtedy tylko po nazwie nabywcy. To samo przy NIP-ie, który NIM NIE JEST
+  (na produkcji trafił się wpis o jedenastu cyfrach): karta mówi, ile cyfr ma
+  wpis i że dopasowanie go pomija — bez tego człowiek widzi na ekranie cyfry
+  i nie ma jak zgadnąć, że szukamy po samej nazwie. Regułę („same cyfry,
+  dokładnie dziesięć") trzyma `nipDoFaktur` w modelu, żeby telefon MÓWIŁ to,
+  co API ROBI
+- ✅ Lista faktur z KSeF: numer, data, brutto, netto i VAT, numer KSeF oraz
+  plakietka dopasowania — „po NIP" (pewne) kontra „po nazwie" (prawdopodobne)
+- ✅ Pusta lista mówi, **na kogo** szukaliśmy (nazwa + NIP), zamiast pokazywać
+  samo „brak faktur"
+- ✅ Brak `ksef.view` to osobny komunikat, nie pusta lista: kwoty do
+  zafakturowania i montaże zostają na ekranie, bo one tego prawa nie wymagają
+- ✅ Montaże 1:1 z panelem (termin, stan, trudność, notatka dla ekipy);
+  rezerwacje terminu (`reserved`) odsiane tak samo jak w `listDealInstallations`
+- ✅ Zakres etapu „Montaż" jako drzewo przycięte do wyboru klienta, zwinięte —
+  na tej karcie jest kontekstem, a nie treścią
+- ❌ Wystawianie faktury i oznaczanie zapłaty. Faktury wystawia się w KSeF, a
+  nie w CRM-ie; „zapłacona" musiałaby zapisywać stan, którego board360 dziś
+  nie ma, i po tygodniu rozjechałaby się z księgowością
+
+#### Offline zakładki „Faktura"
+
+Baza **23 → 24**: `deal_invoices` (odpowiedź o fakturach) i `deal_montaze`
+(lista montaży) — czysty cache, obie tabele trzymają całą odpowiedź serwera
+jako JSON, tak samo jak cache umów.
+
+- ✅ Własnej kolejki NIE MA i nie będzie: telefon niczego tu nie wystawia,
+  a zapis danych do faktury jedzie **wspólną kolejką karty** (`deal_mutations`),
+  tą samą co rodzaj budynku czy termin spotkania — druga kolejka na te same
+  pola rozjeżdżałaby się z pierwszą
+- ✅ Bez zasięgu zakładka pokazuje ostatnie pobranie i mówi o tym paskiem
+  („kopia z telefonu"); kwoty z umowy i tak liczą się lokalnie
+- ✅ Faktury i montaże pobierają się OSOBNO i osobno lądują w cache — chodzą
+  pod różnymi prawami i osobno bywają niedostępne
+- ✅ Odmowa `ksef.view` czyści cache faktur: prawo mogło zostać odebrane, więc
+  stara lista na ekranie byłaby wyciekiem danych, których ta sesja już nie
+  powinna widzieć
+
+#### Do przeklikania na urządzeniu
+
+Atrapa board360 ma na to seed (`board360-mock`, `src/routes/invoices.js`):
+
+1. Deal „Instal Serwis" (B2B) → „Faktura": dwie faktury z plakietką „po NIP",
+   rachunek z podpisanej umowy, montaż zaplanowany (zaklepane okno `reserved`
+   NIE może się pokazać).
+2. Deal „Nowak A." (osoba prywatna): jedna faktura „po nazwie" plus zdanie
+   o tym, że klient nie ma NIP-u — na tym sprawdza się rozróżnienie pewności.
+3. Konto `koordynator` (bez `ksef.view`): sekcja „Faktury" tłumaczy brak prawa,
+   a „Do zafakturowania" i „Montaże" zostają widoczne.
+4. Tryb samolotowy → „Dane do faktury" → „Zmień" → NIP → „Zapisz": zapis
+   ląduje w kolejce karty; wróć w zasięg i sprawdź `GET /api/deals/:id`.
+5. Deal bez umowy: sekcja kwot odsyła do zakładki „Umowa", zamiast pokazywać
+   zera.
+
+
 ### Edycja karty (ekran `deal/{id}/edit`)
 
 Pełen zakres pól przyjmowanych przez `PATCH /api/deals/:id`. Zapis idzie jednym

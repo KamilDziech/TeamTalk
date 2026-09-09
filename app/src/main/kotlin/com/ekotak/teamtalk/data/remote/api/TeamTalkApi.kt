@@ -462,6 +462,20 @@ interface TeamTalkApi {
         @Path("categoryId") categoryId: String,
     )
 
+    // ── Faktury deala (zakładka „Faktura") ────────────────────────────────────
+    // Dwa odczyty, dwa uprawnienia: montaże chodzą pod `installation.view`,
+    // faktury pod `ksef.view` (księgowość). 403 na fakturach NIE jest błędem
+    // zakładki — znaczy tylko tyle, że ta sesja widzi kwoty z umowy, ale nie
+    // wystawione dokumenty.
+
+    /** Faktury sprzedażowe wystawione klientowi tego deala (KSeF). */
+    @GET("api/ksef/deals/{dealId}/invoices")
+    suspend fun getDealInvoices(@Path("dealId") dealId: String): DealInvoicesDto
+
+    /** Montaże deala — ta sama lista, którą panel rysuje na tej zakładce. */
+    @GET("api/installations")
+    suspend fun getInstallations(@Query("dealId") dealId: String): List<InstallationDto>
+
     // ── Call logs ─────────────────────────────────────────────────────────────
 
     @POST("api/call-logs")

@@ -108,4 +108,9 @@ abstract class RepositoryModule {
     abstract fun bindContractRepository(
         impl: ContractRepositoryImpl,
     ): ContractRepository
+
+    @Binds @Singleton
+    abstract fun bindInvoiceRepository(
+        impl: InvoiceRepositoryImpl,
+    ): InvoiceRepository
 }

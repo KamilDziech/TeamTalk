@@ -52,6 +52,12 @@ const db = {
   contracts: [],           // {id, organizationId, dealId, number, status, kind, token, data, ...}
   reservations: [],        // {id, organizationId, dealId, productId, quantity, covered, status}
   purchaseOrders: [],      // {id, organizationId, productId, dealId, reservationId, status}
+  // ── Montaze i faktury (zakladka „Faktura" karty deala) ────────────────────
+  // Montaz = jeden wyjazd ekipy; karta deala pokazuje je pod drzewem zakresu.
+  // Faktury przychodza z KSeF na poziom ORGANIZACJI (bez `dealId`) — deal
+  // rozpoznaje swoje po NIP-ie albo nazwie nabywcy, dokladnie jak board360.
+  installations: [],       // {id, organizationId, dealId, scheduledAt, status, difficulty, teamNote, nodeIds[]}
+  ksefInvoices: [],        // {id, organizationId, ksefNumber, direction, invoiceNumber, issueDate, buyerNip, ...}
   // ── Serwis (modul Serwis + kafelek Przeglady) ──────────────────────────────
   serviceJobs: [],         // zlecenia: awaria / przeglad / konserwacja
   warrantyCards: [],       // karty gwarancyjne Panasonic (5 przegladow kazda)

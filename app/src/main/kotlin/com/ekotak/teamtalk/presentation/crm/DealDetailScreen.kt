@@ -261,6 +261,10 @@ fun DealDetailScreen(
                                 state = state,
                                 viewModel = viewModel,
                             )
+                            DealTab.FAKTURA -> DealInvoiceTab(
+                                state = state,
+                                viewModel = viewModel,
+                            )
                             DealTab.UMOWA -> DealContractTab(
                                 state = state,
                                 viewModel = viewModel,

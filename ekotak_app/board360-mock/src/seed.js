@@ -1011,6 +1011,7 @@ function seed(db) {
   seedSales(db, { dOffer, dSold, kontrahent, wojcik });
   seedContracts(db, users, { dOffer, dSold, dAudit });
   seedEmail(db, users, { kowalska, wojcik, dQual, dAudit });
+  seedInvoices(db, users, { dSold, dDone, agnieszka });
 
   return { users, clients, missedNowak };
 }
@@ -2284,6 +2285,100 @@ function seedContracts(db, users, { dOffer, dSold, dAudit }) {
         pozycja(3, 'Bufor 100 l z montazem', 1, 'kpl.', 1650, 'hp:buffer'),
       ],
     }),
+  });
+}
+
+/**
+ * Faktury z KSeF — zakladka „Faktura" karty deala.
+ *
+ * Dwa deale, dwa warianty dopasowania faktury do deala:
+ *  - `dSold` (Instal Serwis, B2B) ma NIP w danych do faktury, wiec jego
+ *    zaliczkowa i koncowa trafiaja po NIP-ie — dopasowanie pewne,
+ *  - `dDone` (Agnieszka Nowak, osoba prywatna) nie ma NIP-u; jej faktura
+ *    trafia po NAZWIE nabywcy, czyli dopasowaniem prawdopodobnym.
+ *
+ * W bazie leza takze dwa rekordy, ktorych karta deala pokazac NIE MOZE:
+ * faktura ZAKUPOWA (nabywca to my) i faktura sprzedazowa obcego nabywcy.
+ * Bez nich nie da sie sprawdzic, czy filtr dziala, czy tylko zwraca wszystko.
+ */
+function seedInvoices(db, users, { dSold, dDone, agnieszka }) {
+  const orgId = db.organization.id;
+
+  const faktura = (row) => {
+    db.ksefInvoices.push({
+      id: uuid(),
+      organizationId: orgId,
+      schema: 'FA(3)',
+      currency: 'PLN',
+      issuerName: 'EKOTAK Sp. z o.o.',
+      issuerNip: '9372717673',
+      direction: 'sales',
+      fetchedAt: nowIso(),
+      ...row,
+    });
+  };
+
+  faktura({
+    ksefNumber: '9372717673-20260812-A1B2C3-01',
+    invoiceNumber: 'FV/2026/08/141',
+    issueDate: daysAgo(27),
+    buyerName: 'Instal Serwis Sp. z o.o.',
+    buyerNip: '5472183920',
+    netAmount: '18000.00',
+    vatAmount: '1440.00',
+    grossAmount: '19440.00',
+    acquisitionTimestamp: daysAgo(27),
+  });
+  faktura({
+    ksefNumber: '9372717673-20260903-D4E5F6-01',
+    invoiceNumber: 'FV/2026/09/012',
+    issueDate: daysAgo(5),
+    buyerName: 'Instal Serwis Sp. z o.o.',
+    buyerNip: '5472183920',
+    netAmount: '42000.00',
+    vatAmount: '3360.00',
+    grossAmount: '45360.00',
+    acquisitionTimestamp: daysAgo(5),
+  });
+
+  // Osoba prywatna — na fakturze stoi samo imie i nazwisko, bez NIP-u.
+  faktura({
+    ksefNumber: '9372717673-20260805-G7H8I9-01',
+    invoiceNumber: 'FV/2026/08/098',
+    issueDate: daysAgo(34),
+    buyerName: `${agnieszka.firstName} ${agnieszka.lastName}`,
+    buyerNip: null,
+    netAmount: '51200.00',
+    vatAmount: '4096.00',
+    grossAmount: '55296.00',
+    acquisitionTimestamp: daysAgo(34),
+  });
+
+  // Kontrola filtra: faktura kosztowa (nabywca to my) i sprzedazowa obcego.
+  faktura({
+    ksefNumber: '5272632724-20260901-J1K2L3-01',
+    direction: 'purchase',
+    invoiceNumber: 'FS/9821/2026',
+    issueDate: daysAgo(7),
+    issuerName: 'Hurtownia Instalacyjna S.A.',
+    issuerNip: '5272632724',
+    buyerName: 'EKOTAK Sp. z o.o.',
+    buyerNip: '9372717673',
+    netAmount: '7400.00',
+    vatAmount: '1702.00',
+    grossAmount: '9102.00',
+    acquisitionTimestamp: daysAgo(7),
+  });
+  faktura({
+    ksefNumber: '9372717673-20260828-M4N5O6-01',
+    invoiceNumber: 'FV/2026/08/133',
+    issueDate: daysAgo(11),
+    buyerName: 'Urzad Gminy Porabka',
+    buyerNip: '9372100011',
+    netAmount: '12000.00',
+    vatAmount: '960.00',
+    grossAmount: '12960.00',
+    acquisitionTimestamp: daysAgo(11),
   });
 }
 
