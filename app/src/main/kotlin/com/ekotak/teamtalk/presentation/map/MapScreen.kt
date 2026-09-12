@@ -26,7 +26,9 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SensorsOff
 import androidx.compose.material.icons.filled.Whatshot
 import androidx.compose.material.icons.filled.ZoomOutMap
 import androidx.compose.material3.Badge
@@ -58,7 +60,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -95,11 +96,17 @@ fun MapScreen(
      * i Klienci. `null` = pełna mapa z własnym przełącznikiem widoków.
      */
     lockedView: MapViewTab? = null,
+    /**
+     * Przejście do historii trasy auta (assetId, nazwa, rejestracja). `null` =
+     * mapa osadzona w module, który nie ma zakładki Flota.
+     */
+    onOpenRoute: ((String, String, String) -> Unit)? = null,
     viewModel: MapViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     var showFilters by remember { mutableStateOf(false) }
+    var showHealth by remember { mutableStateOf(false) }
 
     LaunchedEffect(lockedView) {
         if (lockedView != null) viewModel.selectView(lockedView)
@@ -141,15 +148,11 @@ fun MapScreen(
                 ViewTabs(state = state, onSelect = viewModel::selectView)
             }
 
-            if (state.isFleet) {
-                FleetPlaceholder(modifier = Modifier.weight(1f))
-                return@Column
-            }
-
             SearchRow(
                 keyword = state.keyword,
                 filterCount = state.activeFilterCount,
                 mode = state.mode,
+                isFleet = state.isFleet,
                 onKeyword = viewModel::setKeyword,
                 onMode = viewModel::setMode,
                 onFilters = { showFilters = true },
@@ -208,6 +211,28 @@ fun MapScreen(
                             }
                         },
                     )
+                    // Pozycja auta starzeje się w minutach — stąd odświeżanie
+                    // pod ręką, ale NA ŻĄDANIE, nie w pętli: podpięty do prądu
+                    // panel może odpytywać co chwilę, telefon w terenie nie.
+                    if (state.isFleet) {
+                        MapButton(
+                            icon = Icons.Default.Refresh,
+                            description = "Odśwież pozycje",
+                            onClick = viewModel::refreshPositions,
+                        )
+                        // „Czemu tego auta nie widać" — cztery różne odpowiedzi,
+                        // a pin wygląda w każdej tak samo. Ładowane dopiero po
+                        // otwarciu arkusza: to pytanie zadaje się raz na jakiś
+                        // czas, a nie przy każdym wejściu na mapę.
+                        MapButton(
+                            icon = Icons.Default.SensorsOff,
+                            description = "Lokalizatory",
+                            onClick = {
+                                showHealth = true
+                                viewModel.loadHealth()
+                            },
+                        )
+                    }
                 }
 
                 if (state.isLoading || state.isRefreshing) {
@@ -241,7 +266,11 @@ fun MapScreen(
                         shape = RoundedCornerShape(12.dp),
                     ) {
                         Text(
-                            "Brak pozycji w tym widoku ze zweryfikowanym adresem.",
+                            if (state.isFleet) {
+                                "Żaden lokalizator nie podał jeszcze pozycji."
+                            } else {
+                                "Brak pozycji w tym widoku ze zweryfikowanym adresem."
+                            },
                             modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
                             style = MaterialTheme.typography.bodySmall,
                         )
@@ -249,12 +278,32 @@ fun MapScreen(
                 }
             }
 
-            NoGeoBox(points = state.noGeo, onOpen = { point ->
-                point.dealId?.let(onOpenDeal) ?: point.clientId?.let(onOpenClient)
-            })
+            NoGeoBox(
+                points = state.noGeo,
+                isFleet = state.isFleet,
+                onOpen = { point ->
+                    point.dealId?.let(onOpenDeal) ?: point.clientId?.let(onOpenClient)
+                },
+            )
 
             SyncedAtLabel(state.syncedAt)
         }
+    }
+
+    if (showHealth) {
+        TrackerHealthSheet(
+            items = state.health,
+            isLoading = state.isHealthLoading,
+            onOpenRoute = { health ->
+                showHealth = false
+                onOpenRoute?.invoke(
+                    health.assetId,
+                    health.assetName,
+                    health.registration.orEmpty(),
+                )
+            },
+            onDismiss = { showHealth = false },
+        )
     }
 
     if (showFilters) {
@@ -291,6 +340,18 @@ fun MapScreen(
                 viewModel.selectPoint(null)
                 onOpenClient(id)
             },
+            onOpenRoute = onOpenRoute?.let { open ->
+                { selected ->
+                    viewModel.selectPoint(null)
+                    // Identyfikator punktu Floty to `fleet-<assetId>` — ekran
+                    // historii pyta API o sam zasób.
+                    open(
+                        selected.id.removePrefix("fleet-"),
+                        selected.name,
+                        selected.city.orEmpty(),
+                    )
+                }
+            },
             onDismiss = { viewModel.selectPoint(null) },
         )
     }
@@ -301,13 +362,13 @@ fun MapScreen(
 private fun ViewTabs(state: MapViewModel.UiState, onSelect: (MapViewTab) -> Unit) {
     LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         items(MapViewTab.entries) { tab ->
-            val count = tab.kind?.let { state.counts[it] ?: 0 }
+            val count = state.counts[tab.kind] ?: 0
             FilterChip(
                 selected = state.view == tab,
                 onClick = { onSelect(tab) },
                 label = {
                     Text(
-                        if (count == null) tab.label else "${tab.label} $count",
+                        "${tab.label} $count",
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -323,6 +384,7 @@ private fun SearchRow(
     keyword: String,
     filterCount: Int,
     mode: MapMode,
+    isFleet: Boolean,
     onKeyword: (String) -> Unit,
     onMode: (MapMode) -> Unit,
     onFilters: () -> Unit,
@@ -339,7 +401,7 @@ private fun SearchRow(
             singleLine = true,
             // Pełna podpowiedź panelu („Klient, instalacja, miasto…") zawija się
             // w dwie linie i rozpycha pole — na telefonie zostaje sam początek.
-            placeholder = { Text("Klient, miasto…", maxLines = 1) },
+            placeholder = { Text(if (isFleet) "Auto, rejestracja…" else "Klient, miasto…", maxLines = 1) },
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
             trailingIcon = {
                 if (keyword.isNotEmpty()) {
@@ -350,13 +412,17 @@ private fun SearchRow(
             },
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
         )
-        IconButton(
-            onClick = { onMode(if (mode == MapMode.PINS) MapMode.HEAT else MapMode.PINS) },
-        ) {
-            Icon(
-                if (mode == MapMode.PINS) Icons.Default.Whatshot else Icons.Default.Place,
-                contentDescription = if (mode == MapMode.PINS) "Pokaż heatmapę" else "Pokaż piny",
-            )
+        // Heatmapa tylko tam, gdzie punktów są setki. Kilkanaście aut rozmazane
+        // w plamę niczego nie pokazuje, więc na Flocie panel jej nie daje i my też nie.
+        if (!isFleet) {
+            IconButton(
+                onClick = { onMode(if (mode == MapMode.PINS) MapMode.HEAT else MapMode.PINS) },
+            ) {
+                Icon(
+                    if (mode == MapMode.PINS) Icons.Default.Whatshot else Icons.Default.Place,
+                    contentDescription = if (mode == MapMode.PINS) "Pokaż heatmapę" else "Pokaż piny",
+                )
+            }
         }
         BadgedBox(
             badge = { if (filterCount > 0) Badge { Text(filterCount.toString()) } },
@@ -424,9 +490,16 @@ private fun Chips(state: MapViewModel.UiState, onChip: (String?) -> Unit) {
     }
 }
 
-/** Pozycje bez zweryfikowanego adresu — jak rozwijany pasek w panelu. */
+/**
+ * Pozycje, których nie ma na mapie — jak rozwijany pasek w panelu.
+ *
+ * Na Flocie to nie „adres do walidacji", tylko auto bez pozycji, a rozróżnienie
+ * „tracker milczy" (sprawdź bezpiecznik albo zasięg) od „nie ma trackera"
+ * (wpisz IMEI w karcie auta) niesie badge wiersza — dlatego zamiast wezwania do
+ * walidacji stoi tu etykieta stanu.
+ */
 @Composable
-private fun NoGeoBox(points: List<MapPoint>, onOpen: (MapPoint) -> Unit) {
+private fun NoGeoBox(points: List<MapPoint>, isFleet: Boolean, onOpen: (MapPoint) -> Unit) {
     if (points.isEmpty()) return
     var open by remember { mutableStateOf(false) }
 
@@ -444,12 +517,12 @@ private fun NoGeoBox(points: List<MapPoint>, onOpen: (MapPoint) -> Unit) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    "${if (open) "▾" else "▸"} Bez lokalizacji: ${points.size}",
+                    "${if (open) "▾" else "▸"} ${if (isFleet) "Bez pozycji" else "Bez lokalizacji"}: ${points.size}",
                     style = MaterialTheme.typography.labelLarge,
                     color = Orange600,
                 )
                 Text(
-                    " — adres niezweryfikowany",
+                    if (isFleet) " — tracker milczy albo go nie ma" else " — adres niezweryfikowany",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -463,7 +536,7 @@ private fun NoGeoBox(points: List<MapPoint>, onOpen: (MapPoint) -> Unit) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { onOpen(point) }
+                                .clickable(enabled = !isFleet) { onOpen(point) }
                                 .padding(horizontal = 12.dp, vertical = 8.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically,
@@ -481,9 +554,9 @@ private fun NoGeoBox(points: List<MapPoint>, onOpen: (MapPoint) -> Unit) {
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             Text(
-                                "Zwaliduj →",
+                                if (isFleet) point.badge.label else "Zwaliduj →",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = EkotakGreen,
+                                color = if (isFleet) Color(point.badge.colorArgb) else EkotakGreen,
                             )
                         }
                     }
@@ -521,31 +594,6 @@ private fun MapButton(
     ) {
         IconButton(onClick = onClick, modifier = Modifier.size(40.dp)) {
             Icon(icon, contentDescription = description, modifier = Modifier.size(20.dp))
-        }
-    }
-}
-
-/** Flota: panel obiecuje GPS pojazdów „wkrótce" — mobilnie tak samo. */
-@Composable
-private fun FleetPlaceholder(modifier: Modifier = Modifier) {
-    Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.padding(24.dp),
-        ) {
-            Text("🚚", style = MaterialTheme.typography.displaySmall)
-            Text(
-                "Lokalizacja pojazdów wkrótce",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-            )
-            Text(
-                "Śledzenie floty pojawi się po podłączeniu GPS. Dane pojazdów prowadzisz " +
-                    "w module Zasoby w panelu board360.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
     }
 }

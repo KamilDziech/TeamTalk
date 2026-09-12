@@ -5,10 +5,13 @@ import com.ekotak.teamtalk.data.mapper.toDomain
 import com.ekotak.teamtalk.data.mapper.toEntity
 import com.ekotak.teamtalk.data.remote.api.TeamTalkApi
 import com.ekotak.teamtalk.data.remote.dto.ClientResponseDto
+import com.ekotak.teamtalk.data.remote.dto.FleetPositionDto
+import com.ekotak.teamtalk.data.remote.dto.FleetVehicleDto
 import com.ekotak.teamtalk.data.remote.dto.ServiceJobResponseDto
 import com.ekotak.teamtalk.data.remote.dto.TaskMemberDto
 import com.ekotak.teamtalk.data.remote.dto.WarrantyCardDto
 import com.ekotak.teamtalk.domain.model.DealStage
+import com.ekotak.teamtalk.domain.model.FleetInfo
 import com.ekotak.teamtalk.domain.model.MapBadge
 import com.ekotak.teamtalk.domain.model.MapKind
 import com.ekotak.teamtalk.domain.model.MapPalette
@@ -16,9 +19,12 @@ import com.ekotak.teamtalk.domain.model.MapPoint
 import com.ekotak.teamtalk.domain.model.MapSnapshot
 import com.ekotak.teamtalk.domain.model.PIPELINE_STAGES
 import com.ekotak.teamtalk.domain.model.PlaceSuggestion
+import com.ekotak.teamtalk.domain.model.RouteHistory
+import com.ekotak.teamtalk.domain.model.TrackerHealth
 import com.ekotak.teamtalk.domain.model.ServiceJobStatus
 import com.ekotak.teamtalk.domain.model.ServiceJobType
 import com.ekotak.teamtalk.domain.model.WarrantyCardStatus
+import com.ekotak.teamtalk.domain.model.fleetBadge
 import com.ekotak.teamtalk.domain.repository.MapRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
@@ -26,6 +32,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import java.time.Instant
 import javax.inject.Inject
 
 /**
@@ -47,7 +54,10 @@ class MapRepositoryImpl @Inject constructor(
     override fun observeSnapshot(): Flow<MapSnapshot> = dao.observeAll().map { rows ->
         MapSnapshot(
             points = rows.map { it.toDomain() },
-            syncedAt = rows.firstOrNull()?.syncedAt,
+            // NAJSTARSZY stempel, bo od kiedy flota odświeża się osobno, wiersze
+            // mają różne: pasek „Dane z HH:mm" ma mówić, od kiedy stoi to, co
+            // najbardziej leżałe, a nie to, co najświeższe.
+            syncedAt = rows.minOfOrNull { it.syncedAt },
         )
     }
 
@@ -58,9 +68,41 @@ class MapRepositoryImpl @Inject constructor(
             .map { PlaceSuggestion(label = it.label, lat = it.lat, lng = it.lng) }
     }
 
+    override suspend fun refreshFleet() = coroutineScope {
+        // Bez `softAsync`: to jest ODŚWIEŻENIE JEDNEGO WIDOKU na żądanie, więc
+        // nieudane wywołanie ma dać komunikat, a nie po cichu skasować ostatnie
+        // znane pozycje — na nich w terenie stoi decyzja „kogo tam wysłać".
+        val positionsAsync = async { api.getFleetPositions() }
+        val vehiclesAsync = async { api.getVehicles() }
+        val now = System.currentTimeMillis()
+        val points = fleetPoints(positionsAsync.await(), vehiclesAsync.await(), now)
+        dao.replaceKind(MapKind.FLEET.wire, points.map { it.toEntity(now) })
+    }
+
+    override suspend fun loadRouteHistory(
+        assetId: String,
+        fromMillis: Long,
+        toMillis: Long,
+    ): RouteHistory =
+        api.getRouteHistory(
+            assetId = assetId,
+            // API czyta okno z ISO w UTC — telefon może stać w dowolnej strefie,
+            // a granice doby wyznacza użytkownik u siebie i one już są w tych
+            // milisekundach.
+            from = Instant.ofEpochMilli(fromMillis).toString(),
+            to = Instant.ofEpochMilli(toMillis).toString(),
+        ).toDomain()
+
+    override suspend fun loadTrackerHealth(): List<TrackerHealth> =
+        api.getTrackerHealth().map { it.toDomain() }
+
     override suspend fun refresh() = coroutineScope {
         val dealsAsync = async { api.getDeals() }
         val clientsAsync = async { api.getClients() }
+        // Flota jest źródłem miękkim jak reszta: `fleet.view` to osobne
+        // uprawnienie i jego brak ma dać pustą zakładkę, a nie martwą mapę.
+        val positionsAsync = softAsync { api.getFleetPositions() }
+        val vehiclesAsync = softAsync { api.getVehicles() }
         val membersAsync = softAsync { api.getTaskMembers() }
         val jobsAsync = softAsync { api.getServiceJobs() }
         val techniciansAsync = softAsync { api.getTechnicians() }
@@ -84,6 +126,13 @@ class MapRepositoryImpl @Inject constructor(
 
         val people = peopleLabels(membersAsync.await(), techniciansAsync.await().map { it.id to it.email })
         val points = mutableListOf<MapPoint>()
+
+        // ── Flota (pozycje lokalizatorów GPS) ────────────────────────────────
+        points += fleetPoints(
+            positions = positionsAsync.await(),
+            vehicles = vehiclesAsync.await(),
+            now = System.currentTimeMillis(),
+        )
 
         // ── Klienci (deale) ──────────────────────────────────────────────────
         for (deal in deals) {
@@ -162,6 +211,98 @@ class MapRepositoryImpl @Inject constructor(
         val now = System.currentTimeMillis()
         dao.replaceAll(points.map { it.toEntity(now) })
     }
+
+    /**
+     * Pojazdy jako punkty mapy — odpowiednik pętli „Flota" z `map/page.tsx`.
+     *
+     * Auto bez pozycji NIE znika: ląduje bez współrzędnych, czyli na liście
+     * „bez lokalizacji". Całą wartością jest tam rozróżnienie „tracker milczy"
+     * (sprawdź bezpiecznik albo zasięg) od „nie ma trackera" (wpisz IMEI
+     * w karcie auta) — z samej pustej mapy nie widać ani jednego, ani drugiego.
+     */
+    private fun fleetPoints(
+        positions: List<FleetPositionDto>,
+        vehicles: List<FleetVehicleDto>,
+        now: Long,
+    ): List<MapPoint> {
+        val out = mutableListOf<MapPoint>()
+
+        for (p in positions) {
+            val info = FleetInfo(
+                occurredAt = runCatching { Instant.parse(p.occurredAt).toEpochMilli() }.getOrNull(),
+                speedKmh = p.speed,
+                ignition = p.ignition,
+                hasTracker = true,
+            )
+            out += fleetPoint(
+                assetId = p.assetId,
+                name = p.assetName,
+                registration = p.registration,
+                lat = p.lat,
+                lng = p.lng,
+                info = info,
+                now = now,
+            )
+        }
+
+        val positioned = positions.mapTo(HashSet()) { it.assetId }
+        for (v in vehicles) {
+            if (v.id in positioned) continue
+            // Wycofane auto nie jest „bez lokalizatora" — jest poza flotą.
+            // Gdyby wciąż nadawało, pozycja i tak przeszła pętlą wyżej.
+            if (v.status == "retired") continue
+            out += fleetPoint(
+                assetId = v.id,
+                name = v.name,
+                registration = v.registration,
+                lat = null,
+                lng = null,
+                info = FleetInfo(
+                    occurredAt = null,
+                    speedKmh = null,
+                    ignition = null,
+                    hasTracker = !v.gpsImei.isNullOrBlank(),
+                ),
+                now = now,
+            )
+        }
+        return out
+    }
+
+    private fun fleetPoint(
+        assetId: String,
+        name: String,
+        registration: String?,
+        lat: Double?,
+        lng: Double?,
+        info: FleetInfo,
+        now: Long,
+    ): MapPoint = MapPoint(
+        // Przedrostek, bo `map_points` trzyma wszystkie źródła w jednej tabeli,
+        // a klucz pojazdu z Zasobów mógłby trafić na klucz deala.
+        id = "fleet-$assetId",
+        kind = MapKind.FLEET,
+        lat = lat,
+        lng = lng,
+        name = name,
+        // Rejestracja idzie w miejsce miasta — tak jak w panelu. To ona
+        // identyfikuje auto na parkingu, a nazwy w rodzaju „Bus 3" bywają
+        // nieodróżnialne. Wpada przy okazji do wyszukiwarki słowa kluczowego.
+        city = registration,
+        address = null,
+        phone = null,
+        installs = emptyList(),
+        ownerId = null,
+        ownerLabel = null,
+        stageOwnerId = null,
+        stageOwnerLabel = null,
+        technicianId = null,
+        technicianLabel = null,
+        badge = fleetBadge(info, now),
+        dealId = null,
+        clientId = null,
+        fleet = info,
+    )
 
     /** Zlecenie serwisowe jako punkt — awaria po SLA ma własny badge (czerwień). */
     private fun ServiceJobResponseDto.toPoint(

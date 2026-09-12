@@ -23,6 +23,16 @@ data class DealDocumentEntity(
     val contentType: String,
     val category: String,
     val planDataJson: String?,
+    /**
+     * Przypisanie kadru w module zdjęć audytu jako surowy JSON.
+     *
+     * Kolumnę zakłada `MIGRATION_26_27`, która musi jechać w tym commicie, żeby
+     * łańcuch migracji do wersji 28 (Flota) był ciągły — a Room porównuje
+     * schemat z encją i wywraca aplikację, gdy w bazie jest kolumna, o której
+     * encja nie wie. Domyślne `null` jest po to, by nie ruszać miejsc, które
+     * tworzą tę encję: zapis kadrów przyjdzie z modułem zdjęć audytu.
+     */
+    val photoDataJson: String? = null,
     val createdAt: String,
     /** Plik czeka w kolejce na wysyłkę (wgrany bez zasięgu). */
     val pending: Boolean,

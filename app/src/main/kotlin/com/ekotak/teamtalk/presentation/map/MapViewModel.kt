@@ -7,11 +7,14 @@ import com.ekotak.teamtalk.domain.model.MapKind
 import com.ekotak.teamtalk.domain.model.MapPoint
 import com.ekotak.teamtalk.domain.model.PlaceSuggestion
 import com.ekotak.teamtalk.domain.model.TaskMember
+import com.ekotak.teamtalk.domain.model.TrackerHealth
 import com.ekotak.teamtalk.domain.model.departmentOf
 import com.ekotak.teamtalk.domain.model.haversineKm
 import com.ekotak.teamtalk.domain.model.sortMembersByDepartment
 import com.ekotak.teamtalk.domain.repository.MemberRepository
+import com.ekotak.teamtalk.domain.usecase.map.LoadTrackerHealthUseCase
 import com.ekotak.teamtalk.domain.usecase.map.ObserveMapPointsUseCase
+import com.ekotak.teamtalk.domain.usecase.map.RefreshFleetUseCase
 import com.ekotak.teamtalk.domain.usecase.map.RefreshMapUseCase
 import com.ekotak.teamtalk.domain.usecase.map.SuggestPlacesUseCase
 import com.ekotak.teamtalk.presentation.components.PersonScope
@@ -26,9 +29,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/** Widok mapy = zakładka górnego przełącznika (Flota nie ma punktów). */
-enum class MapViewTab(val label: String, val kind: MapKind?) {
-    FLEET("Flota", null),
+/** Widok mapy = zakładka górnego przełącznika. */
+enum class MapViewTab(val label: String, val kind: MapKind) {
+    FLEET("Flota", MapKind.FLEET),
     CURRENT("Klienci bieżący", MapKind.CURRENT),
     FINISHED("Klienci zakończeni", MapKind.FINISHED),
     SERVICE("Serwisy", MapKind.SERVICE),
@@ -76,6 +79,8 @@ data class MapChip(
 class MapViewModel @Inject constructor(
     private val observeMapPoints: ObserveMapPointsUseCase,
     private val refreshMap: RefreshMapUseCase,
+    private val refreshFleet: RefreshFleetUseCase,
+    private val loadTrackerHealth: LoadTrackerHealthUseCase,
     private val suggestPlaces: SuggestPlacesUseCase,
     private val locationProvider: LocationProvider,
     private val memberRepository: MemberRepository,
@@ -104,6 +109,13 @@ class MapViewModel @Inject constructor(
         /** Pozycja telefonu, gdy użytkownik jej użył — do odległości w dymku. */
         val myLocation: Pair<Double, Double>? = null,
         val isLocating: Boolean = false,
+        /**
+         * Kondycja lokalizatorów — ładowana dopiero po otwarciu arkusza, bo
+         * odpowiada na pytanie zadawane raz na jakiś czas („czemu tego auta nie
+         * widać"), a nie przy każdym wejściu na mapę.
+         */
+        val health: List<TrackerHealth> = emptyList(),
+        val isHealthLoading: Boolean = false,
         // ── Wyliczone ────────────────────────────────────────────────────────
         val counts: Map<MapKind, Int> = emptyMap(),
         /** Punkty widoku po wszystkich filtrach poza chipem — podstawa legendy. */
@@ -199,12 +211,57 @@ class MapViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Same pozycje floty — przycisk na zakładce Flota. Pozycja auta starzeje
+     * się w minutach, a pełne odświeżenie mapy to jedenaście zapytań; odpytujemy
+     * NA ŻĄDANIE, nie w pętli, dokładnie jak panel. Nieudane wywołanie zostawia
+     * ostatnie znane pozycje i mówi o tym w pasku.
+     */
+    fun refreshPositions() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isRefreshing = true, error = null) }
+            val result = runCatching { refreshFleet() }
+            _uiState.update {
+                it.copy(
+                    isRefreshing = false,
+                    message = result.exceptionOrNull()
+                        ?.let { err -> crmErrorMessage(err, "Nie udało się pobrać pozycji") },
+                )
+            }
+        }
+    }
+
+    /**
+     * Kondycja lokalizatorów — wywoływana przy otwarciu arkusza „Lokalizatory".
+     *
+     * Odpowiada na „czemu tego auta nie widać": brak IMEI, cisza, odcięte
+     * zasilanie i usterka to cztery różne sprawy, a na mapie wyglądają
+     * identycznie. Opisy układa serwer, żeby były te same co w panelu.
+     */
+    fun loadHealth() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isHealthLoading = true) }
+            val result = runCatching { loadTrackerHealth() }
+            _uiState.update {
+                it.copy(
+                    isHealthLoading = false,
+                    health = result.getOrDefault(it.health),
+                    message = result.exceptionOrNull()
+                        ?.let { err -> crmErrorMessage(err, "Nie udało się sprawdzić lokalizatorów") },
+                )
+            }
+        }
+    }
+
     /** Zmiana widoku zeruje filtry i przekadrowuje — tak jak w panelu. */
     fun selectView(view: MapViewTab) {
         _uiState.update {
             recompute(
                 it.copy(
                     view = view,
+                    // Heatmapa floty nie ma sensu (kilkanaście aut, nie setki
+                    // adresów) — panel jej tam nie daje, więc i my wracamy do pinów.
+                    mode = if (view == MapViewTab.FLEET) MapMode.PINS else it.mode,
                     chip = null,
                     person = PersonScope.All,
                     installFilter = null,
@@ -344,8 +401,7 @@ class MapViewModel @Inject constructor(
 
     private fun recompute(state: UiState): UiState {
         val counts = allPoints.groupingBy { it.kind }.eachCount()
-        val kind = state.view.kind
-        val viewPoints = if (kind == null) emptyList() else allPoints.filter { it.kind == kind }
+        val viewPoints = allPoints.filter { it.kind == state.view.kind }
 
         // Osoby widoku liczymy PRZED filtrami: lista w arkuszu ma być stała,
         // a nie kurczyć się do jednego nazwiska po każdym wyborze.

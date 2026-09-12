@@ -38,6 +38,7 @@ import com.ekotak.teamtalk.presentation.email.EmailScreen
 import com.ekotak.teamtalk.presentation.email.EmailThreadScreen
 import com.ekotak.teamtalk.presentation.leave.LeaveScreen
 import com.ekotak.teamtalk.presentation.map.MapScreen
+import com.ekotak.teamtalk.presentation.map.RouteHistoryScreen
 import com.ekotak.teamtalk.presentation.home.HomeScreen
 import com.ekotak.teamtalk.presentation.home.ModulePlaceholderScreen
 import com.ekotak.teamtalk.presentation.home.homeModule
@@ -347,7 +348,26 @@ private fun MainScreen(
                     onOpenDeal = { dealId -> navController.navigate("deal/$dealId") },
                     onOpenClient = { clientId -> navController.navigate("client/$clientId") },
                     onNavigateBack = { navController.popBackStack() },
+                    onOpenRoute = { assetId, name, registration ->
+                        navController.navigate(
+                            "fleet/$assetId?name=${Uri.encode(name)}&reg=${Uri.encode(registration)}",
+                        )
+                    },
                 )
+            }
+
+            // Historia trasy auta — wejście z pinu Floty na Mapie. Nazwa i
+            // rejestracja jadą w adresie, bo ekran pyta API tylko o ślad; bez
+            // nich belka musiałaby czekać na odpowiedź, żeby pokazać, czyj to dzień.
+            composable(
+                route = "fleet/{assetId}?name={name}&reg={reg}",
+                arguments = listOf(
+                    navArgument("assetId") { type = NavType.StringType },
+                    navArgument("name") { type = NavType.StringType; defaultValue = "" },
+                    navArgument("reg") { type = NavType.StringType; defaultValue = "" },
+                ),
+            ) {
+                RouteHistoryScreen(onNavigateBack = { navController.popBackStack() })
             }
 
             // ── Serwis i przeglądy (kafelki „Serwis" i „Przeglądy") ───────────

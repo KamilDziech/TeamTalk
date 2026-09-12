@@ -64,7 +64,7 @@ import com.ekotak.teamtalk.data.local.entity.*
         DealInvoicesEntity::class,
         DealMontazeEntity::class,
     ],
-    version = 24,
+    version = 28,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)

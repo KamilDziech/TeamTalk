@@ -40,6 +40,17 @@ data class MapPointEntity(
     val badgeLetter: String,
     val dealId: String?,
     val clientId: String?,
+    /**
+     * Flota trzyma dane lokalizatora SUROWO (czas urządzenia, prędkość, zapłon),
+     * a nie policzony status — inaczej cache po godzinie twierdziłby, że auto
+     * „jest w ruchu". Status liczy się przy odczycie, patrz `MapPointMapper`.
+     * Null we wszystkich czterech = punkt nie jest pojazdem.
+     */
+    val fleetOccurredAt: Long? = null,
+    val fleetSpeed: Double? = null,
+    val fleetIgnition: Boolean? = null,
+    /** null = nie pojazd; false = pojazd bez IMEI w karcie („bez lokalizatora"). */
+    val fleetHasTracker: Boolean? = null,
     /** Moment pobrania migawki — pasek „dane z HH:mm" przy pracy bez zasięgu. */
     val syncedAt: Long,
 )

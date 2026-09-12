@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Navigation
+import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -34,6 +35,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.ekotak.teamtalk.domain.model.MapKind
 import com.ekotak.teamtalk.domain.model.MapPoint
 import com.ekotak.teamtalk.domain.model.haversineKm
 import kotlin.math.roundToInt
@@ -43,6 +45,10 @@ import kotlin.math.roundToInt
  * („Otwórz kartę deala"); na telefonie dochodzą dwie rzeczy terenowe: nawigacja
  * do klienta (intencja `geo:`, obsłuży ją każda mapa w telefonie) i telefon,
  * bo numer i tak leży w kartotece.
+ *
+ * Pojazd z Floty nie ma ani deala, ani numeru — za to ma stan lokalizatora
+ * (świeżość pozycji, prędkość, zapłon) i „Nawiguj", czyli jedyne dwie rzeczy,
+ * po które ktoś otwiera pin auta w terenie.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -51,6 +57,11 @@ fun MapPointSheet(
     myLocation: Pair<Double, Double>?,
     onOpenDeal: (String) -> Unit,
     onOpenClient: (String) -> Unit,
+    /**
+     * Historia trasy auta. `null` = ekran osadzony tam, gdzie nie ma do niej
+     * przejścia (mapa w module Serwis pokazuje tylko zlecenia).
+     */
+    onOpenRoute: ((MapPoint) -> Unit)? = null,
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -118,6 +129,34 @@ fun MapPointSheet(
             }
             point.address?.let { InfoRow("Adres", it) }
 
+            point.fleet?.let { fleet ->
+                // Rejestracja jest już w podtytule (w miejscu miasta), więc tu
+                // zostaje to, czego z pinu nie widać: świeżość, prędkość, zapłon.
+                // Wiek pozycji, a nie godzina odczytu: w terenie liczy się „sprzed
+                // ilu minut", a nie o której tracker się odezwał.
+                InfoRow(
+                    "Pozycja",
+                    fleet.ageMinutesAt(System.currentTimeMillis())
+                        ?.let { formatAge(it) }
+                        ?: "tracker nie nadał jeszcze żadnej",
+                )
+                fleet.speedKmh?.takeIf { it > 0 }?.let { InfoRow("Prędkość", "${it.roundToInt()} km/h") }
+                fleet.ignition?.let { InfoRow("Zapłon", if (it) "włączony" else "wyłączony") }
+            }
+
+            // Historia trasy — jedyna rzecz, po którą sięga się przy aucie poza
+            // „gdzie teraz jest": o której wyjechał, gdzie stał, gdzie się
+            // rozpędził. Pokazujemy ją także dla auta bez BIEŻĄCEJ pozycji:
+            // tracker milczy od godziny, ale historia sprzed niej istnieje i to
+            // ona odpowiada na „gdzie on pojechał".
+            if (point.kind == MapKind.FLEET && onOpenRoute != null) {
+                SheetAction(
+                    label = "Historia trasy",
+                    icon = Icons.Default.Timeline,
+                    highlighted = true,
+                ) { onOpenRoute(point) }
+            }
+
             point.dealId?.let { dealId ->
                 SheetAction(
                     label = "Otwórz kartę deala",
@@ -145,6 +184,19 @@ fun MapPointSheet(
             }
         }
     }
+}
+
+/**
+ * „przed chwilą" / „sprzed 14 min" / „sprzed 3 h" / „sprzed 2 dni" — wiek
+ * pozycji tak samo jak w wierszu listy Floty w panelu.
+ */
+private fun formatAge(minutes: Long): String {
+    if (minutes < 2) return "przed chwilą"
+    if (minutes < 60) return "sprzed $minutes min"
+    val hours = Math.round(minutes / 60.0)
+    if (hours < 24) return "sprzed $hours h"
+    val days = Math.round(hours / 24.0)
+    return "sprzed $days ${if (days == 1L) "dnia" else "dni"}"
 }
 
 /** „Etap · miasto · 12 km od Ciebie" — ostatni człon tylko po użyciu GPS. */

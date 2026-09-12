@@ -1073,3 +1073,266 @@ val MIGRATION_23_24 = object : Migration(23, 24) {
         )
     }
 }
+
+/**
+ * Wersja 25 — cache i kolejka zakładki „Komunikacja" karty deala.
+ *
+ * Znów migracja, nie kasowanie: obok leżą kolejki niewysłanych zmian (zadania,
+ * umowy, rozliczenia, karta deala), a `deal_comm_mutations` dokłada do nich
+ * wiadomości napisane bez zasięgu — jedyną ich kopię do czasu wysłania.
+ */
+val MIGRATION_24_25 = object : Migration(24, 25) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `deal_comments` (
+                `id` TEXT NOT NULL,
+                `dealId` TEXT NOT NULL,
+                `authorId` TEXT NOT NULL,
+                `authorName` TEXT NOT NULL,
+                `body` TEXT NOT NULL,
+                `createdAt` TEXT NOT NULL,
+                `mine` INTEGER NOT NULL,
+                `syncedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_deal_comments_dealId` ON `deal_comments` (`dealId`)")
+
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `deal_whatsapp` (
+                `id` TEXT NOT NULL,
+                `dealId` TEXT NOT NULL,
+                `direction` TEXT NOT NULL,
+                `body` TEXT,
+                `template` TEXT,
+                `status` TEXT NOT NULL,
+                `createdAt` TEXT NOT NULL,
+                `syncedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_deal_whatsapp_dealId` ON `deal_whatsapp` (`dealId`)")
+
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `deal_call_summaries` (
+                `id` TEXT NOT NULL,
+                `dealId` TEXT NOT NULL,
+                `body` TEXT NOT NULL,
+                `agreements` TEXT,
+                `nextStep` TEXT,
+                `phoneNumber` TEXT,
+                `direction` TEXT,
+                `occurredAt` TEXT NOT NULL,
+                `durationSec` INTEGER,
+                `hasRecording` INTEGER NOT NULL,
+                `manual` INTEGER NOT NULL,
+                `syncedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_deal_call_summaries_dealId` " +
+                "ON `deal_call_summaries` (`dealId`)",
+        )
+
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `deal_comm_mutations` (
+                `localId` TEXT NOT NULL,
+                `dealId` TEXT NOT NULL,
+                `kind` TEXT NOT NULL,
+                `payload` TEXT NOT NULL,
+                `createdAt` INTEGER NOT NULL,
+                PRIMARY KEY(`localId`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_deal_comm_mutations_dealId` " +
+                "ON `deal_comm_mutations` (`dealId`)",
+        )
+    }
+}
+
+/**
+ * Zakładka „Montaż" karty deala — teczka robocza ekipy na budowie.
+ *
+ * Sześć tabel, bo zakładka ma pełny offline w obie strony: montaże z zakresem
+ * i obsadą, ekipy do wyboru, lista wyjazdowa z magazynu, zdjęcia powykonawcze
+ * (razem z kadrami czekającymi na wysyłkę), ptaszki listy pakowania i kolejka
+ * niewysłanych zapisów. Do tego dwie kolumny w katalogu (`montageRoles`,
+ * `tools`) i jedna w książce zespołu (`skills`) — z nich liczy się pokrycie
+ * ról i lista sprzętu, więc bez nich karta bez zasięgu byłaby ślepa.
+ *
+ * Migracja, a nie skasowanie cache'u: w `montaz_mutations` leży jedyna kopia
+ * decyzji podjętych w piwnicy bez LTE, a w `montaz_photos` — jedyna kopia zdjęć
+ * z tej piwnicy.
+ */
+val MIGRATION_25_26 = object : Migration(25, 26) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `montaz_installations` (
+                `id` TEXT NOT NULL,
+                `dealId` TEXT NOT NULL,
+                `scheduledAt` TEXT,
+                `status` TEXT NOT NULL,
+                `difficulty` TEXT,
+                `teamNote` TEXT,
+                `nodeIds` TEXT NOT NULL,
+                `crewId` TEXT,
+                `assigneesJson` TEXT NOT NULL,
+                `briefedAt` TEXT,
+                `briefingMessageId` TEXT,
+                `durationDays` INTEGER NOT NULL,
+                `syncedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_montaz_installations_dealId` " +
+                "ON `montaz_installations` (`dealId`)",
+        )
+
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `montaz_crews` (
+                `id` TEXT NOT NULL,
+                `name` TEXT NOT NULL,
+                `color` TEXT,
+                `leaderId` TEXT,
+                `memberIds` TEXT NOT NULL,
+                `syncedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent(),
+        )
+
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `montaz_materials` (
+                `id` TEXT NOT NULL,
+                `installationId` TEXT NOT NULL,
+                `itemName` TEXT NOT NULL,
+                `itemCode` TEXT,
+                `quantity` REAL NOT NULL,
+                `unit` TEXT NOT NULL,
+                `status` TEXT NOT NULL,
+                `covered` REAL NOT NULL,
+                `missing` REAL NOT NULL,
+                `issuedAt` TEXT,
+                `issuedById` TEXT,
+                `note` TEXT,
+                `syncedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_montaz_materials_installationId` " +
+                "ON `montaz_materials` (`installationId`)",
+        )
+
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `montaz_photos` (
+                `id` TEXT NOT NULL,
+                `installationId` TEXT NOT NULL,
+                `caption` TEXT,
+                `createdAt` TEXT NOT NULL,
+                `localPath` TEXT,
+                `syncedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_montaz_photos_installationId` " +
+                "ON `montaz_photos` (`installationId`)",
+        )
+
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `montaz_pack` (
+                `installationId` TEXT NOT NULL,
+                `itemKey` TEXT NOT NULL,
+                `checked` INTEGER NOT NULL,
+                `changedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`installationId`, `itemKey`)
+            )
+            """.trimIndent(),
+        )
+
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `montaz_mutations` (
+                `targetId` TEXT NOT NULL,
+                `kind` TEXT NOT NULL,
+                `payload` TEXT NOT NULL,
+                `dealId` TEXT NOT NULL,
+                `installationId` TEXT NOT NULL,
+                `createdAt` INTEGER NOT NULL,
+                PRIMARY KEY(`targetId`, `kind`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_montaz_mutations_dealId` " +
+                "ON `montaz_mutations` (`dealId`)",
+        )
+
+        // Zakres montażowy i sprzęt węzła katalogu — dziedziczą się w dół, więc
+        // pusto u producenta jest normalne, a nie brakiem danych.
+        db.addColumnIfMissing("catalog_categories", "montageRoles", "TEXT NOT NULL DEFAULT ''")
+        db.addColumnIfMissing("catalog_categories", "tools", "TEXT")
+        // Umiejętności montażowe osoby — bez nich pokrycie ról bez zasięgu
+        // pokazywałoby każdą rolę jako nieobsadzalną.
+        db.addColumnIfMissing("team_members", "skills", "TEXT NOT NULL DEFAULT ''")
+    }
+}
+
+/**
+ * Moduł zdjęć audytu (zakładka „Audyt" karty deala).
+ *
+ * Jedna kolumna: przypisanie kadru — czego zdjęcie dotyczy (budynku wspólnego
+ * dla wszystkich instalacji deala czy jednej instalacji), którego rozdzielacza
+ * i z jakim opisem. Trzymamy je jako surowy JSON, bo telefon nie jest tu
+ * jedynym autorem: kadr wgrany w panelu ma przejść przez cache nietknięty.
+ *
+ * `addColumnIfMissing`, a nie gołe ALTER: na telefonach zespołu kolumna bywa
+ * już dopisana mimo niższej wersji bazy (patrz komentarz przy helperze), a
+ * wyjątek z `migrate()` zamurowałby Rooma na stałe.
+ */
+val MIGRATION_26_27 = object : Migration(26, 27) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.addColumnIfMissing("deal_documents", "photoDataJson", "TEXT")
+    }
+}
+
+/**
+ * v28 — warstwa „Flota" na Mapie: pozycje lokalizatorów GPS jako punkty.
+ *
+ * Cztery kolumny w `map_points`, bo pojazd jest punktem jak każdy inny, tylko
+ * z innego źródła. Trzymamy dane SUROWE (czas urządzenia, prędkość, zapłon),
+ * a nie policzony status: migawka z cache bywa oglądana godzinami bez zasięgu,
+ * a „W ruchu" sprzed dwóch godzin to nie jest informacja, tylko kłamstwo.
+ *
+ * Stare wiersze zostają z pustymi kolumnami — mapa i tak podmienia całą migawkę
+ * przy najbliższym odświeżeniu, a kasowanie cache zabrałoby ją terenowi
+ * pracującemu bez zasięgu.
+ */
+val MIGRATION_27_28 = object : Migration(27, 28) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.addColumnIfMissing("map_points", "fleetOccurredAt", "INTEGER")
+        db.addColumnIfMissing("map_points", "fleetSpeed", "REAL")
+        db.addColumnIfMissing("map_points", "fleetIgnition", "INTEGER")
+        db.addColumnIfMissing("map_points", "fleetHasTracker", "INTEGER")
+    }
+}

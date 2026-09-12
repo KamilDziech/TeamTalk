@@ -95,21 +95,25 @@ fun MapFilterSheet(
                 }
             }
 
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                SectionLabel(if (state.view.isServiceView) "Serwisant" else "Osoba")
-                // Drzewo działów zamiast płaskich chipów — ten sam komponent co
-                // w Zadaniach i Kalendarzu. Liczniki przy nazwiskach i przy
-                // działach liczą PUNKTY, nie ludzi. „Moje" tu nie ma: mapa nie
-                // zna zalogowanego użytkownika, a filtr po sobie robi się
-                // wybraniem siebie z listy.
-                PersonTree(
-                    members = state.people,
-                    selected = state.person,
-                    onSelect = onPerson,
-                    mineLabel = null,
-                    allLabel = allPeopleLabel(state),
-                    counts = state.peopleCounts,
-                )
+            // Pojazd nie ma opiekuna ani serwisanta — na Flocie drzewo działów
+            // byłoby pustą ramką, więc sekcja znika razem z filtrem osoby.
+            if (!state.isFleet) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SectionLabel(if (state.view.isServiceView) "Serwisant" else "Osoba")
+                    // Drzewo działów zamiast płaskich chipów — ten sam komponent co
+                    // w Zadaniach i Kalendarzu. Liczniki przy nazwiskach i przy
+                    // działach liczą PUNKTY, nie ludzi. „Moje" tu nie ma: mapa nie
+                    // zna zalogowanego użytkownika, a filtr po sobie robi się
+                    // wybraniem siebie z listy.
+                    PersonTree(
+                        members = state.people,
+                        selected = state.person,
+                        onSelect = onPerson,
+                        mineLabel = null,
+                        allLabel = allPeopleLabel(state),
+                        counts = state.peopleCounts,
+                    )
+                }
             }
 
             if (state.installs.isNotEmpty()) {

@@ -31,4 +31,18 @@ interface MapPointDao {
         deleteAll()
         upsertAll(points)
     }
+
+    @Query("DELETE FROM map_points WHERE kind = :kind")
+    suspend fun deleteKind(kind: String)
+
+    /**
+     * Podmiana punktów JEDNEGO rodzaju. Flota starzeje się w minutach, a nie
+     * w dniach jak lejek, więc jej odświeżenie („Odśwież pozycje") ciągnie dwa
+     * zapytania zamiast jedenastu — reszta migawki zostaje nietknięta.
+     */
+    @Transaction
+    suspend fun replaceKind(kind: String, points: List<MapPointEntity>) {
+        deleteKind(kind)
+        upsertAll(points)
+    }
 }

@@ -708,6 +708,34 @@ interface TeamTalkApi {
     @GET("api/geo/suggest")
     suspend fun suggestPlaces(@Query("q") query: String): List<PlaceSuggestionDto>
 
+    // ── Flota (lokalizatory GPS) ──────────────────────────────────────────────
+    // Oba wywołania chroni `fleet.view`, uprawnienie osobne od mapy zleceń — kto
+    // go nie ma, dostaje 403 i widzi po prostu pustą zakładkę „Flota".
+
+    /** Ostatnie znane pozycje pojazdów — warstwa „Flota" na Mapie. */
+    @GET("api/fleet/positions")
+    suspend fun getFleetPositions(): List<FleetPositionDto>
+
+    /** Rejestr aut z Zasobów — po to, by wypisać te, których na mapie nie ma. */
+    @GET("api/assets")
+    suspend fun getVehicles(@Query("type") type: String = "vehicle"): List<FleetVehicleDto>
+
+    /**
+     * Historia trasy jednego auta: ślad, kursy, postoje, przekroczenia i
+     * gwałtowna jazda w JEDNYM wywołaniu. Okno podajemy zawsze jawnie —
+     * domyślna doba serwera znaczyłaby co innego przy każdym otwarciu ekranu.
+     */
+    @GET("api/fleet/assets/{id}/route")
+    suspend fun getRouteHistory(
+        @Path("id") assetId: String,
+        @Query("from") from: String,
+        @Query("to") to: String,
+    ): RouteHistoryDto
+
+    /** Kondycja lokalizatorów całej floty — jeden wiersz na auto. */
+    @GET("api/fleet/health")
+    suspend fun getTrackerHealth(): List<TrackerHealthDto>
+
     // ── Kalendarz ─────────────────────────────────────────────────────────────
     // Odczyt i zapis pod jednym uprawnieniem `calendar.view` — o tym, czy wolno
     // pisać, decyduje poziom dostępu do KALENDARZA (`effectiveLevel`), a nie rola.

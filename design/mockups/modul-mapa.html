@@ -375,7 +375,7 @@ footer.end{
     <div class="cards">
       <div class="card">
         <h3><i class="dot ok"></i> Panel: pięć widoków</h3>
-        <p>Flota (zaślepka), Klienci bieżący, Klienci zakończeni, Serwisy, Przeglądy.
+        <p>Flota (pozycje lokalizatorów GPS), Klienci bieżący, Klienci zakończeni, Serwisy, Przeglądy.
         Jeden typ punktu <code>MapPoint</code> dla deala, zlecenia i karty gwarancyjnej.
         <code>MapView.tsx</code>, 814 linii.</p>
       </div>
@@ -840,7 +840,8 @@ footer.end{
           <tr><td>Filtr rodzaju instalacji</td><td><span class="tag jest">1:1</span></td><td>Lista root-kategorii z licznikami.</td></tr>
           <tr><td>Lista „bez lokalizacji”</td><td><span class="tag jest">1:1</span></td><td>Rozwijany pasek pod mapą; wiersz prowadzi do karty klienta, gdzie adres da się zwalidować.</td></tr>
           <tr><td>Zoom scrollem tylko z Ctrl (i podpowiedź o tym)</td><td><span class="tag brak">pomijamy</span></td><td>Rozwiązuje problem, którego dotyk nie ma — mapa nie kradnie przewijania strony.</td></tr>
-          <tr><td>Zaślepka „Flota” z odnośnikiem do modułu Zasoby</td><td><span class="tag mock">skrót</span></td><td>Zostaje sam komunikat: Zasoby są świadomie pominięte na mobile, więc nie ma dokąd prowadzić.</td></tr>
+          <tr><td>Widok „Flota”: pozycje z lokalizatorów GPS</td><td><span class="tag jest">1:1</span></td><td><code>GET /fleet/positions</code> + <code>GET /assets?type=vehicle</code>; te same cztery stany (w ruchu · postój z zapłonem · zaparkowany · brak sygnału), te same progi (30 min ciszy, 3 km/h) i odświeżanie na żądanie, nie w pętli. Auta bez pozycji lądują na liście „bez pozycji”, z rozróżnieniem „tracker milczy” / „bez lokalizatora”.</td></tr>
+          <tr><td>Alerty floty, strefy i ślad trasy</td><td><span class="tag brak">pomijamy</span></td><td>To panel koordynatora (potwierdzanie alertów, rysowanie geofence, trasa dnia) — w terenie liczy się „gdzie stoi auto”, a nie zarządzanie flotą.</td></tr>
           <tr><td>—</td><td><span class="tag jest">tylko mobile</span></td><td>Moja lokalizacja jako środek promienia, nawigacja do punktu, telefon do klienta, praca bez zasięgu.</td></tr>
         </tbody>
       </table>
