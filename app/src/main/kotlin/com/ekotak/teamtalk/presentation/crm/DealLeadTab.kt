@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -35,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.ekotak.teamtalk.domain.model.ArticleGate
 import com.ekotak.teamtalk.domain.model.Client
@@ -853,19 +855,12 @@ private val BUILDING_CONSTRUCTIONS = listOf(
     "Gotowe ściany z keramzytu",
     "Inne",
 )
-private val BUILDING_AREAS = listOf(
-    "do 80 m²",
-    "80–100 m²",
-    "100–120 m²",
-    "120–140 m²",
-    "140–160 m²",
-    "160–180 m²",
-    "180–200 m²",
-    "200–220 m²",
-    "220–250 m²",
-    "250–300 m²",
-    "powyżej 300 m²",
-)
+/*
+ * Powierzchnię wpisuje się rzeczywistą liczbą (zapis „112 m²"), a nie
+ * przedziałem z kreatora — 1:1 z panelem. Stare zgłoszenia mają przedziały
+ * („80–100 m²"); zostają, dopóki ktoś nie wpisze liczby.
+ */
+private val AREA_NUMBER = Regex("""^(\d{1,4})\s*m²?$""", RegexOption.IGNORE_CASE)
 private val BUILDING_PEOPLES = listOf(
     "1 osoba",
     "2 osoby",
@@ -924,9 +919,20 @@ private fun LeadBuildingDialog(
                 FormDropdown("Technologia budowy", BUILDING_CONSTRUCTIONS, form.construction) {
                     form = form.copy(construction = it)
                 }
-                FormDropdown("Powierzchnia ogrzewana", BUILDING_AREAS, form.area) {
-                    form = form.copy(area = it)
-                }
+                val legacyArea = form.area?.takeIf { !AREA_NUMBER.matches(it) }
+                OutlinedTextField(
+                    value = form.area?.let { AREA_NUMBER.matchEntire(it)?.groupValues?.get(1) }.orEmpty(),
+                    onValueChange = { raw ->
+                        val digits = raw.filter(Char::isDigit).take(4)
+                        form = form.copy(area = digits.toIntOrNull()?.let { "$it m²" })
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Powierzchnia ogrzewana") },
+                    placeholder = { Text(legacyArea?.let { "Było: $it" } ?: "np. 112") },
+                    suffix = { Text("m²") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                )
                 FormDropdown("Liczba osób", BUILDING_PEOPLES, form.people) {
                     form = form.copy(people = it)
                 }
