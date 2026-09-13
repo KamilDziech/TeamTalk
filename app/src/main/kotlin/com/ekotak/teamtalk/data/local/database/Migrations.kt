@@ -602,6 +602,23 @@ val MIGRATION_29_30 = object : Migration(29, 30) {
     }
 }
 
+/** 30 → 31: kolejka leadów z kreatora LEAD zapisanych bez zasięgu. */
+val MIGRATION_30_31 = object : Migration(30, 31) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `lead_outbox` (
+                `clientRef` TEXT NOT NULL,
+                `payload` TEXT NOT NULL,
+                `fullName` TEXT NOT NULL,
+                `createdAt` INTEGER NOT NULL,
+                PRIMARY KEY(`clientRef`)
+            )
+            """.trimIndent()
+        )
+    }
+}
+
 /**
  * `ALTER TABLE … ADD COLUMN`, które przeżywa telefon deweloperski.
  *

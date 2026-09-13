@@ -36,6 +36,7 @@ import com.ekotak.teamtalk.presentation.crm.KnowledgeArticleScreen
 import com.ekotak.teamtalk.presentation.history.HistoryScreen
 import com.ekotak.teamtalk.presentation.email.EmailScreen
 import com.ekotak.teamtalk.presentation.email.EmailThreadScreen
+import com.ekotak.teamtalk.presentation.lead.LeadWizardScreen
 import com.ekotak.teamtalk.presentation.leave.LeaveScreen
 import com.ekotak.teamtalk.presentation.map.MapScreen
 import com.ekotak.teamtalk.presentation.map.RouteHistoryScreen
@@ -241,6 +242,7 @@ private fun MainScreen(
                         val route = when (module.key) {
                             "clients" -> "clients"
                             "crm" -> "crm"
+                            "lead" -> "lead"
                             "tasks" -> "tasks"
                             "communication" -> "discussions"
                             "map" -> "map"
@@ -278,6 +280,19 @@ private fun MainScreen(
                         onNavigateBack = { navController.popBackStack() },
                     )
                 }
+            }
+
+            // ── LEAD (kafelek pulpitu) ─────────────────────────────────────────
+            // Kreator nowego leada otwiera się od razu — listą leadów jest lejek CRM.
+            composable("lead") {
+                LeadWizardScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onOpenDeal = { dealId ->
+                        navController.navigate("deal/$dealId") {
+                            popUpTo("lead") { inclusive = true }
+                        }
+                    },
+                )
             }
 
             // ── Asystent (kafelek pulpitu) ─────────────────────────────────────

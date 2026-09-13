@@ -9,10 +9,19 @@ package com.ekotak.teamtalk.domain.model
 enum class LeadChannel(val wire: String, val label: String) {
     TARGI("targi", "Targi"),
     WEB("web", "Strona www"),
-    TEL("tel", "Telefon");
+    TEL("tel", "Telefon"),
+    // Dwa kanały kreatora LEAD w aplikacji (2026-09-13) — leadownia ich nie zna.
+    SPOTKANIE("spotkanie", "Spotkanie"),
+    POLECENIE("polecenie", "Polecenie");
+
+    /** Lead wpisany przez pracownika po rozmowie — notatka jest jego, nie klienta. */
+    val isConversation: Boolean get() = this == TEL || this == SPOTKANIE || this == POLECENIE
 
     companion object {
         fun fromWire(value: String?): LeadChannel? = entries.firstOrNull { it.wire == value }
+
+        /** Kafelki pierwszej planszy kreatora, w kolejności z makiety. */
+        val WIZARD: List<LeadChannel> = listOf(TEL, SPOTKANIE, POLECENIE, TARGI)
     }
 }
 
@@ -63,7 +72,7 @@ data class LeadIntake(
 ) {
     /** Etykieta pola notatki — zależy od kanału, tak jak w panelu. */
     val noteLabel: String
-        get() = if (channel == LeadChannel.TEL) "Notatka z rozmowy" else "Uwagi klienta"
+        get() = if (channel?.isConversation == true) "Notatka z rozmowy" else "Uwagi klienta"
 
     val channelLabel: String get() = channel?.label ?: source.substringBefore('/')
 }

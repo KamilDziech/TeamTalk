@@ -261,6 +261,15 @@ class TeamTalkApp : Application(), Configuration.Provider {
             )
             nm.createNotificationChannel(
                 NotificationChannel(
+                    NotificationHelper.LEADS_CHANNEL_ID,
+                    "Nowe leady",
+                    NotificationManager.IMPORTANCE_DEFAULT,
+                ).apply {
+                    description = "Lead zapisany bez zasięgu, którego serwer nie przyjął"
+                }
+            )
+            nm.createNotificationChannel(
+                NotificationChannel(
                     CallMonitorService.CHANNEL_ID,
                     "Monitorowanie połączenia",
                     NotificationManager.IMPORTANCE_LOW,

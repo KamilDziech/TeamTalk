@@ -460,6 +460,17 @@ interface TeamTalkApi {
         @Body body: JsonObject,
     ): ResponseBody
 
+    // ── Kreator LEAD (kafelek pulpitu) ────────────────────────────────────────
+    // Wejście z sesją i `deal.manage` — publiczny `POST /api/intake/lead` chroni
+    // klucz leadowni. Zakłada klienta, deal na etapie LEAD i zgłoszenie.
+
+    @POST("api/intake/app/lead")
+    suspend fun submitAppLead(@Body body: AppLeadRequestDto): AppLeadResponseDto
+
+    /** Wydarzenia do wyboru przy kanale „Targi". */
+    @GET("api/intake/app/events")
+    suspend fun getLeadEvents(): List<LeadEventDto>
+
     // ── Dane pochodne lejka (do kartoteki) ─────────────────────────────────────
 
     /** Instalacje bieżące per deal: dealId → lista id kategorii głównych. */

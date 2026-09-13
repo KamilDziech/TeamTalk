@@ -2693,4 +2693,4 @@ function seedComms(db, users, { dAudit, dOffer, wisniewski }) {
   });
 }
 
-module.exports = { seed, daysAgo, daysAhead, nowIso };
+module.exports = { seed, makeDeal, daysAgo, daysAhead, nowIso };

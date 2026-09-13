@@ -790,7 +790,7 @@ private fun NoteCard(
                 minLines = 3,
                 placeholder = {
                     Text(
-                        text = if (intake.channel == LeadChannel.TEL) {
+                        text = if (intake.channel?.isConversation == true) {
                             "Czego dotyczy, ustalenia, na co zwrócić uwagę…"
                         } else {
                             "Dodatkowe uwagi / wymagania klienta…"

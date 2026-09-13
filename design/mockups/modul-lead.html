@@ -1,0 +1,889 @@
+<title>Kreator nowego leada</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Roboto:wght@400;500;700&display=swap">
+
+<style>
+/* ── Tokeny strony (jasny = bazowy) — te same co w kreatorze zadania ── */
+:root{
+  --bg:#EEF3F9;
+  --bg-2:#DBE6F2;
+  --surface:#FFFFFF;
+  --fg:#0F1720;
+  --muted:#5A6B7C;
+  --border:#C3CBD4;
+  --brand:#2FA84F;
+  --warn:#B4680A;
+  --info:#2F62C9;
+  --shadow:0 1px 2px rgba(15,23,32,.06), 0 10px 30px rgba(15,23,32,.08);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0B1220;--bg-2:#12161F;--surface:#12161F;--fg:#E6EDF3;--muted:#9FB0C3;
+    --border:#2A3441;--brand:#44D62C;--warn:#F59E0B;--info:#7FA6F5;
+    --shadow:0 1px 2px rgba(0,0,0,.5), 0 14px 40px rgba(0,0,0,.45);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0B1220;--bg-2:#12161F;--surface:#12161F;--fg:#E6EDF3;--muted:#9FB0C3;
+  --border:#2A3441;--brand:#44D62C;--warn:#F59E0B;--info:#7FA6F5;
+  --shadow:0 1px 2px rgba(0,0,0,.5), 0 14px 40px rgba(0,0,0,.45);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--bg);color:var(--fg);
+  font-family:"Archivo","Segoe UI",system-ui,sans-serif;font-size:16px;line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px 96px}
+h1,h2,h3{text-wrap:balance;margin:0}
+code{font-family:"IBM Plex Mono",monospace;font-size:.86em;background:var(--bg-2);padding:1px 6px;border-radius:5px}
+
+/* ── Nagłówek ── */
+.masthead{padding:56px 0 36px;border-bottom:1px solid var(--border);display:grid;gap:20px}
+.eyebrow{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:11.5px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--muted);display:flex;flex-wrap:wrap;align-items:center;gap:10px;
+}
+.eyebrow b{color:var(--brand);font-weight:600}
+.dotsep{width:3px;height:3px;border-radius:50%;background:var(--border)}
+h1{font-size:clamp(34px,5.4vw,58px);font-weight:800;letter-spacing:-.025em;line-height:1.02}
+h1 em{font-style:normal;color:var(--brand)}
+.lede{max-width:64ch;color:var(--muted);font-size:17px;margin:0}
+.lede b{color:var(--fg);font-weight:600}
+.facts{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.fact{
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;border:1px solid var(--border);
+  border-radius:999px;padding:5px 12px;color:var(--muted);background:var(--surface);
+}
+
+/* ── Sekcje ── */
+section{padding-top:56px}
+.sechead{display:flex;align-items:baseline;gap:14px;margin-bottom:22px;flex-wrap:wrap}
+.secnum{font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:600;color:var(--brand);letter-spacing:.1em}
+h2{font-size:clamp(21px,2.6vw,27px);font-weight:700;letter-spacing:-.015em}
+.sechead p{margin:0;color:var(--muted);font-size:14.5px;flex:1 1 260px}
+
+/* ── Prototyp ── */
+.proto{display:grid;grid-template-columns:minmax(0,360px) minmax(0,1fr);gap:40px;align-items:start}
+@media(max-width:880px){.proto{grid-template-columns:1fr;gap:28px;justify-items:center}}
+.stage{display:grid;gap:14px;justify-items:center;position:sticky;top:24px}
+@media(max-width:880px){.stage{position:static}}
+.appthemer{display:flex;gap:6px;align-items:center;font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted);flex-wrap:wrap;justify-content:center}
+.appthemer button{font:inherit;cursor:pointer;padding:4px 10px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--muted)}
+.appthemer button[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.appthemer button:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+
+/* ── Telefon ── */
+.phone{width:340px;padding:11px;border-radius:38px;background:linear-gradient(160deg,#3a4152,#161a22);box-shadow:var(--shadow);flex:none}
+.device{
+  --d-bg:#0B1220;--d-surface:#12161F;--d-panel:#1A212E;--d-fg:#E6EDF3;--d-muted:#9FB0C3;
+  --d-border:#2A3441;--d-brand:#44D62C;--d-ink:#080808;--d-warn:#F59E0B;--d-info:#5B8DEF;
+  width:318px;height:664px;border-radius:28px;overflow:hidden;background:var(--d-bg);color:var(--d-fg);
+  font-family:"Roboto",system-ui,sans-serif;font-size:14px;line-height:1.4;
+  display:flex;flex-direction:column;position:relative;
+}
+.device[data-app-theme="light"]{
+  --d-bg:#EEF3F9;--d-surface:#FFFFFF;--d-panel:#DBE6F2;--d-fg:#0F1720;--d-muted:#5A6B7C;
+  --d-border:#C3CBD4;--d-brand:#2FA84F;--d-warn:#B4680A;--d-info:#2F62C9;
+}
+.statusbar{display:flex;justify-content:space-between;align-items:center;padding:8px 16px 2px;font-size:11px;color:var(--d-muted);font-variant-numeric:tabular-nums;flex:none}
+/* AppTopBar bez tytułu i „Wróć" (od 2026-09-07) — nad kreatorem zostaje sam licznik i zamknięcie */
+.topbar{display:flex;align-items:center;gap:10px;padding:6px 14px 8px;flex:none}
+.crumb{flex:1;min-width:0;font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--d-muted);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crumb b{color:var(--d-brand);font-weight:700}
+.stepcount{font-size:11.5px;color:var(--d-muted);font-variant-numeric:tabular-nums}
+.iconbtn{width:30px;height:30px;border-radius:50%;border:none;background:transparent;color:var(--d-muted);display:grid;place-items:center;cursor:pointer;flex:none}
+.iconbtn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+.prog{display:flex;gap:4px;padding:0 16px 14px;flex:none}
+.prog i{height:3px;flex:1;border-radius:2px;background:var(--d-border);transition:background .25s}
+.prog i.on{background:var(--d-brand)}
+.prog i.tbd{background:repeating-linear-gradient(90deg,var(--d-border) 0 3px,transparent 3px 6px)}
+
+.screen{flex:1;overflow-y:auto;padding:2px 16px 12px;display:flex;flex-direction:column;gap:12px}
+.screen::-webkit-scrollbar{width:0}
+.q{font-size:19px;font-weight:700;line-height:1.22;letter-spacing:-.01em}
+.q2{font-size:15px;font-weight:700;line-height:1.25;margin-top:6px}
+.qsub{font-size:12px;color:var(--d-muted);margin-top:-6px}
+.lbl{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--d-muted);font-weight:500}
+
+.field{
+  width:100%;background:var(--d-surface);border:1px solid var(--d-border);border-radius:12px;
+  padding:11px 12px;color:var(--d-fg);font-family:inherit;font-size:14px;resize:none;
+}
+.field::placeholder{color:var(--d-muted)}
+.field:focus-visible{outline:2px solid var(--d-brand);outline-offset:1px;border-color:transparent}
+.fld{display:grid;gap:5px}
+.fld .lbl b{color:var(--d-warn);font-weight:700;letter-spacing:.04em}
+.unit{position:relative}
+.unit .field{padding-right:44px;font-variant-numeric:tabular-nums}
+.unit span{position:absolute;right:13px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--d-muted)}
+.split{display:grid;grid-template-columns:96px 1fr;gap:8px}
+
+.tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.tiles.four{grid-template-columns:repeat(4,1fr);gap:6px}
+.tile{
+  background:var(--d-surface);border:1px solid var(--d-border);border-radius:14px;padding:11px 8px;
+  display:grid;gap:6px;justify-items:center;text-align:center;cursor:pointer;color:var(--d-fg);
+  font-family:inherit;min-height:78px;align-content:center;transition:border-color .15s,background .15s;
+}
+.tiles.four .tile{min-height:70px;padding:9px 3px;border-radius:12px}
+.tile:hover{border-color:var(--d-muted)}
+.tile .tl{font-size:12px;font-weight:500;line-height:1.2}
+.tiles.four .tile .tl{font-size:10.5px}
+.tile .th{font-size:10px;color:var(--d-muted);line-height:1.2}
+.tile[aria-pressed="true"]{border-color:var(--d-brand);background:color-mix(in srgb,var(--d-brand) 13%,var(--d-surface))}
+.tile[aria-pressed="true"] .tl{color:var(--d-brand)}
+.tile svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.tile[aria-pressed="true"] svg{stroke:var(--d-brand)}
+.tile.wide{grid-column:1/-1;grid-template-columns:auto 1fr auto;justify-items:start;text-align:left;min-height:60px;padding:11px 13px;gap:12px;align-items:center}
+.tile.soon{opacity:.45;cursor:default;border-style:dashed}
+.tile.soon:hover{border-color:var(--d-border)}
+
+.rows{display:grid;gap:7px}
+.row{
+  display:flex;align-items:center;gap:11px;width:100%;text-align:left;background:var(--d-surface);
+  border:1px solid var(--d-border);border-radius:12px;padding:10px 12px;cursor:pointer;color:var(--d-fg);font-family:inherit;
+}
+.row:hover{border-color:var(--d-muted)}
+.row[aria-pressed="true"]{border-color:var(--d-brand);background:color-mix(in srgb,var(--d-brand) 13%,var(--d-surface))}
+.row .radio{width:18px;height:18px;border-radius:50%;border:2px solid var(--d-border);flex:none;display:grid;place-items:center}
+.row[aria-pressed="true"] .radio{border-color:var(--d-brand)}
+.row[aria-pressed="true"] .radio::after{content:"";width:8px;height:8px;border-radius:50%;background:var(--d-brand)}
+.row .box{width:18px;height:18px;border-radius:5px;border:2px solid var(--d-border);flex:none;display:grid;place-items:center}
+.row[aria-pressed="true"] .box{border-color:var(--d-brand);background:var(--d-brand)}
+.row[aria-pressed="true"] .box::after{content:"";width:8px;height:4px;border:2px solid var(--d-ink);border-top:none;border-right:none;transform:translateY(-1px) rotate(-45deg)}
+.avatar{width:32px;height:32px;border-radius:50%;flex:none;display:grid;place-items:center;background:var(--d-panel);color:var(--d-fg);font-size:11.5px;font-weight:700}
+.row[aria-pressed="true"] .avatar{background:var(--d-brand);color:var(--d-ink)}
+.rowmain{flex:1;min-width:0;display:block}
+.rowtitle,.rowsub{display:block}
+.rowtitle{font-size:13px;font-weight:500;line-height:1.3}
+.rowsub{font-size:11px;color:var(--d-muted);line-height:1.3;margin-top:1px}
+.pill{font-size:9px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;padding:3px 7px;border-radius:999px;background:var(--d-panel);color:var(--d-muted);flex:none}
+.pill.brand{background:var(--d-brand);color:var(--d-ink)}
+
+.seg{display:flex;background:var(--d-panel);border-radius:11px;padding:3px;gap:3px}
+.seg button{flex:1;font:inherit;font-size:12px;padding:7px 4px;border:none;border-radius:9px;background:transparent;color:var(--d-muted);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--d-surface);color:var(--d-fg);font-weight:500}
+
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:inherit;font-size:12px;padding:7px 11px;border-radius:999px;cursor:pointer;border:1px solid var(--d-border);background:var(--d-surface);color:var(--d-fg)}
+.chip[aria-pressed="true"]{border-color:var(--d-brand);background:color-mix(in srgb,var(--d-brand) 15%,var(--d-surface));color:var(--d-brand);font-weight:500}
+
+.hint{font-size:11px;color:var(--d-muted);background:var(--d-panel);border-radius:10px;padding:8px 10px;line-height:1.38}
+.hint b{color:var(--d-fg);font-weight:500}
+.branch{
+  display:flex;gap:8px;align-items:center;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--d-info);font-weight:700;
+}
+.branch::before{content:"";width:14px;height:2px;background:currentColor;border-radius:2px}
+
+.footer{padding:10px 16px 16px;display:flex;gap:9px;flex:none;background:var(--d-bg)}
+.btn{flex:1;font-family:inherit;font-size:14.5px;font-weight:500;height:48px;border-radius:13px;cursor:pointer;border:1px solid var(--d-border);background:transparent;color:var(--d-fg);display:grid;place-items:center}
+.btn.ghost{flex:0 0 92px;color:var(--d-muted)}
+.btn.primary{background:var(--d-brand);color:var(--d-ink);border-color:var(--d-brand);font-weight:700}
+.btn[disabled]{opacity:.35;cursor:default}
+.device button:focus-visible{outline:2px solid var(--d-brand);outline-offset:2px}
+
+.summary{background:var(--d-surface);border:1px solid var(--d-border);border-radius:14px;overflow:hidden}
+.sgroup{padding:6px 12px 4px;font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--d-muted);background:var(--d-panel);font-weight:500;display:flex;justify-content:space-between}
+.sgroup a{color:var(--d-brand);text-decoration:none;cursor:pointer;letter-spacing:.04em}
+.sline{display:flex;gap:10px;padding:8px 12px;border-bottom:1px solid var(--d-border);font-size:12.5px}
+.sline:last-child{border-bottom:none}
+.sline u{text-decoration:none;color:var(--d-muted);font-size:11px;flex:0 0 88px;padding-top:1px}
+.sline b{font-weight:500;flex:1;min-width:0;word-break:break-word}
+.okbanner{background:var(--d-brand);color:var(--d-ink);border-radius:14px;padding:14px;display:flex;gap:11px;align-items:center;font-weight:700;font-size:14.5px}
+.okbanner svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;flex:none}
+.okbanner small{display:block;font-weight:500;font-size:12px;opacity:.8}
+.dealcard{background:var(--d-surface);border:1px solid var(--d-border);border-radius:14px;padding:12px;display:grid;gap:8px}
+.dealcard .top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.dealcard .code{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--d-muted)}
+.dealcard .nm{font-size:15px;font-weight:700}
+.dealcard .meta{font-size:11.5px;color:var(--d-muted);line-height:1.45}
+.queued{display:flex;gap:8px;align-items:center;font-size:11.5px;color:var(--d-warn)}
+.queued i{width:8px;height:8px;border-radius:50%;background:var(--d-warn);flex:none}
+
+/* ── Panel boczny ── */
+.side{display:grid;gap:20px;min-width:0}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px;box-shadow:var(--shadow)}
+.card h3{font-size:12.5px;text-transform:uppercase;letter-spacing:.1em;font-family:"IBM Plex Mono",monospace;font-weight:600;color:var(--muted);margin-bottom:14px}
+.state{display:grid;font-family:"IBM Plex Mono",monospace;font-size:12.5px}
+.state div{display:flex;gap:12px;padding:7px 0;border-bottom:1px dashed var(--border)}
+.state div:last-child{border-bottom:none}
+.state k{flex:0 0 150px;color:var(--muted);font-weight:500;word-break:break-word}
+.state v{flex:1;min-width:0;word-break:break-word}
+.state v.empty{color:var(--muted);opacity:.55}
+.state v em{font-style:normal;color:var(--warn);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;margin-left:6px}
+.stepnote{font-size:14.5px}
+.stepnote p{margin:0 0 10px;max-width:62ch}
+.stepnote p:last-child{margin:0}
+.jump{display:flex;flex-wrap:wrap;gap:6px}
+.jump button{font-family:"IBM Plex Mono",monospace;font-size:11.5px;cursor:pointer;padding:5px 11px;border-radius:999px;border:1px solid var(--border);background:var(--bg);color:var(--fg)}
+.jump button:hover{border-color:var(--brand)}
+.jump button:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+
+/* ── Mapa ścieżek ── */
+.flowwrap{overflow-x:auto;border:1px solid var(--border);border-radius:16px;background:var(--surface);padding:24px}
+.flow{display:grid;grid-template-columns:150px 150px 22px 1fr 22px 150px 150px;align-items:center;min-width:1000px;gap:0}
+.node{border:1px solid var(--border);border-radius:12px;padding:10px 12px;background:var(--bg);display:grid;gap:2px}
+.node b{font-size:13.5px;font-weight:600;line-height:1.25}
+.node span{font-size:11.5px;color:var(--muted);line-height:1.35}
+.node i{font-family:"IBM Plex Mono",monospace;font-style:normal;font-size:10px;letter-spacing:.1em;color:var(--brand);text-transform:uppercase}
+.node.opt{border-style:dashed}
+.arrow{height:2px;background:var(--border);position:relative;margin:0 4px}
+.arrow::after{content:"";position:absolute;right:-1px;top:-4px;border:5px solid transparent;border-left-color:var(--border);border-right:none}
+.pair{display:grid;grid-template-columns:1fr 22px;align-items:center}
+.lanes{display:grid;gap:14px;position:relative;padding:0 0 0 18px;border-left:2px solid var(--border);border-right:2px solid var(--border);padding-right:18px}
+.lane{display:grid;gap:8px}
+.lanehead{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--info);font-weight:600}
+.lanerow{display:flex;align-items:center;gap:0}
+.lanerow .node{flex:1;min-width:0}
+.lanerow .arrow{flex:0 0 22px}
+.variants{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px}
+.variants s{text-decoration:none;font-size:10.5px;border:1px solid var(--border);border-radius:999px;padding:1px 8px;color:var(--muted);background:var(--surface)}
+
+/* ── Taśma ekranów ── */
+.strip{display:flex;gap:20px;overflow-x:auto;padding:6px 4px 22px;scroll-snap-type:x proximity}
+.strip::-webkit-scrollbar{height:8px}
+.strip::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px}
+.frame{flex:none;width:200px;scroll-snap-align:start;display:grid;gap:10px;align-content:start}
+.holder{width:200px;height:418px;overflow:hidden;border-radius:22px;border:1px solid var(--border);background:#161a22;padding:5px}
+.holder .device{transform:scale(.5975);transform-origin:top left;pointer-events:none}
+.cap{display:grid;gap:2px}
+.cap b{font-size:13.5px;font-weight:600}
+.cap span{font-size:12px;color:var(--muted);line-height:1.35}
+.cap i{font-family:"IBM Plex Mono",monospace;font-style:normal;font-size:10.5px;letter-spacing:.1em;color:var(--brand);text-transform:uppercase}
+.cap i.alt{color:var(--info)}
+
+/* ── Tabela i decyzje ── */
+.tablewrap{overflow-x:auto;border:1px solid var(--border);border-radius:14px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:760px;font-size:14px}
+th,td{text-align:left;padding:11px 16px;border-bottom:1px solid var(--border);vertical-align:top}
+th{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600}
+tr:last-child td{border-bottom:none}
+td code{color:var(--brand);background:none;padding:0}
+.st{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;font-weight:600;white-space:nowrap}
+.st.ok{color:var(--brand)}
+.st.new{color:var(--warn)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
+.decisions{display:grid;gap:0;counter-reset:d}
+.dec{display:grid;grid-template-columns:34px 1fr;gap:4px 12px;padding:14px 0;border-bottom:1px solid var(--border)}
+.dec:last-child{border-bottom:none}
+.dec::before{counter-increment:d;content:counter(d);grid-row:span 2;font-family:"IBM Plex Mono",monospace;font-size:13px;font-weight:600;color:var(--warn);width:28px;height:28px;border:1.5px solid var(--warn);border-radius:50%;display:grid;place-items:center}
+.dec b{font-size:15px;font-weight:600}
+.dec p{margin:0;font-size:14px;color:var(--muted);max-width:70ch}
+.dec p strong{color:var(--fg);font-weight:600}
+.card ul{margin:0;padding-left:18px;display:grid;gap:9px;font-size:14.5px}
+.card ul li::marker{color:var(--brand)}
+footer.end{margin-top:64px;padding-top:22px;border-top:1px solid var(--border);font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--muted);display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+
+<header class="masthead">
+  <div class="eyebrow">
+    <span>TeamTalk — mobile</span><i class="dotsep"></i>
+    <span>moduł LEAD</span><i class="dotsep"></i>
+    <b>makieta do akceptacji</b><i class="dotsep"></i>
+    <span>2026-09-13 · przed kodowaniem</span>
+  </div>
+  <h1>Nowy lead <em>z telefonu</em>,<br>zanim klient się rozłączy</h1>
+  <p class="lede">
+    Kreator prowadzi handlowca przez rozmowę w tej kolejności, w jakiej się ona toczy: skąd kontakt, czego klient chce,
+    jaki to dom — i dopiero na końcu imię, e-mail i miejscowość. Po wyborze <b>„w budowie"</b> albo <b>„zamieszkały"</b>
+    ścieżka się rozdziela. Zapis zakłada tę samą kartę deala co leadownia <code>/tel</code> — etap LEAD, zakładka „Lead",
+    dane budynku.
+  </p>
+  <div class="facts">
+    <span class="fact">5–7 plansz zależnie od ścieżki</span>
+    <span class="fact">2 ścieżki: nowy dom / zamieszkały</span>
+    <span class="fact">na start: ogrzewanie podłogowe</span>
+    <span class="fact">motyw ciemny i jasny</span>
+  </div>
+</header>
+
+<section>
+  <div class="sechead">
+    <span class="secnum">01</span>
+    <h2>Klikalny prototyp</h2>
+    <p>Telefon działa jak aplikacja — wybory odblokowują „Dalej" i przełączają ścieżkę. Po prawej na żywo: co trafi do systemu i skąd.</p>
+  </div>
+
+  <div class="proto">
+    <div class="stage">
+      <div class="phone"><div class="device" id="live" data-app-theme="dark"></div></div>
+      <div class="appthemer">
+        <span>Motyw aplikacji:</span>
+        <button type="button" data-appt="dark" aria-pressed="true">ciemny</button>
+        <button type="button" data-appt="light" aria-pressed="false">jasny</button>
+      </div>
+    </div>
+
+    <div class="side">
+      <div class="card">
+        <h3>Przeskocz do przykładu</h3>
+        <div class="jump">
+          <button type="button" data-preset="budowaKatalog">Nowy dom · projekt z katalogu</button>
+          <button type="button" data-preset="budowaWlasny">Nowy dom · projekt własny, szkielet</button>
+          <button type="button" data-preset="zamieszkaly">Dom zamieszkały · frezowanie</button>
+          <button type="button" data-preset="reset">Od zera</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3 id="notetitle">Ta plansza</h3>
+        <div class="stepnote" id="stepnote"></div>
+      </div>
+      <div class="card">
+        <h3>Co trafi do systemu</h3>
+        <div class="state" id="state"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sechead">
+    <span class="secnum">02</span>
+    <h2>Mapa ścieżek</h2>
+    <p>Wspólny początek i koniec, rozwidlenie po pytaniu o stan domu. Przerywana ramka = plansza pojawia się tylko warunkowo.</p>
+  </div>
+  <div class="flowwrap">
+    <div class="flow">
+      <div class="pair" style="grid-column:1"><div class="node"><i>1</i><b>Kontakt</b><span>Telefon · Spotkanie · Polecenie · Targi<br>Kto przyjmuje (Ty podświetlony)</span></div><div class="arrow"></div></div>
+      <div class="pair" style="grid-column:2"><div class="node"><i>2</i><b>Zainteresowanie</b><span>Ogrzewanie podłogowe<br>W budowie / zamieszkały</span></div><div class="arrow"></div></div>
+      <div style="grid-column:3"></div>
+      <div class="lanes" style="grid-column:4">
+        <div class="lane">
+          <span class="lanehead">Dom w budowie</span>
+          <div class="lanerow">
+            <div class="node"><i>3</i><b>Projekt i konstrukcja</b><span>nazwa / własny / nie pamięta · ściany · piwnica, garaż</span></div>
+            <div class="arrow"></div>
+            <div class="node opt"><i>3b · warunkowo</i><b>Bryła i metraż</b><span>tylko gdy projekt własny lub bez nazwy</span></div>
+            <div class="arrow"></div>
+            <div class="node"><i>4</i><b>Ogrzewanie podłogowe</b><span>pytanie zależy od konstrukcji</span>
+              <div class="variants"><s>murowany → wszędzie standard?</s><s>szkielet / bal / lekki strop → system suchy na piętrze?</s><s>opis tekstowo</s><s>+ frezowanie wylewek dewelopera</s></div>
+            </div>
+          </div>
+        </div>
+        <div class="lane">
+          <span class="lanehead">Dom zamieszkały</span>
+          <div class="lanerow">
+            <div class="node"><i>3</i><b>Co chcesz zrobić?</b><span>skuć i od nowa · system suchy na wylewki · frezowanie</span></div>
+            <div class="arrow"></div>
+            <div class="node"><i>3 · ta sama plansza</i><b>Powierzchnia i źródło ciepła</b><span>m² prac · źródło jest / ma być</span></div>
+          </div>
+        </div>
+      </div>
+      <div style="grid-column:5;display:grid"><div class="arrow"></div></div>
+      <div class="pair" style="grid-column:6"><div class="node"><i>5</i><b>Dane klienta</b><span>miejscowość / kod · imię i nazwisko · telefon · e-mail · skąd o nas wie</span></div><div class="arrow"></div></div>
+      <div style="grid-column:7"><div class="node"><i>6</i><b>Podsumowanie</b><span>„Zapisz lead" → karta deala na etapie LEAD</span></div></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sechead">
+    <span class="secnum">03</span>
+    <h2>Wszystkie plansze</h2>
+    <p>Każdy wariant pytania narysowany osobno — do przewinięcia w bok. Zielony znacznik = wspólne, niebieski = gałąź.</p>
+  </div>
+  <div class="strip" id="strip"></div>
+</section>
+
+<section>
+  <div class="sechead">
+    <span class="secnum">04</span>
+    <h2>Skąd dane trafiają do systemu</h2>
+    <p>Większość pytań ma już miejsce w bazie — z leadowni <code>/tel</code> i kreatora <code>/targi</code>. Nowe są odpowiedzi o samej podłogówce.</p>
+  </div>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Pytanie w kreatorze</th><th>Gdzie ląduje</th><th>Stan</th><th>Uwagi</th></tr></thead>
+      <tbody>
+        <tr><td>Telefon / Spotkanie / Polecenie / Targi</td><td><code>LeadIntake.channel</code> → <code>Deal.source</code></td><td><span class="st new">częściowo</span></td><td>Kanały <code>tel</code> i <code>targi</code> istnieją. <code>spotkanie</code> i <code>polecenie</code> trzeba dopisać do <code>LEAD_CHANNELS</code>, bo filtry i raporty źródeł kroją po kanale.</td></tr>
+        <tr><td>Kto przyjmuje kontakt</td><td><code>submittedBy</code> + <code>Deal.leadIntroducer</code></td><td><span class="st ok">jest</span></td><td>Lista osób z <code>GET /api/tasks/members</code>, domyślnie zalogowany.</td></tr>
+        <tr><td>Ogrzewanie podłogowe</td><td><code>installations</code> → kategorie na etapie LEAD</td><td><span class="st ok">jest</span></td><td>Mapowanie etykiety na kategorię katalogu już działa (<code>installation-mapping.ts</code>).</td></tr>
+        <tr><td>W budowie / zamieszkały</td><td><code>Deal.buildingKind</code> = <code>nowy</code> / <code>modernizacja</code></td><td><span class="st new">do podpięcia</span></td><td>Pole istnieje, ale <code>SubmitLead</code> go nie przekazuje — dziś każdy lead to „nowy".</td></tr>
+        <tr><td>Nazwa projektu</td><td><code>Deal.projectName</code></td><td><span class="st new">do podpięcia</span></td><td>Po nazwie karta sama dociąga zdjęcie domu z sieci. „Własny" / „nie pamięta" zapisujemy tekstem.</td></tr>
+        <tr><td>Konstrukcja, bryła, piwnica, garaż</td><td><code>building.construction / shape / heatedBasement / heatedGarage</code></td><td><span class="st ok">jest</span></td><td>Te same wartości co w <code>/targi</code> („Murowany", „Z bala", „Gotowe ściany z keramzytu").</td></tr>
+        <tr><td>Metraż domu</td><td><code>building.area</code> → <code>buildingData.areaM2</code></td><td><span class="st new">zmiana</span></td><td>Targi zapisują przedział („140–160 m²"), tu wpisujemy liczbę — lepsza do OZC i wyceny.</td></tr>
+        <tr><td>Wariant podłogówki, system suchy, frezowanie, prace w zamieszkałym, m² prac, źródło ciepła</td><td><code>payload.floorHeating</code> (JSON) + czytelny wiersz w <code>Deal.description</code></td><td><span class="st new">nowe</span></td><td>Brak pól w bazie. Proponuję JSON w zgłoszeniu i jedną linijkę opisu widoczną od razu w zakładce „Dane".</td></tr>
+        <tr><td>Miejscowość / kod pocztowy</td><td><code>Client.city</code>, <code>Client.postalCode</code></td><td><span class="st new">do podpięcia</span></td><td>Klient ma kod pocztowy, ale zgłoszenie przenosi tylko miasto. Z kodem geokodowanie i kwalifikacja po dystansie są pewniejsze.</td></tr>
+        <tr><td>Imię i nazwisko, telefon, e-mail</td><td><code>fullName</code> → <code>Client</code></td><td><span class="st ok">jest</span></td><td>Rozbicie na imię i nazwisko jak w leadowni.</td></tr>
+        <tr><td>Skąd o nas wie</td><td><code>leadOrigin</code> + <code>referralFrom</code></td><td><span class="st ok">jest</span></td><td>Źródło zapisuje się jako np. „polecenie/rekomendacja: Jan Kowalski".</td></tr>
+        <tr><td>Zapis z telefonu</td><td><code>POST /intake/lead</code></td><td><span class="st new">nowa trasa</span></td><td>Obecna trasa jest chroniona kluczem leadowni, bez sesji. Telefon potrzebuje trasy z logowaniem i uprawnieniem <code>deal.manage</code>, która sama wpisze osobę przyjmującą.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div class="sechead">
+    <span class="secnum">05</span>
+    <h2>Do decyzji przed kodowaniem</h2>
+    <p>Rzeczy, których nie było w opisie albo które się ze sobą zazębiają. W makiecie przyjąłem wariant z pogrubienia.</p>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <div class="decisions">
+        <div class="dec"><b>Numer telefonu klienta</b><p>Nie było go na liście w kroku 4. <strong>Dodałem go</strong> — bez telefonu ani e-maila karta nie przejdzie z LEAD do kwalifikacji, a przy kanale „Telefon" to pierwsza rzecz, jaką mamy.</p></div>
+        <div class="dec"><b>„Polecenie" w kroku 1 i „rekomendacja" w kroku 4</b><p>To prawie to samo. <strong>Wybór „Polecenie" z góry zaznacza rekomendację</strong> w kroku 4 i od razu pyta, kto polecił.</p></div>
+        <div class="dec"><b>Które targi?</b><p>Leadownia wiąże leada z wydarzeniem marketingowym i nabija mu konwersje. <strong>Przy „Targi" pokazuję listę wydarzeń</strong> (jedno pole pod kafelkami).</p></div>
+        <div class="dec"><b>Osoba przyjmująca = opiekun karty?</b><p>Dziś opiekuna leada ustawia domyślna konfiguracja firmy. <strong>Przyjąłem tylko adnotację „wprowadził"</strong>, opiekun bez zmian — do potwierdzenia.</p></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="decisions" style="counter-reset:d 4">
+        <div class="dec"><b>Źródło ciepła przy nowym domu</b><p>W opisie pytanie jest tylko dla domu zamieszkałego. <strong>Przy nowym domu go nie ma</strong> — łatwo dodać do planszy podłogówki.</p></div>
+        <div class="dec"><b>Keramzyt i dom parterowy</b><p><strong>Keramzyt traktuję jak murowany</strong> (strop ciężki). Przy domu parterowym pytanie o piętro brzmi „system suchy (podłogówka lekka)?" bez słowa „na piętrze".</p></div>
+        <div class="dec"><b>Bez zasięgu</b><p>Na targach i u klienta sieci bywa mało. <strong>Rekomenduję kolejkę offline</strong> jak w innych modułach: lead zapisuje się w telefonie i wysyła po powrocie sieci, z oznaczeniem „czeka na wysyłkę".</p></div>
+        <div class="dec"><b>Wejście do kreatora</b><p><strong>Kafelek „LEAD" na ekranie głównym</strong> otwiera kreator od razu, bez listy leadów — listą pozostaje lejek w module CRM.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="end">
+  <span>TeamTalk/design/mockups/modul-lead.html</span>
+  <span>osoby i dane klientów w makiecie są przykładowe</span>
+</footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var ICON = {
+    tel:'<svg viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>',
+    spotkanie:'<svg viewBox="0 0 24 24"><circle cx="8" cy="8" r="3"/><circle cx="16.5" cy="8" r="3"/><path d="M2.5 20a5.5 5.5 0 0 1 11 0M11 20a5.5 5.5 0 0 1 11 0"/></svg>',
+    polecenie:'<svg viewBox="0 0 24 24"><path d="M12 3l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 16.4 6.8 19.2l1-5.9L3.5 9.2l5.9-.8z"/></svg>',
+    targi:'<svg viewBox="0 0 24 24"><path d="M3 21V10l9-6 9 6v11"/><path d="M3 10h18M8 21v-6h8v6"/></svg>',
+    floor:'<svg viewBox="0 0 24 24"><path d="M3 19h18"/><path d="M5 15c2-2 3 2 5 0s3 2 5 0 3 2 4 0"/><path d="M5 11c2-2 3 2 5 0s3 2 5 0 3 2 4 0"/></svg>',
+    build:'<svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V11l7-5 7 5v10"/><path d="M9 21v-5h6v5"/><path d="M15 3l4 3"/></svg>',
+    home:'<svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7"/><path d="M5 10v11h14V10"/><path d="M10 21v-6h4v6"/><circle cx="17.5" cy="6" r="0" /></svg>',
+    close:'<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+    ok:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/></svg>'
+  };
+
+  var PEOPLE = [
+    {id:"ja", name:"Marta Wiśniewska", role:"Biuro · handlowiec", ini:"MW"},
+    {id:"p2", name:"Tomasz Kaczmarek", role:"Biuro · doradca techniczny", ini:"TK"},
+    {id:"p3", name:"Paweł Zieliński", role:"Serwis", ini:"PZ"},
+    {id:"p4", name:"Agnieszka Lewandowska", role:"Zarząd", ini:"AL"}
+  ];
+  var CHANNELS = [
+    {v:"tel", l:"Telefon"},{v:"spotkanie", l:"Spotkanie"},{v:"polecenie", l:"Polecenie"},{v:"targi", l:"Targi"}
+  ];
+  var EVENTS = ["Bielsko-Biała 2026","Katowice Budma","Kraków Dom i Ogród"];
+  var PROJECTS = [
+    {v:"katalog", l:"Znam nazwę projektu", s:"np. Archon, Z500, MGProjekt"},
+    {v:"wlasny", l:"Projekt własny", s:"indywidualny, od architekta"},
+    {v:"niepamieta", l:"Z projektu, ale nie pamięta nazwy", s:""}
+  ];
+  var CONSTR = ["Murowany","Szkieletowy","Z bala","Gotowe ściany z keramzytu"];
+  var CONSTR_SHORT = {"Murowany":"Murowany","Szkieletowy":"Szkieletowy","Z bala":"Z bala","Gotowe ściany z keramzytu":"Keramzyt"};
+  var SHAPES = ["Parterowy","Piętrowy","Bliźniak"];
+  var RENO = [
+    {v:"skucie", l:"Skuć wylewki i zrobić od nowa", s:"styropian, normalne ogrzewanie podłogowe, nowe wylewki", area:"Ile m² wylewek do skucia?"},
+    {v:"suchy", l:"Nakleić system suchy na obecne wylewki", s:"bez kucia, podłoga rośnie o kilka cm", area:"Ile m² podłogi pod system suchy?"},
+    {v:"frez", l:"Wyfrezować ogrzewanie w obecnych wylewkach", s:"bez kucia i bez podnoszenia podłogi", area:"Ile m² wylewek do frezowania?"}
+  ];
+  var HEAT = ["Pompa ciepła powietrzna","Pompa ciepła gruntowa","Kocioł gazowy","Pellet / drewno","Ogrzewanie elektryczne","Sieć ciepłownicza","Jeszcze nie wiadomo"];
+  var ORIGIN = [
+    {v:"rekomendacja", l:"Rekomendacja"},{v:"klient powracający", l:"Klient powracający"},
+    {v:"widział baner", l:"Widział baner"},{v:"internet", l:"Internet"},{v:"inne", l:"Inne"}
+  ];
+
+  function blank(){
+    return {step:"kontakt", done:false, channel:null, event:null, taker:"ja", interest:null, house:null,
+      project:null, projectName:"", construction:null, basement:false, garage:false,
+      shape:null, area:"", lightSlab:false, ufh:null, ufhText:"", milling:false,
+      reno:null, renoArea:"", heatWhen:"jest", heat:null,
+      postal:"", city:"", name:"", phone:"", email:"", origin:null, referral:""};
+  }
+  var PRESETS = {
+    budowaKatalog: {step:"podlogowka", channel:"tel", interest:"op", house:"budowa", project:"katalog", projectName:"Archon+ Dom w lucernach 6", construction:"Murowany", garage:true, ufh:"standard", milling:false},
+    budowaWlasny: {step:"podlogowka", channel:"targi", event:"Bielsko-Biała 2026", taker:"p2", interest:"op", house:"budowa", project:"wlasny", construction:"Szkieletowy", basement:false, garage:false, shape:"Piętrowy", area:"164", ufh:"suchy"},
+    zamieszkaly: {step:"dane", channel:"polecenie", interest:"op", house:"zamieszkaly", reno:"frez", renoArea:"95", heatWhen:"ma", heat:"Pompa ciepła powietrzna", postal:"43-300", city:"Bielsko-Biała", name:"Krzysztof Mazur", phone:"601 234 567", email:"k.mazur@example.pl", origin:"rekomendacja", referral:"Jan Kowalski"}
+  };
+  function withPreset(p){ var s = blank(); for (var k in p) s[k] = p[k]; return s; }
+
+  var S = blank();
+
+  function isLight(s){ return s.construction === "Szkieletowy" || s.construction === "Z bala" || s.lightSlab; }
+  function steps(s){
+    var a = ["kontakt","zakres"];
+    if (s.house === "budowa"){
+      a.push("projekt");
+      if (s.project === "wlasny" || s.project === "niepamieta") a.push("bryla");
+      a.push("podlogowka");
+    } else if (s.house === "zamieszkaly"){
+      a.push("remont");
+    }
+    a.push("dane","podsumowanie");
+    return a;
+  }
+  var CRUMB = {kontakt:"Kontakt", zakres:"Zainteresowanie", projekt:"Projekt", bryla:"Bryła", podlogowka:"Podłogówka", remont:"Zamieszkały", dane:"Dane", podsumowanie:"Podsumowanie"};
+
+  function valid(s, st){
+    switch(st){
+      case "kontakt": return !!(s.channel && s.taker && (s.channel !== "targi" || s.event));
+      case "zakres": return !!(s.interest && s.house);
+      case "projekt": return !!(s.project && s.construction && (s.project !== "katalog" || s.projectName.trim()));
+      case "bryla": return !!(s.shape && +s.area > 0);
+      case "podlogowka": return !!(s.ufh && (s.ufh !== "opis" || s.ufhText.trim()));
+      case "remont": return !!(s.reno && +s.renoArea > 0 && s.heat);
+      case "dane": return !!(s.name.trim() && (s.phone.trim() || s.email.trim()) && (s.city.trim() || s.postal.trim()));
+      default: return true;
+    }
+  }
+
+  function esc(t){ return String(t).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+  function pr(b){ return ' aria-pressed="' + (b ? "true" : "false") + '"'; }
+  function person(id){ for (var i=0;i<PEOPLE.length;i++) if (PEOPLE[i].id === id) return PEOPLE[i]; return null; }
+
+  /* ── plansze ── */
+  function scrKontakt(s){
+    var h = '<div class="q">Skąd jest kontakt?</div><div class="tiles four">';
+    CHANNELS.forEach(function(c){
+      h += '<button type="button" class="tile" data-set="channel" data-val="' + c.v + '"' + pr(s.channel === c.v) + '>' + ICON[c.v] + '<span class="tl">' + c.l + '</span></button>';
+    });
+    h += '</div>';
+    if (s.channel === "targi"){
+      h += '<div class="fld"><span class="lbl">Które targi?</span><div class="chips">';
+      EVENTS.forEach(function(e){ h += '<button type="button" class="chip" data-set="event" data-val="' + esc(e) + '"' + pr(s.event === e) + '>' + esc(e) + '</button>'; });
+      h += '</div></div>';
+    }
+    if (s.channel === "polecenie"){
+      h += '<div class="hint">W kroku z danymi klienta od razu zaznaczymy <b>rekomendację</b> i zapytamy, kto polecił.</div>';
+    }
+    h += '<div class="q2">Kto przyjmuje kontakt?</div><div class="rows">';
+    PEOPLE.forEach(function(p){
+      h += '<button type="button" class="row" data-set="taker" data-val="' + p.id + '"' + pr(s.taker === p.id) + '><span class="avatar">' + p.ini + '</span><span class="rowmain"><span class="rowtitle">' + p.name + '</span><span class="rowsub">' + p.role + '</span></span>' + (p.id === "ja" ? '<span class="pill brand">Ty</span>' : '') + '</button>';
+    });
+    return h + '</div>';
+  }
+
+  function scrZakres(s){
+    var h = '<div class="q">Czym jest zainteresowany klient?</div><div class="tiles">';
+    h += '<button type="button" class="tile wide" data-set="interest" data-val="op"' + pr(s.interest === "op") + '>' + ICON.floor + '<span><span class="tl" style="display:block">Ogrzewanie podłogowe</span><span class="th" style="display:block">wodne, pod wylewkę lub system suchy</span></span></button>';
+    h += '<div class="tile wide soon" aria-disabled="true"><span class="th">Kolejne instalacje dojdą tu później — pompy ciepła, rekuperacja, fotowoltaika…</span></div>';
+    h += '</div><div class="q2">Dom jest w budowie czy już zamieszkały?</div><div class="tiles">';
+    h += '<button type="button" class="tile" data-set="house" data-val="budowa"' + pr(s.house === "budowa") + '>' + ICON.build + '<span class="tl">W budowie</span><span class="th">nowy dom</span></button>';
+    h += '<button type="button" class="tile" data-set="house" data-val="zamieszkaly"' + pr(s.house === "zamieszkaly") + '>' + ICON.home + '<span class="tl">Zamieszkały</span><span class="th">modernizacja</span></button>';
+    return h + '</div>';
+  }
+
+  function scrProjekt(s){
+    var h = '<span class="branch">Nowy dom</span><div class="q">Czy dom jest z projektu?</div><div class="rows">';
+    PROJECTS.forEach(function(p){
+      h += '<button type="button" class="row" data-set="project" data-val="' + p.v + '"' + pr(s.project === p.v) + '><span class="radio"></span><span class="rowmain"><span class="rowtitle">' + p.l + '</span>' + (p.s ? '<span class="rowsub">' + p.s + '</span>' : '') + '</span></button>';
+    });
+    h += '</div>';
+    if (s.project === "katalog"){
+      h += '<input class="field" data-bind="projectName" placeholder="Nazwa projektu" value="' + esc(s.projectName) + '">';
+    }
+    h += '<div class="q2">Z czego jest dom?</div><div class="tiles four">';
+    CONSTR.forEach(function(c){
+      h += '<button type="button" class="tile" data-set="construction" data-val="' + esc(c) + '"' + pr(s.construction === c) + '><span class="tl">' + CONSTR_SHORT[c] + '</span></button>';
+    });
+    h += '</div><div class="q2">Piwnica lub garaż?</div><div class="chips">';
+    h += '<button type="button" class="chip" data-toggle="basement"' + pr(s.basement) + '>Piwnica</button>';
+    h += '<button type="button" class="chip" data-toggle="garage"' + pr(s.garage) + '>Garaż w bryle</button>';
+    h += '<button type="button" class="chip" data-none="1"' + pr(!s.basement && !s.garage) + '>Brak</button></div>';
+    if (s.project === "wlasny" || s.project === "niepamieta"){
+      h += '<div class="hint">Bez nazwy projektu nie pobierzemy rzutu — na następnej planszy zapytamy o <b>bryłę i metraż</b>.</div>';
+    }
+    return h;
+  }
+
+  function scrBryla(s){
+    var h = '<span class="branch">Nowy dom · projekt ' + (s.project === "wlasny" ? "własny" : "bez nazwy") + '</span><div class="q">Jaki to dom?</div><div class="tiles four" style="grid-template-columns:repeat(3,1fr)">';
+    SHAPES.forEach(function(c){
+      h += '<button type="button" class="tile" data-set="shape" data-val="' + c + '"' + pr(s.shape === c) + '><span class="tl">' + c + '</span></button>';
+    });
+    h += '</div><div class="q2">Ile m² ma dom?</div><div class="unit"><input class="field" inputmode="numeric" data-bind="area" placeholder="np. 140" value="' + esc(s.area) + '"><span>m²</span></div>';
+    h += '<div class="chips">';
+    ["100","120","140","160","200"].forEach(function(v){ h += '<button type="button" class="chip" data-set="area" data-val="' + v + '"' + pr(s.area === v) + '>' + v + '</button>'; });
+    h += '</div><div class="hint">Powierzchnia użytkowa z projektu lub „na oko" od klienta — doprecyzuje ją audyt.</div>';
+    return h;
+  }
+
+  function scrPodlogowka(s){
+    var light = isLight(s);
+    var parter = s.shape === "Parterowy";
+    var h = '<span class="branch">Nowy dom · ' + (s.construction ? CONSTR_SHORT[s.construction].toLowerCase() : "") + '</span>';
+    var opts;
+    if (!light){
+      h += '<div class="q">Czy wszędzie standardowe ogrzewanie podłogowe?</div><div class="qsub">rury w wylewce na styropianie</div>';
+      opts = [
+        {v:"standard", l:"Tak, wszędzie standardowe"},
+        {v:"opis", l:"Nie — opiszę, czego potrzeba"}
+      ];
+    } else {
+      h += '<div class="q">' + (parter ? "Czy wycenić system suchy (podłogówka lekka)?" : "Czy na piętrze wycenić system suchy (podłogówka lekka)?") + '</div><div class="qsub">' + (s.lightSlab ? "strop jest lekki" : "dom " + CONSTR_SHORT[s.construction].toLowerCase() + " — strop lekki") + '</div>';
+      opts = [
+        {v:"suchy", l:parter ? "Tak, system suchy" : "Tak, system suchy na piętrze", s:"parter standardowo pod wylewkę"},
+        {v:"standard", l:"Nie, wszędzie standardowe"},
+        {v:"opis", l:"Jeszcze inaczej — opiszę"}
+      ];
+    }
+    h += '<div class="rows">';
+    opts.forEach(function(o){
+      h += '<button type="button" class="row" data-set="ufh" data-val="' + o.v + '"' + pr(s.ufh === o.v) + '><span class="radio"></span><span class="rowmain"><span class="rowtitle">' + o.l + '</span>' + (o.s && !parter ? '<span class="rowsub">' + o.s + '</span>' : '') + '</span></button>';
+    });
+    h += '</div>';
+    if (s.ufh === "opis"){
+      h += '<textarea class="field" rows="3" data-bind="ufhText" placeholder="Czego potrzebuje klient? np. łazienki na drabinkach, salon z podłogówką">' + esc(s.ufhText) + '</textarea>';
+    }
+    if (s.construction === "Murowany" || s.construction === "Gotowe ściany z keramzytu"){
+      h += '<div class="rows"><button type="button" class="row" data-toggle="lightSlab"' + pr(s.lightSlab) + '><span class="box"></span><span class="rowmain"><span class="rowtitle">Strop jest lekki (drewniany)</span><span class="rowsub">zmienia pytanie na system suchy</span></span></button></div>';
+    }
+    h += '<span class="lbl" style="margin-top:4px">Opcja</span><div class="rows"><button type="button" class="row" data-toggle="milling"' + pr(s.milling) + '><span class="box"></span><span class="rowmain"><span class="rowtitle">Mam gotowe wylewki od dewelopera</span><span class="rowsub">trzeba je frezować</span></span></button></div>';
+    return h;
+  }
+
+  function scrRemont(s){
+    var h = '<span class="branch">Dom zamieszkały</span><div class="q">Co chcesz zrobić?</div><div class="rows">';
+    var areaQ = "Ile m² obejmą prace?";
+    RENO.forEach(function(r){
+      if (s.reno === r.v) areaQ = r.area;
+      h += '<button type="button" class="row" data-set="reno" data-val="' + r.v + '"' + pr(s.reno === r.v) + '><span class="radio"></span><span class="rowmain"><span class="rowtitle">' + r.l + '</span><span class="rowsub">' + r.s + '</span></span></button>';
+    });
+    h += '</div><div class="q2">' + areaQ + '</div><div class="unit"><input class="field" inputmode="numeric" data-bind="renoArea" placeholder="np. 90" value="' + esc(s.renoArea) + '"><span>m²</span></div>';
+    h += '<div class="q2">Źródło grzewcze</div><div class="seg">';
+    h += '<button type="button" data-set="heatWhen" data-val="jest"' + pr(s.heatWhen === "jest") + '>jest teraz</button>';
+    h += '<button type="button" data-set="heatWhen" data-val="ma"' + pr(s.heatWhen === "ma") + '>ma być</button></div><div class="chips">';
+    HEAT.forEach(function(c){ h += '<button type="button" class="chip" data-set="heat" data-val="' + esc(c) + '"' + pr(s.heat === c) + '>' + c + '</button>'; });
+    return h + '</div>';
+  }
+
+  function scrDane(s){
+    var h = '<div class="q">Ok, jeszcze dane do przygotowania oferty</div>';
+    h += '<div class="fld"><span class="lbl">Kod pocztowy / miejscowość</span><div class="split"><input class="field" data-bind="postal" placeholder="00-000" value="' + esc(s.postal) + '"><input class="field" data-bind="city" placeholder="Miejscowość" value="' + esc(s.city) + '"></div></div>';
+    h += '<div class="fld"><span class="lbl">Imię i nazwisko</span><input class="field" data-bind="name" placeholder="Jan Kowalski" value="' + esc(s.name) + '"></div>';
+    h += '<div class="fld"><span class="lbl">Telefon <b>· dodane</b></span><input class="field" inputmode="tel" data-bind="phone" placeholder="600 000 000" value="' + esc(s.phone) + '"></div>';
+    h += '<div class="fld"><span class="lbl">E-mail</span><input class="field" inputmode="email" data-bind="email" placeholder="jan@example.pl" value="' + esc(s.email) + '"></div>';
+    h += '<div class="q2">Skąd o nas wie?</div><div class="chips">';
+    ORIGIN.forEach(function(o){ h += '<button type="button" class="chip" data-set="origin" data-val="' + o.v + '"' + pr(s.origin === o.v) + '>' + o.l + '</button>'; });
+    h += '</div>';
+    if (s.origin === "rekomendacja"){
+      h += '<input class="field" data-bind="referral" placeholder="Kto polecił?" value="' + esc(s.referral) + '">';
+    }
+    return h;
+  }
+
+  function lines(s){
+    var g = [];
+    var p = person(s.taker);
+    var ch = CHANNELS.filter(function(c){ return c.v === s.channel; })[0];
+    g.push({t:"Kontakt", to:"kontakt", l:[["Kanał", (ch ? ch.l : "—") + (s.event ? " · " + s.event : "")],["Przyjmuje", p ? p.name : "—"]]});
+    if (s.house === "budowa"){
+      var pj = s.project === "katalog" ? s.projectName : (s.project === "wlasny" ? "projekt własny" : "z projektu, bez nazwy");
+      var b = [["Instalacja","Ogrzewanie podłogowe"],["Dom","w budowie"],["Projekt", pj || "—"],["Konstrukcja", s.construction || "—"],["Piwnica / garaż", [s.basement ? "piwnica" : "", s.garage ? "garaż" : ""].filter(Boolean).join(", ") || "brak"]];
+      if (s.shape) b.push(["Bryła", s.shape + (s.area ? " · " + s.area + " m²" : "")]);
+      var uf = s.ufh === "standard" ? "wszędzie standardowe" : s.ufh === "suchy" ? "system suchy na piętrze" : s.ufh === "opis" ? (s.ufhText || "opis") : "—";
+      b.push(["Podłogówka", uf + (s.lightSlab ? " · lekki strop" : "")]);
+      if (s.milling) b.push(["Opcja","frezowanie wylewek dewelopera"]);
+      g.push({t:"Dom w budowie", to:"projekt", l:b});
+    } else if (s.house === "zamieszkaly"){
+      var r = RENO.filter(function(x){ return x.v === s.reno; })[0];
+      g.push({t:"Dom zamieszkały", to:"remont", l:[["Instalacja","Ogrzewanie podłogowe"],["Prace", r ? r.l : "—"],["Powierzchnia", s.renoArea ? s.renoArea + " m²" : "—"],["Źródło ciepła", (s.heat || "—") + " (" + (s.heatWhen === "jest" ? "jest" : "ma być") + ")"]]});
+    }
+    var o = ORIGIN.filter(function(x){ return x.v === s.origin; })[0];
+    g.push({t:"Klient", to:"dane", l:[["Imię i nazwisko", s.name || "—"],["Miejscowość", [s.postal, s.city].filter(Boolean).join(" ") || "—"],["Telefon", s.phone || "—"],["E-mail", s.email || "—"],["Skąd o nas wie", o ? o.l + (s.referral && s.origin === "rekomendacja" ? ": " + s.referral : "") : "—"]]});
+    return g;
+  }
+
+  function scrPodsumowanie(s){
+    if (s.done){
+      var who = s.name || "Nowy klient";
+      return '<div class="okbanner">' + ICON.ok + '<span>Lead zapisany<small>karta trafiła do lejka, etap LEAD</small></span></div>' +
+        '<div class="dealcard"><div class="top"><span class="code">#k7q2</span><span class="pill brand">LEAD</span></div><div class="nm">' + esc(who) + '</div><div class="meta">Ogrzewanie podłogowe · ' + (s.house === "zamieszkaly" ? "modernizacja" : "dom w budowie") + '<br>' + esc([s.postal, s.city].filter(Boolean).join(" ") || "—") + ' · ' + esc(s.phone || s.email || "") + '</div>' +
+        '<div class="queued"><i></i>Bez zasięgu — wyśle się automatycznie</div></div>' +
+        '<div class="hint">Powiadomienie o nowym leadzie dostaje biuro — tak samo jak z leadowni.</div>';
+    }
+    var h = '<div class="q">Sprawdź i zapisz</div><div class="summary">';
+    lines(s).forEach(function(grp){
+      h += '<div class="sgroup"><span>' + grp.t + '</span><a data-goto="' + grp.to + '">zmień</a></div>';
+      grp.l.forEach(function(x){ h += '<div class="sline"><u>' + x[0] + '</u><b>' + esc(x[1]) + '</b></div>'; });
+    });
+    return h + '</div>';
+  }
+
+  var SCR = {kontakt:scrKontakt, zakres:scrZakres, projekt:scrProjekt, bryla:scrBryla, podlogowka:scrPodlogowka, remont:scrRemont, dane:scrDane, podsumowanie:scrPodsumowanie};
+
+  function device(s){
+    var list = steps(s);
+    var idx = Math.max(0, list.indexOf(s.step));
+    var unknown = !s.house;
+    var prog = "";
+    for (var i = 0; i < list.length; i++){
+      var cls = i <= idx ? "on" : (unknown && i === 2 ? "tbd" : "");
+      prog += '<i class="' + cls + '"></i>';
+    }
+    var total = unknown ? "5–7" : list.length;
+    var last = s.step === "podsumowanie";
+    var ok = valid(s, s.step);
+    var foot;
+    if (s.done){
+      foot = '<button type="button" class="btn" data-act="again">Dodaj kolejny</button><button type="button" class="btn primary">Otwórz kartę</button>';
+    } else {
+      foot = '<button type="button" class="btn ghost" data-act="back"' + (idx === 0 ? " disabled" : "") + '>Wstecz</button>' +
+        '<button type="button" class="btn primary" data-act="' + (last ? "save" : "next") + '"' + (ok ? "" : " disabled") + '>' + (last ? "Zapisz lead" : "Dalej") + '</button>';
+    }
+    return '<div class="statusbar"><span>10:42</span><span>LTE ▮▮▮▯ 78%</span></div>' +
+      '<div class="topbar"><span class="crumb"><b>Nowy lead</b> · ' + CRUMB[s.step] + '</span><span class="stepcount">' + (s.done ? "gotowe" : (idx + 1) + " / " + total) + '</span><button type="button" class="iconbtn" aria-label="Zamknij kreator">' + ICON.close + '</button></div>' +
+      '<div class="prog">' + prog + '</div>' +
+      '<div class="screen">' + SCR[s.step](s) + '</div>' +
+      '<div class="footer">' + foot + '</div>';
+  }
+
+  /* ── notatki i stan ── */
+  var NOTES = {
+    kontakt:["Kontakt",
+      "<p>Cztery kanały w jednym rzędzie, żeby pytanie o osobę zmieściło się bez przewijania. Zalogowany jest zaznaczony z góry i ma plakietkę <b>Ty</b> — w 9 na 10 przypadkach wystarczy „Dalej”.</p><p>Przy „Targi” dochodzi wybór wydarzenia, przy „Polecenie” krótka zapowiedź pytania o polecającego.</p>"],
+    zakres:["Zainteresowanie",
+      "<p>Na razie jeden kafelek — <b>Ogrzewanie podłogowe</b>. Przerywana ramka pod nim rezerwuje miejsce na kolejne instalacje, żeby dodanie ich nie przestawiło planszy.</p><p>Wybór stanu domu decyduje o dalszej ścieżce — licznik kroków u góry zmienia się z „5–7” na konkretną liczbę.</p>"],
+    projekt:["Nowy dom · projekt i konstrukcja",
+      "<p>Pole na nazwę pojawia się tylko przy „Znam nazwę projektu” — ta nazwa trafia do karty i sama dociąga zdjęcie domu.</p><p>Piwnica i garaż to przełączniki, nie jedno pytanie tak/nie: dom może mieć oba.</p>"],
+    bryla:["Nowy dom · bryła i metraż",
+      "<p>Plansza tylko dla projektu własnego lub bez nazwy. Metraż wpisujemy liczbą — skróty pod polem to najczęstsze wielkości domów.</p>"],
+    podlogowka:["Nowy dom · ogrzewanie podłogowe",
+      "<p>Pytanie zmienia się z konstrukcją: <b>murowany i keramzyt</b> — czy wszędzie standard; <b>szkielet i bal</b> — czy na piętrze wycenić system suchy.</p><p>Przy murowanym jest przełącznik „Strop jest lekki” — przestawia pytanie na system suchy. Frezowanie wylewek dewelopera to niezależna opcja pod spodem.</p>"],
+    remont:["Dom zamieszkały",
+      "<p>Trzy sposoby prac jako pełne zdania, bo klient opisuje to swoimi słowami. Pytanie o metraż dopasowuje się do wybranej pracy („Ile m² wylewek do frezowania?”).</p><p>Źródło ciepła ma przełącznik <b>jest teraz / ma być</b> — przy wymianie kotła to dwie różne rozmowy.</p>"],
+    dane:["Dane klienta",
+      "<p>Kod i miejscowość w jednym wierszu — kod pozwala policzyć dystans do klienta, od którego zależy kwalifikacja leada.</p><p>Telefon oznaczony jako <b>dodany</b> — nie było go w opisie. Wystarczy telefon albo e-mail.</p>"],
+    podsumowanie:["Podsumowanie",
+      "<p>Każda grupa ma „zmień”, który wraca od razu na właściwą planszę. Po zapisie: karta z kodem, etap LEAD i — bez zasięgu — znacznik wysyłki w tle.</p>"]
+  };
+
+  function stateRows(s){
+    var r = [];
+    function add(k, v, isNew){ r.push('<div><k>' + k + '</k><v' + (v === null || v === "" ? ' class="empty">—' : '>' + esc(v)) + (isNew ? '<em>nowe</em>' : '') + '</v></div>'); }
+    add("channel", s.channel ? s.channel + (s.channel === "spotkanie" || s.channel === "polecenie" ? "" : "") : null, s.channel === "spotkanie" || s.channel === "polecenie");
+    if (s.channel === "targi") add("sourceLabel", s.event);
+    var p = person(s.taker); add("submittedBy", p ? p.name : null);
+    add("installations", s.interest ? '["Ogrzewanie podłogowe"]' : null);
+    add("buildingKind", s.house === "budowa" ? "nowy" : s.house === "zamieszkaly" ? "modernizacja" : null);
+    if (s.house === "budowa"){
+      add("projectName", s.project === "katalog" ? s.projectName : s.project === "wlasny" ? "projekt własny" : s.project === "niepamieta" ? "z projektu — nazwa nieznana" : null);
+      add("building.construction", s.construction);
+      add("building.heatedBasement", String(s.basement));
+      add("building.heatedGarage", String(s.garage));
+      if (s.project !== "katalog"){ add("building.shape", s.shape); add("buildingData.areaM2", s.area); }
+      add("floorHeating.variant", s.ufh, true);
+      if (s.ufh === "opis") add("floorHeating.note", s.ufhText, true);
+      add("floorHeating.lightSlab", String(isLight(s)), true);
+      add("floorHeating.milling", String(s.milling), true);
+    } else if (s.house === "zamieszkaly"){
+      add("floorHeating.works", s.reno, true);
+      add("floorHeating.areaM2", s.renoArea, true);
+      add("floorHeating.heatSource", s.heat ? s.heat + " (" + (s.heatWhen === "jest" ? "jest" : "ma być") + ")" : null, true);
+    }
+    add("postalCode", s.postal); add("city", s.city); add("fullName", s.name);
+    add("phone", s.phone); add("email", s.email);
+    add("leadOrigin", s.origin);
+    if (s.origin === "rekomendacja") add("referralFrom", s.referral);
+    return r.join("");
+  }
+
+  /* ── render na żywo ── */
+  var live = document.getElementById("live");
+  function render(keepFocus){
+    var fKey = null, fPos = null;
+    var a = document.activeElement;
+    if (keepFocus && a && a.getAttribute && a.getAttribute("data-bind")){ fKey = a.getAttribute("data-bind"); fPos = a.selectionStart; }
+    var scroll = live.querySelector(".screen"); var st = scroll ? scroll.scrollTop : 0;
+    live.innerHTML = device(S);
+    if (keepFocus){ var sc = live.querySelector(".screen"); if (sc) sc.scrollTop = st; }
+    if (fKey){ var el = live.querySelector('[data-bind="' + fKey + '"]'); if (el){ el.focus(); try{ el.setSelectionRange(fPos, fPos); }catch(e){} } }
+    var n = NOTES[S.step];
+    document.getElementById("notetitle").textContent = S.done ? "Po zapisie" : n[0];
+    document.getElementById("stepnote").innerHTML = n[1];
+    document.getElementById("state").innerHTML = stateRows(S);
+  }
+
+  live.addEventListener("click", function(e){
+    var t = e.target.closest("[data-set],[data-toggle],[data-none],[data-act],[data-goto]");
+    if (!t || t.disabled) return;
+    var keep = true;
+    if (t.hasAttribute("data-set")){
+      var k = t.getAttribute("data-set"), v = t.getAttribute("data-val");
+      S[k] = v;
+      if (k === "channel"){ if (v !== "targi") S.event = null; if (v === "polecenie") S.origin = "rekomendacja"; }
+      if (k === "construction"){ S.lightSlab = false; S.ufh = null; }
+      if (k === "project" && v === "katalog"){ S.shape = null; S.area = ""; }
+    } else if (t.hasAttribute("data-toggle")){
+      var tk = t.getAttribute("data-toggle"); S[tk] = !S[tk];
+      if (tk === "lightSlab") S.ufh = null;
+    } else if (t.hasAttribute("data-none")){
+      S.basement = false; S.garage = false;
+    } else if (t.hasAttribute("data-goto")){
+      S.step = t.getAttribute("data-goto"); keep = false;
+    } else {
+      var act = t.getAttribute("data-act"), list = steps(S), i = list.indexOf(S.step);
+      if (act === "next" && i < list.length - 1) S.step = list[i + 1];
+      if (act === "back" && i > 0) S.step = list[i - 1];
+      if (act === "save") S.done = true;
+      if (act === "again") S = blank();
+      keep = false;
+    }
+    render(keep);
+  });
+  live.addEventListener("input", function(e){
+    var k = e.target.getAttribute && e.target.getAttribute("data-bind");
+    if (!k) return;
+    S[k] = e.target.value;
+    // przycisk i stan odświeżamy bez przebudowy pola, żeby nie gubić kursora
+    var btn = live.querySelector('[data-act="next"],[data-act="save"]');
+    if (btn) btn.disabled = !valid(S, S.step);
+    document.getElementById("state").innerHTML = stateRows(S);
+  });
+  live.addEventListener("change", function(e){
+    if (e.target.getAttribute && e.target.getAttribute("data-bind")) render(true);
+  });
+
+  document.querySelectorAll("[data-appt]").forEach(function(b){
+    b.addEventListener("click", function(){
+      var v = b.getAttribute("data-appt");
+      document.querySelectorAll(".device").forEach(function(d){ d.setAttribute("data-app-theme", v); });
+      document.querySelectorAll("[data-appt]").forEach(function(x){ x.setAttribute("aria-pressed", String(x === b)); });
+    });
+  });
+  document.querySelectorAll("[data-preset]").forEach(function(b){
+    b.addEventListener("click", function(){
+      var p = b.getAttribute("data-preset");
+      S = p === "reset" ? blank() : withPreset(PRESETS[p]);
+      render(false);
+    });
+  });
+
+  /* ── taśma plansz ── */
+  var FRAMES = [
+    {i:"wspólne", b:"1 · Kontakt", c:"Zalogowana osoba zaznaczona z góry", s:{step:"kontakt", channel:"tel"}},
+    {i:"wspólne", b:"1 · Kontakt — targi", c:"Dochodzi wybór wydarzenia", s:{step:"kontakt", channel:"targi", event:"Bielsko-Biała 2026"}},
+    {i:"wspólne", b:"2 · Zainteresowanie", c:"Rozwidlenie ścieżki", s:{step:"zakres", channel:"tel", interest:"op", house:"budowa"}},
+    {i:"nowy dom", alt:1, b:"3 · Projekt z nazwą", c:"Pole nazwy, konstrukcja, piwnica/garaż", s:{step:"projekt", channel:"tel", interest:"op", house:"budowa", project:"katalog", projectName:"Archon+ Dom w lucernach 6", construction:"Murowany", garage:true}},
+    {i:"nowy dom", alt:1, b:"3b · Bryła i metraż", c:"Tylko projekt własny / bez nazwy", s:{step:"bryla", channel:"tel", interest:"op", house:"budowa", project:"wlasny", construction:"Szkieletowy", shape:"Piętrowy", area:"160"}},
+    {i:"nowy dom", alt:1, b:"4 · Podłogówka — murowany", c:"Czy wszędzie standard + frezowanie", s:{step:"podlogowka", channel:"tel", interest:"op", house:"budowa", project:"katalog", projectName:"x", construction:"Murowany", ufh:"standard", milling:true}},
+    {i:"nowy dom", alt:1, b:"4 · Podłogówka — szkielet / bal", c:"System suchy na piętrze", s:{step:"podlogowka", channel:"tel", interest:"op", house:"budowa", project:"wlasny", construction:"Z bala", shape:"Piętrowy", area:"150", ufh:"suchy"}},
+    {i:"nowy dom", alt:1, b:"4 · Opis tekstowo", c:"„Jeszcze inaczej”", s:{step:"podlogowka", channel:"tel", interest:"op", house:"budowa", project:"wlasny", construction:"Murowany", lightSlab:true, shape:"Piętrowy", area:"180", ufh:"opis", ufhText:"Parter pod wylewkę, na piętrze tylko łazienka i sypialnia."}},
+    {i:"zamieszkały", alt:1, b:"3 · Co chcesz zrobić?", c:"Prace, metraż, źródło ciepła", s:{step:"remont", channel:"tel", interest:"op", house:"zamieszkaly", reno:"skucie", renoArea:"110", heatWhen:"jest", heat:"Kocioł gazowy"}},
+    {i:"wspólne", b:"5 · Dane klienta", c:"Rekomendacja pyta, kto polecił", s:withPreset(PRESETS.zamieszkaly)},
+    {i:"wspólne", b:"6 · Podsumowanie", c:"„Zmień” wraca na planszę", s:(function(){ var x = withPreset(PRESETS.zamieszkaly); x.step = "podsumowanie"; return x; })()},
+    {i:"wspólne", b:"Po zapisie", c:"Karta w lejku, wysyłka w tle", s:(function(){ var x = withPreset(PRESETS.zamieszkaly); x.step = "podsumowanie"; x.done = true; return x; })()}
+  ];
+  var strip = document.getElementById("strip");
+  strip.innerHTML = FRAMES.map(function(f){
+    var s = f.s.step && f.s.hasOwnProperty("postal") ? f.s : withPreset(f.s);
+    return '<figure class="frame" style="margin:0"><div class="holder" aria-hidden="true"><div class="device" data-app-theme="dark">' + device(s) + '</div></div>' +
+      '<figcaption class="cap"><i class="' + (f.alt ? "alt" : "") + '">' + f.i + '</i><b>' + f.b + '</b><span>' + f.c + '</span></figcaption></figure>';
+  }).join("");
+  strip.querySelectorAll("button,input,textarea").forEach(function(el){ el.tabIndex = -1; });
+
+  render(false);
+})();
+</script>

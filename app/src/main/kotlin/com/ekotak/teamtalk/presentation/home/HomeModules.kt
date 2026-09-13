@@ -82,6 +82,20 @@ val HOME_MODULES: List<HomeModule> = listOf(
         color = Color(0xFF44D62C),
         icon = moduleIcon("M3.5 5h17l-6.6 7.6V19l-3.8 1.8v-8.2z"),
     ),
+    // Kreator nowego leada (ustalenie 2026-09-13). W panelu nie ma osobnego
+    // modułu — lead dodaje się z kolumny lejka; na telefonie kontakt przyjmuje
+    // się w biegu, więc kafelek otwiera kreator od razu, bez listy.
+    HomeModule(
+        key = "lead",
+        label = "LEAD",
+        desc = "Nowy lead w kilku krokach — telefon, spotkanie, polecenie, targi",
+        color = Color(0xFF44D62C),
+        icon = moduleIcon(
+            circle(9f, 8f, 3.2f),
+            "M3 19.5a6 6 0 0 1 12 0",
+            "M18.5 8v6M15.5 11h6",
+        ),
+    ),
     HomeModule(
         key = "clients",
         label = "Klienci",

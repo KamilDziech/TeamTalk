@@ -95,6 +95,9 @@ abstract class RepositoryModule {
     abstract fun bindLeaveRepository(impl: LeaveRepositoryImpl): LeaveRepository
 
     @Binds @Singleton
+    abstract fun bindLeadRepository(impl: LeadRepositoryImpl): LeadRepository
+
+    @Binds @Singleton
     abstract fun bindEmailRepository(impl: EmailRepositoryImpl): EmailRepository
 
     @Binds @Singleton

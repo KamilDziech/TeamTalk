@@ -31,6 +31,7 @@ import com.ekotak.teamtalk.data.local.database.MIGRATION_26_27
 import com.ekotak.teamtalk.data.local.database.MIGRATION_27_28
 import com.ekotak.teamtalk.data.local.database.MIGRATION_28_29
 import com.ekotak.teamtalk.data.local.database.MIGRATION_29_30
+import com.ekotak.teamtalk.data.local.database.MIGRATION_30_31
 import com.ekotak.teamtalk.data.local.database.TeamTalkDatabase
 import dagger.Module
 import dagger.Provides
@@ -80,6 +81,7 @@ object DatabaseModule {
                 MIGRATION_27_28,
                 MIGRATION_28_29,
                 MIGRATION_29_30,
+                MIGRATION_30_31,
             )
             .fallbackToDestructiveMigration()
             .build()
@@ -119,4 +121,5 @@ object DatabaseModule {
     @Provides fun provideInvoiceDao(db: TeamTalkDatabase): InvoiceDao                 = db.invoiceDao()
     @Provides fun provideDealCommsDao(db: TeamTalkDatabase): DealCommsDao             = db.dealCommsDao()
     @Provides fun provideMontazDao(db: TeamTalkDatabase): MontazDao                   = db.montazDao()
+    @Provides fun provideLeadOutboxDao(db: TeamTalkDatabase): LeadOutboxDao           = db.leadOutboxDao()
 }
