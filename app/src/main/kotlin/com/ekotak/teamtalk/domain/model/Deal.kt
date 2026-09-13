@@ -149,6 +149,28 @@ enum class DealBuyerPersona(val wire: String, val label: String) {
     }
 }
 
+/** Status budynku w bloku „Dane budynku" (zakł. Dane). */
+enum class DealBuildingOccupancy(val wire: String, val label: String) {
+    W_BUDOWIE("w_budowie", "W budowie"),
+    ZAMIESZKALY("zamieszkaly", "Zamieszkały");
+
+    companion object {
+        fun fromWire(value: String?): DealBuildingOccupancy? = entries.firstOrNull { it.wire == value }
+    }
+}
+
+/**
+ * Najczęstsze osoby wprowadzające leady — podpowiedzi pola „Osoba wprowadzająca
+ * lead". Pole jest wolnym tekstem (tak samo w panelu), lista tylko skraca pisanie.
+ */
+val LEAD_INTRODUCER_SUGGESTIONS = listOf(
+    "Anna Sobas",
+    "Natalia Kowalska",
+    "Szymon Razowski",
+    "Daniel Dziech",
+    "Maria Piwowarczyk",
+)
+
 /** Miejsce spotkania wstępnego (zakł. LEAD / Remarketing karty deala). */
 enum class MeetingKind(val wire: String, val label: String) {
     KLIENT("klient", "U klienta"),
@@ -186,11 +208,12 @@ data class DealBuildingData(
     val windows: String? = null,
     val heatedBasement: Boolean? = null,
     val heatedGarage: Boolean? = null,
+    val occupancy: DealBuildingOccupancy? = null,
 ) {
     val isEmpty: Boolean
         get() = people == null && areaM2 == null && floors == null && shape.isNullOrBlank() &&
             construction.isNullOrBlank() && stage.isNullOrBlank() && windows.isNullOrBlank() &&
-            heatedBasement == null && heatedGarage == null
+            heatedBasement == null && heatedGarage == null && occupancy == null
 }
 
 /** OZC — zapotrzebowanie na ciepło przepisane z cieplo.app. */
@@ -222,6 +245,8 @@ data class Deal(
     /** Moment wejścia w bieżący etap — podstawa licznika „X dni w etapie". */
     val stageEnteredAt: String? = null,
     val source: String? = null,
+    /** Osoba wprowadzająca lead — wolny tekst, jak w panelu. */
+    val leadIntroducer: String? = null,
     val nextContactAt: String? = null,
     val segment: DealSegment = DealSegment.INDYWIDUALNY,
     val buildingKind: DealBuildingKind = DealBuildingKind.NOWY,

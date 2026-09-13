@@ -28,6 +28,7 @@ fun buildDealPatch(original: Deal, draft: DealDraft): JsonObject {
     return buildJsonObject {
         // Pola nullowalne: pusty tekst w formularzu = null = wyczyszczenie.
         putIfChanged("source", before.source, draft.source)
+        putIfChanged("leadIntroducer", before.leadIntroducer, draft.leadIntroducer)
         putIfChanged("description", before.description, draft.description)
         putIfChanged("projectName", before.projectName, draft.projectName)
         putIfChanged("discountCode", before.discountCode, draft.discountCode)
@@ -91,6 +92,7 @@ fun buildDealPatch(original: Deal, draft: DealDraft): JsonObject {
                     putNullable("windows", draft.windows)
                     putNullable("heatedBasement", draft.heatedBasement)
                     putNullable("heatedGarage", draft.heatedGarage)
+                    putNullable("occupancy", draft.occupancy?.wire)
                 },
             )
         }
@@ -118,7 +120,8 @@ private fun buildingChanged(before: DealDraft, draft: DealDraft): Boolean =
         before.buildingStage != draft.buildingStage ||
         before.windows != draft.windows ||
         before.heatedBasement != draft.heatedBasement ||
-        before.heatedGarage != draft.heatedGarage
+        before.heatedGarage != draft.heatedGarage ||
+        before.occupancy != draft.occupancy
 
 private fun ozcChanged(before: DealDraft, draft: DealDraft): Boolean =
     before.ozcBuildingKw != draft.ozcBuildingKw ||

@@ -9,6 +9,7 @@ import com.ekotak.teamtalk.domain.model.Deal
 import com.ekotak.teamtalk.domain.model.DealActivity
 import com.ekotak.teamtalk.domain.model.DealBuildingData
 import com.ekotak.teamtalk.domain.model.DealBuildingKind
+import com.ekotak.teamtalk.domain.model.DealBuildingOccupancy
 import com.ekotak.teamtalk.domain.model.DealBuyerPersona
 import com.ekotak.teamtalk.domain.model.DealDetail
 import com.ekotak.teamtalk.domain.model.DealDifficulty
@@ -32,6 +33,7 @@ fun DealResponseDto.toDomain(): Deal = Deal(
     stage = DealStage.fromWire(stage) ?: DealStage.LEAD,
     stageEnteredAt = stageEnteredAt,
     source = source,
+    leadIntroducer = leadIntroducer,
     nextContactAt = nextContactAt,
     segment = DealSegment.fromWire(segment),
     buildingKind = DealBuildingKind.fromWire(buildingKind),
@@ -85,6 +87,7 @@ fun DealBuildingDataDto.toDomain(): DealBuildingData = DealBuildingData(
     windows = windows,
     heatedBasement = heatedBasement,
     heatedGarage = heatedGarage,
+    occupancy = DealBuildingOccupancy.fromWire(occupancy),
 )
 
 fun DealOzcDataDto.toDomain(): DealOzcData = DealOzcData(

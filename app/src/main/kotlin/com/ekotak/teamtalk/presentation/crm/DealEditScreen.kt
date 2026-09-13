@@ -36,6 +36,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ekotak.teamtalk.domain.model.AuditAddressKind
 import com.ekotak.teamtalk.domain.model.DealBuildingKind
+import com.ekotak.teamtalk.domain.model.DealBuildingOccupancy
+import com.ekotak.teamtalk.domain.model.LEAD_INTRODUCER_SUGGESTIONS
 import com.ekotak.teamtalk.domain.model.DealBuyerPersona
 import com.ekotak.teamtalk.domain.model.DealDifficulty
 import com.ekotak.teamtalk.domain.model.DealSegment
@@ -172,6 +174,11 @@ private fun BasicsCard(state: DealEditViewModel.UiState, vm: DealEditViewModel) 
     val draft = state.draft
     FormCard("Dane podstawowe") {
         FormTextField("Źródło", draft.source) { v -> vm.edit { it.copy(source = v) } }
+        FormSuggestField(
+            label = "Osoba wprowadzająca lead",
+            value = draft.leadIntroducer,
+            suggestions = LEAD_INTRODUCER_SUGGESTIONS,
+        ) { v -> vm.edit { it.copy(leadIntroducer = v) } }
         FormTextField("Nazwa projektu", draft.projectName) { v ->
             vm.edit { it.copy(projectName = v) }
         }
@@ -237,6 +244,14 @@ private fun ContactCard(state: DealEditViewModel.UiState, vm: DealEditViewModel)
 private fun BuildingCard(state: DealEditViewModel.UiState, vm: DealEditViewModel) {
     val draft = state.draft
     FormCard("Dane budynku") {
+        FormChoiceRow(
+            label = "Status budynku",
+            options = DealBuildingOccupancy.entries.toList(),
+            selected = draft.occupancy,
+            optionLabel = { it.label },
+            onSelect = { v -> vm.edit { it.copy(occupancy = v) } },
+            nullLabel = "brak",
+        )
         FormNumberField("Liczba osób", state.numbers.people, vm::onPeopleChange)
         FormNumberField("Powierzchnia ogrzewana [m²]", state.numbers.areaM2, vm::onAreaChange)
         FormNumberField("Liczba kondygnacji", state.numbers.floors, vm::onFloorsChange)

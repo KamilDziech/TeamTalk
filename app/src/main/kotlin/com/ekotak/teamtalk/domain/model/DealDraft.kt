@@ -14,6 +14,7 @@ package com.ekotak.teamtalk.domain.model
 data class DealDraft(
     // ── Dane podstawowe ──────────────────────────────────────────────────────
     val source: String? = null,
+    val leadIntroducer: String? = null,
     val description: String? = null,
     val projectName: String? = null,
     val discountCode: String? = null,
@@ -37,6 +38,7 @@ data class DealDraft(
     val windows: String? = null,
     val heatedBasement: Boolean? = null,
     val heatedGarage: Boolean? = null,
+    val occupancy: DealBuildingOccupancy? = null,
     // ── OZC ──────────────────────────────────────────────────────────────────
     val ozcBuildingKw: Double? = null,
     val ozcDhwKw: Double? = null,
@@ -67,7 +69,8 @@ data class DealDraft(
     val buildingDataEmpty: Boolean
         get() = people == null && areaM2 == null && floors == null && shape.isNullOrBlank() &&
             construction.isNullOrBlank() && buildingStage.isNullOrBlank() &&
-            windows.isNullOrBlank() && heatedBasement == null && heatedGarage == null
+            windows.isNullOrBlank() && heatedBasement == null && heatedGarage == null &&
+            occupancy == null
 
     /** Czy blok OZC jest w całości pusty (→ `ozcData: null`). */
     val ozcEmpty: Boolean
@@ -85,6 +88,7 @@ fun Deal.hasChangesFrom(draft: DealDraft): Boolean = toDraft() != draft
 /** Draft wypełniony bieżącymi wartościami deala — punkt wyjścia formularza. */
 fun Deal.toDraft(): DealDraft = DealDraft(
     source = source,
+    leadIntroducer = leadIntroducer,
     description = description,
     projectName = projectName,
     discountCode = discountCode,
@@ -105,6 +109,7 @@ fun Deal.toDraft(): DealDraft = DealDraft(
     windows = buildingData?.windows,
     heatedBasement = buildingData?.heatedBasement,
     heatedGarage = buildingData?.heatedGarage,
+    occupancy = buildingData?.occupancy,
     ozcBuildingKw = ozcData?.buildingKw,
     ozcDhwKw = ozcData?.dhwKw,
     ozcSourceUrl = ozcData?.sourceUrl,
@@ -157,6 +162,7 @@ private fun parseIso(iso: String?): Long? {
  */
 fun Deal.applyDraft(draft: DealDraft): Deal = copy(
     source = draft.source,
+    leadIntroducer = draft.leadIntroducer,
     description = draft.description,
     projectName = draft.projectName,
     discountCode = draft.discountCode,
@@ -181,6 +187,7 @@ fun Deal.applyDraft(draft: DealDraft): Deal = copy(
             windows = draft.windows,
             heatedBasement = draft.heatedBasement,
             heatedGarage = draft.heatedGarage,
+            occupancy = draft.occupancy,
         )
     },
     ozcData = if (draft.ozcEmpty) {

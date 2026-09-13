@@ -39,6 +39,8 @@ import com.ekotak.teamtalk.domain.model.Client
 import com.ekotak.teamtalk.domain.model.ClientTravel
 import com.ekotak.teamtalk.domain.model.Deal
 import com.ekotak.teamtalk.domain.model.DealBuildingKind
+import com.ekotak.teamtalk.domain.model.DealBuildingOccupancy
+import com.ekotak.teamtalk.domain.model.LEAD_INTRODUCER_SUGGESTIONS
 import com.ekotak.teamtalk.domain.model.DealBuyerPersona
 import com.ekotak.teamtalk.domain.model.DealDifficulty
 import com.ekotak.teamtalk.domain.model.DealSegment
@@ -438,6 +440,15 @@ private fun BuildingCard(
                 onSelect = { v -> v?.let { k -> viewModel.editDeal { it.copy(buildingKind = k) } } },
             )
             Spacer(Modifier.height(8.dp))
+            FormChoiceRow(
+                label = "Status budynku",
+                options = DealBuildingOccupancy.entries.toList(),
+                selected = draft.occupancy,
+                optionLabel = { it.label },
+                onSelect = { v -> viewModel.editDeal { it.copy(occupancy = v) } },
+                nullLabel = "brak",
+            )
+            Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FormNumberField(
                     label = "Osoby",
@@ -484,6 +495,7 @@ private fun BuildingCard(
         } else {
             InfoRow("Projekt", deal.projectName)
             InfoRow("Rodzaj", deal.buildingKind.label)
+            InfoRow("Status budynku", deal.buildingData?.occupancy?.label)
             deal.buildingData?.takeIf { !it.isEmpty }?.let { data ->
                 InfoRow("Osoby", data.people?.toString())
                 InfoRow("Powierzchnia", data.areaM2?.let { "${it.toInt()} m²" })
@@ -546,6 +558,12 @@ private fun DealFieldsCard(
             Spacer(Modifier.height(8.dp))
             FormTextField("Źródło", draft.source) { v -> viewModel.editDeal { it.copy(source = v) } }
             Spacer(Modifier.height(8.dp))
+            FormSuggestField(
+                label = "Osoba wprowadzająca lead",
+                value = draft.leadIntroducer,
+                suggestions = LEAD_INTRODUCER_SUGGESTIONS,
+            ) { v -> viewModel.editDeal { it.copy(leadIntroducer = v) } }
+            Spacer(Modifier.height(8.dp))
             FormTextField("Kod rabatowy", draft.discountCode) { v ->
                 viewModel.editDeal { it.copy(discountCode = v) }
             }
@@ -566,6 +584,7 @@ private fun DealFieldsCard(
             InfoRow("Trudność", deal.difficulty?.label)
             InfoRow("Buyer persona", deal.buyerPersona?.label)
             InfoRow("Źródło", deal.source)
+            InfoRow("Osoba wprowadzająca lead", deal.leadIntroducer)
             InfoRow("Kod rabatowy", deal.discountCode)
             InfoRow(
                 label = "Zgoda RODO",

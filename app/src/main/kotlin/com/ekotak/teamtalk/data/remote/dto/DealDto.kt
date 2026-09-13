@@ -18,6 +18,7 @@ data class DealResponseDto(
     val stage: String = "lead",
     val stageEnteredAt: String? = null,
     val source: String? = null,
+    val leadIntroducer: String? = null,
     val nextContactAt: String? = null,
     val segment: String? = null,
     val buildingKind: String? = null,
@@ -71,6 +72,7 @@ data class DealBuildingDataDto(
     val windows: String? = null,
     val heatedBasement: Boolean? = null,
     val heatedGarage: Boolean? = null,
+    val occupancy: String? = null,
 )
 
 @Serializable

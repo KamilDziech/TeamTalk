@@ -37,6 +37,7 @@ import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -185,6 +186,55 @@ fun FormSwitch(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Un
             modifier = Modifier.weight(1f),
         )
         Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+/**
+ * Wolny tekst z podpowiedziami jako chipy pod polem (np. osoba wprowadzająca
+ * lead). Tekst trzymamy lokalnie, a do draftu oddajemy przycięty: przycinanie
+ * w locie, jak w [FormTextField], zjadałoby spację między imieniem a nazwiskiem.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun FormSuggestField(
+    label: String,
+    value: String?,
+    suggestions: List<String>,
+    onValueChange: (String?) -> Unit,
+) {
+    var text by remember { mutableStateOf(value.orEmpty()) }
+    // Zmiana z zewnątrz (wczytany deal, Anuluj) — pisanie daje tu zawsze równość.
+    LaunchedEffect(value) {
+        if (value.orEmpty() != text.trim()) text = value.orEmpty()
+    }
+    Column {
+        OutlinedTextField(
+            value = text,
+            onValueChange = {
+                text = it
+                onValueChange(it.trim().ifBlank { null })
+            },
+            label = { Text(label) },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+        )
+        Spacer(Modifier.height(4.dp))
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            suggestions.forEach { name ->
+                FilterChip(
+                    selected = text.trim() == name,
+                    onClick = {
+                        text = name
+                        onValueChange(name)
+                    },
+                    label = { Text(name) },
+                )
+            }
+        }
     }
 }
 
