@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import com.ekotak.teamtalk.domain.model.AuditAddressKind
 import com.ekotak.teamtalk.domain.model.Deal
 import com.ekotak.teamtalk.domain.model.DocumentCategory
+import com.ekotak.teamtalk.domain.model.InstallationStage
 import com.ekotak.teamtalk.domain.model.OfferLock
 import com.ekotak.teamtalk.domain.model.TaskMember
 import com.ekotak.teamtalk.domain.model.buildFloorPlans
@@ -125,7 +126,20 @@ fun DealAuditTab(
             contentAlignment = Alignment.Center,
         ) { CircularProgressIndicator() }
 
-        else -> InstallationAuditCard(state = state, viewModel = viewModel)
+        else -> {
+            // W panelu drzewo zakresu stoi po lewej od formularza — tu nad nim.
+            InstallationScopeCard(
+                scope = state.auditScope,
+                canManage = state.canManage,
+                stageLabel = InstallationStage.AUDIT.label,
+                onToggleSelection = { viewModel.toggleScopeInstallation(InstallationStage.AUDIT, it) },
+                onToggleBranch = { viewModel.toggleScopeBranch(InstallationStage.AUDIT, it) },
+                onAddRoot = { viewModel.addScopeRoot(InstallationStage.AUDIT, it) },
+                onRemoveRoot = { viewModel.removeScopeRoot(InstallationStage.AUDIT, it) },
+            )
+            SectionGap()
+            InstallationAuditCard(state = state, viewModel = viewModel)
+        }
     }
 
     // Zdjęcia OSOBNĄ kartą, nie polem formularza: to inny rodzaj roboty
@@ -283,7 +297,7 @@ private fun InstallationAuditCard(
         if (audit.installations.isEmpty()) {
             Text(
                 text = "Na etapie „Audyt” nie ma jeszcze wybranych instalacji. " +
-                    "Zakres ustala się w zakładce „LEAD”, a potem przenosi na kolejne etapy.",
+                    "Dodaj je w karcie „Zakres instalacji” wyżej.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

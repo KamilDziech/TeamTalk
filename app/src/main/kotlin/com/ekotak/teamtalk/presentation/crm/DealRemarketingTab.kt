@@ -90,6 +90,8 @@ fun DealRemarketingTab(
         state = state,
         onToggleSelection = viewModel::toggleRemarketingInstallation,
         onToggleBranch = viewModel::toggleRemarketingBranch,
+        onAddRoot = viewModel::addRemarketingRoot,
+        onRemoveRoot = viewModel::removeRemarketingRoot,
         onRetry = { viewModel.loadRemarketing(force = true) },
     )
     SectionGap()
@@ -147,11 +149,13 @@ private fun RemarketingScopeCard(
     state: DealDetailViewModel.UiState,
     onToggleSelection: (String) -> Unit,
     onToggleBranch: (String) -> Unit,
+    onAddRoot: (String) -> Unit,
+    onRemoveRoot: (String) -> Unit,
     onRetry: () -> Unit,
 ) {
     val remarketing = state.remarketing
     val selected = remarketing.selected
-    val editable = state.canManage && remarketing.editable && !remarketing.isSaving
+    val editable = state.canManage && remarketing.editable
 
     SectionCard {
         SectionTitle(
@@ -185,6 +189,10 @@ private fun RemarketingScopeCard(
                     editable = editable,
                     onToggleSelection = onToggleSelection,
                     onToggleBranch = onToggleBranch,
+                    pickedOnly = true,
+                    busy = remarketing.isSaving,
+                    onAddRoot = onAddRoot,
+                    onRemoveRoot = onRemoveRoot,
                 )
 
                 if (remarketing.pendingSync) {

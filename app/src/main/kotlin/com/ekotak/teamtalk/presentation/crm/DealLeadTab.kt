@@ -112,6 +112,8 @@ fun DealLeadTab(
         state = state,
         onToggleSelection = viewModel::toggleInstallation,
         onToggleBranch = viewModel::toggleInstallationBranch,
+        onAddRoot = viewModel::addInstallationRoot,
+        onRemoveRoot = viewModel::removeInstallationRoot,
     )
     SectionGap()
 
@@ -313,10 +315,12 @@ private fun InstallationsCard(
     state: DealDetailViewModel.UiState,
     onToggleSelection: (String) -> Unit,
     onToggleBranch: (String) -> Unit,
+    onAddRoot: (String) -> Unit,
+    onRemoveRoot: (String) -> Unit,
 ) {
     val lead = state.lead
     val selected = lead.selectedInstallations
-    val editable = state.canManage && lead.installationsEditable && !lead.isSavingInstallations
+    val editable = state.canManage && lead.installationsEditable
 
     SectionCard {
         SectionTitle(
@@ -346,6 +350,10 @@ private fun InstallationsCard(
                     editable = editable,
                     onToggleSelection = onToggleSelection,
                     onToggleBranch = onToggleBranch,
+                    pickedOnly = true,
+                    busy = lead.isSavingInstallations,
+                    onAddRoot = onAddRoot,
+                    onRemoveRoot = onRemoveRoot,
                 )
                 if (!state.canManage || !lead.installationsEditable) {
                     Spacer(Modifier.height(8.dp))

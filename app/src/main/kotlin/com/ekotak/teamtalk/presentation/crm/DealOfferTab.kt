@@ -28,6 +28,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.ekotak.teamtalk.domain.model.InstallationStage
 import com.ekotak.teamtalk.domain.model.OfferLock
 import com.ekotak.teamtalk.domain.model.UfhState
 import com.ekotak.teamtalk.domain.ufh.OfferPricing
@@ -102,11 +103,22 @@ fun DealOfferTab(
         return
     }
 
+    // W panelu drzewo zakresu stoi po lewej od wyceny — tu nad nią.
+    InstallationScopeCard(
+        scope = state.offerScope,
+        canManage = state.canManage,
+        stageLabel = InstallationStage.ANGEBOT.label,
+        onToggleSelection = { viewModel.toggleScopeInstallation(InstallationStage.ANGEBOT, it) },
+        onToggleBranch = { viewModel.toggleScopeBranch(InstallationStage.ANGEBOT, it) },
+        onAddRoot = { viewModel.addScopeRoot(InstallationStage.ANGEBOT, it) },
+        onRemoveRoot = { viewModel.removeScopeRoot(InstallationStage.ANGEBOT, it) },
+    )
+    SectionGap()
+
     if (offer.installations.isEmpty()) {
         InfoCard(
             title = "Oferta",
-            text = "Brak instalacji do wyceny — zaznacz instalacje na pasku etapu " +
-                "(Oferta albo Audyt) w panelu.",
+            text = "Brak instalacji do wyceny — dodaj je w karcie „Zakres instalacji” wyżej.",
         )
         return
     }

@@ -87,6 +87,9 @@ import com.ekotak.teamtalk.domain.model.applyBuildingToUfh
 import com.ekotak.teamtalk.domain.model.buildCategoryTree
 import com.ekotak.teamtalk.domain.model.categoryIdPath
 import com.ekotak.teamtalk.domain.model.categoryPath
+import com.ekotak.teamtalk.domain.model.toggleInSelection
+import com.ekotak.teamtalk.domain.model.withoutBranch
+import com.ekotak.teamtalk.domain.model.DealInstallations
 import com.ekotak.teamtalk.domain.model.hasChangesFrom
 import com.ekotak.teamtalk.domain.model.isImageOrPdfUpload
 import com.ekotak.teamtalk.domain.model.nextStages
@@ -382,6 +385,8 @@ class DealDetailViewModel @Inject constructor(
         /** Czy API pozwala zmieniać migawkę tego etapu (`editable` z odpowiedzi). */
         val installationsEditable: Boolean = false,
         val isSavingInstallations: Boolean = false,
+        /** Kategoria dodana „+ Dodaj instalację", czekająca na doprecyzowanie. */
+        val refiningRoot: String? = null,
         /** Artykuły wiedzy deala po `categoryId` — kafel pokazuje ich stan. */
         val articles: Map<String, KnowledgeArticle> = emptyMap(),
         /** Bramka generowania artykułu (etap + komplet danych budynku). */
@@ -722,9 +727,28 @@ class DealDetailViewModel @Inject constructor(
         /** Migawka zapisana bez zasięgu — czeka w kolejce na wysyłkę. */
         val pendingSync: Boolean = false,
         val isSaving: Boolean = false,
+        /** Kategoria dodana „+ Dodaj instalację", czekająca na doprecyzowanie. */
+        val refiningRoot: String? = null,
         /** Zapis OZC w toku — blokuje przycisk okna, żeby nie poszedł dwa razy. */
         val isSavingOzc: Boolean = false,
         val error: String? = null,
+    )
+
+    /**
+     * Zakres instalacji etapu, który sam nie ma drzewa (Audyt, Oferta) — ta sama
+     * migawka co w panelu, z tym samym „+ Dodaj instalację" i „−". Po zapisie
+     * zakładka przeładowuje własne dane, bo lista formularzy/wycen idzie z zakresu.
+     */
+    data class InstallationScopeState(
+        val loaded: Boolean = false,
+        val catalog: List<CategoryNode> = emptyList(),
+        /** `null` = odczyt się nie udał. */
+        val selected: Set<String>? = null,
+        val expanded: Set<String> = emptySet(),
+        val editable: Boolean = false,
+        val pendingSync: Boolean = false,
+        val isSaving: Boolean = false,
+        val refiningRoot: String? = null,
     )
 
     /** Umowa, którą właśnie zmieniamy — formularz pracuje wtedy w trybie zmiany. */
@@ -1037,6 +1061,9 @@ class DealDetailViewModel @Inject constructor(
         val remarketing: RemarketingState = RemarketingState(),
         val audit: AuditState = AuditState(),
         val offer: OfferState = OfferState(),
+        /** Zakres instalacji zakładek Audyt i Oferta (migawki `audit` / `angebot`). */
+        val auditScope: InstallationScopeState = InstallationScopeState(),
+        val offerScope: InstallationScopeState = InstallationScopeState(),
         val orders: OrdersState = OrdersState(),
         val files: FilesState = FilesState(),
         val schedule: ScheduleState = ScheduleState(),
@@ -1415,16 +1442,43 @@ class DealDetailViewModel @Inject constructor(
     fun toggleInstallation(categoryId: String) {
         val lead = _uiState.value.lead
         val current = lead.selectedInstallations ?: return
-        if (lead.isSavingInstallations || !lead.installationsEditable) return
+        saveLeadInstallations(
+            toggleInSelection(lead.catalog, current, categoryId, lead.refiningRoot),
+        )
+    }
 
-        val next = if (categoryId in current) current - categoryId else current + categoryId
+    /**
+     * „+ Dodaj instalację": kategoria wchodzi od razu jako pozycja ogólna,
+     * a gałąź rozwija się w trybie doprecyzowania (patrz `toggleInSelection`).
+     */
+    fun addInstallationRoot(rootId: String) {
+        val current = _uiState.value.lead.selectedInstallations ?: return
+        saveLeadInstallations(current + rootId, refiningRoot = rootId)
+    }
+
+    /** Przycisk „−": cała kategoria główna schodzi z migawki etapu LEAD. */
+    fun removeInstallationRoot(rootId: String) {
+        val lead = _uiState.value.lead
+        val current = lead.selectedInstallations ?: return
+        saveLeadInstallations(withoutBranch(lead.catalog, current, rootId))
+    }
+
+    private fun saveLeadInstallations(next: Set<String>, refiningRoot: String? = null) {
+        val lead = _uiState.value.lead
+        val current = lead.selectedInstallations ?: return
+        if (lead.isSavingInstallations || !lead.installationsEditable) return
 
         viewModelScope.launch {
             // Zaznaczenie pokazujemy natychmiast — czekanie na odpowiedź przy
             // dotknięciu checkboxa czytałoby się jak zignorowany klik.
             _uiState.update {
                 it.copy(
-                    lead = it.lead.copy(selectedInstallations = next, isSavingInstallations = true),
+                    lead = it.lead.copy(
+                        selectedInstallations = next,
+                        isSavingInstallations = true,
+                        refiningRoot = refiningRoot,
+                        expanded = it.lead.expanded + listOfNotNull(refiningRoot),
+                    ),
                     message = null,
                 )
             }
@@ -1593,14 +1647,38 @@ class DealDetailViewModel @Inject constructor(
     fun toggleRemarketingInstallation(categoryId: String) {
         val state = _uiState.value.remarketing
         val current = state.selected ?: return
-        if (state.isSaving || !state.editable) return
+        saveRemarketingInstallations(
+            toggleInSelection(state.catalog, current, categoryId, state.refiningRoot),
+        )
+    }
 
-        val next = if (categoryId in current) current - categoryId else current + categoryId
+    /** „+ Dodaj instalację" w Remarketingu — jak `addInstallationRoot` w LEAD. */
+    fun addRemarketingRoot(rootId: String) {
+        val current = _uiState.value.remarketing.selected ?: return
+        saveRemarketingInstallations(current + rootId, refiningRoot = rootId)
+    }
+
+    /** Przycisk „−" w Remarketingu: cała kategoria główna schodzi z migawki. */
+    fun removeRemarketingRoot(rootId: String) {
+        val state = _uiState.value.remarketing
+        val current = state.selected ?: return
+        saveRemarketingInstallations(withoutBranch(state.catalog, current, rootId))
+    }
+
+    private fun saveRemarketingInstallations(next: Set<String>, refiningRoot: String? = null) {
+        val state = _uiState.value.remarketing
+        val current = state.selected ?: return
+        if (state.isSaving || !state.editable) return
 
         viewModelScope.launch {
             _uiState.update {
                 it.copy(
-                    remarketing = it.remarketing.copy(selected = next, isSaving = true),
+                    remarketing = it.remarketing.copy(
+                        selected = next,
+                        isSaving = true,
+                        refiningRoot = refiningRoot,
+                        expanded = it.remarketing.expanded + listOfNotNull(refiningRoot),
+                    ),
                     message = null,
                 )
             }
@@ -1729,11 +1807,12 @@ class DealDetailViewModel @Inject constructor(
             } catch (_: Exception) {
                 emptyList()
             }
+            val dealScope = loadScopeInstallations()
             val snapshot = try {
                 auditRepository.getAuditInstallations(dealId)
             } catch (_: Exception) {
                 AuditInstallations()
-            }
+            }.withPending(dealScope)
             val lock = auditRepository.getOfferLock(dealId)
 
             val byId = categories.associateBy { it.id }
@@ -1770,7 +1849,156 @@ class DealDetailViewModel @Inject constructor(
                         categoryId = keep ?: installations.firstOrNull()?.categoryId,
                         deal = state.detail?.deal,
                     ),
+                    auditScope = state.auditScope.loadedFrom(
+                        stage = InstallationStage.AUDIT,
+                        categories = categories,
+                        deal = dealScope,
+                    ),
                 )
+            }
+        }
+    }
+
+    // ── Zakres instalacji: Audyt i Oferta ────────────────────────────────────
+
+    /**
+     * Migawki przez repozytorium DEALA, a nie audytu: tylko ono nakłada zapisy
+     * z kolejki, więc zakres zmieniony bez zasięgu widać od razu. `null` = brak
+     * sieci i cache — karta zakresu mówi wtedy, że nie ma czego pokazać.
+     */
+    private suspend fun loadScopeInstallations(): DealInstallations? = try {
+        getDealInstallationsUseCase(dealId)
+    } catch (_: Exception) {
+        null
+    }
+
+    /** Odczyt audytu z cache nie zna kolejki — migawki czekające na wysyłkę wygrywają. */
+    private fun AuditInstallations.withPending(deal: DealInstallations?): AuditInstallations {
+        val pending = deal?.stages?.filter { it.pending }.orEmpty()
+        if (pending.isEmpty()) return this
+        fun idsOf(stage: InstallationStage) = pending.firstOrNull { it.stage == stage }?.categoryIds
+        return copy(
+            auditStage = idsOf(InstallationStage.AUDIT) ?: auditStage,
+            soldStage = idsOf(InstallationStage.SOLD) ?: soldStage,
+            allStages = (allStages + pending.flatMap { it.categoryIds }).distinct(),
+            byStage = byStage + pending.associate { it.stage.wire to it.categoryIds },
+        )
+    }
+
+    private fun InstallationScopeState.loadedFrom(
+        stage: InstallationStage,
+        categories: List<Category>,
+        deal: DealInstallations?,
+    ): InstallationScopeState {
+        val catalog = buildCategoryTree(categories)
+        val snapshot = deal?.forStage(stage)
+        val ids = snapshot?.categoryIds.orEmpty().toSet()
+        return copy(
+            loaded = true,
+            catalog = catalog,
+            selected = if (deal == null) null else ids,
+            expanded = expanded + ancestorsOfSelected(catalog, ids),
+            editable = snapshot?.editable ?: false,
+            pendingSync = snapshot?.pending ?: false,
+        )
+    }
+
+    private fun UiState.scopeOf(stage: InstallationStage): InstallationScopeState =
+        if (stage == InstallationStage.AUDIT) auditScope else offerScope
+
+    private fun UiState.withScope(
+        stage: InstallationStage,
+        edit: (InstallationScopeState) -> InstallationScopeState,
+    ): UiState = if (stage == InstallationStage.AUDIT) {
+        copy(auditScope = edit(auditScope))
+    } else {
+        copy(offerScope = edit(offerScope))
+    }
+
+    /** Rozwinięcie/zwinięcie gałęzi drzewa zakresu Audytu/Oferty. Nic nie zapisuje. */
+    fun toggleScopeBranch(stage: InstallationStage, categoryId: String) {
+        _uiState.update { state ->
+            state.withScope(stage) { scope ->
+                scope.copy(
+                    expanded = if (categoryId in scope.expanded) {
+                        scope.expanded - categoryId
+                    } else {
+                        scope.expanded + categoryId
+                    },
+                )
+            }
+        }
+    }
+
+    fun toggleScopeInstallation(stage: InstallationStage, categoryId: String) {
+        val scope = _uiState.value.scopeOf(stage)
+        val current = scope.selected ?: return
+        saveScope(stage, toggleInSelection(scope.catalog, current, categoryId, scope.refiningRoot))
+    }
+
+    fun addScopeRoot(stage: InstallationStage, rootId: String) {
+        val current = _uiState.value.scopeOf(stage).selected ?: return
+        saveScope(stage, current + rootId, refiningRoot = rootId)
+    }
+
+    fun removeScopeRoot(stage: InstallationStage, rootId: String) {
+        val scope = _uiState.value.scopeOf(stage)
+        val current = scope.selected ?: return
+        saveScope(stage, withoutBranch(scope.catalog, current, rootId))
+    }
+
+    /**
+     * Zapis migawki `audit`/`angebot` — jak w LEAD: pełna lista po zmianie, od
+     * razu, bez zasięgu do kolejki. Po zapisie zakładka przeładowuje swoje dane
+     * (lista formularzy audytu / wycen idzie z zakresu) — ale NIE nad formularzem
+     * z niezapisanymi zmianami: przeładowanie by go wyzerowało, a zakres i tak
+     * odświeży się przy zapisie formularza.
+     */
+    private fun saveScope(stage: InstallationStage, next: Set<String>, refiningRoot: String? = null) {
+        val start = _uiState.value
+        val scope = start.scopeOf(stage)
+        val current = scope.selected ?: return
+        if (scope.isSaving || !scope.editable || !start.canManage) return
+
+        viewModelScope.launch {
+            _uiState.update { state ->
+                state.withScope(stage) {
+                    it.copy(
+                        selected = next,
+                        isSaving = true,
+                        refiningRoot = refiningRoot,
+                        expanded = it.expanded + listOfNotNull(refiningRoot),
+                    )
+                }.copy(message = null)
+            }
+            try {
+                val saved = setDealInstallationsUseCase(dealId, stage, next.toList()).forStage(stage)
+                val ids = saved?.categoryIds.orEmpty().toSet()
+                _uiState.update { state ->
+                    state.withScope(stage) {
+                        it.copy(
+                            selected = ids,
+                            expanded = it.expanded + ancestorsOfSelected(it.catalog, ids),
+                            pendingSync = saved?.pending ?: false,
+                            isSaving = false,
+                        )
+                    }
+                }
+                when {
+                    stage != InstallationStage.AUDIT -> loadOffer(force = true)
+                    _uiState.value.audit.isFormDirty -> _uiState.update {
+                        it.copy(
+                            message = "Zakres zapisany — lista instalacji odświeży się " +
+                                "po zapisaniu formularza",
+                        )
+                    }
+                    else -> loadAudit(force = true)
+                }
+            } catch (e: Exception) {
+                _uiState.update { state ->
+                    state.withScope(stage) { it.copy(selected = current, isSaving = false) }
+                        .copy(message = crmErrorMessage(e, "Nie udało się zapisać zakresu instalacji"))
+                }
             }
         }
     }
@@ -2039,11 +2267,12 @@ class DealDetailViewModel @Inject constructor(
             } catch (_: Exception) {
                 emptyList()
             }
+            val dealScope = loadScopeInstallations()
             val snapshot = try {
                 auditRepository.getAuditInstallations(dealId)
             } catch (_: Exception) {
                 AuditInstallations()
-            }
+            }.withPending(dealScope)
             // Cisza przy błędzie: pasek blokady jest informacją, a nie warunkiem
             // pokazania oferty — zapisu i tak pilnuje API przy audycie.
             val lock = auditRepository.getOfferLock(dealId)
@@ -2085,6 +2314,11 @@ class DealDetailViewModel @Inject constructor(
                         selectedIndex = if (withAudit >= 0) withAudit else 0,
                         lock = lock,
                         error = error,
+                    ),
+                    offerScope = state.offerScope.loadedFrom(
+                        stage = InstallationStage.ANGEBOT,
+                        categories = categories,
+                        deal = dealScope,
                     ),
                 )
             }

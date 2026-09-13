@@ -62,6 +62,35 @@ fun CategoryNode.selectedCount(selected: Set<String>): Int =
     subtreeIds().count { it in selected }
 
 /**
+ * Wybór po dotknięciu węzła drzewa zakresu. Zwykle przełącza sam węzeł, ale
+ * tuż po „+ Dodaj instalację" kategoria siedzi w wyborze jako pozycja ogólna
+ * (`refiningRoot`) i pierwsza doprecyzowana pozycja z jej gałęzi ją ZASTĘPUJE
+ * — 1:1 z drillem panelu, gdzie „Klimatyzacja" + „GREE" nie stoją obok siebie.
+ */
+fun toggleInSelection(
+    nodes: List<CategoryNode>,
+    current: Set<String>,
+    categoryId: String,
+    refiningRoot: String?,
+): Set<String> {
+    if (categoryId in current) return current - categoryId
+    val root = refiningRoot
+        ?.takeIf { it in current && it != categoryId }
+        ?.let { id -> nodes.firstOrNull { it.id == id } }
+    return if (root != null && categoryId in root.subtreeIds()) {
+        current - root.id + categoryId
+    } else {
+        current + categoryId
+    }
+}
+
+/** Wybór bez całej gałęzi kategorii głównej — przycisk „−" przy instalacji. */
+fun withoutBranch(nodes: List<CategoryNode>, current: Set<String>, rootId: String): Set<String> {
+    val branch = nodes.firstOrNull { it.id == rootId }?.subtreeIds()?.toSet() ?: setOf(rootId)
+    return current - branch
+}
+
+/**
  * Drzewo przycięte do samej ścieżki wyboru — bez pustych kategorii i bez
  * wyszarzonego rodzeństwa marek. Tak zakres pokazuje zakładka „Zamówienie":
  * zamawiamy dokładnie to, co klient kupił, więc alternatywy, których nie wziął,
