@@ -581,6 +581,28 @@ val MIGRATION_14_15 = object : Migration(14, 15) {
 }
 
 /**
+ * v30 — automatyczna transkrypcja nagrań rozmów.
+ *
+ * TeamTalk dogrywa nagranie z systemowej nagrywarki Samsunga, a serwer zamienia
+ * je na tekst i streszcza. `voice_reports` dostaje streszczenie, ustalenia,
+ * następny krok i stan kolejki — żeby ekran połączenia pokazywał je także bez
+ * zasięgu. Ustalenia i krok miał już DTO (ręczne streszczenia z panelu), tylko
+ * cache ich nie trzymał.
+ *
+ * Stare wiersze zostają z pustymi kolumnami; najbliższe odświeżenie listy notatek
+ * i tak nadpisuje je pełnymi danymi z serwera.
+ */
+val MIGRATION_29_30 = object : Migration(29, 30) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.addColumnIfMissing("voice_reports", "summary", "TEXT")
+        db.addColumnIfMissing("voice_reports", "agreements", "TEXT")
+        db.addColumnIfMissing("voice_reports", "nextStep", "TEXT")
+        db.addColumnIfMissing("voice_reports", "transcriptionStatus", "TEXT")
+        db.addColumnIfMissing("voice_reports", "transcriptionError", "TEXT")
+    }
+}
+
+/**
  * `ALTER TABLE … ADD COLUMN`, które przeżywa telefon deweloperski.
  *
  * Zwykłe `ADD COLUMN` wywraca migrację na „duplicate column name", gdy kolumna
@@ -1334,5 +1356,29 @@ val MIGRATION_27_28 = object : Migration(27, 28) {
         db.addColumnIfMissing("map_points", "fleetSpeed", "REAL")
         db.addColumnIfMissing("map_points", "fleetIgnition", "INTEGER")
         db.addColumnIfMissing("map_points", "fleetHasTracker", "INTEGER")
+    }
+}
+
+/**
+ * v29 — wykrywanie konfliktu zapisu audytu (rysowanie rzutu OP na telefonie).
+ *
+ *  • `audits.updatedAt` — wersja rekordu na serwerze; z niej bierze się
+ *    `expectedUpdatedAt` przy wysyłce,
+ *  • `audit_mutations.baseUpdatedAt` — wersja, na której audytor ZACZĄŁ edycję
+ *    (nie zmienia się przy kolejnych zapisach przed wysyłką),
+ *  • `audit_mutations.conflictJson` / `conflictAt` — bieżący audyt z 409
+ *    `AUDIT_STALE`; wiersz z konfliktem czeka na decyzję człowieka.
+ *
+ * Stare wiersze zostają z pustymi kolumnami: wyślą się bez warunku, dokładnie
+ * jak przed tą wersją — nic, co już leży w kolejce, nie utknie.
+ *
+ * `addColumnIfMissing`, a nie gołe ALTER — patrz komentarz przy helperze.
+ */
+val MIGRATION_28_29 = object : Migration(28, 29) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.addColumnIfMissing("audits", "updatedAt", "TEXT")
+        db.addColumnIfMissing("audit_mutations", "baseUpdatedAt", "TEXT")
+        db.addColumnIfMissing("audit_mutations", "conflictJson", "TEXT")
+        db.addColumnIfMissing("audit_mutations", "conflictAt", "INTEGER")
     }
 }

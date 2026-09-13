@@ -82,6 +82,8 @@ fun DealDetailScreen(
     onOpenProject: (projectId: String) -> Unit,
     /** Karta zadania z zakładki „Zadania" — ten sam ekran co w module. */
     onOpenTask: (taskId: String) -> Unit,
+    /** Wątek poczty z zakładki „Komunikacja" — ten sam ekran co w module Email. */
+    onOpenEmailThread: (threadId: String) -> Unit,
     /**
      * Kreator zadania z tym dealem wpisanym na sztywno. Sekcja idzie z „+"
      * przy nagłówku, a gdy jej nie ma — z etapu deala (ustalenie 2026-09-08).
@@ -261,6 +263,10 @@ fun DealDetailScreen(
                                 state = state,
                                 viewModel = viewModel,
                             )
+                            DealTab.MONTAZ -> DealMontazTab(
+                                state = state,
+                                viewModel = viewModel,
+                            )
                             DealTab.FAKTURA -> DealInvoiceTab(
                                 state = state,
                                 viewModel = viewModel,
@@ -269,8 +275,17 @@ fun DealDetailScreen(
                                 state = state,
                                 viewModel = viewModel,
                             )
+                            DealTab.KOMUNIKACJA -> DealCommsTab(
+                                state = state,
+                                // Wątek poczty otwiera się ekranem MODUŁU Email
+                                // — to ten sam wątek, który leży w skrzynce,
+                                // więc odpowiadanie i załączniki działają tam
+                                // tak samo jak poza kartą.
+                                onOpenEmailThread = onOpenEmailThread,
+                                viewModel = viewModel,
+                            )
                             DealTab.HISTORIA -> DealHistoryTab(detail.activities, state.members)
-                            DealTab.PODSUMOWANIE -> DealSummaryTab(detail, state.members)
+                            DealTab.PODSUMOWANIE -> DealSummaryTab(state, detail, state.members)
                             else -> TabPlaceholder(state.tab)
                         }
                     }

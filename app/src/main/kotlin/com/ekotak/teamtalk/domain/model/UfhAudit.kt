@@ -227,10 +227,11 @@ data class UfhFloor(
     /** Metraże wg rozstawu rur — klucz z `UfhAreaField.key`. */
     val areas: Map<String, String> = emptyMap(),
     /**
-     * Pola rzutu kondygnacji zapisane w panelu (kropki rozdzielaczy, obrysy,
-     * skala, historia, podpisy) jako surowy JSON. Telefon ich NIE edytuje —
-     * przenosi je z odczytu do zapisu bez zmian. `null` = nic takiego nie było
-     * zapisane.
+     * Pola rzutu kondygnacji (kropki rozdzielaczy, źródło ciepła, obrysy, skala,
+     * historia, podpisy) jako surowy JSON w kształcie zapisu panelu. Bez edycji
+     * przechodzą przez telefon nietknięte; edytor rzutu czyta je przez
+     * `planState()` i zapisuje przez `withPlanState()` / `patchFloorPlan()`
+     * (`domain/ufh/UfhFloorPlanState.kt`). `null` = nic takiego nie było zapisane.
      */
     val planJson: String? = null,
 ) {

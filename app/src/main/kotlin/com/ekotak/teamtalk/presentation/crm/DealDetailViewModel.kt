@@ -1,24 +1,34 @@
 package com.ekotak.teamtalk.presentation.crm
 
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ekotak.teamtalk.BuildConfig
+import com.ekotak.teamtalk.data.files.AuditPhotoScaler
+import com.ekotak.teamtalk.data.files.DocumentFileStore
+import com.ekotak.teamtalk.data.files.MontazPhotoStore
+import com.ekotak.teamtalk.data.mapper.isoNow
 import com.ekotak.teamtalk.domain.model.ArticleGate
 import com.ekotak.teamtalk.domain.model.AssistantMessage
 import com.ekotak.teamtalk.domain.model.Audit
+import com.ekotak.teamtalk.domain.model.AuditAuthor
+import com.ekotak.teamtalk.domain.model.AuditConflict
+import com.ekotak.teamtalk.data.sync.FloorPlanPrefetchScheduler
+import com.ekotak.teamtalk.domain.model.AuditPhotoMeta
+import com.ekotak.teamtalk.domain.model.AuditPhotoPlan
+import com.ekotak.teamtalk.domain.model.PhotoFloor
+import com.ekotak.teamtalk.domain.model.buildAuditPhotoPlan
+import com.ekotak.teamtalk.domain.model.auditPhotoFileName
 import com.ekotak.teamtalk.domain.model.AuditAddressKind
+import com.ekotak.teamtalk.domain.model.BriefingAck
+import com.ekotak.teamtalk.domain.model.CallSummaryDraft
 import com.ekotak.teamtalk.domain.model.Category
 import com.ekotak.teamtalk.domain.model.CategoryNode
 import com.ekotak.teamtalk.domain.model.Client
 import com.ekotak.teamtalk.domain.model.ClientDraft
-import com.ekotak.teamtalk.domain.model.Deal
-import com.ekotak.teamtalk.domain.model.DealBuildingKind
-import com.ekotak.teamtalk.domain.model.DealDetail
-import com.ekotak.teamtalk.domain.model.DealDocument
-import com.ekotak.teamtalk.domain.model.DealDraft
-import com.ekotak.teamtalk.domain.model.DealInvoices
-import com.ekotak.teamtalk.domain.model.InvoiceRachunek
-import com.ekotak.teamtalk.domain.model.DealSettlement
+import com.ekotak.teamtalk.domain.model.CommChannel
+import com.ekotak.teamtalk.domain.model.CommsSendResult
 import com.ekotak.teamtalk.domain.model.ContractFilling
 import com.ekotak.teamtalk.domain.model.ContractItem
 import com.ekotak.teamtalk.domain.model.ContractKind
@@ -26,75 +36,118 @@ import com.ekotak.teamtalk.domain.model.ContractMaterial
 import com.ekotak.teamtalk.domain.model.ContractPreview
 import com.ekotak.teamtalk.domain.model.ContractStage
 import com.ekotak.teamtalk.domain.model.ContractStatus
+import com.ekotak.teamtalk.domain.model.Deal
+import com.ekotak.teamtalk.domain.model.DealBuildingKind
+import com.ekotak.teamtalk.domain.model.DealCallSummary
+import com.ekotak.teamtalk.domain.model.DealComment
 import com.ekotak.teamtalk.domain.model.DealContract
+import com.ekotak.teamtalk.domain.model.DealDetail
+import com.ekotak.teamtalk.domain.model.DealDocument
+import com.ekotak.teamtalk.domain.model.DealDraft
+import com.ekotak.teamtalk.domain.model.DealInvoices
 import com.ekotak.teamtalk.domain.model.DealOffer
 import com.ekotak.teamtalk.domain.model.DealOrder
+import com.ekotak.teamtalk.domain.model.DealSettlement
 import com.ekotak.teamtalk.domain.model.DealStage
 import com.ekotak.teamtalk.domain.model.DocumentCategory
-import com.ekotak.teamtalk.domain.model.isImageOrPdfUpload
-import com.ekotak.teamtalk.domain.model.slotLabel
-import com.ekotak.teamtalk.domain.model.slotLimit
-import com.ekotak.teamtalk.domain.model.withSlot
-import com.ekotak.teamtalk.domain.model.PurchaseLine
-import com.ekotak.teamtalk.domain.model.StockReservation
-import com.ekotak.teamtalk.domain.model.pruneToSelected
+import com.ekotak.teamtalk.domain.model.Edit
+import com.ekotak.teamtalk.domain.model.EmailDraft
+import com.ekotak.teamtalk.domain.model.EmailDraftAttachment
+import com.ekotak.teamtalk.domain.model.EmailThread
 import com.ekotak.teamtalk.domain.model.InstallationStage
+import com.ekotak.teamtalk.domain.model.InvoiceRachunek
 import com.ekotak.teamtalk.domain.model.KnowledgeArticle
+import com.ekotak.teamtalk.domain.model.LeadBuilding
 import com.ekotak.teamtalk.domain.model.LeadIntake
+import com.ekotak.teamtalk.domain.model.Mailbox
+import com.ekotak.teamtalk.domain.model.MaterialStatus
 import com.ekotak.teamtalk.domain.model.MeetingKind
+import com.ekotak.teamtalk.domain.model.Montaz
+import com.ekotak.teamtalk.domain.model.MontazAssignee
+import com.ekotak.teamtalk.domain.model.MontazCrew
+import com.ekotak.teamtalk.domain.model.MontazMaterial
+import com.ekotak.teamtalk.domain.model.MontazPhoto
+import com.ekotak.teamtalk.domain.model.MontazZakres
+import com.ekotak.teamtalk.domain.model.NO_SECTION_LABEL
 import com.ekotak.teamtalk.domain.model.OfferLock
 import com.ekotak.teamtalk.domain.model.Project
-import com.ekotak.teamtalk.domain.model.NO_SECTION_LABEL
-import com.ekotak.teamtalk.domain.model.Edit
+import com.ekotak.teamtalk.domain.model.PurchaseLine
+import com.ekotak.teamtalk.domain.model.StockReservation
 import com.ekotak.teamtalk.domain.model.Task
+import com.ekotak.teamtalk.domain.model.TaskLink
 import com.ekotak.teamtalk.domain.model.TaskMember
 import com.ekotak.teamtalk.domain.model.TaskPatch
 import com.ekotak.teamtalk.domain.model.TaskPriority
 import com.ekotak.teamtalk.domain.model.TaskSection
 import com.ekotak.teamtalk.domain.model.TaskStatus
-import com.ekotak.teamtalk.domain.model.sectionFromStage
 import com.ekotak.teamtalk.domain.model.UfhState
+import com.ekotak.teamtalk.domain.model.WhatsappMessage
 import com.ekotak.teamtalk.domain.model.ancestorsOfSelected
 import com.ekotak.teamtalk.domain.model.applyBuildingToUfh
 import com.ekotak.teamtalk.domain.model.buildCategoryTree
 import com.ekotak.teamtalk.domain.model.categoryIdPath
 import com.ekotak.teamtalk.domain.model.categoryPath
-import com.ekotak.teamtalk.domain.model.resolveAuditForm
-import com.ekotak.teamtalk.domain.model.ufhMissingAnswers
 import com.ekotak.teamtalk.domain.model.hasChangesFrom
+import com.ekotak.teamtalk.domain.model.isImageOrPdfUpload
 import com.ekotak.teamtalk.domain.model.nextStages
+import com.ekotak.teamtalk.domain.model.policzPodglad
+import com.ekotak.teamtalk.domain.model.pruneToSelected
+import com.ekotak.teamtalk.domain.model.resolveAuditForm
+import com.ekotak.teamtalk.domain.model.sectionFromStage
+import com.ekotak.teamtalk.domain.model.slotLabel
+import com.ekotak.teamtalk.domain.model.slotLimit
 import com.ekotak.teamtalk.domain.model.toDraft
+import com.ekotak.teamtalk.domain.model.ufhMissingAnswers
+import com.ekotak.teamtalk.domain.model.withSlot
+import com.ekotak.teamtalk.domain.montaz.CoverageSummary
+import com.ekotak.teamtalk.domain.montaz.MontazRobota
+import com.ekotak.teamtalk.domain.montaz.MontazToolGroup
+import com.ekotak.teamtalk.domain.montaz.RoleCoverage
+import com.ekotak.teamtalk.domain.montaz.RolePerson
+import com.ekotak.teamtalk.domain.montaz.coverageSummary
+import com.ekotak.teamtalk.domain.montaz.montazRobota
+import com.ekotak.teamtalk.domain.montaz.montazToolNotes
+import com.ekotak.teamtalk.domain.montaz.montazTools
+import com.ekotak.teamtalk.domain.montaz.roleCoverage
+import com.ekotak.teamtalk.domain.montaz.suggestRole
 import com.ekotak.teamtalk.domain.repository.AuditInstallations
 import com.ekotak.teamtalk.domain.repository.AuditRepository
-import com.ekotak.teamtalk.domain.repository.DealDocumentRepository
 import com.ekotak.teamtalk.domain.repository.AuditSaveResult
 import com.ekotak.teamtalk.domain.repository.AuthRepository
 import com.ekotak.teamtalk.domain.repository.ContractOrderRebuild
 import com.ekotak.teamtalk.domain.repository.ContractRepository
-import com.ekotak.teamtalk.domain.repository.InvoiceRepository
 import com.ekotak.teamtalk.domain.repository.ContractSaveResult
-import com.ekotak.teamtalk.domain.repository.OfferPricingRepository
+import com.ekotak.teamtalk.domain.repository.DealCommsRepository
+import com.ekotak.teamtalk.domain.repository.DealDocumentRepository
 import com.ekotak.teamtalk.domain.repository.DealProjectSaveResult
+import com.ekotak.teamtalk.domain.repository.EmailRepository
+import com.ekotak.teamtalk.domain.repository.InvoiceRepository
+import com.ekotak.teamtalk.domain.repository.MontazPatch
+import com.ekotak.teamtalk.domain.repository.MontazRepository
+import com.ekotak.teamtalk.domain.repository.MontazSaveResult
+import com.ekotak.teamtalk.domain.repository.OfferPricingRepository
 import com.ekotak.teamtalk.domain.repository.OrderRepository
-import com.ekotak.teamtalk.domain.repository.ProjectRepository
 import com.ekotak.teamtalk.domain.repository.OrderSaveResult
+import com.ekotak.teamtalk.domain.repository.ProjectRepository
 import com.ekotak.teamtalk.domain.repository.SettlementRepository
 import com.ekotak.teamtalk.domain.repository.SettlementSaveResult
 import com.ekotak.teamtalk.domain.repository.TaskRepository
-import com.ekotak.teamtalk.domain.ufh.OfferPricing
-import com.ekotak.teamtalk.BuildConfig
-import com.ekotak.teamtalk.domain.model.policzPodglad
 import com.ekotak.teamtalk.domain.ufh.ContractScopeInstallation
-import com.ekotak.teamtalk.domain.ufh.contractScopeItems
-import com.ekotak.teamtalk.domain.ufh.przedmiotZAutomatu
-import com.ekotak.teamtalk.domain.ufh.scalPozycje
-import com.ekotak.teamtalk.domain.ufh.PointRate
-import com.ekotak.teamtalk.domain.ufh.ratesForPath
+import com.ekotak.teamtalk.domain.ufh.FloorPlanPatch
+import com.ekotak.teamtalk.domain.ufh.patchFloorPlan
+import com.ekotak.teamtalk.domain.ufh.stampPlanAuthors
+import com.ekotak.teamtalk.domain.ufh.OfferPricing
 import com.ekotak.teamtalk.domain.ufh.PlanPrep
+import com.ekotak.teamtalk.domain.ufh.PointRate
+import com.ekotak.teamtalk.domain.ufh.contractScopeItems
 import com.ekotak.teamtalk.domain.ufh.planPrepToJson
 import com.ekotak.teamtalk.domain.ufh.prepEmpty
-import com.ekotak.teamtalk.data.files.DocumentFileStore
+import com.ekotak.teamtalk.domain.ufh.przedmiotZAutomatu
+import com.ekotak.teamtalk.domain.ufh.ratesForPath
+import com.ekotak.teamtalk.domain.ufh.scalPozycje
 import com.ekotak.teamtalk.domain.usecase.calllog.MakeCallUseCase
+import com.ekotak.teamtalk.domain.usecase.client.GetClientsUseCase
+import com.ekotak.teamtalk.domain.usecase.client.NavigateToClientUseCase
 import com.ekotak.teamtalk.domain.usecase.client.UpdateClientUseCase
 import com.ekotak.teamtalk.domain.usecase.deal.AddDealCompanionUseCase
 import com.ekotak.teamtalk.domain.usecase.deal.AskDealAssistantUseCase
@@ -105,21 +158,22 @@ import com.ekotak.teamtalk.domain.usecase.deal.GetDealCompanionsUseCase
 import com.ekotak.teamtalk.domain.usecase.deal.GetDealDetailUseCase
 import com.ekotak.teamtalk.domain.usecase.deal.GetDealInstallationsUseCase
 import com.ekotak.teamtalk.domain.usecase.deal.GetKnowledgeArticlesUseCase
+import com.ekotak.teamtalk.domain.usecase.deal.GetLeadIntakeUseCase
+import com.ekotak.teamtalk.domain.usecase.deal.RemoveDealCompanionUseCase
 import com.ekotak.teamtalk.domain.usecase.deal.SendArticleToClientUseCase
 import com.ekotak.teamtalk.domain.usecase.deal.SetDealInstallationsUseCase
-import com.ekotak.teamtalk.domain.usecase.deal.GetLeadIntakeUseCase
-import com.ekotak.teamtalk.domain.usecase.deal.UpdateLeadNoteUseCase
-import com.ekotak.teamtalk.domain.usecase.deal.RemoveDealCompanionUseCase
 import com.ekotak.teamtalk.domain.usecase.deal.SetPrimaryDealContactUseCase
 import com.ekotak.teamtalk.domain.usecase.deal.UpdateDealUseCase
-import com.ekotak.teamtalk.domain.usecase.client.GetClientsUseCase
-import com.ekotak.teamtalk.domain.usecase.client.NavigateToClientUseCase
+import com.ekotak.teamtalk.domain.usecase.deal.UpdateLeadBuildingUseCase
+import com.ekotak.teamtalk.domain.usecase.deal.UpdateLeadNoteUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.ExperimentalCoroutinesApi
+import java.io.File
+import java.time.LocalDate
+import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -129,10 +183,8 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonObject
-import javax.inject.Inject
-import java.io.File
-import java.time.LocalDate
 
 /**
  * Uprawnienie board360 wymagane do zmiany etapu, edycji karty i kontaktów.
@@ -183,6 +235,20 @@ private const val PERMISSION_TASKS_MANAGE = "tasks.manage"
 private const val CONTACT_SEARCH_DEBOUNCE_MS = 250L
 
 /**
+ * Dłuższy bok rzutu ściąganego na zapas dla zakładki „Montaż". Tyle, żeby dało
+ * się odczytać opisy pomieszczeń po powiększeniu, i nie więcej: kilka rzutów
+ * w pełnej rozdzielczości zjadłoby pamięć telefonu z rękawicą w kieszeni.
+ */
+private const val MONTAZ_PLAN_PX = 900
+
+/**
+ * Potwierdzenie zapisu bez zasięgu (zakładka „Komunikacja"). Mówimy wprost, że
+ * wiadomość CZEKA — „wysłano" byłoby wtedy nieprawdą, a człowiek na budowie ma
+ * wiedzieć, czy klient już to widzi.
+ */
+private const val QUEUED_MESSAGE = "Brak zasięgu — wiadomość czeka w kolejce i poleci sama."
+
+/**
  * Limit pliku deala po stronie board360 (`FileInterceptor` kontrolera
  * dokumentów). Sprawdzamy go PRZED wrzuceniem do kolejki: plik odrzucony
  * dopiero przy wysyłce zniknąłby z karty godzinę po tym, jak ktoś go dodał.
@@ -222,6 +288,7 @@ class DealDetailViewModel @Inject constructor(
     private val askAssistantUseCase: AskDealAssistantUseCase,
     private val getLeadIntakeUseCase: GetLeadIntakeUseCase,
     private val updateLeadNoteUseCase: UpdateLeadNoteUseCase,
+    private val updateLeadBuildingUseCase: UpdateLeadBuildingUseCase,
     private val getDealInstallationsUseCase: GetDealInstallationsUseCase,
     private val setDealInstallationsUseCase: SetDealInstallationsUseCase,
     private val getCategoriesUseCase: GetCategoriesUseCase,
@@ -238,9 +305,15 @@ class DealDetailViewModel @Inject constructor(
     private val settlementRepository: SettlementRepository,
     private val contractRepository: ContractRepository,
     private val invoiceRepository: InvoiceRepository,
+    private val montazRepository: MontazRepository,
+    private val montazPhotos: MontazPhotoStore,
+    private val auditPhotoScaler: AuditPhotoScaler,
     private val dealDocumentRepository: DealDocumentRepository,
+    private val dealCommsRepository: DealCommsRepository,
+    private val emailRepository: EmailRepository,
     private val projectRepository: ProjectRepository,
     private val documentFiles: DocumentFileStore,
+    private val floorPlanPrefetch: FloorPlanPrefetchScheduler,
     private val makeCallUseCase: MakeCallUseCase,
 ) : ViewModel() {
 
@@ -251,6 +324,13 @@ class DealDetailViewModel @Inject constructor(
 
     /** Strumień zadań; zakładany raz, przy pierwszym wejściu w zakładkę. */
     private var tasksJob: Job? = null
+
+    /**
+     * Strumień wątków poczty deala (zakładka „Komunikacja"). Też zakładany raz:
+     * wysyłka z karty i opróżnienie kolejki modułu Email wpadają do tego samego
+     * Rooma, więc lista odświeża się sama.
+     */
+    private var dealThreadsJob: Job? = null
 
     /**
      * Ręczna kolejność zadań (preferencja `tasks.order`, wspólna z panelem).
@@ -278,6 +358,17 @@ class DealDetailViewModel @Inject constructor(
      * `intake == null` przy `loaded == true` to normalny stan: deal wpisany
      * ręcznie w panelu nie ma zgłoszenia z leadowni.
      */
+    /**
+     * Zakładka „Podsumowanie". Liczniki i kwotę składamy z danych, które i tak
+     * ma reszta karty (oferty, zamówienia, zadania, pliki, historia) — dokładamy
+     * tu wyłącznie nazwy instalacji BIEŻĄCEGO etapu, bo żadna inna zakładka ich
+     * nie trzyma (LEAD ma migawkę „lead", Audyt „audit" itd.).
+     */
+    data class SummaryState(
+        val loaded: Boolean = false,
+        val installations: List<String> = emptyList(),
+    )
+
     data class LeadState(
         val isLoading: Boolean = false,
         val loaded: Boolean = false,
@@ -301,6 +392,8 @@ class DealDetailViewModel @Inject constructor(
         val noteDraft: String = "",
         val savedNote: String = "",
         val isSavingNote: Boolean = false,
+        /** Trwa zapis ręcznej korekty danych budynku ze zgłoszenia. */
+        val isSavingBuilding: Boolean = false,
         val error: String? = null,
     ) {
         val isNoteDirty: Boolean get() = noteDraft.trim() != savedNote.trim()
@@ -758,6 +851,8 @@ class DealDetailViewModel @Inject constructor(
         val queuedIds: Set<String> = emptySet(),
         val visibleCount: Int = 0,
         val totalCount: Int = 0,
+        /** Niezakończone zadania deala — licznik „otwarte/wszystkie". */
+        val openCount: Int = 0,
     )
 
     /** Sekcja zadań w zakładce; `section == null` to kubełek „Bez sekcji". */
@@ -801,6 +896,126 @@ class DealDetailViewModel @Inject constructor(
         val error: String? = null,
     )
 
+    /**
+     * Zakładka „Montaż" — teczka robocza ekipy, 1:1 z `DealMontazPanel`.
+     *
+     * Wszystko poniżej paska etapów dotyczy JEDNEGO montażu ([selected]), bo
+     * deal ma ich zwykle kilka (podłogówka teraz, pompa ciepła po wylewce).
+     * Rachunki pochodne — pokrycie ról, lista sprzętu, rysunki — liczymy tutaj
+     * przy każdej zmianie zakresu albo obsady, a nie w composable: to te same
+     * czyste funkcje, których używa panel, i nie mają po co chodzić przy
+     * każdym przerysowaniu ekranu.
+     */
+    data class MontazState(
+        val isLoading: Boolean = false,
+        val loaded: Boolean = false,
+        val isSaving: Boolean = false,
+        val montaze: List<Montaz> = emptyList(),
+        val crews: List<MontazCrew> = emptyList(),
+        /** Wybór trzymamy po id, nie po indeksie — dopisany etap przesuwa listę. */
+        val selectedId: String? = null,
+        /** Katalog po id — źródło ról montażowych, sprzętu i ścieżek węzłów. */
+        val catalog: Map<String, Category> = emptyMap(),
+        /** Węzły instalacji deala na etapie „montaz" — z czego wybiera się zakres. */
+        val scopeIds: List<String> = emptyList(),
+        val materials: List<MontazMaterial> = emptyList(),
+        val materialsLoaded: Boolean = false,
+        val photos: List<MontazPhoto> = emptyList(),
+        /** Odhaczone pozycje listy pakowania — stan lokalny telefonu. */
+        val packed: Set<String> = emptySet(),
+        val coverage: List<RoleCoverage> = emptyList(),
+        val summary: CoverageSummary? = null,
+        val tools: List<MontazToolGroup> = emptyList(),
+        val toolNotes: List<String> = emptyList(),
+        val robota: List<MontazRobota> = emptyList(),
+        /** Załącznik nr 1 podpisanej umowy; `null` = deal jej nie ma. */
+        val zakres: MontazZakres? = null,
+        val ack: BriefingAck? = null,
+        val note: String = "",
+        val noteDirty: Boolean = false,
+        val fromCache: Boolean = false,
+        val error: String? = null,
+    ) {
+        /** Wybrany montaż; przy pustym wyborze pierwszy z listy, jak w panelu. */
+        val selected: Montaz?
+            get() = montaze.firstOrNull { it.id == selectedId } ?: montaze.firstOrNull()
+
+        /** Pozycje do wydania i braki — po nich liczy się nagłówek magazynu. */
+        val toIssue: List<MontazMaterial> get() = materials.filter { it.status == MaterialStatus.ACTIVE }
+        val issued: List<MontazMaterial> get() = materials.filter { it.status == MaterialStatus.DONE }
+        val shortages: List<MontazMaterial> get() = toIssue.filter { it.missing > 0 }
+    }
+
+    /**
+     * Wiadomość pisana w oknie poczty na zakładce „Komunikacja". Adresatów
+     * i DW trzymamy jako SUROWY TEKST, a nie listę: człowiek pisze je przecinkami
+     * i musi widzieć dokładnie to, co wpisał, także w połowie adresu.
+     */
+    data class DealEmailCompose(
+        /** Skrzynka nadawcy; wybór z listy, gdy osoba ma ich więcej niż jedną. */
+        val accountId: String,
+        val fromAddress: String,
+        val to: String = "",
+        val cc: String = "",
+        val subject: String = "",
+        val body: String = "",
+        val attachments: List<EmailDraftAttachment> = emptyList(),
+    )
+
+    /**
+     * Zakładka „Komunikacja" karty deala — hub kanałów zawężony do tego deala,
+     * 1:1 z `DealCommsPanel` panelu.
+     *
+     * Kanały ładujemy OSOBNO, dopiero przy wejściu w kanał: cztery zapytania
+     * naraz przy każdym wejściu w zakładkę byłyby marnotrawstwem, bo handlowiec
+     * wchodzi tu zwykle po jedną rzecz („co ustaliliśmy przez telefon?", „napisz
+     * do zespołu"). Stąd osobne znaczniki `…Loaded` zamiast jednego.
+     *
+     * Poczta nie ma tu własnego cache — czyta ją to samo repozytorium, co moduł
+     * Email, tylko innym widokiem (`observeDealThreads`). Dzięki temu wątek
+     * otwarty z karty jest tym samym wątkiem, który leży w skrzynce, i nie
+     * trzeba go pobierać drugi raz.
+     */
+    data class CommsState(
+        val channel: CommChannel = CommChannel.KOMUNIKATOR,
+        val isLoading: Boolean = false,
+        val error: String? = null,
+
+        // Komunikator wewnętrzny
+        val commentsLoaded: Boolean = false,
+        val comments: List<DealComment> = emptyList(),
+        val isSendingComment: Boolean = false,
+
+        // Email (widok karty)
+        val emailLoaded: Boolean = false,
+        val threads: List<EmailThread> = emptyList(),
+        val mailboxes: List<Mailbox> = emptyList(),
+        val compose: DealEmailCompose? = null,
+        val isSendingEmail: Boolean = false,
+
+        // WhatsApp
+        val whatsappLoaded: Boolean = false,
+        val whatsapp: List<WhatsappMessage> = emptyList(),
+        val whatsappDraft: String = "",
+        val isSendingWhatsapp: Boolean = false,
+
+        // Telefon
+        val callsLoaded: Boolean = false,
+        val calls: List<DealCallSummary> = emptyList(),
+        /** `null` = okno „dopisz streszczenie" zamknięte. */
+        val callForm: CallSummaryDraft? = null,
+        val isSavingCall: Boolean = false,
+    ) {
+        /** Czy wybrany kanał ma już dane — decyduje o „Wczytuję…" vs pustce. */
+        fun loadedFor(channel: CommChannel): Boolean = when (channel) {
+            CommChannel.KOMUNIKATOR -> commentsLoaded
+            CommChannel.EMAIL -> emailLoaded
+            CommChannel.WHATSAPP -> whatsappLoaded
+            CommChannel.TELEFON -> callsLoaded
+            CommChannel.SMS -> true
+        }
+    }
+
     data class UiState(
         val isLoading: Boolean = true,
         val isSaving: Boolean = false,
@@ -828,7 +1043,10 @@ class DealDetailViewModel @Inject constructor(
         val settlement: SettlementState = SettlementState(),
         val contracts: ContractsState = ContractsState(),
         val invoices: InvoicesState = InvoicesState(),
+        val montaz: MontazState = MontazState(),
+        val comms: CommsState = CommsState(),
         val tasks: TasksState = TasksState(),
+        val summary: SummaryState = SummaryState(),
         /**
          * Uprawnienia z `GET /api/me`. Trzymamy CAŁY zestaw, a nie same
          * `deal.manage`: zakładka „Zamówienie" pyta jeszcze o `order.manage`
@@ -837,6 +1055,31 @@ class DealDetailViewModel @Inject constructor(
          */
         val permissions: Set<String> = emptySet(),
     ) {
+        /**
+         * Lista kadrów audytu wybranej instalacji — kadry budynku (wspólne),
+         * po jednym na każdy rozdzielacz z formularza i dodatkowe. Liczona ze
+         * STANU, a nie trzymana osobno, bo obie strony (pliki i formularz) już
+         * w nim są, a dwa źródła prawdy rozjechałyby licznik „5 z 8".
+         */
+        val auditPhotoPlan: AuditPhotoPlan
+            get() = buildAuditPhotoPlan(
+                documents = files.documents,
+                floors = audit.form?.floors?.map {
+                    // Rodzaje skrzynek bierze się z kropek na rzucie, a tych
+                    // telefon nie edytuje — kafelek zostaje przy ogólnej
+                    // podpowiedzi zamiast zgadywać.
+                    PhotoFloor(name = it.name, manifolds = it.manifolds)
+                }.orEmpty(),
+                categoryId = audit.formOwnerId,
+            )
+
+        /**
+         * Braki audytu razem: pytania bez odpowiedzi i brakujące zdjęcia.
+         * Zdjęcie jest częścią tej samej roboty, więc ma być w tej samej liście
+         * — ale tak samo jak pytania NIE blokuje zapisu.
+         */
+        val auditMissing: List<String> get() = audit.missing + auditPhotoPlan.missing
+
         /** Zakładanie zamówień i odhaczanie pozycji (board360: `order.manage`). */
         val canManageOrders: Boolean get() = PERMISSION_ORDER_MANAGE in permissions
 
@@ -894,6 +1137,21 @@ class DealDetailViewModel @Inject constructor(
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
     /**
+     * Zapisy audytów tego deala, których serwer nie przyjął, bo audyt zmieniono
+     * w panelu od wersji, na której audytor zaczął edycję (409 `AUDIT_STALE`).
+     * Osobny strumień, a nie pole [UiState]: konflikt wykrywa zwykle worker
+     * w tle, kiedy karta już stoi na ekranie. Rozstrzyga [resolveAuditConflict].
+     */
+    val auditConflicts: StateFlow<List<AuditConflict>> = auditRepository
+        .observeConflicts(dealId)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** Zalogowany jako autor zmian w rzucie — do `byName`/`by` podpisów i historii. */
+    val auditAuthor: StateFlow<AuditAuthor?> = auditRepository
+        .observeAuthor()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /**
      * Wyszukiwarka kartoteki dla okna „dodaj kontakt". Kontakt towarzyszący to
      * zawsze istniejący rekord kartoteki, więc zamiast formularza dajemy szukanie
      * po tej samej liście, którą telefon i tak trzyma w cache Room.
@@ -938,6 +1196,9 @@ class DealDetailViewModel @Inject constructor(
                     )
                 }
                 loadCompanions()
+                // Rzuty kondygnacji na dysk telefonu, póki jest zasięg — edytor
+                // rzutu w audycie OP ma działać potem w domu w budowie bez sieci.
+                if (!silent) floorPlanPrefetch.schedule(dealId)
                 // Zakładka „LEAD" raz wczytana ma być tak samo świeża jak reszta
                 // karty — instalacje i notatka mogły się zmienić w panelu.
                 if (_uiState.value.lead.loaded) loadLead(force = true)
@@ -1025,6 +1286,9 @@ class DealDetailViewModel @Inject constructor(
         if (tab == DealTab.ROZLICZENIE) loadSettlement()
         if (tab == DealTab.UMOWA) loadContracts()
         if (tab == DealTab.FAKTURA) loadInvoices()
+        if (tab == DealTab.MONTAZ) loadMontaz()
+        if (tab == DealTab.KOMUNIKACJA) loadComms()
+        if (tab == DealTab.PODSUMOWANIE) loadSummary()
     }
 
     // ── Zakładka „LEAD" ──────────────────────────────────────────────────────
@@ -1217,11 +1481,15 @@ class DealDetailViewModel @Inject constructor(
                 it.copy(lead = it.lead.copy(isSendingArticle = true), message = null)
             }
             try {
-                sendArticleToClientUseCase(dealId, article)
+                val sent = sendArticleToClientUseCase(dealId, article)
                 _uiState.update {
                     it.copy(
                         lead = it.lead.copy(isSendingArticle = false, sendingArticleFor = null),
-                        message = "Wysłano artykuł klientowi",
+                        message = if (sent == CommsSendResult.QUEUED) {
+                            QUEUED_MESSAGE
+                        } else {
+                            "Wysłano artykuł klientowi"
+                        },
                     )
                 }
             } catch (e: Exception) {
@@ -1437,6 +1705,11 @@ class DealDetailViewModel @Inject constructor(
         val audit = _uiState.value.audit
         if (!force && (audit.loaded || audit.isLoading)) return
 
+        // Moduł zdjęć czyta kadry z plików deala, więc zakładka „Audyt"
+        // potrzebuje ich tak samo jak zakładka „Pliki". Bez `force` — jeden
+        // odczyt obsługuje obie zakładki.
+        loadFiles(force = force)
+
         viewModelScope.launch {
             _uiState.update { it.copy(audit = it.audit.copy(isLoading = true, error = null)) }
 
@@ -1534,6 +1807,16 @@ class DealDetailViewModel @Inject constructor(
     }
 
     /**
+     * Zmiana na rzucie kondygnacji (rozdzielacze, źródło, pomiar). Jak w panelu
+     * idzie od razu do audytu — razem z resztą formularza, bo API podmienia
+     * `formData` w całości.
+     */
+    fun commitAuditPlan(floorIndex: Int, patch: FloorPlanPatch) {
+        editAuditForm { patchFloorPlan(it, floorIndex, patch) }
+        saveAuditForm()
+    }
+
+    /**
      * Zapis formularza audytu instalacji. Niekompletny audyt też zapisujemy —
      * audyt bywa uzupełniany na raty, a lista braków jest sygnałem, nie blokadą.
      */
@@ -1551,8 +1834,13 @@ class DealDetailViewModel @Inject constructor(
                     dealId = dealId,
                     auditId = audit.formAuditId,
                     categoryId = owner,
-                    state = form,
+                    // Podpis zmian na rzucie — w panelu dostawia go akcja serwera, a API
+                    // niczego nie stempluje; bez tego zmiana z terenu nie ma autora.
+                    state = auditAuthor.value?.let { stampPlanAuthors(form, it.userId, it.name) } ?: form,
                     includeCooling = audit.hasHeatPump,
+                    // Wersja, z której zbudowano formularz na ekranie — po niej
+                    // API pozna, że panel zmienił audyt w międzyczasie.
+                    baseUpdatedAt = audit.records.firstOrNull { it.id == audit.formAuditId }?.updatedAt,
                 )
                 _uiState.update {
                     it.copy(
@@ -1583,6 +1871,71 @@ class DealDetailViewModel @Inject constructor(
         }
     }
 
+    // ── Moduł zdjęć audytu ───────────────────────────────────────────────────
+
+    /**
+     * Kadr audytu — z aparatu albo z galerii. Zdjęcie jedzie tą samą drogą co
+     * pliki deala (kolejka `document_mutations`), ale z przypisaniem
+     * [AuditPhotoMeta] w tym samym żądaniu: kadr bez odpowiedzi „czego dotyczy"
+     * byłby w module zdjęć niewidoczny.
+     *
+     * Przed odłożeniem do kolejki zmniejszamy kadr — patrz [AuditPhotoScaler].
+     */
+    fun addAuditPhoto(bytes: ByteArray, meta: AuditPhotoMeta, label: String) {
+        if (!_uiState.value.canManage) {
+            _uiState.update { it.copy(message = "Brak uprawnienia do zmiany plików deala.") }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(files = it.files.copy(busy = true)) }
+            val small = withContext(Dispatchers.Default) { auditPhotoScaler.downscale(bytes) }
+            val added = runCatching {
+                dealDocumentRepository.upload(
+                    dealId = dealId,
+                    name = auditPhotoFileName(label),
+                    contentType = "image/jpeg",
+                    category = DocumentCategory.AUDYT,
+                    bytes = small,
+                    photoData = meta.toJson(),
+                )
+            }.getOrNull()
+            _uiState.update {
+                it.copy(
+                    files = it.files.copy(busy = false),
+                    message = if (added == null) {
+                        "Nie udało się zapisać zdjęcia na telefonie."
+                    } else {
+                        "Zdjęcie zapisane — wyślemy je, gdy wróci zasięg."
+                    },
+                )
+            }
+            if (added != null) refreshFiles()
+        }
+    }
+
+    /** Opis pod kadrem. Reszta przypisania zostaje bez zmian. */
+    fun saveAuditPhotoNote(document: DealDocument, meta: AuditPhotoMeta, note: String) {
+        if (note.trim() == meta.note.trim()) return
+        viewModelScope.launch {
+            runCatching {
+                dealDocumentRepository.setPhotoData(document, meta.copy(note = note).toJson())
+            }
+            refreshFiles()
+        }
+    }
+
+    /**
+     * Usunięcie kadru. Kadr wspólny znika przy KAŻDEJ instalacji deala —
+     * o potwierdzenie pyta ekran, bo tylko on wie, co człowiek widzi.
+     */
+    fun deleteAuditPhoto(document: DealDocument) {
+        viewModelScope.launch {
+            runCatching { dealDocumentRepository.delete(document) }
+            refreshFiles()
+            _uiState.update { it.copy(message = "Usunięto zdjęcie.") }
+        }
+    }
+
     /**
      * Potwierdzenie zapisu. Przy braku zasięgu mówimy WPROST, że praca siedzi
      * w telefonie i pójdzie sama — audytor u klienta musi wiedzieć, czy może
@@ -1591,6 +1944,47 @@ class DealDetailViewModel @Inject constructor(
     private fun savedMessage(result: AuditSaveResult, sent: String): String = when (result) {
         AuditSaveResult.SENT -> sent
         AuditSaveResult.QUEUED -> "$sent w telefonie — wyślemy, gdy wróci zasięg"
+        AuditSaveResult.CONFLICT ->
+            "Audyt zmieniono w panelu, zanim zapisałeś — wybierz: nadpisz albo porzuć swoją wersję"
+    }
+
+    /**
+     * Rozstrzygnięcie konfliktu zapisu audytu ([auditConflicts]).
+     *
+     * @param overwrite `true` = „nadpisz" (moja wersja idzie na bieżącą wersję
+     *   serwera), `false` = „porzuć moje" (cache bierze wersję z panelu).
+     */
+    fun resolveAuditConflict(auditId: String, overwrite: Boolean) {
+        viewModelScope.launch {
+            try {
+                val text = if (overwrite) {
+                    when (auditRepository.resolveOverwrite(auditId)) {
+                        AuditSaveResult.SENT -> "Nadpisano audyt Twoją wersją"
+                        AuditSaveResult.QUEUED ->
+                            "Twoja wersja czeka w telefonie — wyślemy ją, gdy wróci zasięg"
+                        AuditSaveResult.CONFLICT ->
+                            "Audyt zmieniono w panelu jeszcze raz — porównaj wersje ponownie"
+                    }
+                } else {
+                    auditRepository.resolveDiscard(auditId)
+                    "Porzucono Twoją wersję — zostaje audyt z panelu"
+                }
+                _uiState.update {
+                    it.copy(
+                        message = text,
+                        // Oferta i rozliczenie liczą się z audytu — po zmianie
+                        // wersji muszą przeliczyć się od nowa.
+                        offer = it.offer.copy(loaded = false),
+                        settlement = it.settlement.copy(loaded = false),
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(message = crmErrorMessage(e, "Nie udało się rozstrzygnąć konfliktu audytu"))
+                }
+            }
+            loadAudit(force = true)
+        }
     }
 
     // ── Zakładka „Oferta" ────────────────────────────────────────────────────
@@ -2341,6 +2735,73 @@ class DealDetailViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Ręczna korekta danych budynku ze zgłoszenia — odpowiednik okna „Zmień
+     * dane budynku" pod ikonografiką w panelu. Zapisujemy CAŁY komplet (API
+     * podmienia rekord), a wynik bierzemy z odpowiedzi serwera: to on rozstrzyga,
+     * co ostatecznie stoi w zgłoszeniu.
+     */
+    fun saveLeadBuilding(building: LeadBuilding, onSaved: () -> Unit = {}) {
+        val state = _uiState.value
+        if (state.lead.isSavingBuilding) return
+        if (!state.canManage) {
+            _uiState.update { it.copy(message = "Brak uprawnień do edycji deala (deal.manage)") }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(lead = it.lead.copy(isSavingBuilding = true), message = null) }
+            try {
+                val saved = updateLeadBuildingUseCase(dealId, building)
+                _uiState.update { s ->
+                    s.copy(
+                        message = "Zapisano dane budynku",
+                        lead = s.lead.copy(
+                            isSavingBuilding = false,
+                            intake = s.lead.intake?.copy(
+                                building = saved?.takeIf { !it.isEmpty },
+                            ),
+                        ),
+                    )
+                }
+                onSaved()
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        lead = it.lead.copy(isSavingBuilding = false),
+                        message = crmErrorMessage(e, "Nie udało się zapisać danych budynku"),
+                    )
+                }
+            }
+        }
+    }
+
+    // ── Zakładka „Podsumowanie" ──────────────────────────────────────────────
+
+    /**
+     * Podsumowanie nie ma własnego endpointu — panel też składa je z tych samych
+     * odczytów, co pozostałe zakładki. Wołamy więc gotowe ładowania (mają własne
+     * bramki `loaded`, więc nic się nie dubluje), a osobno dociągamy tylko nazwy
+     * instalacji bieżącego etapu.
+     */
+    fun loadSummary(force: Boolean = false) {
+        loadOrders()
+        loadTasks()
+        loadFiles()
+
+        if (!force && _uiState.value.summary.loaded) return
+        viewModelScope.launch {
+            val names = try {
+                val snapshot = getDealInstallationsUseCase(dealId)
+                val ids = snapshot.current?.let { snapshot.forStage(it) }?.categoryIds.orEmpty()
+                val byId = getCategoriesUseCase().associateBy { it.id }
+                ids.map { id -> categoryPath(id, byId).joinToString(" › ").ifBlank { id } }
+            } catch (_: Exception) {
+                emptyList()
+            }
+            _uiState.update { it.copy(summary = it.summary.copy(loaded = true, installations = names)) }
+        }
+    }
+
     fun startEdit() {
         val detail = _uiState.value.detail ?: return
         val draft = detail.deal.toDraft()
@@ -2925,7 +3386,14 @@ class DealDetailViewModel @Inject constructor(
         tasksJob = viewModelScope.launch {
             taskRepository.observeDealTasks(dealId).collect { list ->
                 dealTasks = list
-                _uiState.update { it.copy(tasks = it.tasks.copy(totalCount = list.size)) }
+                _uiState.update {
+                    it.copy(
+                        tasks = it.tasks.copy(
+                            totalCount = list.size,
+                            openCount = list.count { t -> t.status != TaskStatus.DONE },
+                        ),
+                    )
+                }
                 recomputeTasks()
             }
         }
@@ -3095,7 +3563,6 @@ class DealDetailViewModel @Inject constructor(
 
     /** Sekcja podpowiadana nowemu zadaniu — z etapu deala, jak w panelu. */
     fun defaultTaskSection(): TaskSection? = sectionFromStage(_uiState.value.detail?.deal?.stage)
-
 
     // ── Zakładka „Umowa" ─────────────────────────────────────────────────────
 
@@ -3890,6 +4357,886 @@ class DealDetailViewModel @Inject constructor(
             )
         }
         closeBillingForm()
+    }
+
+    // ── Zakładka „Montaż" ────────────────────────────────────────────────────
+
+    /**
+     * Sześć odczytów, każdy z własnym prawem do porażki: montaże z ekipami,
+     * katalog (role i sprzęt), zakres etapu „montaz", audyty (rysunki i pętle),
+     * umowa (co jest w cenie) oraz — dla wybranego montażu — materiał, zdjęcia
+     * i ptaszki listy pakowania.
+     *
+     * Brak któregokolwiek ma zabrać JEDNĄ sekcję, a nie całą kartę: ekipa
+     * stojąca przed domem woli teczkę z dziurą niż komunikat o błędzie.
+     */
+    fun loadMontaz(force: Boolean = false) {
+        val montaz = _uiState.value.montaz
+        if (!force && (montaz.loaded || montaz.isLoading)) return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(montaz = it.montaz.copy(isLoading = true, error = null)) }
+
+            val snapshot = runCatching { montazRepository.getMontaze(dealId) }.getOrNull()
+            val categories = runCatching { auditRepository.getCategories() }.getOrDefault(emptyList())
+            val scope = runCatching {
+                auditRepository.getAuditInstallations(dealId)
+                    .byStage[InstallationStage.MONTAZ.wire]
+                    .orEmpty()
+            }.getOrDefault(emptyList())
+            val audits = runCatching { auditRepository.getAudits(dealId) }.getOrDefault(emptyList())
+            val zakres = loadMontazZakres()
+
+            _uiState.update { state ->
+                val selectedId = state.montaz.selectedId
+                    ?: snapshot?.montaze?.firstOrNull()?.id
+                state.copy(
+                    montaz = state.montaz.copy(
+                        isLoading = false,
+                        loaded = true,
+                        montaze = snapshot?.montaze.orEmpty(),
+                        crews = snapshot?.crews.orEmpty(),
+                        selectedId = selectedId,
+                        catalog = categories.associateBy { it.id },
+                        scopeIds = scope,
+                        zakres = zakres,
+                        fromCache = snapshot?.fromCache == true,
+                        error = snapshot?.error,
+                    ),
+                )
+            }
+            // Audyty trzymamy tylko po to, żeby przeliczyć rysunki dla ZAKRESU
+            // wybranego montażu — a ten zmienia się ptaszkiem, więc rachunek
+            // siedzi w jednym miejscu, wołanym po każdej zmianie.
+            montazAudits = audits
+            recomputeMontaz()
+            loadMontazDetails()
+            prefetchMontazPlans()
+        }
+    }
+
+    /**
+     * Ściąga rzuty kondygnacji z góry, przy wejściu w zakładkę.
+     *
+     * Bez tego rysunek pojawiałby się dopiero po przewinięciu do sekcji „Co
+     * wykonać" — a ekipa przewija ją zwykle na budowie, czyli już bez zasięgu.
+     * Pobrane pliki leżą w tym samym magazynie, co pliki deala, więc raz
+     * ściągnięty rzut wyświetla się potem bez sieci.
+     */
+    private fun prefetchMontazPlans() {
+        val docs = _uiState.value.montaz.robota
+            .flatMap { it.floors }
+            .mapNotNull { it.planDocId }
+            .distinct()
+        if (docs.isEmpty()) return
+        viewModelScope.launch {
+            docs.forEach { docId ->
+                runCatching {
+                    documentFiles.image(
+                        document = montazPlanDocument(dealId, docId, "rzut"),
+                        targetPx = MONTAZ_PLAN_PX,
+                    )
+                }
+            }
+        }
+    }
+
+    /** Audyty deala — wejście rachunku „co wykonać"; trzymane poza stanem UI. */
+    private var montazAudits: List<Audit> = emptyList()
+
+    /**
+     * Rachunki pochodne wybranego montażu: pokrycie ról, sprzęt do zabrania
+     * i robota z audytu. Te same czyste funkcje, których używa panel — telefon
+     * nie liczy niczego po swojemu, żeby ekipa i koordynator widzieli tę samą
+     * listę braków.
+     */
+    private fun recomputeMontaz() {
+        _uiState.update { state ->
+            val montaz = state.montaz
+            val selected = montaz.selected
+            val nodeIds = selected?.nodeIds.orEmpty()
+            val coverage = roleCoverage(
+                nodeIds = nodeIds,
+                byId = montaz.catalog,
+                assignees = selected?.assignees.orEmpty(),
+                people = state.members.map { RolePerson(it.id, it.skills) },
+            )
+            state.copy(
+                montaz = montaz.copy(
+                    coverage = coverage,
+                    summary = coverageSummary(nodeIds, coverage),
+                    tools = montazTools(nodeIds, montaz.catalog),
+                    toolNotes = montazToolNotes(nodeIds, montaz.catalog),
+                    robota = montazRobota(montazAudits, nodeIds),
+                ),
+            )
+        }
+    }
+
+    /**
+     * Materiał, zdjęcia, ptaszki pakowania i potwierdzenia odprawy — wszystko
+     * per WYBRANY montaż, więc czytane osobno od listy etapów.
+     */
+    private fun loadMontazDetails() {
+        val selected = _uiState.value.montaz.selected ?: return
+        viewModelScope.launch {
+            val materials = runCatching { montazRepository.getMaterials(selected.id) }
+                .getOrDefault(emptyList())
+            val photos = runCatching { montazRepository.getPhotos(selected.id) }
+                .getOrDefault(emptyList())
+            val packed = runCatching { montazRepository.packedItems(selected.id) }
+                .getOrDefault(emptySet())
+            // Potwierdzenia widzi tylko publikujący (`briefing.publish`) — brak
+            // dostępu nie jest błędem karty, po prostu nie ma licznika.
+            val ack = selected.briefingMessageId
+                ?.let { runCatching { montazRepository.briefingAck(it) }.getOrNull() }
+
+            _uiState.update { state ->
+                if (state.montaz.selected?.id != selected.id) return@update state
+                state.copy(
+                    montaz = state.montaz.copy(
+                        materials = materials,
+                        materialsLoaded = true,
+                        photos = photos,
+                        packed = packed,
+                        ack = ack,
+                        note = state.montaz.let { if (it.noteDirty) it.note else selected.teamNote.orEmpty() },
+                    ),
+                )
+            }
+        }
+    }
+
+    /**
+     * Załącznik nr 1 PODPISANEJ umowy. Bierzemy najnowszą podpisaną wersję
+     * (umowa albo aneks) — starsze są zastąpione, a ekipa ma wykonać to, pod
+     * czym klient się podpisał, a nie to, co pokazuje dzisiejszy audyt.
+     */
+    private suspend fun loadMontazZakres(): MontazZakres? {
+        val snapshot = runCatching { contractRepository.getContracts(dealId) }.getOrNull() ?: return null
+        val signed = snapshot.contracts
+            .filter { it.status == ContractStatus.SIGNED }
+            .sortedWith(compareByDescending<DealContract> { it.wersja }.thenByDescending { it.podpisana.orEmpty() })
+            .firstOrNull() ?: return null
+        val filling = runCatching { contractRepository.getFilling(dealId, signed.id) }.getOrNull()
+            ?: return null
+        return MontazZakres(
+            numer = signed.numer,
+            podpisana = signed.podpisana,
+            pozycje = filling.pozycje,
+            wylaczony = filling.zakresWylaczony,
+        )
+    }
+
+    fun selectMontaz(id: String) {
+        _uiState.update { state ->
+            val selected = state.montaz.montaze.firstOrNull { it.id == id }
+            state.copy(
+                montaz = state.montaz.copy(
+                    selectedId = id,
+                    // Szczegóły należą do POPRZEDNIEGO etapu — czyścimy je, żeby
+                    // ekipa nie pakowała materiału z innego wyjazdu.
+                    materials = emptyList(),
+                    materialsLoaded = false,
+                    photos = emptyList(),
+                    packed = emptySet(),
+                    ack = null,
+                    note = selected?.teamNote.orEmpty(),
+                    noteDirty = false,
+                ),
+            )
+        }
+        recomputeMontaz()
+        loadMontazDetails()
+    }
+
+    /**
+     * Nowy etap robót — np. pompa ciepła po wylewce. Termin przychodzi
+     * z systemowego wybieraka daty, więc karta nie ma własnego trybu
+     * „dodawania" jak panel: tam datę wpisuje się w pole obok przycisku.
+     */
+    fun addEtap(atMillis: Long) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(montaz = it.montaz.copy(isSaving = true)) }
+            val before = _uiState.value.montaz.montaze.map { it.id }.toSet()
+            val result = runCatching {
+                montazRepository.createMontaz(dealId, isoNow(atMillis))
+            }
+            val snapshot = runCatching { montazRepository.getMontaze(dealId) }.getOrNull()
+            val fresh = snapshot?.montaze?.firstOrNull { it.id !in before }
+            _uiState.update { state ->
+                state.copy(
+                    montaz = state.montaz.copy(
+                        isSaving = false,
+                        montaze = snapshot?.montaze ?: state.montaz.montaze,
+                        selectedId = fresh?.id ?: state.montaz.selectedId,
+                    ),
+                    message = when (result.getOrNull()) {
+                        MontazSaveResult.SENT -> "Etap montażu dodany — uzupełnij zakres i obsadę."
+                        MontazSaveResult.QUEUED ->
+                            "Etap zapisany w telefonie — wyślemy, gdy wróci zasięg."
+                        null -> crmErrorMessage(
+                            result.exceptionOrNull() ?: Exception(),
+                            "Nie udało się dodać etapu montażu",
+                        )
+                    },
+                )
+            }
+            recomputeMontaz()
+            loadMontazDetails()
+        }
+    }
+
+    /** Ptaszek przy węźle zakresu — z niego wynikają role, sprzęt i rysunki. */
+    fun toggleMontazScope(nodeId: String) {
+        val selected = _uiState.value.montaz.selected ?: return
+        val next = if (nodeId in selected.nodeIds) {
+            selected.nodeIds - nodeId
+        } else {
+            selected.nodeIds + nodeId
+        }
+        saveMontaz(MontazPatch(nodeIds = next), "Zakres montażu zapisany.")
+    }
+
+    /**
+     * Wybór ekipy WYPEŁNIA obsadę, a nie ją zastępuje: ludzie już dopisani (np.
+     * ktoś spoza ekipy do próby szczelności) zostają, bo to oni jadą, a nie
+     * ekipa jako byt. Wyczyszczenie zdejmuje samą etykietę — skład zostaje.
+     */
+    fun chooseMontazCrew(crewId: String?) {
+        val state = _uiState.value
+        val selected = state.montaz.selected ?: return
+        if (crewId == null) {
+            saveMontaz(MontazPatch(clearCrew = true), "Ekipa odpięta od montażu.")
+            return
+        }
+        val crew = state.montaz.crews.firstOrNull { it.id == crewId } ?: return
+        val have = selected.assignees.map { it.userId }.toSet()
+        val skillsOf = state.members.associate { it.id to it.skills }
+        // Role rozdajemy PO KOLEI, odhaczając zajęte: bez tego trzech ludzi z tą
+        // samą umiejętnością dostałoby trzy razy „Hydraulik", a reszta ról
+        // zostałaby pusta — czyli ten fałszywy obraz obsady, który karta zbija.
+        val taken = selected.assignees.mapNotNull { it.role }.toMutableSet()
+        val added = crew.memberIds
+            .filter { it !in have }
+            .map { userId ->
+                val role = suggestRole(userId, state.montaz.coverage, skillsOf[userId].orEmpty(), taken)
+                if (role != null) taken += role
+                MontazAssignee(userId, role)
+            }
+        saveMontaz(
+            MontazPatch(crewId = crewId, assignees = selected.assignees + added),
+            if (added.isEmpty()) {
+                "Ekipa „${crew.name}” przypisana."
+            } else {
+                "Ekipa „${crew.name}” — dopisano ${added.size} os."
+            },
+        )
+    }
+
+    fun addMontazPerson(userId: String) {
+        val state = _uiState.value
+        val selected = state.montaz.selected ?: return
+        if (selected.assignees.any { it.userId == userId }) return
+        val skills = state.members.firstOrNull { it.id == userId }?.skills.orEmpty()
+        val role = suggestRole(userId, state.montaz.coverage, skills)
+        saveMontaz(
+            MontazPatch(assignees = selected.assignees + MontazAssignee(userId, role)),
+            "${memberName(userId)} dopisany do montażu.",
+        )
+    }
+
+    fun removeMontazPerson(userId: String) {
+        val selected = _uiState.value.montaz.selected ?: return
+        saveMontaz(
+            MontazPatch(assignees = selected.assignees.filterNot { it.userId == userId }),
+            "${memberName(userId)} zdjęty z obsady.",
+        )
+    }
+
+    fun setMontazRole(userId: String, role: String?) {
+        val selected = _uiState.value.montaz.selected ?: return
+        saveMontaz(
+            MontazPatch(
+                assignees = selected.assignees.map {
+                    if (it.userId == userId) it.copy(role = role) else it
+                },
+            ),
+            "Rola zapisana.",
+        )
+    }
+
+    fun editMontazNote(text: String) {
+        _uiState.update { it.copy(montaz = it.montaz.copy(note = text, noteDirty = true)) }
+    }
+
+    fun revertMontazNote() {
+        _uiState.update { state ->
+            state.copy(
+                montaz = state.montaz.copy(
+                    note = state.montaz.selected?.teamNote.orEmpty(),
+                    noteDirty = false,
+                ),
+            )
+        }
+    }
+
+    fun saveMontazNote() {
+        val note = _uiState.value.montaz.note.trim()
+        saveMontaz(
+            if (note.isEmpty()) MontazPatch(clearNote = true) else MontazPatch(teamNote = note),
+            "Uwaga dla ekipy zapisana.",
+        )
+    }
+
+    /**
+     * Wydanie materiału na budowę. Braków NIE blokujemy — zdarza się, że ekipa
+     * zabiera to, co jest, a resztę dowozi kierownik; blokada wymuszałaby
+     * obchodzenie systemu. Zamiast tego mówimy wprost, czego brakuje.
+     */
+    fun issueMontazMaterials(reservationIds: List<String>) {
+        val selected = _uiState.value.montaz.selected ?: return
+        if (reservationIds.isEmpty()) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(montaz = it.montaz.copy(isSaving = true)) }
+            val result = runCatching {
+                montazRepository.issueMaterials(dealId, selected.id, reservationIds)
+            }
+            val materials = runCatching { montazRepository.getMaterials(selected.id) }
+                .getOrDefault(_uiState.value.montaz.materials)
+            _uiState.update { state ->
+                state.copy(
+                    montaz = state.montaz.copy(isSaving = false, materials = materials),
+                    message = when (result.getOrNull()) {
+                        MontazSaveResult.SENT -> "Wydano na budowę: ${reservationIds.size} poz."
+                        MontazSaveResult.QUEUED ->
+                            "Wydanie zapisane w telefonie — magazyn zobaczy je, gdy wróci zasięg."
+                        null -> crmErrorMessage(
+                            result.exceptionOrNull() ?: Exception(),
+                            "Nie udało się wydać materiału",
+                        )
+                    },
+                )
+            }
+        }
+    }
+
+    /** Ptaszek na liście pakowania — zostaje w telefonie, nie idzie na serwer. */
+    fun toggleMontazPacked(itemKey: String) {
+        val selected = _uiState.value.montaz.selected ?: return
+        val checked = itemKey !in _uiState.value.montaz.packed
+        _uiState.update { state ->
+            val packed = state.montaz.packed
+            state.copy(
+                montaz = state.montaz.copy(
+                    packed = if (checked) packed + itemKey else packed - itemKey,
+                ),
+            )
+        }
+        viewModelScope.launch {
+            runCatching { montazRepository.setPacked(selected.id, itemKey, checked) }
+        }
+    }
+
+    /** Zdjęcie powykonawcze — z aparatu albo z galerii, przez tę samą drogę. */
+    fun addMontazPhoto(bytes: ByteArray, fileName: String) {
+        val selected = _uiState.value.montaz.selected ?: return
+        viewModelScope.launch {
+            _uiState.update { it.copy(montaz = it.montaz.copy(isSaving = true)) }
+            val result = runCatching {
+                montazRepository.addPhoto(dealId, selected.id, bytes, fileName)
+            }
+            val photos = runCatching { montazRepository.getPhotos(selected.id) }
+                .getOrDefault(_uiState.value.montaz.photos)
+            _uiState.update { state ->
+                state.copy(
+                    montaz = state.montaz.copy(isSaving = false, photos = photos),
+                    message = when (result.getOrNull()) {
+                        MontazSaveResult.SENT -> "Zdjęcie dodane."
+                        MontazSaveResult.QUEUED ->
+                            "Zdjęcie zapisane w telefonie — wyślemy, gdy wróci zasięg."
+                        null -> crmErrorMessage(
+                            result.exceptionOrNull() ?: Exception(),
+                            "Nie udało się dodać zdjęcia",
+                        )
+                    },
+                )
+            }
+        }
+    }
+
+    /**
+     * ODPRAWA — komunikat do OSÓB z obsady (nie do ekipy jako grupy), z
+     * wymaganym potwierdzeniem. Treść składamy z tego, co ekipa i tak musi
+     * wiedzieć: termin, skład, uwaga koordynatora i braki materiałowe.
+     */
+    fun sendMontazOdprawa() {
+        val state = _uiState.value
+        val selected = state.montaz.selected ?: return
+        if (selected.assignees.isEmpty()) {
+            _uiState.update {
+                it.copy(message = "Montaż nie ma obsady — nie ma komu wysłać odprawy.")
+            }
+            return
+        }
+
+        val zakresLabel = montazJobLabel(selected, state.montaz.catalog)
+        val kiedy = formatDateTime(selected.scheduledAt) ?: "termin nieustalony"
+        val sklad = selected.assignees.joinToString("\n") { a ->
+            memberName(a.userId) + (a.role?.let { " — $it" } ?: "")
+        }
+        val braki = state.montaz.shortages
+        val brakiText = if (braki.isEmpty()) {
+            ""
+        } else {
+            "\n\nUWAGA — brakuje na magazynie: ${braki.joinToString(", ") { it.itemName }}."
+        }
+        val body = buildString {
+            append("Montaż: $zakresLabel\n")
+            append("Termin: $kiedy (${selected.durationDays} dni robocze)\n\n")
+            append("Obsada:\n$sklad")
+            selected.teamNote?.takeIf { it.isNotBlank() }?.let { append("\n\nUwaga dla ekipy:\n$it") }
+            append(brakiText)
+        }
+        val title = "Odprawa: $zakresLabel — ${formatDate(selected.scheduledAt) ?: "termin nieustalony"}"
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(montaz = it.montaz.copy(isSaving = true)) }
+            val result = runCatching {
+                montazRepository.sendBriefing(
+                    dealId = dealId,
+                    installationId = selected.id,
+                    title = title,
+                    body = body,
+                    userIds = selected.assignees.map { it.userId },
+                )
+            }
+            _uiState.update { state2 ->
+                state2.copy(
+                    montaz = state2.montaz.copy(isSaving = false),
+                    message = when (result.getOrNull()) {
+                        MontazSaveResult.SENT ->
+                            "Odprawa wysłana do ${selected.assignees.size} os."
+                        MontazSaveResult.QUEUED ->
+                            "Odprawa czeka w telefonie — poleci, gdy wróci zasięg."
+                        null -> crmErrorMessage(
+                            result.exceptionOrNull() ?: Exception(),
+                            "Nie udało się wysłać odprawy",
+                        )
+                    },
+                )
+            }
+            loadMontaz(force = true)
+        }
+    }
+
+    /** Miniatura zdjęcia montażu; `null` = treści nie da się teraz zdobyć. */
+    suspend fun montazPhoto(photo: MontazPhoto, targetPx: Int): ImageBitmap? =
+        montazPhotos.image(photo, targetPx)
+
+    fun cachedMontazPhoto(photo: MontazPhoto): ImageBitmap? = montazPhotos.cached(photo)
+
+    /**
+     * Zapis zmiany montażu wspólną drogą: po każdej zmianie czytamy listę od
+     * nowa (bez zasięgu z cache’u razem z kolejką), bo zakres i obsada zmieniają
+     * wszystkie rachunki pochodne karty.
+     */
+    private fun saveMontaz(patch: MontazPatch, sent: String) {
+        val selected = _uiState.value.montaz.selected ?: return
+        viewModelScope.launch {
+            _uiState.update { it.copy(montaz = it.montaz.copy(isSaving = true)) }
+            val result = runCatching { montazRepository.patchMontaz(dealId, selected.id, patch) }
+            val snapshot = runCatching { montazRepository.getMontaze(dealId) }.getOrNull()
+            _uiState.update { state ->
+                state.copy(
+                    montaz = state.montaz.copy(
+                        isSaving = false,
+                        montaze = snapshot?.montaze ?: state.montaz.montaze,
+                        crews = snapshot?.crews ?: state.montaz.crews,
+                        fromCache = snapshot?.fromCache == true,
+                        noteDirty = false,
+                        note = snapshot?.montaze
+                            ?.firstOrNull { it.id == selected.id }
+                            ?.teamNote
+                            .orEmpty(),
+                    ),
+                    message = when (result.getOrNull()) {
+                        MontazSaveResult.SENT -> sent
+                        MontazSaveResult.QUEUED ->
+                            "$sent Zapisane w telefonie — wyślemy, gdy wróci zasięg."
+                        null -> crmErrorMessage(
+                            result.exceptionOrNull() ?: Exception(),
+                            "Nie udało się zapisać zmiany montażu",
+                        )
+                    },
+                )
+            }
+            recomputeMontaz()
+        }
+    }
+
+    /** Nazwisko z książki zespołu; identyfikator, gdy osoby nie ma w cache. */
+    private fun memberName(userId: String): String =
+        _uiState.value.members.firstOrNull { it.id == userId }?.displayName ?: userId
+
+    // ── Zakładka „Komunikacja" ───────────────────────────────────────────────
+
+    /**
+     * Wejście w zakładkę ładuje TYLKO wybrany kanał. Cztery zapytania naraz przy
+     * każdym wejściu byłyby marnotrawstwem: w kartę wchodzi się po jedną rzecz,
+     * a każdy kanał to osobne źródło (dyskusje, poczta, WhatsApp, telefonia).
+     */
+    fun loadComms(force: Boolean = false) {
+        loadCommChannel(_uiState.value.comms.channel, force)
+    }
+
+    fun selectCommChannel(channel: CommChannel) {
+        _uiState.update { it.copy(comms = it.comms.copy(channel = channel, error = null)) }
+        loadCommChannel(channel, force = false)
+    }
+
+    private fun loadCommChannel(channel: CommChannel, force: Boolean) {
+        val comms = _uiState.value.comms
+        if (!force && comms.loadedFor(channel)) return
+        if (comms.isLoading) return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(comms = it.comms.copy(isLoading = true, error = null)) }
+            try {
+                when (channel) {
+                    CommChannel.KOMUNIKATOR -> {
+                        val comments = dealCommsRepository.getComments(dealId)
+                        // Otwarcie wątku zeruje licznik nieprzeczytanych — tak
+                        // samo jak wejście w dyskusję w Komunikatorze.
+                        dealCommsRepository.markRead(dealId)
+                        _uiState.update {
+                            it.copy(
+                                comms = it.comms.copy(
+                                    comments = comments,
+                                    commentsLoaded = true,
+                                ),
+                            )
+                        }
+                    }
+
+                    CommChannel.EMAIL -> {
+                        // Bez zasięgu zostaje ostatnio pobrana lista — strumień
+                        // z Room i tak ją odda, więc błąd sieci tu przemilczamy.
+                        runCatching { emailRepository.refreshDealThreads(dealId) }
+                        val mailboxes = runCatching { emailRepository.mailboxes() }
+                            .getOrDefault(emptyList())
+                        _uiState.update {
+                            it.copy(
+                                comms = it.comms.copy(mailboxes = mailboxes, emailLoaded = true),
+                            )
+                        }
+                        observeDealThreads()
+                    }
+
+                    CommChannel.WHATSAPP -> {
+                        val messages = dealCommsRepository.getWhatsapp(dealId)
+                        _uiState.update {
+                            it.copy(
+                                comms = it.comms.copy(whatsapp = messages, whatsappLoaded = true),
+                            )
+                        }
+                    }
+
+                    CommChannel.TELEFON -> {
+                        val calls = dealCommsRepository.getCallSummaries(dealId)
+                        _uiState.update {
+                            it.copy(comms = it.comms.copy(calls = calls, callsLoaded = true))
+                        }
+                    }
+
+                    CommChannel.SMS -> Unit
+                }
+                _uiState.update { it.copy(comms = it.comms.copy(isLoading = false)) }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        comms = it.comms.copy(
+                            isLoading = false,
+                            error = crmErrorMessage(e, "Nie udało się wczytać komunikacji"),
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * Strumień wątków poczty tego deala. Zakładany raz — wysyłka z karty (także
+     * ta z kolejki) sama wpada do Room, więc lista odświeża się bez pytania.
+     */
+    private fun observeDealThreads() {
+        if (dealThreadsJob != null) return
+        dealThreadsJob = viewModelScope.launch {
+            emailRepository.observeDealThreads(dealId).collect { threads ->
+                _uiState.update { it.copy(comms = it.comms.copy(threads = threads)) }
+            }
+        }
+    }
+
+    // ── Komunikator wewnętrzny ───────────────────────────────────────────────
+
+    /**
+     * Wpis do zespołu o TYM dealu, z wywołaniami przez „@". Bez zasięgu ląduje
+     * w kolejce i od razu pokazuje się w wątku ze znacznikiem — inaczej człowiek
+     * nie wiedziałby, czy jego zdanie w ogóle gdzieś jest.
+     */
+    fun sendDealComment(body: String, mentions: List<String>) {
+        val text = body.trim()
+        if (text.isEmpty() || _uiState.value.comms.isSendingComment) return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(comms = it.comms.copy(isSendingComment = true)) }
+            val result = runCatching { dealCommsRepository.addComment(dealId, text, mentions) }
+            val comments = runCatching { dealCommsRepository.getComments(dealId) }
+                .getOrDefault(_uiState.value.comms.comments)
+            _uiState.update {
+                it.copy(
+                    comms = it.comms.copy(isSendingComment = false, comments = comments),
+                    message = result.fold(
+                        onSuccess = { sent ->
+                            if (sent == CommsSendResult.QUEUED) QUEUED_MESSAGE else null
+                        },
+                        onFailure = { e -> crmErrorMessage(e, "Nie udało się wysłać wiadomości") },
+                    ),
+                )
+            }
+        }
+    }
+
+    // ── WhatsApp ─────────────────────────────────────────────────────────────
+
+    fun onWhatsappDraftChange(text: String) {
+        _uiState.update { it.copy(comms = it.comms.copy(whatsappDraft = text)) }
+    }
+
+    /**
+     * Wiadomość do klienta. Poza oknem 24h od jego ostatniej wiadomości API
+     * odrzuca treść free-form (422) — pokazujemy komunikat serwera dosłownie,
+     * bo tłumaczy regułę WhatsApp Business lepiej niż nasze „nie udało się".
+     */
+    fun sendDealWhatsapp() {
+        val text = _uiState.value.comms.whatsappDraft.trim()
+        if (text.isEmpty() || _uiState.value.comms.isSendingWhatsapp) return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(comms = it.comms.copy(isSendingWhatsapp = true)) }
+            val result = runCatching { dealCommsRepository.sendWhatsapp(dealId, text) }
+            val messages = runCatching { dealCommsRepository.getWhatsapp(dealId) }
+                .getOrDefault(_uiState.value.comms.whatsapp)
+            _uiState.update {
+                it.copy(
+                    comms = it.comms.copy(
+                        isSendingWhatsapp = false,
+                        whatsapp = messages,
+                        // Treść zostaje w polu tylko wtedy, gdy nie poszła —
+                        // po odrzuceniu przez serwer człowiek chce ją poprawić,
+                        // a nie pisać od nowa.
+                        whatsappDraft = if (result.isSuccess) "" else it.comms.whatsappDraft,
+                    ),
+                    message = result.fold(
+                        onSuccess = { sent ->
+                            if (sent == CommsSendResult.QUEUED) QUEUED_MESSAGE else "Wysłano wiadomość"
+                        },
+                        onFailure = { e -> crmErrorMessage(e, "Nie udało się wysłać wiadomości") },
+                    ),
+                )
+            }
+        }
+    }
+
+    // ── Email (widok karty) ──────────────────────────────────────────────────
+
+    /**
+     * Nowa wiadomość dowiązana do deala. Adres klienta wchodzi z kartoteki,
+     * a nadawcą jest pierwsza skrzynka z listy (firmowa) — tak samo jak
+     * w panelu, gdzie „Od:" startuje od `kontakt@ekotak.pl`.
+     */
+    fun openDealEmailCompose() {
+        val comms = _uiState.value.comms
+        val mailbox = comms.mailboxes.firstOrNull()
+        if (mailbox == null) {
+            _uiState.update {
+                it.copy(message = "Nie znam jeszcze Twoich skrzynek — wejdź w moduł Email przy zasięgu.")
+            }
+            return
+        }
+        _uiState.update {
+            it.copy(
+                comms = it.comms.copy(
+                    compose = DealEmailCompose(
+                        accountId = mailbox.id,
+                        fromAddress = mailbox.address,
+                        to = it.detail?.client?.email.orEmpty(),
+                    ),
+                ),
+            )
+        }
+    }
+
+    fun closeDealEmailCompose() {
+        _uiState.update { it.copy(comms = it.comms.copy(compose = null)) }
+    }
+
+    fun editDealEmailCompose(transform: (DealEmailCompose) -> DealEmailCompose) {
+        _uiState.update { state ->
+            val compose = state.comms.compose ?: return@update state
+            state.copy(comms = state.comms.copy(compose = transform(compose)))
+        }
+    }
+
+    fun pickDealEmailSender(accountId: String) {
+        val mailbox = _uiState.value.comms.mailboxes.firstOrNull { it.id == accountId } ?: return
+        editDealEmailCompose { it.copy(accountId = mailbox.id, fromAddress = mailbox.address) }
+    }
+
+    /**
+     * Wysyłka (albo zapis wersji roboczej) z karty. `dealId` idzie w ciele
+     * żądania, więc wiadomość od razu ląduje w korespondencji tego deala —
+     * bez ręcznego dowiązywania wątku, które w panelu robi się osobno.
+     */
+    fun sendDealEmail(asDraft: Boolean = false) {
+        val compose = _uiState.value.comms.compose ?: return
+        val recipients = compose.to.split(',', ';', ' ')
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+        if (recipients.isEmpty() && !asDraft) {
+            _uiState.update { it.copy(message = "Podaj co najmniej jednego odbiorcę") }
+            return
+        }
+
+        val draft = EmailDraft(
+            accountId = compose.accountId,
+            to = recipients,
+            cc = compose.cc.split(',', ';', ' ').map { it.trim() }.filter { it.isNotEmpty() },
+            subject = compose.subject.trim().ifBlank { "(bez tematu)" },
+            body = compose.body,
+            attachments = compose.attachments,
+            dealId = dealId,
+        )
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(comms = it.comms.copy(isSendingEmail = true)) }
+            val result = runCatching {
+                if (asDraft) emailRepository.saveDraft(draft) else emailRepository.send(draft)
+            }
+            // Lista wątków karty idzie z serwera, więc po wysyłce prosimy o nią
+            // ponownie. Bez zasięgu wiadomość została w kolejce modułu Email
+            // i pokaże się dopiero po jej opróżnieniu — mówimy o tym wprost.
+            runCatching { emailRepository.refreshDealThreads(dealId) }
+            _uiState.update {
+                it.copy(
+                    comms = it.comms.copy(
+                        isSendingEmail = false,
+                        compose = if (result.isSuccess) null else it.comms.compose,
+                    ),
+                    message = result.fold(
+                        onSuccess = {
+                            when {
+                                asDraft -> "Zapisano wersję roboczą"
+                                else -> "Wiadomość wysłana albo zakolejkowana — sprawdzisz ją w module Email"
+                            }
+                        },
+                        onFailure = { e -> crmErrorMessage(e, "Nie udało się wysłać wiadomości") },
+                    ),
+                )
+            }
+        }
+    }
+
+    // ── Telefon ──────────────────────────────────────────────────────────────
+
+    fun openCallSummaryForm() {
+        _uiState.update { it.copy(comms = it.comms.copy(callForm = CallSummaryDraft())) }
+    }
+
+    fun closeCallSummaryForm() {
+        _uiState.update { it.copy(comms = it.comms.copy(callForm = null)) }
+    }
+
+    fun editCallSummaryForm(transform: (CallSummaryDraft) -> CallSummaryDraft) {
+        _uiState.update { state ->
+            val form = state.comms.callForm ?: return@update state
+            state.copy(comms = state.comms.copy(callForm = transform(form)))
+        }
+    }
+
+    /**
+     * Streszczenie rozmowy, której TeamTalk nie nagrał. Zadanie z następnego
+     * kroku zakładamy OSOBNYM zapisem i osobno raportujemy jego błąd: notatka
+     * jest tu rzeczą ważniejszą, więc nieudane zadanie nie może jej cofnąć
+     * (tak samo robi panel — stąd jego komunikat o `taskError`).
+     */
+    fun saveCallSummary() {
+        val form = _uiState.value.comms.callForm ?: return
+        if (!form.canSave || _uiState.value.comms.isSavingCall) return
+        val client = _uiState.value.detail?.client
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(comms = it.comms.copy(isSavingCall = true)) }
+            val result = runCatching {
+                dealCommsRepository.addCallSummary(
+                    dealId = dealId,
+                    clientId = client?.id,
+                    phoneNumber = client?.primaryPhone,
+                    text = form.text.trim(),
+                    agreements = form.agreements.trim().ifBlank { null },
+                    nextStep = form.nextStep.trim().ifBlank { null },
+                )
+            }
+
+            val taskError = if (result.isSuccess && form.createTask && form.hasNextStep) {
+                runCatching {
+                    taskRepository.createTask(
+                        title = form.nextStep.trim(),
+                        description = "Z rozmowy: ${form.text.trim()}",
+                        assigneeId = _uiState.value.currentUserId,
+                        dueAt = form.taskDueAt.takeIf { it.isNotBlank() },
+                        link = TaskLink.Deal(dealId),
+                        section = defaultTaskSection(),
+                    )
+                }.exceptionOrNull()
+            } else {
+                null
+            }
+
+            val calls = runCatching { dealCommsRepository.getCallSummaries(dealId) }
+                .getOrDefault(_uiState.value.comms.calls)
+
+            _uiState.update {
+                it.copy(
+                    comms = it.comms.copy(
+                        isSavingCall = false,
+                        callForm = if (result.isSuccess) null else it.comms.callForm,
+                        calls = calls,
+                    ),
+                    message = result.fold(
+                        onSuccess = { sent ->
+                            val base = if (sent == CommsSendResult.QUEUED) {
+                                "Streszczenie czeka w kolejce — poleci po powrocie zasięgu."
+                            } else {
+                                "Zapisano streszczenie rozmowy"
+                            }
+                            if (taskError != null) {
+                                "$base Zadanie się nie założyło: " +
+                                    crmErrorMessage(taskError, "błąd zapisu")
+                            } else {
+                                base
+                            }
+                        },
+                        onFailure = { e -> crmErrorMessage(e, "Nie udało się zapisać streszczenia") },
+                    ),
+                )
+            }
+
+            // Zadanie założone z rozmowy ma się pokazać w zakładce „Zadania",
+            // a nie dopiero po ponownym wejściu w kartę.
+            if (taskError == null && form.createTask && form.hasNextStep) loadTasks(force = true)
+        }
     }
 
     /** Komunikat do snackbara wywołany z zakładki (bez własnej operacji). */

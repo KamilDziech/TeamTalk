@@ -21,6 +21,9 @@ import com.ekotak.teamtalk.domain.model.toM2
 import com.ekotak.teamtalk.domain.model.ufhAsksMedium
 import com.ekotak.teamtalk.domain.model.ufhAsksWarrantyDocs
 import com.ekotak.teamtalk.domain.model.ufhPipeSystemCode
+import com.ekotak.teamtalk.domain.montaz.TOOL_GROUPS
+import com.ekotak.teamtalk.domain.montaz.ToolItem
+import com.ekotak.teamtalk.domain.montaz.ToolsScheme
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -28,6 +31,7 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -83,6 +87,8 @@ fun CategoryDto.toCatalogEntity(): CatalogCategoryEntity = CatalogCategoryEntity
     name = name,
     position = position,
     auditForm = auditForm?.toString(),
+    montageRoles = montageRoles,
+    tools = tools?.toString(),
 )
 
 fun CatalogCategoryEntity.toDomain(): Category = Category(
@@ -93,7 +99,39 @@ fun CatalogCategoryEntity.toDomain(): Category = Category(
     auditForm = auditForm
         ?.let { runCatching { Json.parseToJsonElement(it) as? JsonObject }.getOrNull() }
         ?.let { ufhFromFormData(it) },
+    montageRoles = montageRoles,
+    tools = tools
+        ?.let { runCatching { Json.parseToJsonElement(it) as? JsonObject }.getOrNull() }
+        ?.let { toolsFromJson(it) },
 )
+
+/**
+ * Karta „🧰 Narzędzia" węzła. Czytamy TOLERANCYJNIE, tak samo jak panel
+ * (`schemeFromJson`): kształt tego JSON-a ustala front, API waliduje go tylko
+ * z grubsza, więc jedna dziwna pozycja ma dać krótszą listę, a nie wywrócić
+ * kartę montażu na budowie.
+ */
+fun toolsFromJson(o: JsonObject): ToolsScheme {
+    val items = (o["items"] as? JsonArray)
+        ?.mapNotNull { it as? JsonObject }
+        ?.mapNotNull { i ->
+            val name = i.str("name").orEmpty()
+            if (name.isBlank()) return@mapNotNull null
+            ToolItem(
+                id = i.str("id").orEmpty(),
+                name = name,
+                group = i.str("group").orEmpty().ifBlank { TOOL_GROUPS.first() },
+                qty = (i["qty"] as? JsonPrimitive)?.doubleOrNull,
+                unit = i.str("unit").orEmpty().ifBlank { "szt." },
+                required = (i["required"] as? JsonPrimitive)?.booleanOrNull == true,
+                beacon = (i["beacon"] as? JsonPrimitive)?.booleanOrNull == true,
+                owner = i.str("owner").orEmpty(),
+                note = i.str("note").orEmpty(),
+            )
+        }
+        .orEmpty()
+    return ToolsScheme(note = o.str("note").orEmpty(), items = items)
+}
 
 fun AuditDto.toDomain(): Audit = Audit(
     id = id,

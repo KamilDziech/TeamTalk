@@ -164,6 +164,9 @@ router.get('/tasks/members', requireAuth, requirePermission('tasks.view'), (req,
       role: u.role,
       additionalRoles: u.additionalRoles || [],
       functions: u.functions || [],
+      // Umiejetnosci montazowe — czyta je zakladka „Montaz" karty deala; bez
+      // nich pokrycie rol pokazywaloby kazda role jako nieobsadzalna.
+      skills: u.skills || [],
     }));
   res.json(list);
 });

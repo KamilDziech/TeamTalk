@@ -15,6 +15,8 @@ import com.ekotak.teamtalk.data.notification.NotificationHelper
 import com.ekotak.teamtalk.data.sync.AuditSyncScheduler
 import com.ekotak.teamtalk.data.sync.CalendarSyncScheduler
 import com.ekotak.teamtalk.data.sync.ContractSyncScheduler
+import com.ekotak.teamtalk.data.sync.DealCommsSyncScheduler
+import com.ekotak.teamtalk.data.sync.MontazSyncScheduler
 import com.ekotak.teamtalk.data.sync.DealSyncScheduler
 import com.ekotak.teamtalk.data.sync.LeaveSyncScheduler
 import com.ekotak.teamtalk.data.sync.OrderSyncScheduler
@@ -50,9 +52,13 @@ class TeamTalkApp : Application(), Configuration.Provider {
 
     @Inject lateinit var settlementSyncScheduler: SettlementSyncScheduler
 
+    @Inject lateinit var dealSyncScheduler: DealSyncScheduler
+
     @Inject lateinit var contractSyncScheduler: ContractSyncScheduler
 
-    @Inject lateinit var dealSyncScheduler: DealSyncScheduler
+    @Inject lateinit var dealCommsSyncScheduler: DealCommsSyncScheduler
+
+    @Inject lateinit var montazSyncScheduler: MontazSyncScheduler
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
@@ -76,8 +82,10 @@ class TeamTalkApp : Application(), Configuration.Provider {
         orderSyncScheduler.scheduleSync()
         leaveSyncScheduler.scheduleSync()
         settlementSyncScheduler.scheduleSync()
-        contractSyncScheduler.scheduleSync()
         dealSyncScheduler.scheduleSync()
+        contractSyncScheduler.scheduleSync()
+        dealCommsSyncScheduler.scheduleSync()
+        montazSyncScheduler.scheduleSync()
     }
 
     /**

@@ -23,6 +23,9 @@ abstract class RepositoryModule {
     abstract fun bindClientRepository(impl: ClientRepositoryImpl): ClientRepository
 
     @Binds @Singleton
+    abstract fun bindAssistantRepository(impl: AssistantRepositoryImpl): AssistantRepository
+
+    @Binds @Singleton
     abstract fun bindCallLogRepository(impl: CallLogRepositoryImpl): CallLogRepository
 
     @Binds @Singleton
@@ -51,7 +54,7 @@ abstract class RepositoryModule {
     ): KnowledgeArticleRepository
 
     @Binds @Singleton
-    abstract fun bindDealMessageRepository(impl: DealMessageRepositoryImpl): DealMessageRepository
+    abstract fun bindDealCommsRepository(impl: DealCommsRepositoryImpl): DealCommsRepository
 
     @Binds @Singleton
     abstract fun bindDiscussionRepository(impl: DiscussionRepositoryImpl): DiscussionRepository
@@ -113,4 +116,9 @@ abstract class RepositoryModule {
     abstract fun bindInvoiceRepository(
         impl: InvoiceRepositoryImpl,
     ): InvoiceRepository
+
+    @Binds @Singleton
+    abstract fun bindMontazRepository(
+        impl: MontazRepositoryImpl,
+    ): MontazRepository
 }

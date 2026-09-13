@@ -1,5 +1,7 @@
 package com.ekotak.teamtalk.domain.model
 
+import com.ekotak.teamtalk.domain.montaz.ToolsScheme
+
 /**
  * Węzeł katalogu technologii (`GET /api/categories`). Instalacje deala
  * wskazują węzły dowolnej głębokości (kategoria → podkategoria → marka), więc
@@ -18,6 +20,19 @@ data class Category(
      * danych, tam gdzie jest kontrakt z panelem.
      */
     val auditForm: UfhState? = null,
+    /**
+     * Role montażowe wymagane przez ten węzeł (`Category.montageRoles`). Czyta
+     * je zakładka „Montaż": z nich wynika, kogo musi mieć obsada. Dziedziczą się
+     * w dół, więc węzeł producenta ma tu zwykle pustkę i bierze role od
+     * technologii-rodzica (`requiredRoles` w `domain/montaz`).
+     */
+    val montageRoles: List<String> = emptyList(),
+    /**
+     * Sprzęt z karty „🧰 Narzędzia" węzła — lista do spakowania na auto. Jak
+     * przy [auditForm], surowy JSON zostaje w warstwie danych, a tu przychodzi
+     * już rozłożony na pola.
+     */
+    val tools: ToolsScheme? = null,
 )
 
 /**

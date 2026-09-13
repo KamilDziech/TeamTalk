@@ -11,9 +11,11 @@ import android.os.PowerManager
 import android.provider.Settings
 import androidx.core.app.NotificationCompat
 import com.ekotak.teamtalk.MainActivity
+import com.ekotak.teamtalk.data.local.preferences.CallRecordingPreferences
 import com.ekotak.teamtalk.data.notification.NotificationHelper
 import com.ekotak.teamtalk.data.scanner.DeviceCallLogReader
 import com.ekotak.teamtalk.domain.repository.CallLogRepository
+import com.ekotak.teamtalk.worker.CallRecordingUploadWorker
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -120,22 +122,57 @@ class CallMonitorService : Service() {
 
     private suspend fun recordCallInHistory(call: DeviceCallLogReader.DeviceCall?, phone: String?) {
         if (phone == null) return
+        val timestampMs = call?.timestampMs ?: System.currentTimeMillis()
+        val durationSec = call?.durationSec
+        val startedAt = isoFmt.format(Date(timestampMs))
+        val endedAt = durationSec?.let { isoFmt.format(Date(timestampMs + it * 1000L)) }
+        val simSlot = call?.phoneAccountId?.toIntOrNull()
+        val direction = call?.direction ?: com.ekotak.teamtalk.domain.model.CallDirection.OUTBOUND
+        // Bez wpisu w rejestrze telefonu nie ma czasu ani długości rozmowy, po
+        // których da się dopasować plik nagrania — wtedy nagrania nie szukamy.
+        if (call != null) {
+            enqueueRecordingUpload(timestampMs, durationSec, phone, startedAt, endedAt, direction, simSlot)
+        }
         runCatching {
-            val timestampMs = call?.timestampMs ?: System.currentTimeMillis()
-            val durationSec = call?.durationSec
-            val startedAt = isoFmt.format(Date(timestampMs))
-            val endedAt = durationSec?.let { isoFmt.format(Date(timestampMs + it * 1000L)) }
-            val simSlot = call?.phoneAccountId?.toIntOrNull()
-
             callLogRepository.createCallLog(
                 phoneNumber = phone,
-                direction   = call?.direction ?: com.ekotak.teamtalk.domain.model.CallDirection.OUTBOUND,
+                direction   = direction,
                 startedAt   = startedAt,
                 endedAt     = endedAt,
                 durationSec = durationSec,
                 simSlot     = simSlot,
             )
         }
+    }
+
+    /**
+     * Nagranie rozmowy z systemowej nagrywarki idzie do transkrypcji w tle —
+     * worker sam poczeka, aż plik się pojawi, i na zasięg. Nieodebrane i
+     * kilkusekundowe połączenia pomijamy: nie ma w nich czego streszczać.
+     */
+    private fun enqueueRecordingUpload(
+        timestampMs: Long,
+        durationSec: Int?,
+        phone: String,
+        startedAt: String,
+        endedAt: String?,
+        direction: com.ekotak.teamtalk.domain.model.CallDirection,
+        simSlot: Int?,
+    ) {
+        if (!CallRecordingPreferences.isEnabled(applicationContext)) return
+        if (direction == com.ekotak.teamtalk.domain.model.CallDirection.MISSED) return
+        if (durationSec != null && durationSec < CallRecordingUploadWorker.MIN_CALL_SEC) return
+        CallRecordingUploadWorker.enqueue(
+            context = applicationContext,
+            callStartMs = timestampMs,
+            callEndMs = timestampMs + (durationSec ?: 0) * 1000L,
+            durationSec = durationSec,
+            phone = phone,
+            startedAt = startedAt,
+            endedAt = endedAt,
+            direction = direction,
+            simSlot = simSlot,
+        )
     }
 
     override fun onDestroy() {

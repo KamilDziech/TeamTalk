@@ -37,6 +37,53 @@ data class Audit(
      * jego praca jest zapisana w telefonie, ale panel jej jeszcze nie widzi.
      */
     val pendingSince: Long? = null,
+    /**
+     * Wersja rekordu na serwerze (ISO) — przy niewysłanej zmianie ta, na której
+     * audytor zaczął edycję. Ekran oddaje ją przy zapisie
+     * (`AuditRepository.saveInstallationAudit(baseUpdatedAt = …)`), żeby API
+     * mogło odmówić nadpisania zmian zrobionych w panelu w międzyczasie.
+     */
+    val updatedAt: String? = null,
+)
+
+/**
+ * Zapis audytu, którego serwer nie przyjął, bo audyt zmieniono gdzie indziej
+ * (409 `AUDIT_STALE`) od wersji, na której audytor zaczął edycję.
+ *
+ * Nic nie przepada samo: [mine] leży w kolejce, [server] to wersja z panelu.
+ * Rozstrzyga człowiek — „nadpisz" wysyła [mine] jeszcze raz (na świadomie
+ * nowszej wersji), „porzuć moje" kasuje wiersz kolejki i bierze [server].
+ */
+data class AuditConflict(
+    val auditId: String,
+    val dealId: String,
+    /** Moja wersja (z kolejki) rozłożona tak samo jak rekord z cache. */
+    val mine: Audit,
+    /** Kiedy ostatnio zapisałem ją w telefonie (epoch ms). */
+    val mineSavedAt: Long,
+    /** Wersja serwera, na której zaczynałem edycję (ISO); `null` = nieznana. */
+    val baseUpdatedAt: String?,
+    /** Bieżący audyt na serwerze (`current` z odpowiedzi 409). */
+    val server: Audit,
+    /**
+     * Kiedy serwer zapisał swoją wersję (ISO) — to jedyny „kiedy" w kontrakcie.
+     * „Kto" API nie podaje; podpisy narzędzi rzutu (`marksSavedBy`,
+     * `areaSavedBy`, `planScale.byName`) leżą w `UfhFloor.planJson` wersji [server].
+     */
+    val serverUpdatedAt: String?,
+    /** Kiedy telefon wykrył konflikt (epoch ms). */
+    val detectedAt: Long,
+)
+
+/**
+ * Autor zmian w rzucie — do podpisów `marksSavedBy`/`areaSavedBy`,
+ * `planScale.byName` i wpisów historii (`by`/`byName`). Reguła jak w panelu
+ * (`currentAuthor` w `audit-actions.ts`): imię i nazwisko z książki zespołu,
+ * a gdy ich brak — e-mail konta.
+ */
+data class AuditAuthor(
+    val userId: String,
+    val name: String,
 )
 
 /**

@@ -48,6 +48,13 @@ data class DealDocument(
     val contentType: String,
     val category: DocumentCategory,
     val planData: JsonElement? = null,
+    /**
+     * Przypisanie kadru w module zdjęć audytu — czego zdjęcie dotyczy (budynku
+     * wspólnego dla wszystkich instalacji deala czy jednej instalacji), którego
+     * rozdzielacza i z jakim opisem. Czyta je `AuditPhotos.kt`; `null` = zwykły
+     * plik, spoza audytu.
+     */
+    val photoData: JsonElement? = null,
     val createdAt: String = "",
     /** Czeka w kolejce na wysyłkę (wgrany bez zasięgu). */
     val pending: Boolean = false,

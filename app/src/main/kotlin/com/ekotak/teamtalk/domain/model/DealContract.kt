@@ -221,6 +221,12 @@ data class ContractFilling(
      * decyzja, co przy „Przelicz z audytu" w zakładce „Zamówienie").
      */
     val materialy: List<ContractMaterial> = emptyList(),
+    /**
+     * Czego w cenie NIE MA (§ zakres wyłączony umowy). Telefon tego nie
+     * edytuje — pokazuje na zakładce „Montaż" i oddaje przy zapisie nietknięte,
+     * żeby zmiana umowy z telefonu nie skasowała wyłączeń z dokumentu.
+     */
+    val zakresWylaczony: List<String> = emptyList(),
 )
 
 const val DOMYSLNY_VAT = 8

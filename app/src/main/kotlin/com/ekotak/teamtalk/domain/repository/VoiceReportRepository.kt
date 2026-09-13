@@ -20,5 +20,5 @@ interface VoiceReportRepository {
     ): VoiceReport
 
     /** Wgrywa nagranie audio do istniejącej notatki (ustawia recordingKey). */
-    suspend fun uploadRecording(reportId: String, file: File): VoiceReport
+    suspend fun uploadRecording(reportId: String, file: File, mimeType: String = "audio/mp4"): VoiceReport
 }

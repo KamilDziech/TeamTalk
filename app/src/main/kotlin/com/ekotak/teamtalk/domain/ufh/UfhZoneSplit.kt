@@ -3,7 +3,6 @@ package com.ekotak.teamtalk.domain.ufh
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.floor
-import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sqrt
@@ -405,9 +404,9 @@ internal fun distToSeg(p: PlanPoint, a: PlanPoint, b: PlanPoint): Double {
     val dx = b.x - a.x
     val dy = b.y - a.y
     val len2 = dx * dx + dy * dy
-    if (len2 <= 0) return hypot(p.x - a.x, p.y - a.y)
+    if (len2 <= 0) return jsHypot(p.x - a.x, p.y - a.y)
     val t = max(0.0, min(1.0, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2))
-    return hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy))
+    return jsHypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy))
 }
 
 private fun distToRing(p: PlanPoint, ring: List<PlanPoint>): Double {

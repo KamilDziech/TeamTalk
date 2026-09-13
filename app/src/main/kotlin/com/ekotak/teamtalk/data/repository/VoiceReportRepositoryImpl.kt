@@ -55,16 +55,16 @@ class VoiceReportRepositoryImpl @Inject constructor(
         return dto.toDomain()
     }
 
-    override suspend fun uploadRecording(reportId: String, file: File): VoiceReport =
+    override suspend fun uploadRecording(reportId: String, file: File, mimeType: String): VoiceReport =
         withContext(Dispatchers.IO) {
-            val part = file.toMultipartPart()
+            val part = file.toMultipartPart(mimeType)
             val dto = api.uploadRecording(reportId, part)
             voiceReportDao.upsert(dto.toEntity())
             dto.toDomain()
         }
 
-    private fun File.toMultipartPart(): MultipartBody.Part {
-        val requestBody = asRequestBody("audio/mp4".toMediaType())
+    private fun File.toMultipartPart(mimeType: String): MultipartBody.Part {
+        val requestBody = asRequestBody(mimeType.toMediaType())
         return MultipartBody.Part.createFormData("file", name, requestBody)
     }
 }

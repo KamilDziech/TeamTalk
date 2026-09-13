@@ -42,6 +42,10 @@ interface DealDocumentRepository {
      *
      * @param category `null` = „wykryj sekcję automatycznie". Do czasu wysyłki
      *   plik leży wtedy w „Pozostałe" — sekcję zna dopiero serwer.
+     * @param photoData przypisanie kadru audytu (grupa, rozdzielacz, opis).
+     *   Idzie w jednym żądaniu z treścią: zdjęcie bez odpowiedzi „czego
+     *   dotyczy" byłoby w module zdjęć niewidoczne, więc nie ma stanu
+     *   pośredniego, w którym kadr istnieje bez przypisania.
      */
     suspend fun upload(
         dealId: String,
@@ -49,12 +53,16 @@ interface DealDocumentRepository {
         contentType: String,
         category: DocumentCategory?,
         bytes: ByteArray,
+        photoData: JsonObject? = null,
     ): DealDocument?
 
     suspend fun setCategory(document: DealDocument, category: DocumentCategory)
 
     /** `planData = null` kasuje przygotowanie rzutu (wraca stan „nieprzygotowany"). */
     suspend fun setPlanData(document: DealDocument, planData: JsonObject?)
+
+    /** `photoData = null` odpina kadr od audytu (plik zostaje w „Plikach"). */
+    suspend fun setPhotoData(document: DealDocument, photoData: JsonObject?)
 
     suspend fun delete(document: DealDocument)
 

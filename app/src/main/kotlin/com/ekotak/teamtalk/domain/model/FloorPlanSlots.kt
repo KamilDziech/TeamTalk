@@ -96,3 +96,55 @@ fun projektSlots(
 
     return keys.map { PlanSlot(it, slotLabel(it)) }
 }
+
+// ── Rzut kondygnacji w audycie OP ────────────────────────────────────────────
+// Dobór slotu do kondygnacji (`resolveFloorPlanSlot`, `NO_PLAN`) mieszka w
+// `domain/ufh/UfhFloorPlanState.kt` — sprawdzony porównaniem z panelem.
+
+/**
+ * Rzut kondygnacji gotowy do pokazania w audycie (odpowiednik `FloorPlanDoc`).
+ *
+ * [document] niesie wszystko, czego trzeba do bitmapy offline-first
+ * (`DocumentFileStore.image(document, page, targetPx)`); [planData] to
+ * przygotowanie z zakładki „Pliki" (skala + obrysy) — audyt wczytuje je
+ * PRZYCISKIEM, nigdy sam, żeby nie nadpisać pracy audytora. Parsuje je
+ * `parsePlanPrep` z `domain/ufh/PlanPrep.kt`.
+ */
+data class FloorPlanDoc(
+    /** Klucz slotu (`parter`, `pietro1`, `garaz`…). */
+    val slot: String,
+    val label: String,
+    val docId: String,
+    /** Nazwa pliku bez prefiksu slotu. */
+    val fileName: String,
+    /** Strona do narysowania; slot rzutu to zdjęcie, więc zawsze 1. */
+    val page: Int,
+    val planData: kotlinx.serialization.json.JsonElement?,
+    val document: DealDocument,
+)
+
+/**
+ * Rzuty do wyboru w audycie: ZDJĘCIA z sekcji „Projekt domu" wgrane w slot —
+ * 1:1 z panelem. PDF-y pomijamy (strony PDF-a trafiają na slot jako JPEG przez
+ * „Przypisz do rzutu…"), „Przekrój" też — nie jest rzutem kondygnacji.
+ * Pierwszy plik slotu wygrywa: slot rzutu ma limit 1 pliku.
+ */
+fun buildFloorPlans(documents: List<DealDocument>): List<FloorPlanDoc> {
+    val out = ArrayList<FloorPlanDoc>()
+    for (d in documents) {
+        if (d.category != DocumentCategory.PROJEKT || !d.isImage) continue
+        val slot = d.slot ?: continue
+        if (slot == SLOT_SECTION) continue
+        if (out.any { it.slot == slot }) continue
+        out += FloorPlanDoc(
+            slot = slot,
+            label = slotLabel(slot),
+            docId = d.id,
+            fileName = d.displayName,
+            page = 1,
+            planData = d.planData,
+            document = d,
+        )
+    }
+    return out
+}

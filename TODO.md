@@ -267,6 +267,44 @@ braku cache. Zapis: najpierw sieć, przy jej braku kolejka i od razu cache.
 5. Bez zasięgu zapisz audyt deala z podpisaną umową → po powrocie sieci zapis
    ma przepaść z komunikatem o umowie, a nie krążyć w kolejce.
 
+#### Moduł zdjęć audytu (karta „Zdjęcia")
+
+Makieta i decyzje: `design/mockups/modul-zdjecia-audyt.html`. Trzy grupy kadrów
+przy każdej instalacji — budynek (wspólne dla całego deala), rozdzielacze
+(tyle kadrów, ile rozdzielaczy w formularzu) i dodatkowe z opisem.
+
+- ✅ Kadr to ZWYKŁY plik deala w sekcji „Audyt”; przypisanie („czego dotyczy”)
+  siedzi w nowym `DealDocument.photoData`. Nie w `Audit.formData`, bo zdjęcie
+  budynku jest jedno, a audytów tyle, ile instalacji — i bo kolejka audytu
+  wysyła cały `formData` jednym wierszem, więc kadr z piwnicy przegrałby
+  z zapisem formularza z parteru
+- ✅ Przypisanie jedzie w TYM SAMYM żądaniu co treść (pole `photoData`
+  multipartu) — nie ma stanu, w którym zdjęcie leży w plikach bez odpowiedzi,
+  co przedstawia
+- ✅ Liczba kadrów rozdzielaczy = suma `floors[i].manifolds`. Zmniejszenie
+  ilości NIE kasuje zdjęcia — nadmiarowy kadr schodzi do „dodatkowych”
+  z adnotacją „rozdzielacz zdjęty z listy”
+- ✅ Blokada oferty (podpisana umowa) NIE dotyczy zdjęć: kadr niczego nie
+  przelicza, a montaż i serwis go potrzebują
+- ✅ Kadr z aparatu zmniejszamy do 2000 px / JPEG 85% przed kolejką
+  (`AuditPhotoScaler`) — komplet ośmiu zdjęć schodzi z ~50 MB do ~6 MB.
+  Obrót z EXIF-a wpalamy w piksele, bo ponowne kodowanie gubi znaczniki
+- ⚠️ Rodzaju skrzynki (kropki rzutu) telefon nie zna, więc podpis kafelka
+  rozdzielacza jest ogólny; w panelu bierze się go z `manifoldMarks`
+
+#### Do sprawdzenia na urządzeniu (zdjęcia audytu)
+
+1. Tryb samolotowy → zakładka „Audyt” → pusty kafelek „Kotłownia” → aparat.
+   Kadr ma pojawić się od razu, ze znacznikiem zegara („czeka na wysyłkę”).
+2. Wyłącz tryb samolotowy → znacznik zmienia się w ptaszek, a panel pokazuje
+   to zdjęcie w sekcji „Audyt” zakładki „Pliki”, z etykietą kadru.
+3. Przełącz instalację (np. z podłogówki na pompę ciepła) — kadry budynku mają
+   stać w obu, kadry rozdzielaczy tylko przy podłogówce.
+4. Zmień ilość rozdzielaczy z 2 na 1 → drugie zdjęcie ma zjechać do
+   „dodatkowych”, a nie zniknąć.
+5. Deal z podpisaną umową: formularz ma być zamknięty, a kadry i opisy nadal
+   do zrobienia.
+
 #### Do sprawdzenia na urządzeniu (round-trip warstwy rzutu)
 
 Projekt nie ma testów jednostkowych, a przejścia `formData` przez telefon nie
@@ -672,6 +710,187 @@ Atrapa board360 ma na to seed (`board360-mock`, `src/routes/invoices.js`):
 5. Deal bez umowy: sekcja kwot odsyła do zakładki „Umowa", zamiast pokazywać
    zera.
 
+### Zakładka „Montaż" karty deala
+
+**Teczka robocza ekipy** — port `DealMontazPanel.tsx` (1357 linii) razem z trzema
+czystymi rachunkami panelu: `montaz-roles.ts` (pokrycie obsady), `montaz-tools.ts`
+(lista sprzętu) i `montaz-robota.ts` (rysunki i pętle z audytu). Telefon nie liczy
+tu niczego po swojemu — te same funkcje, te same liczby, co na biurku
+koordynatora.
+
+Deal ma zwykle kilka montaży (podłogówka teraz, pompa ciepła po wylewce), więc
+karta zaczyna się od paska etapów, a wszystko poniżej dotyczy JEDNEGO wybranego
+montażu. Zakres (`nodeIds`) jest polem pierwszym wśród równych: z niego wynikają
+wymagane role, sprzęt i rysunki.
+
+- ✅ Pasek etapów montażu z terminem i stanem + „+ Etap" (nowy wyjazd tego deala)
+- ✅ Termin i miejsce do ODCZYTU, tak jak w panelu: zmiana wyłącznie w module
+  „Montaże", bo tylko tam widać pojemność okien tygodnia
+- ✅ Zakres montażu ptaszkami z drzewa etapu „montaz", ze znacznikiem „już
+  w montażu <data>" przy węzłach zajętych przez inny wyjazd tego deala
+- ✅ Obsada: wybór ekipy DOPISUJE skład (nie zastępuje go), role rozdawane po
+  kolei z umiejętności, pokrycie ról w trzech stanach — obsadzona / bez
+  wskazania / brak w obsadzie, z nazwiskami kandydatów
+- ✅ Materiał z magazynu: wydanie pojedynczej pozycji i „Wydaj wszystko", braki
+  wypisane wprost (wydania NIE blokujemy — ekipa zabiera to, co jest)
+- ✅ Sprzęt z kart „🧰 Narzędzia" węzłów zakresu, w kolejności pakowania auta,
+  z scaleniem powtórek po nazwie (tacker jest jeden, choćby wymagały go dwa węzły)
+- ✅ „Co wykonać": rzuty kondygnacji, pętle per pomieszczenie (rozstaw, liczba
+  pętli, metry rury) i specyfikacja techniczna — zawężone do węzłów TEGO montażu
+- ✅ Zakres z PODPISANEJ umowy (Załącznik nr 1) razem z listą „Poza zakresem —
+  tego NIE robimy": dla ekipy to najważniejsza połowa listy
+- ✅ Odprawa do OSÓB z obsady (nie do ekipy jako grupy) z wymaganym
+  potwierdzeniem; treść składa termin, skład, uwagę i braki materiałowe
+- ✅ „Po robocie": zdjęcia powykonawcze i odnośnik do rozliczenia punktów
+- ✅ Uwaga dla ekipy (pies, wjazd, klucze) — jedyne pole, które ta karta pisze
+  własnym tekstem
+- ✅ **Checklista pakowania** zamiast panelowego „Drukuj listę wyjazdową":
+  ptaszki przy materiale i sprzęcie, stan LOKALNY w telefonie. Świadomie nie
+  idzie na serwer — „leży w aucie" to nie to samo, co „wydane z magazynu"
+  (zapis księgowy), a zlanie obu dałoby magazynowi fałszywy obraz stanu
+- ✅ Dodatki, których panel nie ma, bo w biurze nie mają sensu: „Nawiguj" pod
+  adres instalacji, telefon do klienta, nazwisko koordynatora, zdjęcia prosto
+  z aparatu i rzuty ściągane na zapas przy wejściu w zakładkę
+- ❌ Zmiana terminu i protokół odbioru — zostają w module „Montaże" (formularz
+  z podpisem inwestora); karta pokazuje stan i odsyła
+
+#### Kolejka offline zakładki „Montaż"
+
+Baza **25 → 26**: `montaz_installations`, `montaz_crews`, `montaz_materials`,
+`montaz_photos`, `montaz_pack` (ptaszki pakowania) i `montaz_mutations` — plus
+kolumny `montageRoles` i `tools` w `catalog_categories` oraz `skills`
+w `team_members`, bo bez nich pokrycie ról i lista sprzętu byłyby offline puste.
+
+Zakładka pracuje w miejscu z najgorszym zasięgiem w firmie (piwnica budowanego
+domu), więc offline jest w OBIE strony — pięć rodzajów zapisu w jednej kolejce:
+nowy etap, zmiana montażu (zakres/obsada/ekipa/uwaga), wydanie materiału,
+zdjęcie i odprawa.
+
+- ✅ Cache trzyma to, co powiedział serwer; niewysłane decyzje nakładamy przy
+  odczycie — odświeżenie karty nie kasuje osoby dopisanej minutę wcześniej
+- ✅ Etap i zdjęcie zrobione bez zasięgu SĄ wierszami cache'u (`local:…`), bo
+  serwer o nich nie wie i nakładka nie miałaby czego nałożyć; po wysyłce
+  wszystko, co pod nimi czekało, dostaje id z serwera (`retarget`)
+- ✅ Kolejna zmiana tego samego montażu dopisuje się do czekającej (scalanie
+  pól), a kolejne wydanie materiału sumuje pozycje — ekipa wydaje partiami
+- ✅ Odprawa i wydanie materiału bez zasięgu NIE udają, że poszły: karta mówi
+  „czeka w telefonie", a nie pokazuje wymyślonej daty wysłania
+- ✅ Odmowa serwera (403 bez `installation.assign`, 422) kończy wpis w kolejce
+  i ląduje jako komunikat — ponowienie nic by nie zmieniło
+
+#### Do przeklikania na urządzeniu
+
+Atrapa board360 ma na to komplet (`src/routes/installations.js` + seed):
+
+1. Deal „Instal Serwis" → „Montaż": dwa etapy robót (podłogówka + multi-split
+   na przyszły tydzień, pompa ciepła po wylewce), zaklepane okno `reserved` NIE
+   może się pokazać.
+2. Etap podłogówki: pięć wymaganych ról z dwóch gałęzi katalogu, „Hydraulik"
+   bez wskazania, „Elektryk" i „Chłodnik" bez nikogo, kto to umie — trzy różne
+   stany pokrycia na jednym ekranie. Sprzęt: 10 pozycji, pompa próbna z dwóch
+   list scalona w jedną.
+3. Drugi etap: węzeł pompy ciepła pokazuje przy pierwszym etapie „już
+   w montażu <data>".
+4. Konto `serwisant` (bez `installation.assign`): ptaszek zakresu i zmiana
+   obsady kończą się komunikatem serwera, ale WYDANIE MATERIAŁU przechodzi —
+   jest w obsadzie tego montażu. Odprawa oddaje 403.
+5. Tryb samolotowy: dopisz osobę, odhacz pakowanie, zrób zdjęcie i wyślij
+   odprawę → wróć w zasięg i sprawdź `GET /api/installations?dealId=` oraz
+   `GET /api/briefing/sent/:id/receipts`.
+
+### Zakładka „Komunikacja" karty deala
+
+Hub kanałów zawężony do JEDNEGO deala — 1:1 z `DealCommsPanel` panelu:
+Komunikator, Email, WhatsApp, Telefon i SMS (ten ostatni w przygotowaniu także
+w web). Kanały zostają OSOBNO, choć na 360 dp kusi, żeby zlać je w jedną oś
+czasu: człowiek szuka tu „co pisaliśmy mailem", a nie „co się w ogóle działo",
+a każdy kanał ma inne reguły wysyłki (okno 24h WhatsAppa, wybór skrzynki
+w poczcie, wywołania `@` w Komunikatorze).
+
+Poczta jest zrobiona z **ekranów modułu Email**: lista wątków karty otwiera
+`email/{threadId}`, a pisanie idzie oknem modułu (`EmailComposeSheet`).
+Zakładka nie ma więc drugiej, własnej poczty — ma wycinek tej samej, i wątek
+otwarty z karty jest tym samym wątkiem, który leży w skrzynce.
+
+- ✅ Komunikator: wewnętrzny wątek zespołu o dealu
+  (`GET/POST /api/discussions/deal/:dealId`), z wywołaniami przez `@`
+  (`MentionComposer`, ten sam co pod zadaniem). Wejście w kanał zeruje licznik
+  nieprzeczytanych. Wątek deala celowo NIE wchodzi do skrzynki Komunikatora —
+  tak samo jak w board360
+- ✅ Email: wątki dowiązane do deala (`GET /api/email/threads?dealId=`) — ze
+  wszystkich folderów i obu skrzynek, bez wycinka opiekuna: kto widzi kartę,
+  ten widzi jej korespondencję. „Nowy e-mail" startuje z adresem klienta
+  i wysyła z `dealId`, więc wiadomość dowiązuje się sama
+- ✅ Wybór skrzynki nadawczej („Od:") — jedyne miejsce w telefonie, gdzie
+  `EmailComposeSheet` go pokazuje: w module adres wynika z otwartej zakładki,
+  a na karcie deala żadnej zakładki skrzynki nie ma (panel pyta tam tak samo)
+- ✅ WhatsApp: skrzynka deala (`GET/POST /api/deals/:id/whatsapp`) ze statusami
+  po polsku. `pending_config` (brak kredencji Meta) jest opisany jako stan
+  oczekiwania, a nie błąd — wiadomość JEST zapisana
+- ✅ Okno 24h: poza dobą od ostatniej wiadomości klienta API odrzuca treść
+  free-form (422) i pokazujemy jego komunikat DOSŁOWNIE — to reguła WhatsApp
+  Business, nie nasza walidacja. Treść zostaje wtedy w polu do poprawy
+- ✅ Wysyłka WhatsAppa tylko przy `deal.manage`, tak jak w board360; odczyt
+  wszystkich kanałów pod `crm.view`
+- ✅ Telefon: streszczenia rozmów przypięte do TEGO deala
+  (`GET /api/voice-reports?dealId=`) — z ustaleniami, następnym krokiem
+  i znacznikiem „dopisane ręcznie" kontra „z TeamTalka"
+- ✅ „Dopisz streszczenie rozmowy" (`POST /api/voice-reports/manual`): przebieg,
+  ustalenia, następny krok i checkbox „Załóż z tego zadanie dla mnie"
+  z opcjonalnym terminem. Zadanie zakłada się OSOBNYM zapisem i osobno
+  raportuje błąd — notatka jest tu rzeczą ważniejszą i nie może się cofnąć
+  przez nieudane zadanie (tak samo robi panel)
+- ✅ SMS: zaślepka z tym samym powodem, co w panelu (brak kredencji bramki)
+- ❌ Pełny rejestr połączeń klienta na tej zakładce. Widać tu wyłącznie wpisy
+  z `dealId` — to, co TeamTalk zapisał sam, nie znając deala, jest w module
+  Komunikacja i na karcie klienta. Zmiana tego rozjechałaby kartę z panelem
+- ❌ Odpowiadanie na maila z poziomu karty. Wątek otwiera ekran modułu, który
+  odpowiadanie, załączniki i etykiety ma już zrobione
+
+#### Offline zakładki „Komunikacja"
+
+Baza **24 → 25**: `deal_comments`, `deal_whatsapp`, `deal_call_summaries`
+(cache per deal) i `deal_comm_mutations` (kolejka). Poczta własnego cache tu nie
+dostaje — czyta ją `EmailRepository`, tylko innym widokiem.
+
+- ✅ Kolejka jest kluczowana LOKALNYM id wpisu, a nie parą (deal, rodzaj) jak
+  kolejka karty: to nie są decyzje do nadpisania ostatnią wersją. Trzy
+  wiadomości napisane pod rząd bez zasięgu to trzy osobne wiadomości i wszystkie
+  mają dojść, w kolejności pisania
+- ✅ Kolejki NIE wpisujemy do cache'u jako faktu — cache trzyma odpowiedź
+  serwera, a wpisy czekające doklejamy przy odczycie ze znacznikiem „w kolejce".
+  Dzięki temu odpowiedź serwera nigdy nie kasuje wiadomości, o której serwer
+  jeszcze nie wie
+- ✅ Odmowa serwera (403/404/422) kończy wpis i **mówi o tym człowiekowi**
+  (`saveSyncProblem`): widział swoją wiadomość na ekranie, więc jej cichy zanik
+  byłby najgorszym możliwym zachowaniem. Zamknięte okno 24h ma własny tekst
+- ✅ Znacznik przeczytania wątku ginie bez zasięgu po cichu — to informacja dla
+  licznika, a nie decyzja warta wożenia w kolejce
+- ✅ Widok karty leży w cache poczty osobno (`accountId = "deal-card"`,
+  `scope = dealId`), obok widoków „Moje" i „Wszystkie" — jego wycinek liczy
+  serwer i telefon nie ma z czego go odtworzyć
+- ✅ Wysyłka artykułu wiedzy (zakładka LEAD) chodzi odtąd tą samą drogą, więc
+  bez zasięgu też ląduje w kolejce zamiast kończyć się błędem
+
+#### Do przeklikania na urządzeniu
+
+Atrapa board360 ma na to seed (`board360-mock`, `src/seed.js` → `seedComms`):
+
+1. Deal „Wiśniewski" (etap Audyt) → „Komunikacja": Komunikator z dwoma wpisami,
+   WhatsApp ze świeżą wiadomością klienta (okno 24h OTWARTE) i dwie rozmowy
+   telefoniczne — jedna z ustaleniami, druga bez.
+2. Ten sam deal → WhatsApp → wyślij: przechodzi, wiersz dostaje status
+   „oczekuje (brak konfiguracji Meta)" — to nie błąd.
+3. Deal „Wójcik" (etap Oferta) → WhatsApp → wyślij: 422 z tekstem o oknie 24h,
+   treść ZOSTAJE w polu.
+4. Tryb samolotowy → Komunikator → wyślij wpis: dymek od razu na wątku ze
+   znacznikiem „w kolejce"; wróć w zasięg i sprawdź
+   `GET /api/discussions/deal/:id`.
+5. Tryb samolotowy → Telefon → „Dopisz streszczenie" z następnym krokiem
+   i zadaniem: wpis w kolejce, a po powrocie zasięgu zadanie w zakładce
+   „Zadania".
+6. Email → „Nowy e-mail do klienta": adres wchodzi z kartoteki, wybór skrzynki
+   („kontakt" / własna), po wysłaniu wątek na liście karty.
 
 ### Edycja karty (ekran `deal/{id}/edit`)
 

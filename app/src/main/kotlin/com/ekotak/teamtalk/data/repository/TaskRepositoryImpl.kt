@@ -358,6 +358,13 @@ class TaskRepositoryImpl @Inject constructor(
     override suspend fun getMembers(): List<TaskMember> =
         api.getTaskMembers().map { it.toDomain() }
 
+    override suspend fun getSkillGaps(domainId: String): Map<String, List<String>> =
+        api.getDomainSkillCoverage(domainId)
+            .data
+            .subjects
+            .filter { it.missing.isNotEmpty() }
+            .associate { it.subjectId to it.missing }
+
     override suspend fun getProjects(): List<TaskProject> =
         api.getProjects().map { it.toDomain() }
 

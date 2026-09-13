@@ -35,6 +35,13 @@ data class AuditEntity(
      * Wiersz zakładki pokazuje po tym „czeka na wysyłkę".
      */
     val pendingSince: Long?,
+    /**
+     * `updatedAt` wersji SERWERA, którą ten wiersz odzwierciedla (ISO).
+     * Zapis do kolejki go nie rusza — przy niewysłanej zmianie to nadal wersja,
+     * na której audytor zaczął edycję. `null` = wiersz sprzed migracji 28 → 29
+     * albo API bez tego pola; wtedy zapis idzie bez sprawdzania konfliktu.
+     */
+    val updatedAt: String? = null,
 )
 
 /**
@@ -53,6 +60,14 @@ data class CatalogCategoryEntity(
     val position: Int,
     /** Szablon `Category.auditForm` jako surowy JSON; `null` = węzeł go nie ma. */
     val auditForm: String?,
+    /**
+     * Role montażowe węzła (`Category.montageRoles`) — z nich zakładka „Montaż"
+     * liczy pokrycie obsady. Pusto = wiersz sprzed migracji 25 → 26 albo węzeł
+     * bez własnego zakresu montażowego (wtedy dziedziczy go po rodzicu).
+     */
+    val montageRoles: List<String> = emptyList(),
+    /** Zawartość karty „🧰 Narzędzia" węzła jako surowy JSON (`Category.tools`). */
+    val tools: String? = null,
 )
 
 /**
@@ -100,10 +115,31 @@ data class AuditInstallationsEntity(
 data class AuditMutationEntity(
     val auditId: String,
     val field: String,
-    /** Gotowe ciało żądania (`{"formData":{…}}`). */
+    /**
+     * Gotowe ciało żądania (`{"formData":{…}}`). BEZ `expectedUpdatedAt` —
+     * ten dokłada wysyłka z [baseUpdatedAt], żeby rozstrzygnięcie konfliktu
+     * nie musiało przepisywać dokumentu.
+     */
     val payload: String,
     val dealId: String,
     val createdAt: Long,
+    /**
+     * `updatedAt` wersji serwera, na której audytor ZACZĄŁ edycję. Kolejne
+     * zapisy tego samego audytu przed wysyłką go nie zmieniają — inaczej
+     * zmiana z panelu zrobiona w międzyczasie przeszłaby niezauważona.
+     * Przesuwa go dopiero udana wysyłka (na `updatedAt` z odpowiedzi) albo
+     * „nadpisz" (na `updatedAt` bieżącej wersji serwera). `null` = wysyłka
+     * bez warunku (rekord sprzed migracji, `POST`).
+     */
+    val baseUpdatedAt: String? = null,
+    /**
+     * Bieżący audyt z serwera (`current` z 409 `AUDIT_STALE`) jako surowy JSON.
+     * Niepusty = wiersz w konflikcie: worker go NIE wysyła i NIE kasuje, czeka
+     * na decyzję człowieka („nadpisz" / „porzuć moje").
+     */
+    val conflictJson: String? = null,
+    /** Kiedy telefon dostał 409 `AUDIT_STALE` (epoch ms). */
+    val conflictAt: Long? = null,
 ) {
     companion object {
         /** Rekordu jeszcze nie ma na serwerze — pójdzie `POST`. */

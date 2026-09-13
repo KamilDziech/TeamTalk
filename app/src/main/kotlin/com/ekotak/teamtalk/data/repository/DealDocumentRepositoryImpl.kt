@@ -6,6 +6,7 @@ import com.ekotak.teamtalk.data.local.entity.DealDocumentEntity
 import com.ekotak.teamtalk.data.local.entity.DocumentMutationEntity
 import com.ekotak.teamtalk.data.local.entity.DocumentMutationEntity.Companion.KIND_CATEGORY
 import com.ekotak.teamtalk.data.local.entity.DocumentMutationEntity.Companion.KIND_DELETE
+import com.ekotak.teamtalk.data.local.entity.DocumentMutationEntity.Companion.KIND_PHOTO
 import com.ekotak.teamtalk.data.local.entity.DocumentMutationEntity.Companion.KIND_PLAN
 import com.ekotak.teamtalk.data.local.entity.DocumentMutationEntity.Companion.KIND_UPLOAD
 import com.ekotak.teamtalk.data.mapper.isoNow
@@ -94,7 +95,7 @@ class DealDocumentRepositoryImpl @Inject constructor(
             val wire = payload(mutation)["category"]?.jsonPrimitive?.contentOrNull
             result = result.copy(category = DocumentCategory.fromWire(wire), pending = true)
         }
-        if (mine.any { it.kind == KIND_PLAN || it.kind == KIND_UPLOAD }) {
+        if (mine.any { it.kind == KIND_PLAN || it.kind == KIND_UPLOAD || it.kind == KIND_PHOTO }) {
             result = result.copy(pending = true)
         }
         return result
@@ -106,6 +107,7 @@ class DealDocumentRepositoryImpl @Inject constructor(
         contentType: String,
         category: DocumentCategory?,
         bytes: ByteArray,
+        photoData: JsonObject?,
     ): DealDocument? {
         val staged = files.stage(bytes, name) ?: return null
         val id = "$LOCAL_DOCUMENT_PREFIX${UUID.randomUUID()}"
@@ -119,6 +121,9 @@ class DealDocumentRepositoryImpl @Inject constructor(
             // w „Pozostałe" i po wysłaniu sam przeskakuje do właściwej sekcji.
             category = (category ?: DocumentCategory.INNE).wire,
             planDataJson = null,
+            // Kadr audytu widać w module zdjęć OD RAZU — jeszcze zanim wyjdzie
+            // z telefonu — bo przypisanie leży już w wierszu cache'u.
+            photoDataJson = photoData?.toString(),
             createdAt = isoNow(),
             pending = true,
             localPath = staged.absolutePath,
@@ -198,6 +203,33 @@ class DealDocumentRepositoryImpl @Inject constructor(
         syncScheduler.scheduleSync()
     }
 
+    /**
+     * Poprawka przypisania kadru — w praktyce opis dopisany do zdjęcia.
+     * Ten sam układ, co przy rzucie: zapis widać na karcie od razu, a wysyłką
+     * zajmuje się kolejka. Dla pliku, który jeszcze nie wyszedł z telefonu,
+     * przypisanie pojedzie razem z jego treścią (`flushUpload`).
+     */
+    override suspend fun setPhotoData(document: DealDocument, photoData: JsonObject?) {
+        val entity = dao.getDocument(document.id) ?: return
+        dao.upsert(entity.copy(photoDataJson = photoData?.toString()))
+        if (document.id.startsWith(LOCAL_DOCUMENT_PREFIX)) {
+            syncScheduler.scheduleSync()
+            return
+        }
+        dao.upsertMutation(
+            DocumentMutationEntity(
+                targetId = document.id,
+                kind = KIND_PHOTO,
+                dealId = document.dealId,
+                payload = buildJsonObject {
+                    put("photoData", photoData ?: JsonNull)
+                }.toString(),
+                createdAt = System.currentTimeMillis(),
+            ),
+        )
+        syncScheduler.scheduleSync()
+    }
+
     override suspend fun delete(document: DealDocument) {
         if (document.id.startsWith(LOCAL_DOCUMENT_PREFIX)) {
             // Plik nigdy nie wyszedł z telefonu — kasujemy go w całości,
@@ -258,6 +290,16 @@ class DealDocumentRepositoryImpl @Inject constructor(
                         )
                         dao.upsert(row.toEntity(mutation.dealId, System.currentTimeMillis()))
                         dao.deleteMutation(mutation.targetId, KIND_PLAN)
+                    }
+                    KIND_PHOTO -> {
+                        val row = api.setDocumentPhotoData(
+                            id = mutation.targetId,
+                            body = buildJsonObject {
+                                put("photoData", payload(mutation)["photoData"] ?: JsonNull)
+                            },
+                        )
+                        dao.upsert(row.toEntity(mutation.dealId, System.currentTimeMillis()))
+                        dao.deleteMutation(mutation.targetId, KIND_PHOTO)
                     }
                     KIND_DELETE -> {
                         api.deleteDocument(mutation.targetId)
@@ -325,6 +367,9 @@ class DealDocumentRepositoryImpl @Inject constructor(
             dealId = entity.dealId,
             file = part,
             category = if (auto) null else entity.category.toRequestBody(TEXT_PLAIN),
+            // Przypisanie kadru jedzie w tym samym żądaniu co treść — zdjęcie
+            // audytu nigdy nie ląduje na serwerze bez odpowiedzi „czego dotyczy".
+            photoData = entity.photoDataJson?.toRequestBody(TEXT_PLAIN),
         )
 
         // Przygotowanie rzutu zrobione, zanim plik w ogóle wyszedł z telefonu,
@@ -342,10 +387,11 @@ class DealDocumentRepositoryImpl @Inject constructor(
 
         dao.deleteMutation(mutation.targetId, KIND_UPLOAD)
         dao.delete(entity.id)
-        files.dropStaged(entity.localPath)
-        dao.upsert(
-            (withPrep ?: uploaded).toEntity(entity.dealId, System.currentTimeMillis()),
-        )
+        val fresh = (withPrep ?: uploaded).toEntity(entity.dealId, System.currentTimeMillis())
+        dao.upsert(fresh)
+        // Rzut kondygnacji zostaje na telefonie pod id z serwera (audyt OP rysuje
+        // po nim bez zasięgu); każda inna kopia z `outbox` znika jak dotąd.
+        files.adoptStaged(entity.localPath, fresh.toDomain(json))
     }
 
     private suspend fun finishDelete(documentId: String) {
@@ -362,6 +408,7 @@ class DealDocumentRepositoryImpl @Inject constructor(
         KIND_UPLOAD -> "Nie udało się wgrać pliku"
         KIND_DELETE -> "Nie udało się usunąć pliku"
         KIND_PLAN -> "Nie udało się zapisać przygotowania rzutu"
+        KIND_PHOTO -> "Nie udało się zapisać opisu zdjęcia"
         else -> "Nie udało się przenieść pliku"
     }
 

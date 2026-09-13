@@ -81,8 +81,8 @@ Trzy konta zamiast jednego, bo tylko tak da się na telefonie sprawdzić, że pr
 - **Sprzedaż i magazyn** — deal „Wojcik — PV + magazyn" ma dwie oferty (przegraną i wygraną) i żadnego zamówienia (na nim testuje się ręczne zakładanie); deal „Instal Serwis" ma zamówienie **z umowy** z pozycjami w trzech stanach oraz rezerwację ze wszystkimi wariantami wiersza: pokryty, brak już kupowany, brak nieobjęty zakupem (na nim działa „ZAMÓW braki"), pozycja bez kartoteki i jedna wydana (historia).
 - **Umowy** — deal „Instal Serwis" ma umowę **podpisaną z parafą** i zestawieniem materiałowym (na niej działa zmiana i „Odtwórz zamówienie"); deal „Wojcik" jedną **wysłaną** z żywym licznikiem terminu i jedną **po terminie**; deal na etapie audytu — umowę podpisaną **bez parafy** Załącznika nr 1 oraz zgłoszoną do niej zmianę **czekającą na zarząd** (widać ją inaczej z konta `koordynator`, inaczej z `admin`).
 
-- **Faktury KSeF** — deal „Instal Serwis" (B2B, NIP w danych do faktury) ma dwie faktury trafiane **po NIP-ie**; deal „Nowak A." (osoba prywatna) — jedną trafianą **po nazwie**, czyli dopasowaniem prawdopodobnym. W bazie leżą też faktura **zakupowa** i sprzedażowa **obcego nabywcy** — bez nich nie widać, czy filtr działa, czy tylko oddaje wszystko. Montaże (`GET /api/installations`) trasa oddaje z `db.installations`; wypełnia je seed zakładki „Montaż".
-
+- **Komunikacja karty deala** — deal na etapie audytu ma wątek wewnętrzny (dwa wpisy), skrzynkę WhatsApp ze **świeżą** wiadomością klienta (okno 24h otwarte → wysyłka przechodzi) i dwie rozmowy telefoniczne: jedną z ustaleniami i następnym krokiem, drugą bez. Deal „Wojcik" ma tylko **starą** korespondencję WhatsApp — na nim widać odmowę 422 z regułą okna 24h.
+- **Faktury i montaże** — deal „Instal Serwis" (B2B, NIP w danych do faktury) ma dwie faktury trafiane **po NIP-ie**, montaż zaplanowany i zaklepane okno (`reserved`, którego lista pokazać nie może); deal „Nowak A." (osoba prywatna) — jedną fakturę trafianą **po nazwie**, czyli dopasowaniem prawdopodobnym, i montaż gotowy. W bazie leżą też faktura **zakupowa** i sprzedażowa **obcego nabywcy** — bez nich nie widać, czy filtr działa, czy tylko oddaje wszystko.
 ---
 
 ## Endpointy
@@ -117,7 +117,11 @@ audyt Heizlast (tryb + kW + notatka) i formularz audytu instalacji
 - `POST /api/deals/:id/audits` (`deal.manage`) — w trybie `szybki` kW liczy
   **serwer** z `heatloadInputs` `{area, standard, height?}`; telefon podaje
   wejścia, nie wynik
-- `PATCH /api/audits/:id` (`deal.manage`) — `formData` podmieniane w całości
+- `PATCH /api/audits/:id` (`deal.manage`) — `formData` podmieniane w całości.
+  Opcjonalne `expectedUpdatedAt` (ISO, `updatedAt` z chwili pobrania): jeśli audyt
+  zmienił się od tamtej pory, zapis **nie przechodzi** — 409
+  `{statusCode, error, code: "AUDIT_STALE", message, current: <audyt>}`. Każdy
+  zapis daje nowy `updatedAt` (także dwa PATCH-e w tej samej milisekundzie).
 - `GET /api/deals/:id/contracts` → lista umów deala (patrz sekcja „Umowy" niżej).
   Zakładka „Audyt" czyta ją tylko po to, żeby wiedzieć, czy oferta jest zamknięta
   podpisem. Deale z seedu **mają** podpisane umowy, więc pasek blokady widać —
@@ -299,7 +303,28 @@ Seed zakłada trzy komentarze, w tym dwa wywołania — po zalogowaniu `serwisan
 nieprzeczytane wywołanie od koordynatora.
 
 **Czego jeszcze nie ma:** załączników zadań — wchodzą z etapem E5, patrz `design/mockups/modul-zadania.html`.
-Nie ma też wątków deal-level z panelu (`/api/discussions/deal/:id`): mobilka ich nie woła.
+
+### Komunikacja karty deala (zakładka „Komunikacja")
+
+Hub kanałów zawężony do jednego deala. Wątek wewnętrzny leży w **tej samej**
+tabeli komentarzy, tylko kluczowany identyfikatorem deala zamiast zadania — i tak
+samo działa board360. Do skrzynki Komunikatora te wątki celowo nie wchodzą.
+
+- `GET /api/discussions/deal/:dealId` → `{comments: [...]}` (`crm.view`)
+- `POST /api/discussions/deal/:dealId/read` → 204, `POST …/comments` `{body, mentions[]}`
+- `GET /api/deals/:id/whatsapp` (`crm.view`), `POST /api/deals/:id/whatsapp` (`deal.manage`)
+- `POST /api/deals/:id/whatsapp/inbound` — symulacja wiadomości od klienta; na produkcji woła to
+  webhook Meta. Tutaj służy do **otwarcia okna 24h**, bez którego każda wysyłka kończy się 422
+- `GET /api/whatsapp/threads` — skrzynka panelu (ostatnia wiadomość per deal)
+- `GET /api/voice-reports?dealId=` — streszczenia rozmów przypięte do deala
+- `POST /api/voice-reports/manual` `{dealId?, clientId?, phoneNumber?, text, agreements?, nextStep?}` —
+  rozmowa, której TeamTalk nie nagrał. Otwarte dla każdego zalogowanego, tak jak lista notatek:
+  kanał Telefon to narzędzie handlowca, a `telephony.use` ma tylko serwis
+- Korespondencję karty daje `GET /api/email/threads?dealId=` (już było)
+
+Wysyłka WhatsAppa zapisuje się ze statusem `pending_config` (atrapa nie ma kredencji Meta — jak świeża
+produkcja) i **egzekwuje okno 24h**: poza dobą od ostatniej wiadomości przychodzącej free-form dostaje 422.
+Seed (`seedComms`) daje deal ze świeżą wiadomością klienta (okno otwarte) i drugi ze starą (okno zamknięte).
 
 ### Kalendarz — prywatna zajętość (szare pola „Zajęte”)
 
@@ -380,5 +405,5 @@ src/seed.js            dane startowe
 src/middleware.js      requireAuth / requirePermission / 422
 src/routes/            auth, clients, deals, intake, catalog, telephony, tasks,
                        discussions, service, calendar, audits, sales, documents,
-                       contracts, invoices
+                       contracts, invoices, preferences, whatsapp
 ```

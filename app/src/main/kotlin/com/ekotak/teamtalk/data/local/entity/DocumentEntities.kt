@@ -24,15 +24,12 @@ data class DealDocumentEntity(
     val category: String,
     val planDataJson: String?,
     /**
-     * Przypisanie kadru w module zdjęć audytu jako surowy JSON.
-     *
-     * Kolumnę zakłada `MIGRATION_26_27`, która musi jechać w tym commicie, żeby
-     * łańcuch migracji do wersji 28 (Flota) był ciągły — a Room porównuje
-     * schemat z encją i wywraca aplikację, gdy w bazie jest kolumna, o której
-     * encja nie wie. Domyślne `null` jest po to, by nie ruszać miejsc, które
-     * tworzą tę encję: zapis kadrów przyjdzie z modułem zdjęć audytu.
+     * Przypisanie kadru w module zdjęć audytu (grupa, rozdzielacz, opis) jako
+     * surowy JSON — czyta go `AuditPhotos.kt`. `null` = zwykły plik, spoza
+     * audytu. Trzymamy tekst, bo kadr wgrany w panelu ma przejść przez telefon
+     * nietknięty, tak samo jak [planDataJson].
      */
-    val photoDataJson: String? = null,
+    val photoDataJson: String?,
     val createdAt: String,
     /** Plik czeka w kolejce na wysyłkę (wgrany bez zasięgu). */
     val pending: Boolean,
@@ -68,6 +65,14 @@ data class DocumentMutationEntity(
 
         /** Zapis przygotowania rzutu (`PATCH /documents/:id/plan-data`). */
         const val KIND_PLAN = "plan"
+
+        /**
+         * Poprawka przypisania kadru audytu (`PATCH /documents/:id/photo-data`)
+         * — w praktyce opis dopisany do zdjęcia. Samo wgranie kadru niesie
+         * przypisanie od razu w [KIND_UPLOAD], bo zdjęcie bez odpowiedzi „czego
+         * dotyczy" jest w module zdjęć niewidoczne.
+         */
+        const val KIND_PHOTO = "photo"
 
         /** Usunięcie pliku (`DELETE /documents/:id`). */
         const val KIND_DELETE = "delete"

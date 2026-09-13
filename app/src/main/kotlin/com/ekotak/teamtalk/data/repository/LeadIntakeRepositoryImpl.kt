@@ -1,10 +1,14 @@
 package com.ekotak.teamtalk.data.repository
 
 import com.ekotak.teamtalk.data.mapper.toDomain
+import com.ekotak.teamtalk.data.mapper.toDto
 import com.ekotak.teamtalk.data.remote.api.TeamTalkApi
+import com.ekotak.teamtalk.data.remote.dto.LeadBuildingDto
 import com.ekotak.teamtalk.data.remote.dto.LeadIntakeResponseDto
 import com.ekotak.teamtalk.data.remote.dto.LeadNoteResponseDto
+import com.ekotak.teamtalk.data.remote.dto.buildLeadBuildingBody
 import com.ekotak.teamtalk.data.remote.dto.buildLeadNoteBody
+import com.ekotak.teamtalk.domain.model.LeadBuilding
 import com.ekotak.teamtalk.domain.model.LeadIntake
 import com.ekotak.teamtalk.domain.repository.LeadIntakeRepository
 import kotlinx.serialization.decodeFromString
@@ -34,6 +38,11 @@ class LeadIntakeRepositoryImpl @Inject constructor(
         api.updateLeadNote(dealId, buildLeadNoteBody(note))
             .decodeOrNull<LeadNoteResponseDto>(json)
             ?.note
+
+    override suspend fun updateBuilding(dealId: String, building: LeadBuilding): LeadBuilding? =
+        api.updateLeadBuilding(dealId, buildLeadBuildingBody(building.toDto()))
+            .decodeOrNull<LeadBuildingDto>(json)
+            ?.toDomain()
 }
 
 /** Puste ciało (albo dosłowne `null`) = brak rekordu, nie błąd parsowania. */

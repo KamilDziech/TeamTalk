@@ -60,3 +60,25 @@ fun buildLeadNoteBody(note: String?): JsonObject = buildJsonObject {
     val clean = note?.trim()?.ifBlank { null }
     put("note", if (clean == null) JsonNull else JsonPrimitive(clean))
 }
+
+/**
+ * Ciało zapisu danych budynku. Schemat API wymaga OBECNOŚCI każdego pola
+ * (nullable, ale nie opcjonalne), a wspólny `Json` aplikacji ma
+ * `explicitNulls = false` — z data class puste pola w ogóle by nie dojechały
+ * i walidacja odrzuciłaby zapis. Stąd ręczne składanie, jak przy notatce.
+ */
+fun buildLeadBuildingBody(building: LeadBuildingDto): JsonObject = buildJsonObject {
+    fun text(key: String, value: String?) {
+        val clean = value?.trim()?.ifBlank { null }
+        put(key, if (clean == null) JsonNull else JsonPrimitive(clean))
+    }
+    text("shape", building.shape)
+    text("construction", building.construction)
+    text("area", building.area)
+    text("people", building.people)
+    put("floors", building.floors?.let { JsonPrimitive(it) } ?: JsonNull)
+    text("stage", building.stage)
+    text("windows", building.windows)
+    put("heatedBasement", JsonPrimitive(building.heatedBasement))
+    put("heatedGarage", JsonPrimitive(building.heatedGarage))
+}

@@ -59,6 +59,12 @@ class DealEditViewModel @Inject constructor(
         val draft: DealDraft = DealDraft(),
         val numbers: NumberText = NumberText(),
         val members: List<TaskMember> = emptyList(),
+        /**
+         * Kto nie dowozi swojego wymogu w domenie „Audyt i pomiar u klienta"
+         * (id osoby → brakujące szczeble). Uprawnienie decyduje, kto jest na
+         * liście; to dokłada notkę przy nazwisku — dokładnie jak w panelu.
+         */
+        val auditSkillGaps: Map<String, List<String>> = emptyMap(),
         /** Klient karty — tylko do nagłówka, edycja kartoteki jest w panelu. */
         val clientName: String? = null,
     ) {
@@ -110,7 +116,14 @@ class DealEditViewModel @Inject constructor(
         } catch (_: Exception) {
             emptyList()
         }
-        _uiState.update { it.copy(members = members) }
+        // Pokrycie domeny audytu jest dodatkiem do listy: gdy odczyt padnie,
+        // selektor działa dalej, tylko bez notek o niedowiezionym poziomie.
+        val gaps = try {
+            taskRepository.getSkillGaps(AUDIT_SKILL_DOMAIN)
+        } catch (_: Exception) {
+            emptyMap()
+        }
+        _uiState.update { it.copy(members = members, auditSkillGaps = gaps) }
     }
 
     /** Każda zmiana pola przechodzi tędy — jedno miejsce mutacji draftu. */

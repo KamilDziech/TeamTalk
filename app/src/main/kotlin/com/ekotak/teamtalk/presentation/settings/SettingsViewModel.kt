@@ -4,6 +4,7 @@ import android.content.Context
 import android.telephony.SubscriptionManager
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ekotak.teamtalk.data.local.preferences.CallRecordingPreferences
 import com.ekotak.teamtalk.data.local.preferences.SessionPreferences
 import com.ekotak.teamtalk.data.local.preferences.SimPreferences
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -25,6 +26,7 @@ class SettingsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val sessionPreferences: SessionPreferences,
     private val simPreferences: SimPreferences,
+    private val callRecordingPreferences: CallRecordingPreferences,
 ) : ViewModel() {
 
     val appVersion: String = try {
@@ -39,6 +41,10 @@ class SettingsViewModel @Inject constructor(
 
     private val _monitoredSubId = MutableStateFlow(simPreferences.monitoredSubId)
     val monitoredSubId: StateFlow<Int> = _monitoredSubId.asStateFlow()
+
+    private val _recordingUploadEnabled = MutableStateFlow(callRecordingPreferences.enabled)
+    /** Wysyłka nagrań rozmów z nagrywarki telefonu do transkrypcji na serwerze. */
+    val recordingUploadEnabled: StateFlow<Boolean> = _recordingUploadEnabled.asStateFlow()
 
     init {
         loadSimCards()
@@ -60,6 +66,11 @@ class SettingsViewModel @Inject constructor(
 
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch { sessionPreferences.saveThemeMode(mode) }
+    }
+
+    fun setRecordingUploadEnabled(enabled: Boolean) {
+        callRecordingPreferences.enabled = enabled
+        _recordingUploadEnabled.value = enabled
     }
 
     fun setMonitoredSubId(subId: Int) {

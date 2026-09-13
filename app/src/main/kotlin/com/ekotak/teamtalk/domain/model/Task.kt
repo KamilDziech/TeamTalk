@@ -102,6 +102,12 @@ data class TaskMember(
     /** Funkcje w firmie — patrz [TaskTeam]. Wiele na osobę, więc ten sam człowiek
      *  pojawia się pod kilkoma kafelkami kreatora. */
     val functions: List<String> = emptyList(),
+    /**
+     * Umiejętności montażowe (nazwy ról z `Category.montageRoles`). Czyta je
+     * zakładka „Montaż" karty deala: rola bez nikogo, kto ją umie, to inny brak
+     * niż rola nieobsadzona, i karta rozróżnia te dwa stany.
+     */
+    val skills: List<String> = emptyList(),
 ) {
     /** Etykieta do wyświetlenia: „Imię Nazwisko" lub e-mail. */
     val displayName: String

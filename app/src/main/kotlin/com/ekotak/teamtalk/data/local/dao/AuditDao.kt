@@ -9,6 +9,7 @@ import com.ekotak.teamtalk.data.local.entity.AuditEntity
 import com.ekotak.teamtalk.data.local.entity.AuditInstallationsEntity
 import com.ekotak.teamtalk.data.local.entity.AuditMutationEntity
 import com.ekotak.teamtalk.data.local.entity.CatalogCategoryEntity
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface AuditDao {
@@ -103,4 +104,46 @@ interface AuditDao {
             "WHERE auditId = :localId",
     )
     suspend fun rekeyMutations(localId: String, newId: String, formField: String)
+
+    // ── Konflikty zapisu (409 AUDIT_STALE) ────────────────────────────────────
+
+    @Query("SELECT * FROM audit_mutations WHERE auditId = :auditId ORDER BY createdAt ASC")
+    suspend fun getMutationsFor(auditId: String): List<AuditMutationEntity>
+
+    /**
+     * Wiersze w konflikcie dla deala — ekran karty pokazuje z nich okno
+     * „nadpisz / porzuć moje". Flow, bo konflikt wykrywa zwykle worker w tle,
+     * kiedy karta już stoi na ekranie.
+     */
+    @Query(
+        "SELECT * FROM audit_mutations WHERE dealId = :dealId AND conflictJson IS NOT NULL " +
+            "ORDER BY conflictAt ASC",
+    )
+    fun observeConflicts(dealId: String): Flow<List<AuditMutationEntity>>
+
+    /**
+     * Sprzątanie po udanej wysyłce, ale TYLKO gdy wiersz jest tym, który
+     * poszedł (`createdAt` się zgadza). Zapis zrobiony w trakcie wysyłki ma ten
+     * sam klucz i nowy `createdAt` — ten zostaje i dostaje nową bazę.
+     *
+     * @return liczba skasowanych wierszy; 0 = w międzyczasie przyszedł nowszy zapis.
+     */
+    @Query(
+        "DELETE FROM audit_mutations WHERE auditId = :auditId AND field = :field " +
+            "AND createdAt = :createdAt",
+    )
+    suspend fun deleteMutationIfUnchanged(auditId: String, field: String, createdAt: Long): Int
+
+    /** Nowa baza wiersza — po udanej wysyłce albo po „nadpisz". Zdejmuje też konflikt. */
+    @Query(
+        "UPDATE audit_mutations SET baseUpdatedAt = :base, conflictJson = NULL, " +
+            "conflictAt = NULL WHERE auditId = :auditId AND field = :field",
+    )
+    suspend fun rebaseMutation(auditId: String, field: String, base: String?)
+
+    @Query(
+        "UPDATE audit_mutations SET conflictJson = :conflictJson, conflictAt = :at " +
+            "WHERE auditId = :auditId AND field = :field",
+    )
+    suspend fun markConflict(auditId: String, field: String, conflictJson: String, at: Long)
 }

@@ -28,6 +28,7 @@ import com.ekotak.teamtalk.domain.model.EmailSnapshot
 import com.ekotak.teamtalk.domain.model.EmailThread
 import com.ekotak.teamtalk.domain.model.EmailThreadDetail
 import com.ekotak.teamtalk.domain.model.EmailThreadPatch
+import com.ekotak.teamtalk.domain.model.Mailbox
 import com.ekotak.teamtalk.domain.model.MailboxScope
 import com.ekotak.teamtalk.domain.repository.EmailRepository
 import com.ekotak.teamtalk.domain.repository.EmailSyncRejection
@@ -189,6 +190,45 @@ class EmailRepositoryImpl @Inject constructor(
         // na listę wiersz dalej wyglądałby na nieprzeczytany.
         dao.markRead(threadId)
         dao.setDealLink(threadId, detail.thread.dealId, detail.dealLabel)
+    }
+
+    // ── Widok karty deala ─────────────────────────────────────────────────────
+
+    override fun observeDealThreads(dealId: String): Flow<List<EmailThread>> =
+        combine(
+            dao.observeDealThreads(EmailThreadEntity.ACCOUNT_DEAL_CARD, dealId),
+            dao.observePendingIds(),
+        ) { threads, pending ->
+            val queued = pending.toSet()
+            threads.map { it.toDomain(pendingSync = it.id in queued) }
+        }
+
+    /**
+     * Korespondencja deala jest widokiem SERWERA (wszystkie foldery, obie
+     * skrzynki), więc bierzemy ją jednym zapytaniem i podmieniamy cały wycinek.
+     * Zapisujemy pod pseudo-skrzynką karty — dzięki temu nie miesza się
+     * z „Moimi" ani z „Wszystkimi", gdzie ten sam wątek bywa już zapisany
+     * z innym `unread` czy folderem.
+     */
+    override suspend fun refreshDealThreads(dealId: String) {
+        val now = System.currentTimeMillis()
+        val threads = api.getEmailThreadsForDeal(dealId)
+        dao.replaceDealThreads(
+            account = EmailThreadEntity.ACCOUNT_DEAL_CARD,
+            dealId = dealId,
+            threads = threads.map {
+                it.toEntity(EmailThreadEntity.ACCOUNT_DEAL_CARD, dealId, now)
+            },
+        )
+    }
+
+    override suspend fun mailboxes(): List<Mailbox> {
+        runCatching {
+            val now = System.currentTimeMillis()
+            val accounts = api.getEmailAccounts()
+            dao.replaceAccounts(accounts.mapIndexed { index, dto -> dto.toEntity(index, now) })
+        }
+        return dao.getAccounts().map { it.toDomain() }
     }
 
     override suspend fun search(

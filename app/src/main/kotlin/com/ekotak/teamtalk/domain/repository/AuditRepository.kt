@@ -1,9 +1,12 @@
 package com.ekotak.teamtalk.domain.repository
 
 import com.ekotak.teamtalk.domain.model.Audit
+import com.ekotak.teamtalk.domain.model.AuditAuthor
+import com.ekotak.teamtalk.domain.model.AuditConflict
 import com.ekotak.teamtalk.domain.model.Category
 import com.ekotak.teamtalk.domain.model.OfferLock
 import com.ekotak.teamtalk.domain.model.UfhState
+import kotlinx.coroutines.flow.Flow
 
 /**
  * Audyty karty deala — z cache Room i kolejką offline.
@@ -39,6 +42,15 @@ interface AuditRepository {
      *
      * Odmowa serwera (409 przy podpisanej umowie, 403, 422) to nie brak sieci —
      * taki błąd leci dalej, zamiast wozić zmianę w kółko po kolejce.
+     *
+     * Wyjątek: 409 `AUDIT_STALE` (audyt zmieniono w panelu od [baseUpdatedAt]).
+     * Taki zapis NIE przepada i NIE leci dalej jako błąd — ląduje w kolejce
+     * w stanie konfliktu ([AuditSaveResult.CONFLICT], [observeConflicts]).
+     *
+     * @param baseUpdatedAt `Audit.updatedAt` rekordu, z którego ekran zbudował
+     *   formularz — wersja, na której audytor zaczął edycję. `null` = weź
+     *   wersję z cache. Gdy audyt ma już niewysłany zapis w kolejce, liczy się
+     *   baza tamtego wiersza (edycja zaczęła się wcześniej).
      */
     suspend fun saveInstallationAudit(
         dealId: String,
@@ -46,7 +58,37 @@ interface AuditRepository {
         categoryId: String,
         state: UfhState,
         includeCooling: Boolean,
+        baseUpdatedAt: String? = null,
     ): AuditSaveResult
+
+    /**
+     * Zapisy audytów deala, których serwer nie przyjął, bo audyt zmieniono
+     * gdzie indziej. Emituje od nowa przy każdej zmianie kolejki — konflikt
+     * wykrywa zwykle worker w tle, gdy karta już stoi na ekranie.
+     */
+    fun observeConflicts(dealId: String): Flow<List<AuditConflict>>
+
+    /**
+     * „Nadpisz": wysyła moją wersję jeszcze raz, tym razem świadomie na
+     * bieżącej wersji serwera (`expectedUpdatedAt` = `current.updatedAt`).
+     *
+     * @return [AuditSaveResult.SENT] — przyjęta; [AuditSaveResult.QUEUED] —
+     *   brak zasięgu, poleci z kolejki (już bez konfliktu);
+     *   [AuditSaveResult.CONFLICT] — panel zdążył zmienić audyt JESZCZE RAZ.
+     * @throws retrofit2.HttpException inna odmowa serwera (np. `OFFER_LOCKED`) —
+     *   wiersz znika z kolejki, a cache dostaje wersję serwera.
+     */
+    suspend fun resolveOverwrite(auditId: String): AuditSaveResult
+
+    /** „Porzuć moje": kasuje wiersz kolejki i wstawia do cache wersję serwera. */
+    suspend fun resolveDiscard(auditId: String)
+
+    /**
+     * Zalogowany jako autor zmian w rzucie (`byName`/`by`); `null` = brak sesji.
+     * Działa bez zasięgu — z sesji i z cache książki zespołu, więc imię
+     * i nazwisko pojawia się dopiero, gdy książkę raz pobrano.
+     */
+    fun observeAuthor(): Flow<AuditAuthor?>
 
     /**
      * Umowa zamykająca ofertę deala; `null` = nic nie jest podpisane albo
@@ -68,7 +110,16 @@ enum class AuditSyncResult { DONE, RETRY }
  * u klienta dwie różne informacje, a druga decyduje o tym, czy wyjdzie
  * z budynku spokojny.
  */
-enum class AuditSaveResult { SENT, QUEUED }
+enum class AuditSaveResult {
+    SENT,
+    QUEUED,
+
+    /**
+     * Audyt zmieniono w panelu od wersji, na której audytor zaczął edycję.
+     * Zapis leży w kolejce i czeka na decyzję („nadpisz" / „porzuć moje").
+     */
+    CONFLICT,
+}
 
 /**
  * Instalacje deala widziane przez zakładkę „Audyt".

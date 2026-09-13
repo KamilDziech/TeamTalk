@@ -40,6 +40,7 @@ import com.ekotak.teamtalk.presentation.leave.LeaveScreen
 import com.ekotak.teamtalk.presentation.map.MapScreen
 import com.ekotak.teamtalk.presentation.map.RouteHistoryScreen
 import com.ekotak.teamtalk.presentation.home.HomeScreen
+import com.ekotak.teamtalk.presentation.assistant.AssistantScreen
 import com.ekotak.teamtalk.presentation.home.ModulePlaceholderScreen
 import com.ekotak.teamtalk.presentation.home.homeModule
 import com.ekotak.teamtalk.presentation.inventory.InventoryScreen
@@ -253,6 +254,7 @@ private fun MainScreen(
                             "hr" -> "leave"
                             // Poczta = zakładka e-mail huba Komunikacja panelu.
                             "email" -> "email"
+                            "assistant" -> "assistant"
                             "inventory" -> "inventory"
                             "projects" -> "projects"
                             "training" -> "training"
@@ -276,6 +278,13 @@ private fun MainScreen(
                         onNavigateBack = { navController.popBackStack() },
                     )
                 }
+            }
+
+            // ── Asystent (kafelek pulpitu) ─────────────────────────────────────
+            // Czat z asystentem firmowym: wiedza z Kontekstu + dane CRM z serwera,
+            // akcje zapisu dopiero po zatwierdzeniu przez człowieka.
+            composable("assistant") {
+                AssistantScreen(onNavigateBack = { navController.popBackStack() })
             }
 
             // ── Magazyn (kafelek pulpitu) ──────────────────────────────────────
@@ -525,6 +534,9 @@ private fun MainScreen(
                     // ta sama karta zadania i ten sam kreator, tylko z dealem
                     // wpisanym na sztywno (ustalenie 2026-09-08).
                     onOpenTask = { taskId -> navController.navigate("task/$taskId") },
+                    // Tak samo zakładka „Komunikacja": wątek poczty otwiera
+                    // ekran modułu Email, a nie druga czytelnia w karcie.
+                    onOpenEmailThread = { threadId -> navController.navigate("email/$threadId") },
                     onCreateDealTask = { clientLabel, section ->
                         val label = Uri.encode(clientLabel ?: "")
                         val sec = Uri.encode(section ?: "")

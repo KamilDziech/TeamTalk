@@ -7,9 +7,11 @@
  * `DealDocumentDto` aplikacji. Tresc lezy na dysku w UPLOADS_DIR (w board360 —
  * w MinIO), tutaj trzymamy same metadane.
  *
- * `planData` to SWOBODNY JSON: mieszka w nim przygotowanie rzutu (skala plus
- * obrysy pomieszczen) zapisywane i przez panel, i przez telefon. Atrapa go NIE
- * interpretuje — sprawdza tylko typ i rozsadny rozmiar, dokladnie jak board360.
+ * `planData` i `photoData` to SWOBODNE JSON-y zapisywane i przez panel, i przez
+ * telefon: pierwszy niesie przygotowanie rzutu (skala plus obrysy pomieszczen),
+ * drugi przypisanie kadru w module zdjec audytu (grupa, rozdzielacz, opis).
+ * Atrapa ich NIE interpretuje — sprawdza tylko typ i rozsadny rozmiar,
+ * dokladnie jak board360.
  */
 
 const express = require('express');
@@ -30,7 +32,32 @@ const CATEGORIES = ['projekt', 'dotacja', 'protokol', 'audyt', 'montaz', 'umowa'
 /** Zapora na smieciowy JSON — rzut z obrysami miesci sie swobodnie. */
 const PLAN_DATA_MAX_CHARS = 512 * 1024;
 
+/** Przypisanie kadru audytu to kilka pol i opis — duzo mniejsza koperta. */
+const PHOTO_DATA_MAX_CHARS = 8 * 1024;
+
 const isPlainObject = (v) => typeof v === 'object' && v !== null && !Array.isArray(v);
+
+/**
+ * Przypisanie kadru audytu z pola multipartu (upload leci formularzem, wiec
+ * JSON przychodzi stringiem). Zwraca `undefined` dla zwyklego pliku albo rzuca
+ * `{ status, message }`, gdy tresc jest niepoprawna — dokladnie jak board360.
+ */
+function parsePhotoData(raw) {
+  if (raw === undefined || raw === '') return undefined;
+  if (String(raw).length > PHOTO_DATA_MAX_CHARS) {
+    throw { status: 400, message: 'Opis zdjecia jest za duzy.' };
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (e) {
+    throw { status: 400, message: 'Nieprawidlowe przypisanie zdjecia.' };
+  }
+  if (!isPlainObject(parsed)) {
+    throw { status: 400, message: 'Nieprawidlowe przypisanie zdjecia.' };
+  }
+  return parsed;
+}
 
 /**
  * Sekcja zgadywana z nazwy pliku, gdy klient nie podal `category` („wykryj
@@ -55,6 +82,7 @@ const shape = (row) => ({
   contentType: row.contentType,
   category: row.category,
   planData: row.planData ?? null,
+  photoData: row.photoData ?? null,
   createdAt: row.createdAt,
 });
 
@@ -119,6 +147,13 @@ router.post(
     const raw = req.body && req.body.category;
     const category = CATEGORIES.includes(raw) ? raw : guessCategory(name);
 
+    let photoData;
+    try {
+      photoData = parsePhotoData(req.body && req.body.photoData);
+    } catch (e) {
+      return res.status(e.status || 400).json({ message: e.message });
+    }
+
     const id = uuid();
     const ext = (path.extname(name) || '').replace(/[^.\w]/g, '');
     const key = `deal-documents/${req.user.organizationId}/${id}${ext}`;
@@ -134,6 +169,9 @@ router.post(
       contentType: req.file.mimetype || 'application/octet-stream',
       category,
       planData: null,
+      // Kadr audytu przychodzi RAZEM z trescia — zdjecie nigdy nie lezy
+      // w plikach bez odpowiedzi "czego dotyczy".
+      photoData: photoData === undefined ? null : photoData,
       uploadedBy: req.user.id,
       createdAt: nowIso(),
     };
@@ -172,6 +210,30 @@ router.patch(
       return res.status(400).json({ message: 'Przygotowanie rzutu jest za duze.' });
     }
     row.planData = planData;
+    return res.json(shape(row));
+  },
+);
+
+/**
+ * Przypisanie kadru audytu. Cialo: `{ photoData: {...} | null }` — `null`
+ * ODPINA zdjecie od audytu (plik zostaje w „Plikach") i musi dojsc jako jawny
+ * null. Atrapa tresci nie interpretuje, tak samo jak przy rzucie.
+ */
+router.patch(
+  '/documents/:id/photo-data',
+  requireAuth,
+  requirePermission('deal.manage'),
+  (req, res) => {
+    const row = documentById(req.user.organizationId, req.params.id);
+    if (!row) return res.status(404).json({ message: 'Plik nie istnieje.' });
+    const photoData = req.body ? req.body.photoData : undefined;
+    if (photoData !== null && !isPlainObject(photoData)) {
+      return res.status(400).json({ message: 'Nieprawidlowe przypisanie zdjecia.' });
+    }
+    if (photoData !== null && JSON.stringify(photoData).length > PHOTO_DATA_MAX_CHARS) {
+      return res.status(400).json({ message: 'Opis zdjecia jest za duzy.' });
+    }
+    row.photoData = photoData;
     return res.json(shape(row));
   },
 );

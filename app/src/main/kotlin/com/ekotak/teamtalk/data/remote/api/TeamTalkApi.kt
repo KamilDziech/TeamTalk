@@ -60,6 +60,20 @@ interface TeamTalkApi {
         @Body request: ClientAssistantRequest,
     ): ClientAssistantReplyDto
 
+    // ── Asystent firmowy (kafelek „Asystent" pulpitu) ─────────────────────────
+    // Czat dostępny dla każdej zalogowanej roli. Serwer sam sięga po Kontekst
+    // organizacji i dane CRM (zawężone widocznością wołającego), a akcje zapisu
+    // tylko PROPONUJE — wykonanie to osobne żądanie po zatwierdzeniu.
+
+    @POST("api/assistant/chat")
+    suspend fun askAssistant(@Body request: AssistantChatRequest): AssistantChatReplyDto
+
+    /** Wykonanie zatwierdzonej propozycji; RBAC per typ akcji egzekwuje API. */
+    @POST("api/assistant/actions")
+    suspend fun runAssistantAction(
+        @Body request: AssistantActionRequest,
+    ): AssistantActionResultDto
+
     // ── Deals (CRM / lejek sprzedaży) ──────────────────────────────────────────
     // Odczyt wymaga `crm.view`, zmiany `deal.manage` (RBAC egzekwuje API).
     // Uwaga: lista NIE zwraca klienta — dane klienta doklejamy z `api/clients`.
@@ -154,6 +168,11 @@ interface TeamTalkApi {
      * Wgranie pliku (pole `file`, sekcja w polu `category`). Limit board360:
      * 25 MB. Bez `category` serwer wybiera sekcję sam po nazwie pliku — panel
      * nazywa to „automatycznie (wykryj sekcję)".
+     *
+     * `photoData` (JSON jako tekst) niesie przypisanie kadru audytu. Leci
+     * RAZEM z treścią, bo osobny PATCH po uploadzie zostawiałby okno, w którym
+     * zdjęcie z terenu leży w plikach i nikt nie wie, co przedstawia — a to
+     * właśnie na granicy zasięgu telefon traci połączenie.
      */
     @Multipart
     @POST("api/deals/{id}/documents")
@@ -161,6 +180,7 @@ interface TeamTalkApi {
         @Path("id") dealId: String,
         @Part file: MultipartBody.Part,
         @Part("category") category: okhttp3.RequestBody? = null,
+        @Part("photoData") photoData: okhttp3.RequestBody? = null,
     ): DealDocumentDto
 
     @PATCH("api/documents/{id}")
@@ -176,6 +196,17 @@ interface TeamTalkApi {
      */
     @PATCH("api/documents/{id}/plan-data")
     suspend fun setDocumentPlanData(
+        @Path("id") id: String,
+        @Body body: JsonObject,
+    ): DealDocumentDto
+
+    /**
+     * Przypisanie kadru audytu — w praktyce opis dopisany do zdjęcia. Ciało
+     * jako `JsonObject` z tego samego powodu co przy rzucie: `{"photoData": null}`
+     * ODPINA kadr od audytu i musi dojść jako jawny `null`.
+     */
+    @PATCH("api/documents/{id}/photo-data")
+    suspend fun setDocumentPhotoData(
         @Path("id") id: String,
         @Body body: JsonObject,
     ): DealDocumentDto
@@ -369,6 +400,16 @@ interface TeamTalkApi {
         @Body request: GenerateArticleRequest,
     ): KnowledgeArticleDto
 
+    // ── Komunikacja deala (zakładka „Komunikacja") ────────────────────────────
+    // Odczyt wszystkich kanałów chodzi pod `crm.view` — kto widzi kartę, ten
+    // widzi jej korespondencję. Wysyłka WhatsAppa wymaga `deal.manage`, a wpis
+    // wewnętrzny i streszczenie rozmowy — nie: rozmowa zespołu o dealu i notatka
+    // z telefonu to narzędzie każdego, kto przy dealu pracuje.
+
+    /** Skrzynka WhatsApp deala — cały wątek, od najstarszej wiadomości. */
+    @GET("api/deals/{id}/whatsapp")
+    suspend fun getDealWhatsapp(@Path("id") id: String): List<WhatsappMessageDto>
+
     /**
      * Wiadomość wychodząca na wątku WhatsApp deala. Poza oknem 24h od ostatniej
      * wiadomości klienta API odrzuca treść free-form (422) — to reguła WhatsApp
@@ -379,6 +420,19 @@ interface TeamTalkApi {
         @Path("id") id: String,
         @Body request: SendWhatsappRequest,
     ): ResponseBody
+
+    /** Wewnętrzny wątek zespołu o dealu (Komunikator zawężony do karty). */
+    @GET("api/discussions/deal/{dealId}")
+    suspend fun getDealDiscussion(@Path("dealId") dealId: String): DealDiscussionDto
+
+    @POST("api/discussions/deal/{dealId}/read")
+    suspend fun markDealDiscussionRead(@Path("dealId") dealId: String)
+
+    @POST("api/discussions/deal/{dealId}/comments")
+    suspend fun addDealDiscussionComment(
+        @Path("dealId") dealId: String,
+        @Body request: AddCommentRequest,
+    ): DiscussionCommentDto
 
     // ── Leadownia (zakładka „LEAD" karty deala) ───────────────────────────────
     // Zgłoszenie z publicznej leadowni cennikinstalacji.pl. Deal spoza leadowni
@@ -392,6 +446,16 @@ interface TeamTalkApi {
 
     @PATCH("api/intake/deal/{dealId}/lead/note")
     suspend fun updateLeadNote(
+        @Path("dealId") dealId: String,
+        @Body body: JsonObject,
+    ): ResponseBody
+
+    /**
+     * Ręczna korekta danych budynku ze zgłoszenia — odpowiednik ikonografiki
+     * „Zmień dane budynku" w panelu. Zwraca zapisany komplet.
+     */
+    @PATCH("api/intake/deal/{dealId}/lead/building")
+    suspend fun updateLeadBuilding(
         @Path("dealId") dealId: String,
         @Body body: JsonObject,
     ): ResponseBody
@@ -476,6 +540,72 @@ interface TeamTalkApi {
     @GET("api/installations")
     suspend fun getInstallations(@Query("dealId") dealId: String): List<InstallationDto>
 
+    // ── Montaż (zakładka „Montaż" karty deala) ────────────────────────────────
+    // Odczyt chodzi na `installation.view`, planowanie i obsada na
+    // `installation.assign`. WYDANIE MATERIAŁU jest wyjątkiem: prawo otwiera
+    // `installation.view`, ale API dopuszcza tylko obsadę TEGO montażu albo
+    // koordynatora — monter wyda materiał wyłącznie na swoją robotę. Telefon
+    // tego nie odgaduje, pokazuje odmowę serwera.
+
+    /** Ta sama lista co wyżej, ale w pełnym kształcie karty montażu. */
+    @GET("api/installations")
+    suspend fun getMontaze(@Query("dealId") dealId: String): List<MontazDto>
+
+    @POST("api/installations")
+    suspend fun createMontaz(@Body request: MontazCreateRequest): MontazDto
+
+    /**
+     * Ciało jako `JsonObject`, a nie DTO: API rozróżnia BRAK pola od jawnego
+     * `null`, a karta musi umieć jedno i drugie — odpięcie ekipy to `crewId:
+     * null`, a nie „nie zmieniaj". Ten sam wybór, co przy edycji klienta.
+     */
+    @PATCH("api/installations/{id}")
+    suspend fun updateMontaz(
+        @Path("id") id: String,
+        @Body body: JsonObject,
+    ): MontazDto
+
+    /** Ekipy do obsady — lista z modułu Zespół, tylko odczyt. */
+    @GET("api/installations/crews")
+    suspend fun getMontazCrews(): List<MontazCrewDto>
+
+    /** Co magazyn trzyma odłożone pod deal tego montażu (lista wyjazdowa). */
+    @GET("api/installations/{id}/deal-materials")
+    suspend fun getMontazMaterials(@Path("id") id: String): List<MontazMaterialDto>
+
+    @POST("api/installations/{id}/deal-materials/issue")
+    suspend fun issueMontazMaterials(
+        @Path("id") id: String,
+        @Body request: MontazIssueRequest,
+    ): MontazIssueResponse
+
+    @GET("api/installations/{id}/photos")
+    suspend fun getMontazPhotos(@Path("id") id: String): List<MontazPhotoDto>
+
+    /** Treść zdjęcia powykonawczego — pobieramy do pamięci podręcznej telefonu. */
+    @GET("api/installations/{id}/photos/{photoId}")
+    suspend fun downloadMontazPhoto(
+        @Path("id") id: String,
+        @Path("photoId") photoId: String,
+    ): ResponseBody
+
+    @Multipart
+    @POST("api/installations/{id}/photos")
+    suspend fun uploadMontazPhoto(
+        @Path("id") id: String,
+        @Part file: MultipartBody.Part,
+    ): MontazPhotoDto
+
+    // ── Odprawa montażu (moduł Odprawy) ───────────────────────────────────────
+    // Publikacja wymaga `briefing.publish` (koordynator), więc monter dostanie
+    // 403 — to nie awaria zakładki, tylko podział ról, i karta mówi o tym wprost.
+
+    @POST("api/briefing")
+    suspend fun publishBriefing(@Body request: BriefingCreateRequest): BriefingCreatedDto
+
+    /** Potwierdzenia odbioru odprawy; widzi je wyłącznie publikujący. */
+    @GET("api/briefing/sent/{id}/receipts")
+    suspend fun getBriefingReceipts(@Path("id") id: String): List<BriefingReceiptDto>
     // ── Call logs ─────────────────────────────────────────────────────────────
 
     @POST("api/call-logs")
@@ -495,8 +625,30 @@ interface TeamTalkApi {
         @Query("limit") limit: Int? = null,
     ): List<VoiceReportResponseDto>
 
+    /**
+     * Streszczenia rozmów przypięte do JEDNEGO deala (zakładka „Komunikacja").
+     * Trasa jest ta sama, ale odpytujemy ją inaczej niż moduł notatek, więc
+     * dostaje własną sygnaturę — inaczej wywołujący musiałby przekazywać `null`
+     * za każdy niepotrzebny filtr.
+     */
+    @GET("api/voice-reports")
+    suspend fun getDealVoiceReports(
+        @Query("dealId") dealId: String,
+        @Query("limit") limit: Int? = null,
+    ): List<VoiceReportResponseDto>
+
     @POST("api/voice-reports")
     suspend fun createVoiceReport(@Body request: CreateVoiceReportRequest): VoiceReportResponseDto
+
+    /**
+     * Ręczne streszczenie rozmowy, której telefon nie zarejestrował. Otwarte dla
+     * każdego zalogowanego (board360 nadpisuje tu `telephony.use`) — kanał
+     * Telefon jest narzędziem handlowca, nie tylko serwisanta.
+     */
+    @POST("api/voice-reports/manual")
+    suspend fun createManualVoiceReport(
+        @Body request: CreateManualVoiceReportRequest,
+    ): VoiceReportResponseDto
 
     @Multipart
     @POST("api/voice-reports/{id}/recording")
@@ -511,6 +663,16 @@ interface TeamTalkApi {
     suspend fun upsertDevice(@Body request: UpsertDeviceRequest): DeviceResponseDto
 
     // ── Tasks ─────────────────────────────────────────────────────────────────────
+
+    /**
+     * Kto ma luki w danej domenie umiejętności (`domain=biz-audyt` dla audytu).
+     * Bez uprawnienia do modułu Zespół — koordynator ma widzieć, kogo wysyła
+     * mimo niedowiezionego wymogu, ale nie całą tabelę poziomów.
+     */
+    @GET("api/domain-skills/coverage")
+    suspend fun getDomainSkillCoverage(
+        @Query("domain") domain: String,
+    ): SkillCoverageResponseDto
 
     @GET("api/tasks/members")
     suspend fun getTaskMembers(): List<TaskMemberDto>

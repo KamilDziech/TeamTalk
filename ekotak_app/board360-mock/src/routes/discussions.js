@@ -8,8 +8,11 @@
  * Tytul dyskusji to KLIENT, nie zadanie ("Nazwisko · kod deala") — ustalenia
  * 2026-09-01, patrz `ekotak-app/docs/tasks/wywolanie-w-komentarzu.md`.
  *
- * Watki deal-level z panelu (`/discussions/deal/:id`) sa tu pominiete: mobilka
- * ich nie wola, a w board360 celowo nie wchodza do skrzynki.
+ * Watek deal-level (`/discussions/deal/:id`) to Komunikator zawezony do karty
+ * deala — zakladka „Komunikacja" w panelu i w TeamTalku. Board360 trzyma go
+ * w TEJ SAMEJ tabeli komentarzy, kluczujac wpisy identyfikatorem deala zamiast
+ * zadania; atrapa robi tak samo. Do skrzynki Komunikatora te watki celowo NIE
+ * wchodza (`myDiscussions` chodzi po zadaniach), wiec traktujemy je osobno.
  */
 
 const express = require('express');
@@ -17,6 +20,7 @@ const { uuid, nowIso } = require('../crypto');
 const { requireAuth, requirePermission, unprocessable } = require('../middleware');
 const {
   db,
+  dealById,
   taskById,
   userLabel,
   userById,
@@ -99,6 +103,46 @@ router.get('/discussions/unread-count', requireAuth, requirePermission('tasks.vi
     0,
   );
   res.json({ count });
+});
+
+// ── Watek wewnetrzny deala (zakladka „Komunikacja") ──────────────────────────
+// Trasy MUSZA stac przed `/:taskId`, inaczej „deal" wpadnie jako taskId.
+// Dostep pod `crm.view`, nie `tasks.view`: kto widzi karte deala, ten widzi
+// rozmowe zespolu o nim — tak samo jak w board360.
+
+router.get('/discussions/deal/:dealId', requireAuth, requirePermission('crm.view'), (req, res) => {
+  const deal = dealById(req.user.organizationId, req.params.dealId);
+  if (!deal) return res.status(404).json({ message: 'Deal nie istnieje.' });
+  return res.json({
+    comments: commentsOf(req.user.organizationId, deal.id).map((c) =>
+      commentView(req.user.organizationId, c, req.user.id),
+    ),
+  });
+});
+
+router.post('/discussions/deal/:dealId/read', requireAuth, requirePermission('crm.view'), (req, res) => {
+  markDiscussionRead(req.user.organizationId, req.user.id, req.params.dealId);
+  res.status(204).end();
+});
+
+router.post('/discussions/deal/:dealId/comments', requireAuth, requirePermission('crm.view'), (req, res) => {
+  const deal = dealById(req.user.organizationId, req.params.dealId);
+  if (!deal) return res.status(404).json({ message: 'Deal nie istnieje.' });
+  const body = typeof (req.body || {}).body === 'string' ? req.body.body.trim() : '';
+  if (!body) return unprocessable(res, 'Tresc wiadomosci jest wymagana.', ['tresc wiadomosci']);
+
+  const row = {
+    id: uuid(),
+    organizationId: req.user.organizationId,
+    taskId: deal.id,
+    authorId: req.user.id,
+    body,
+    createdAt: nowIso(),
+  };
+  db.taskComments.push(row);
+  recordMentions(req.user.organizationId, deal.id, row.id, req.user.id, (req.body || {}).mentions);
+  markDiscussionRead(req.user.organizationId, req.user.id, deal.id);
+  return res.status(201).json(commentView(req.user.organizationId, row, req.user.id));
 });
 
 router.get('/discussions/:taskId', requireAuth, requirePermission('tasks.view'), (req, res) => {

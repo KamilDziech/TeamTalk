@@ -1,5 +1,7 @@
 package com.ekotak.teamtalk.presentation.crm
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -11,7 +13,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -22,15 +26,22 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.ekotak.teamtalk.domain.model.ArticleGate
+import com.ekotak.teamtalk.domain.model.Client
 import com.ekotak.teamtalk.domain.model.Deal
 import com.ekotak.teamtalk.domain.model.DealBuildingKind
 import com.ekotak.teamtalk.domain.model.DealStage
+import com.ekotak.teamtalk.domain.model.DocumentCategory
 import com.ekotak.teamtalk.domain.model.KnowledgeArticle
 import com.ekotak.teamtalk.domain.model.LeadBuilding
 import com.ekotak.teamtalk.domain.model.LeadChannel
@@ -68,6 +79,23 @@ fun DealLeadTab(
     val intake = lead.intake
     val error = lead.error
 
+    // Aparat i wybór plików jak w zakładce „Pliki" — cel jest stały (sekcja
+    // „Projekt domu"), więc wystarczy jedno wywołanie na całą zakładkę.
+    val pickers = rememberFilePickers { picked ->
+        picked.forEach {
+            viewModel.uploadFile(
+                name = it.name,
+                contentType = it.contentType,
+                bytes = it.bytes,
+                category = DocumentCategory.PROJEKT,
+            )
+        }
+        if (picked.isNotEmpty()) viewModel.selectTab(DealTab.PLIKI)
+    }
+    var ozcOpen by remember { mutableStateOf(false) }
+    // `null` = okno korekty danych budynku zamknięte.
+    var buildingEdit by remember { mutableStateOf<LeadBuilding?>(null) }
+
     QualificationBanner(detail.deal)
 
     BuildingKindCard(
@@ -91,14 +119,30 @@ fun DealLeadTab(
         onAskSend = viewModel::askSendArticle,
     )
 
+    // Panel trzyma „+ Projekt", „+ OZC" i „+ Spotkanie" w jednym rzędzie nad
+    // drzewem instalacji — na telefonie stoją jeden pod drugim, ale w tej samej
+    // kolejności i z tą samą bramką „OZC tylko przy czymś z Ogrzewania".
+    ProjektOzcCard(
+        canManage = state.canManage,
+        busy = state.files.busy,
+        showOzc = hasHeating(lead.catalog, lead.selectedInstallations.orEmpty()),
+        ozcSummary = ozcSummary(detail.deal.ozcData),
+        onPickProject = pickers::pickFiles,
+        onPhotoProject = pickers::takePhoto,
+        onOzc = { ozcOpen = true },
+    )
+    SectionGap()
+
     MeetingCard(
         deal = detail.deal,
+        client = detail.client,
         members = state.members,
         canManage = state.canManage,
         isSaving = state.isSaving,
         onKindSelect = viewModel::setMeetingKind,
         onTermChange = viewModel::setMeetingAt,
         onEdit = onEdit,
+        onGoToDane = { viewModel.selectTab(DealTab.DANE) },
     )
     SectionGap()
 
@@ -140,14 +184,39 @@ fun DealLeadTab(
             IntakeCard(intake)
             SectionGap()
             NoteCard(state = state, intake = intake, viewModel = viewModel)
-            intake.building?.let { building ->
-                SectionGap()
-                LeadBuildingCard(building)
-            }
+            // Kartę pokazujemy także przy pustych danych: panel pozwala je
+            // uzupełnić z tego samego miejsca, a zgłoszenie telefoniczne
+            // najczęściej przychodzi bez budynku i wypełnia się je w rozmowie.
+            SectionGap()
+            LeadBuildingCard(
+                building = intake.building ?: LeadBuilding(),
+                canManage = state.canManage,
+                isSaving = lead.isSavingBuilding,
+                onEdit = { buildingEdit = intake.building ?: LeadBuilding() },
+            )
         }
     }
 
     SendArticleDialog(state = state, viewModel = viewModel)
+
+    buildingEdit?.let { initial ->
+        LeadBuildingDialog(
+            initial = initial,
+            isSaving = lead.isSavingBuilding,
+            onDismiss = { buildingEdit = null },
+            onSave = { viewModel.saveLeadBuilding(it) { buildingEdit = null } },
+        )
+    }
+
+    if (ozcOpen) {
+        OzcDialog(
+            state = state,
+            onDismiss = { ozcOpen = false },
+            onSave = { kw, dhw, url, confirmed, area ->
+                viewModel.saveOzc(kw, dhw, url, confirmed, area) { ozcOpen = false }
+            },
+        )
+    }
 }
 
 // ── Auto-kwalifikacja ────────────────────────────────────────────────────────
@@ -447,18 +516,33 @@ private fun SendArticleDialog(
 @Composable
 fun MeetingCard(
     deal: Deal,
+    client: Client?,
     members: List<TaskMember>,
     canManage: Boolean,
     isSaving: Boolean,
     onKindSelect: (MeetingKind) -> Unit,
     onTermChange: (Long?) -> Unit,
     onEdit: () -> Unit,
+    onGoToDane: () -> Unit,
 ) {
+    val context = LocalContext.current
     val pickTerm = rememberDateTimePicker(
         label = "Termin spotkania",
         millis = parseIsoMillis(deal.meetingAt),
     ) { onTermChange(it) }
     val editable = canManage && isPreMeetingStage(deal.stage)
+
+    // Miejscem spotkania „U klienta” jest adres instalacji z kartoteki — deal
+    // nie ma własnego pola adresu (inaczej niż wyjazd audytowy). Zwalidowany =
+    // jest tekst ORAZ są współrzędne z geokodowania; ta sama reguła co
+    // `isInstallAddressValidated` w `LeadMeetingButton` panelu.
+    val installAddress = client?.address?.takeIf { it.isNotBlank() }
+    val addressValidated = installAddress != null && client?.hasGeo == true
+
+    // Panel blokuje ZAPIS spotkania „U klienta” bez zwalidowanego adresu.
+    // Na telefonie zapisem jest samo dotknięcie chipa, więc zamiast wysłać
+    // zmianę pokazujemy to samo ostrzeżenie z odnośnikiem do karty „Dane”.
+    var addressBlocked by remember(deal.id) { mutableStateOf(false) }
 
     SectionCard {
         SectionTitle(
@@ -472,7 +556,14 @@ fun MeetingCard(
             options = MeetingKind.entries,
             selected = deal.meetingKind,
             optionLabel = { it.label },
-            onSelect = onKindSelect,
+            onSelect = { kind ->
+                if (kind == MeetingKind.KLIENT && !addressValidated) {
+                    addressBlocked = true
+                } else {
+                    addressBlocked = false
+                    onKindSelect(kind)
+                }
+            },
             enabled = editable && !isSaving,
         )
 
@@ -509,9 +600,68 @@ fun MeetingCard(
         // Pozostałe pola spotkania tylko do odczytu — formularz mają na ekranie
         // edycji, a tutaj liczy się jedno spojrzenie przed wyjazdem do klienta.
         val byId = members.associateBy { it.id }
+        // Adres i jego walidacja tylko przy „U klienta”: przy biurze i online
+        // nie ma dokąd jechać, a puste wiersze zabierają wąski ekran.
+        if (deal.meetingKind == MeetingKind.KLIENT) {
+            InfoRow("Adres", installAddress ?: "brak w kartotece")
+            InfoRow(
+                label = "Lokalizacja",
+                value = if (addressValidated) "potwierdzona ✓" else "brak współrzędnych",
+            )
+        }
         InfoRow("Czas trwania", deal.meetingDurationMin?.let { "$it min" })
         InfoRow("Prowadzi", deal.meetingOwnerId?.let { byId[it]?.displayName ?: it })
         InfoRow("Link", deal.meetingUrl)
+
+        // Ostrzeżenie o adresie — to samo co w panelu i w tych samych dwóch
+        // sytuacjach: spotkanie u klienta jest już zapisane mimo braku
+        // zwalidowanego adresu, albo właśnie próbowano je tak zapisać.
+        if ((deal.meetingKind == MeetingKind.KLIENT && !addressValidated) || addressBlocked) {
+            Spacer(Modifier.height(10.dp))
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.errorContainer,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+            ) {
+                Column(Modifier.padding(12.dp)) {
+                    Text(
+                        text = "Spotkanie u klienta wymaga pełnego, zwalidowanego " +
+                            "adresu instalacji.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    TextButton(onClick = onGoToDane) { Text("Uzupełnij w karcie „Dane”") }
+                }
+            }
+        }
+
+        // Akcja miejsca — jak zielony pasek spotkania w panelu: u klienta
+        // prowadzimy trasę, online otwieramy link spotkania. Przy spotkaniu
+        // w biurze nie ma czego otwierać, więc przycisku po prostu nie ma.
+        val target = when (deal.meetingKind) {
+            MeetingKind.KLIENT -> installAddress?.let { address ->
+                val lat = client?.geoLat
+                val lng = client?.geoLng
+                val uri = if (lat != null && lng != null) {
+                    Uri.parse("geo:$lat,$lng?q=$lat,$lng(${Uri.encode(address)})")
+                } else {
+                    Uri.parse("geo:0,0?q=${Uri.encode(address)}")
+                }
+                "Wyznacz trasę" to uri
+            }
+            MeetingKind.ONLINE -> deal.meetingUrl?.takeIf { it.isNotBlank() }
+                ?.let { "Dołącz (Google Meet)" to Uri.parse(it) }
+            else -> null
+        }
+        if (target != null) {
+            Spacer(Modifier.height(12.dp))
+            OutlinedButton(
+                onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, target.second)) },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text(target.first) }
+        }
 
         if (canManage && !editable) {
             Spacer(Modifier.height(8.dp))
@@ -523,6 +673,32 @@ fun MeetingCard(
             )
         }
     }
+}
+
+/**
+ * Umiejętność „Audyt" (moduł Zespół → `User.skills`) = uprawnienie do bycia
+ * osobą wykonującą wizję. Selektor pokazuje WYŁĄCZNIE osoby z tą umiejętnością
+ * — dokładnie jak `LeadMeetingButton` w panelu.
+ */
+const val AUDIT_SKILL = "Audyt"
+
+/** Domena poziomów, z której panel bierze notki „(do nadgonienia: …)". */
+const val AUDIT_SKILL_DOMAIN = "biz-audyt"
+
+/**
+ * `sredni:teoria` → „średnio zaawansowany (teoria)". Port `tokenLabel` panelu:
+ * notka ma mówić po ludzku, którego szczebla brakuje, a nie pokazywać token.
+ */
+fun skillTokenLabel(token: String): String {
+    val level = token.substringBefore(':')
+    val part = token.substringAfter(':', "")
+    val name = when (level) {
+        "podstawowy" -> "podstawowy"
+        "sredni" -> "średnio zaawansowany"
+        "zaawansowany" -> "zaawansowany"
+        else -> token
+    }
+    return if (part.isBlank()) name else "$name ($part)"
 }
 
 /**
@@ -635,7 +811,12 @@ private fun NoteCard(
  * pokazujemy je dosłownie, bez przeliczania na liczby.
  */
 @Composable
-private fun LeadBuildingCard(building: LeadBuilding) {
+private fun LeadBuildingCard(
+    building: LeadBuilding,
+    canManage: Boolean,
+    isSaving: Boolean,
+    onEdit: () -> Unit,
+) {
     CollapsibleSectionCard(
         title = "Budynek wg zgłoszenia",
         summary = listOfNotNull(building.shape, building.area).joinToString(" · ")
@@ -650,5 +831,134 @@ private fun LeadBuildingCard(building: LeadBuilding) {
         InfoRow("Okna", building.windows)
         InfoRow("Piwnica", if (building.heatedBasement) "ogrzewana" else null)
         InfoRow("Garaż", if (building.heatedGarage) "ogrzewany" else null)
+
+        // Panel pozwala podmienić te wartości pod ikonografiką („Zmień dane
+        // budynku") — bez tego telefon pokazywałby zgłoszenie, o którym wiadomo,
+        // że jest nieaktualne, i nie dałoby się go poprawić przy kliencie.
+        if (canManage) {
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(onClick = onEdit, enabled = !isSaving) {
+                Text(if (isSaving) "Zapisuję…" else "Zmień dane budynku")
+            }
+        }
     }
+}
+
+/* Opcje 1:1 z kreatorem /targi i z oknem edycji w panelu. */
+private val BUILDING_SHAPES = listOf("Parterowy", "Piętrowy", "Bliźniak", "Typu stodoła")
+private val BUILDING_CONSTRUCTIONS = listOf(
+    "Murowany",
+    "Szkieletowy",
+    "Z bala",
+    "Gotowe ściany z keramzytu",
+    "Inne",
+)
+private val BUILDING_AREAS = listOf(
+    "do 80 m²",
+    "80–100 m²",
+    "100–120 m²",
+    "120–140 m²",
+    "140–160 m²",
+    "160–180 m²",
+    "180–200 m²",
+    "200–220 m²",
+    "220–250 m²",
+    "250–300 m²",
+    "powyżej 300 m²",
+)
+private val BUILDING_PEOPLES = listOf(
+    "1 osoba",
+    "2 osoby",
+    "3 osoby",
+    "4 osoby",
+    "5 osób",
+    "6 lub więcej",
+)
+private val BUILDING_STAGES = listOf(
+    "Przed projektowaniem",
+    "Mam projekt domu",
+    "Rozpocząłem budowę",
+    "Mam wykonane instalacje podtynkowe",
+    "Modernizuję instalacje — mieszkam już",
+)
+private val BUILDING_FLOORS = listOf(1, 2, 3, 4, 5)
+private val BUILDING_WINDOWS = listOf(
+    "Montaż okien za miesiąc",
+    "Montaż okien za 2 miesiące",
+    "Montaż okien za 3 miesiące",
+    "Montaż okien za 3–6 miesięcy",
+    "Montaż okien za 6–9 miesięcy",
+    "Montaż okien za 9–12 miesięcy",
+    "Montaż okien za 12–18 miesięcy",
+    "Montaż okien za 18–24 miesiące",
+    "Montaż okien później niż za 24 miesiące",
+    "Termin jeszcze nieokreślony",
+    "Okna już zamontowane",
+)
+
+/**
+ * Okno korekty danych budynku — te same pola i te same listy wyboru co w oknie
+ * „Zmień dane budynku" panelu. Zapisujemy komplet, bo API podmienia cały rekord
+ * zgłoszenia, a nie pojedyncze pola.
+ */
+@Composable
+private fun LeadBuildingDialog(
+    initial: LeadBuilding,
+    isSaving: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (LeadBuilding) -> Unit,
+) {
+    var form by remember { mutableStateOf(initial) }
+
+    AlertDialog(
+        onDismissRequest = { if (!isSaving) onDismiss() },
+        title = { Text("Zmień dane budynku") },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                FormDropdown("Rodzaj budynku", BUILDING_SHAPES, form.shape) {
+                    form = form.copy(shape = it)
+                }
+                FormDropdown("Technologia budowy", BUILDING_CONSTRUCTIONS, form.construction) {
+                    form = form.copy(construction = it)
+                }
+                FormDropdown("Powierzchnia ogrzewana", BUILDING_AREAS, form.area) {
+                    form = form.copy(area = it)
+                }
+                FormDropdown("Liczba osób", BUILDING_PEOPLES, form.people) {
+                    form = form.copy(people = it)
+                }
+                FormChoiceRow(
+                    label = "Liczba kondygnacji",
+                    options = BUILDING_FLOORS,
+                    selected = form.floors,
+                    optionLabel = { it.toString() },
+                    onSelect = { form = form.copy(floors = it) },
+                    nullLabel = "—",
+                )
+                FormDropdown("Etap budowy", BUILDING_STAGES, form.stage) {
+                    form = form.copy(stage = it)
+                }
+                FormDropdown("Montaż okien", BUILDING_WINDOWS, form.windows) {
+                    form = form.copy(windows = it)
+                }
+                FormSwitch("Ogrzewana piwnica", form.heatedBasement) {
+                    form = form.copy(heatedBasement = it)
+                }
+                FormSwitch("Ogrzewany garaż", form.heatedGarage) {
+                    form = form.copy(heatedGarage = it)
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onSave(form) }, enabled = !isSaving) {
+                Text(if (isSaving) "Zapisuję…" else "Zapisz")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !isSaving) { Text("Anuluj") }
+        },
+    )
 }

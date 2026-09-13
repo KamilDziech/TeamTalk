@@ -63,8 +63,18 @@ import com.ekotak.teamtalk.data.local.entity.*
         ContractMutationEntity::class,
         DealInvoicesEntity::class,
         DealMontazeEntity::class,
+        DealCommentEntity::class,
+        DealWhatsappEntity::class,
+        DealCallSummaryEntity::class,
+        DealCommMutationEntity::class,
+        MontazEntity::class,
+        MontazCrewEntity::class,
+        MontazMaterialEntity::class,
+        MontazPhotoEntity::class,
+        MontazPackEntity::class,
+        MontazMutationEntity::class,
     ],
-    version = 28,
+    version = 30,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -95,4 +105,6 @@ abstract class TeamTalkDatabase : RoomDatabase() {
     abstract fun dealDao(): DealDao
     abstract fun contractDao(): ContractDao
     abstract fun invoiceDao(): InvoiceDao
+    abstract fun dealCommsDao(): DealCommsDao
+    abstract fun montazDao(): MontazDao
 }

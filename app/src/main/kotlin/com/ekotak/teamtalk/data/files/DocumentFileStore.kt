@@ -11,6 +11,8 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import com.ekotak.teamtalk.data.remote.api.TeamTalkApi
 import com.ekotak.teamtalk.domain.model.DealDocument
+import com.ekotak.teamtalk.domain.model.DocumentCategory
+import com.ekotak.teamtalk.domain.model.SLOT_SECTION
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -28,12 +30,16 @@ import javax.inject.Singleton
  * projekt buduje się offline, a wszystko, czego tu trzeba, Android ma u siebie
  * ([BitmapFactory] i [PdfRenderer]). Ten sam wybór co przy `AvatarStore`.
  *
- * Dwa katalogi, każdy z inną obietnicą trwałości:
+ * Trzy katalogi, każdy z inną obietnicą trwałości:
  *  • `cacheDir/deal-docs` — pobrane pliki; system może je skasować, wtedy
  *    ściągniemy je ponownie,
  *  • `filesDir/deal-docs/outbox` — KOPIE plików czekających w kolejce. To
  *    jedyna kopia zdjęcia zrobionego bez zasięgu, więc nie leży w cache i nie
- *    zależy od tego, czy człowiek skasował oryginał z galerii.
+ *    zależy od tego, czy człowiek skasował oryginał z galerii,
+ *  • `filesDir/deal-docs/plans/<dealId>` — RZUTY KONDYGNACJI (pliki w slotach
+ *    „Projekt domu"). Na nich audytor rysuje w domu w budowie, bez zasięgu,
+ *    więc system nie może ich wymieść jak zwykłego cache'u. Trafiają tu same
+ *    przy pierwszym obejrzeniu ([content]) albo z wyprzedzenia ([pinPlans]).
  *
  * Strony PDF-a renderujemy U SIEBIE, a nie przez `/preview/<n>` serwera:
  * w piwnicy bez zasięgu pasek miniatur ma działać tak samo jak na biurku, a raz
@@ -53,6 +59,16 @@ class DocumentFileStore @Inject constructor(
     private val outboxDir: File by lazy {
         File(File(context.filesDir, "deal-docs"), "outbox").apply { mkdirs() }
     }
+    private val plansRoot: File by lazy {
+        File(File(context.filesDir, "deal-docs"), "plans").apply { mkdirs() }
+    }
+
+    /** Miejsce trwałej kopii rzutu; katalog per deal, żeby dało się sprzątać po dealu. */
+    private fun planFile(document: DealDocument): File =
+        File(File(plansRoot, safeSegment(document.dealId)), safeSegment(document.id))
+
+    private fun safeSegment(raw: String): String =
+        raw.replace(Regex("[^A-Za-z0-9._-]"), "_").ifBlank { "_" }
 
     /** Miniatura z pamięci, jeśli już jest — pierwsza klatka bez migotania. */
     fun cachedThumb(key: String): ImageBitmap? = memory.get(key)
@@ -69,17 +85,29 @@ class DocumentFileStore @Inject constructor(
             val staged = File(path)
             return if (staged.isFile) staged else null
         }
+        val plan = isFloorPlanFile(document)
+        val pinned = planFile(document)
+        if (plan && pinned.isFile && pinned.length() > 0) return pinned
         val cached = File(cacheDir, document.id)
-        if (cached.isFile && cached.length() > 0) return cached
+        if (cached.isFile && cached.length() > 0) {
+            // Rzut obejrzany przed wprowadzeniem trwałego katalogu leży jeszcze
+            // w cache — przenosimy go, zanim system go wymiecie.
+            return if (plan) promote(cached, pinned) ?: cached else cached
+        }
 
         return withLockFor(document.id) {
+            if (plan && pinned.isFile && pinned.length() > 0) return@withLockFor pinned
             if (cached.isFile && cached.length() > 0) return@withLockFor cached
+            val target = if (plan) pinned else cached
             withContext(Dispatchers.IO) {
                 val bytes = runCatching {
                     api.downloadDocument(document.id).use { it.bytes() }
                 }.getOrNull() ?: return@withContext null
-                runCatching { cached.writeBytes(bytes) }.getOrNull() ?: return@withContext null
-                cached
+                runCatching {
+                    target.parentFile?.mkdirs()
+                    target.writeBytes(bytes)
+                }.getOrNull() ?: return@withContext null
+                target
             }
         }
     }
@@ -89,8 +117,87 @@ class DocumentFileStore @Inject constructor(
         document.localPath?.let { path ->
             return File(path).takeIf { it.isFile }
         }
+        planFile(document).takeIf { it.isFile && it.length() > 0 }?.let { return it }
         return File(cacheDir, document.id).takeIf { it.isFile && it.length() > 0 }
     }
+
+    // ── Rzuty kondygnacji offline ────────────────────────────────────────────
+
+    /**
+     * Czy plik jest rzutem kondygnacji, który audyt OP może wziąć pod rysowanie:
+     * sekcja „Projekt domu" + slot w nazwie, bez „Przekroju". PDF-y też — telefon
+     * pozwala odbić na slot cały PDF (panel bierze wyłącznie zdjęcia, patrz
+     * `buildFloorPlans`), a trzymanie go na dysku niczego nie psuje.
+     */
+    fun isFloorPlanFile(document: DealDocument): Boolean =
+        document.category == DocumentCategory.PROJEKT &&
+            document.slot != null &&
+            document.slot != SLOT_SECTION
+
+    /** Czy treść rzutu leży już w trwałym katalogu (albo w kolejce). */
+    fun isPinned(document: DealDocument): Boolean =
+        document.localPath?.let { File(it).isFile }
+            ?: planFile(document).let { it.isFile && it.length() > 0 }
+
+    /**
+     * Pobiera do trwałego katalogu wszystkie rzuty deala, których jeszcze tam
+     * nie ma, i sprząta kopie rzutów, które z deala zniknęły (plik usunięty albo
+     * przepięty na inny slot). Woła to `FloorPlanPrefetchWorker` w zasięgu.
+     *
+     * @param documents WSZYSTKIE pliki deala — ze zbioru wybieramy rzuty sami,
+     *   a pełna lista jest potrzebna do sprzątania.
+     * @param prune `false`, gdy lista pochodzi z cache (serwer nieosiągalny).
+     * @return ile rzutów deala leży lokalnie i ile nie udało się pobrać.
+     */
+    suspend fun pinPlans(
+        dealId: String,
+        documents: List<DealDocument>,
+        prune: Boolean = true,
+    ): PinResult {
+        val plans = documents.filter { it.dealId == dealId && isFloorPlanFile(it) }
+        var ready = 0
+        var failed = 0
+        for (plan in plans) {
+            if (content(plan) != null) ready++ else failed++
+        }
+        // Sprzątamy tylko na liście prosto z serwera — kopia z cache mogłaby nie
+        // znać rzutu wgranego przed chwilą w panelu i skasować jego treść.
+        if (prune) withContext(Dispatchers.IO) {
+            val keep = plans.mapTo(HashSet()) { safeSegment(it.id) }
+            File(plansRoot, safeSegment(dealId)).listFiles()
+                ?.filter { it.name !in keep }
+                ?.forEach { runCatching { it.delete() } }
+        }
+        return PinResult(ready = ready, failed = failed)
+    }
+
+    data class PinResult(val ready: Int, val failed: Int)
+
+    /**
+     * Plik z kolejki właśnie wyszedł na serwer. Rzut zostaje na telefonie pod
+     * id nadanym przez serwer — to zwykle zdjęcie zrobione na budowie bez
+     * zasięgu, a audytor rysuje po nim zaraz potem. Pozostałe pliki sprzątamy
+     * jak dotąd.
+     */
+    fun adoptStaged(path: String?, uploaded: DealDocument) {
+        if (path == null) return
+        val staged = File(path)
+        if (!staged.isFile || !isFloorPlanFile(uploaded)) {
+            dropStaged(path)
+            return
+        }
+        if (promote(staged, planFile(uploaded)) == null) dropStaged(path)
+    }
+
+    /** Przeniesienie w obrębie pamięci aplikacji; gdy `rename` zawiedzie — kopia. */
+    private fun promote(source: File, target: File): File? = runCatching {
+        target.parentFile?.mkdirs()
+        if (!source.renameTo(target)) {
+            source.copyTo(target, overwrite = true)
+            source.delete()
+        }
+        target.takeIf { it.isFile && it.length() > 0 }
+    }.getOrNull()
 
     /**
      * Kopia pliku pod jego WŁAŚCIWĄ nazwą, gotowa do oddania innej aplikacji
@@ -114,6 +221,10 @@ class DocumentFileStore @Inject constructor(
      */
     fun forget(documentId: String) {
         runCatching { File(cacheDir, documentId).delete() }
+        // Trwała kopia rzutu leży w katalogu deala, którego tu nie znamy.
+        runCatching {
+            plansRoot.listFiles()?.forEach { File(it, safeSegment(documentId)).delete() }
+        }
         synchronized(memory) {
             memory.snapshot().keys
                 .filter { it.startsWith("$documentId#") }

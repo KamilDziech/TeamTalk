@@ -157,7 +157,11 @@ fun offerScope(state: UfhState, input: UfhQuoteInput, pricing: OfferPricing): Of
         variantFrom(state, input, spacingM, loops, biocide, waterL, markup),
     )
 
-    val split = splitLoops(input.loops, max(1, input.manifoldsToBuy))
+    // Obwody per rozdzielacz z PODZIAŁU Z RZUTU ([ufhQuoteManifoldLoops]): „11 + 15",
+    // tak jak dobór materiału w audycie. Bez rzutu — dawny równy podział budynku.
+    // Liczba obwodów wpływa wyłącznie na pozycje „manifold" i „cabinet" formuły;
+    // reszta wierszy liczy się z `split[0]` jak dotąd i od obwodów nie zależy.
+    val split = input.loopsPerManifold
     val base = rowsFor(mainSpacing, split.firstOrNull() ?: input.loops, false)
     fun find(key: String): PriceRow? =
         base.first.firstOrNull { it.key == key } ?: base.second.firstOrNull { it.key == key }

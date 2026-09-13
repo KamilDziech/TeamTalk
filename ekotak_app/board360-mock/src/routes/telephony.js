@@ -1,7 +1,13 @@
 'use strict';
 /*
  * Telefonia (prompty A2/A3): dziennik polaczen, notatki po rozmowie z
- * nagraniem i rejestr urzadzen. Wszystko za uprawnieniem `telephony.use`.
+ * nagraniem i rejestr urzadzen. Domyslnie za uprawnieniem `telephony.use` —
+ * to sciezka SYNCHRONIZACJI z telefonu serwisanta.
+ *
+ * Dwa wyjatki, 1:1 z board360: lista notatek i reczne streszczenie rozmowy sa
+ * otwarte dla kazdego zalogowanego. Kanal Telefon w module Komunikacja
+ * i zakladka „Komunikacja" karty deala to narzedzie handlowca, a `telephony.use`
+ * ma tylko serwis — bez tego wyjatku handlowiec dostawalby 403 i pusta liste.
  */
 
 const express = require('express');
@@ -11,7 +17,7 @@ const multer = require('multer');
 
 const { UPLOADS_DIR, MAX_UPLOAD_BYTES, MOCK_TRANSCRIPT } = require('../config');
 const { uuid, nowIso } = require('../crypto');
-const { requireAuth, requirePermission } = require('../middleware');
+const { requireAuth, requirePermission, unprocessable } = require('../middleware');
 const { db, findClientByPhone } = require('../store');
 
 const router = express.Router();
@@ -79,15 +85,66 @@ router.post('/voice-reports', requireAuth, requirePermission('telephony.use'), (
     userId: req.user.id,
     callLogId,
     clientId,
+    dealId: null,
     text,
+    agreements: null,
+    nextStep: null,
     transcript: null,
+    summary: null,
+    transcriptionStatus: null,
+    transcriptionError: null,
     recordingKey: null,
     durationSec,
+    phoneNumber: null,
+    direction: null,
+    occurredAt: null,
+    source: 'teamtalk',
     createdAt: nowIso(),
     updatedAt: nowIso(),
   };
   db.voiceReports.push(row);
   res.status(201).json(row);
+});
+
+/**
+ * Reczne streszczenie rozmowy, ktorej TeamTalk nie zarejestrowal (telefon
+ * prywatny, stacjonarny, rozmowa u klienta). Bez `callLogId`, wiec numer, czas
+ * i kierunek wpis niesie sam; wymagana jest wylacznie tresc.
+ *
+ * Trasa jest OTWARTA dla kazdego zalogowanego (board360 nadpisuje tu pusty
+ * `@RequirePermissions()`): kanal Telefon i zakladka „Komunikacja" karty deala
+ * to narzedzie handlowca, a `telephony.use` ma tylko serwis.
+ */
+router.post('/voice-reports/manual', requireAuth, (req, res) => {
+  const b = req.body || {};
+  const text = typeof b.text === 'string' ? b.text.trim() : '';
+  if (!text) return unprocessable(res, 'Streszczenie rozmowy jest wymagane.', ['streszczenie']);
+
+  const row = {
+    id: uuid(),
+    organizationId: req.user.organizationId,
+    userId: req.user.id,
+    callLogId: null,
+    clientId: b.clientId || null,
+    dealId: b.dealId || null,
+    text,
+    agreements: b.agreements || null,
+    nextStep: b.nextStep || null,
+    transcript: null,
+    summary: null,
+    transcriptionStatus: null,
+    transcriptionError: null,
+    recordingKey: null,
+    durationSec: null,
+    phoneNumber: b.phoneNumber || null,
+    direction: b.direction || null,
+    occurredAt: b.occurredAt || nowIso(),
+    source: 'manual',
+    createdAt: nowIso(),
+    updatedAt: nowIso(),
+  };
+  db.voiceReports.push(row);
+  return res.status(201).json(row);
 });
 
 router.post(
@@ -107,20 +164,35 @@ router.post(
     fs.renameSync(req.file.path, path.join(UPLOADS_DIR, path.basename(key)));
 
     report.recordingKey = key;
-    // board360 transkrybuje nagranie Whisperem po stronie serwera. Mock nie ma
-    // modelu, wiec wstawia rozpoznawalna atrape (MOCK_TRANSCRIPT=0 wylacza).
+    // board360 stawia nagranie w kolejce (`transcriptionStatus: pending`),
+    // kontener Whisper robi transkrypcje, a model streszczenie. Mock nie ma
+    // ani jednego, wiec od razu oddaje rozpoznawalna atrape stanu `done`
+    // (MOCK_TRANSCRIPT=0 wylacza — notatka zostaje wtedy w `pending`).
+    report.transcriptionStatus = 'pending';
+    report.transcriptionError = null;
     if (MOCK_TRANSCRIPT && !report.transcript) {
       report.transcript = `[mock] Transkrypcja nagrania ${path.basename(key)} — ${report.durationSec || '?'} s.`;
+      report.summary = '[mock] Klient pyta o ofertę na pompę ciepła; umówiono audyt.';
+      report.agreements = report.agreements || '- [mock] audyt w czwartek o 10:00';
+      report.nextStep = report.nextStep || '[mock] Klient prześle rzut domu mailem.';
+      report.transcriptionStatus = 'done';
     }
     report.updatedAt = nowIso();
     return res.json(report);
   },
 );
 
-router.get('/voice-reports', requireAuth, requirePermission('telephony.use'), (req, res) => {
+/**
+ * Lista notatek. Otwarta dla kazdego zalogowanego — patrz komentarz przy
+ * `/voice-reports/manual`. `dealId` zaweza ja do JEDNEGO deala: tak czyta ja
+ * zakladka „Komunikacja" karty (i kanal Telefon w panelu).
+ */
+router.get('/voice-reports', requireAuth, (req, res) => {
   const since = sinceMs(req.query.since);
   const limit = limitOf(req.query.limit);
+  const dealId = req.query.dealId ? String(req.query.dealId).trim() : '';
   let list = db.voiceReports.filter((r) => r.organizationId === req.user.organizationId);
+  if (dealId) list = list.filter((r) => r.dealId === dealId);
   if (req.user.clientVisibility === 'own') list = list.filter((r) => r.userId === req.user.id);
   if (since) list = list.filter((r) => new Date(r.createdAt).getTime() >= since);
   list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));

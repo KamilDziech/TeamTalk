@@ -72,11 +72,17 @@ fun DealHistoryTab(activities: List<DealActivity>, members: List<TaskMember>) {
 
 /**
  * Zebrane wartości karty — to, co handlowiec chce zobaczyć jednym rzutem oka
- * przed rozmową. Odpowiednik `DealSummaryPanel` panelu, na razie bez ofert
- * i zakresu instalacji: obie te sekcje wymagają endpointów z kolejnych etapów.
+ * przed rozmową. Odpowiednik `DealSummaryPanel` panelu: te same wiersze, ta
+ * sama kwota z ofert wygranych, ten sam zakres bieżącego etapu i te same
+ * liczniki. Nic z tego nie ma własnego endpointu — panel też składa to
+ * z odczytów pozostałych zakładek, więc i my czytamy gotowy stan karty.
  */
 @Composable
-fun DealSummaryTab(detail: DealDetail, members: List<TaskMember>) {
+fun DealSummaryTab(
+    state: DealDetailViewModel.UiState,
+    detail: DealDetail,
+    members: List<TaskMember>,
+) {
     val deal = detail.deal
     val byId = members.associateBy { it.id }
 
@@ -117,5 +123,38 @@ fun DealSummaryTab(detail: DealDetail, members: List<TaskMember>) {
         InfoRow("OZC budynek", deal.ozcData?.buildingKw?.let { "${it.toPlainText()} kW" })
         InfoRow("Trudność", deal.difficulty?.label)
         InfoRow("Źródło", deal.source)
+        InfoRow(
+            label = "Instalacje (bieżący etap)",
+            value = state.summary.installations.joinToString(", ").ifBlank { null },
+        )
+    }
+    SectionGap()
+
+    SectionCard {
+        SectionTitle("Wartość i liczniki")
+        SectionGap()
+
+        val offers = state.orders.offers
+        InfoRow(
+            label = "Wartość (oferty wygrane)",
+            value = formatZl(offers.filter { it.isWon }.sumOf { it.grossTotal }),
+        )
+        InfoRow("Oferty", offers.size.toString())
+        // Zamówień bez `order.manage` API nie oddaje — wtedy zamiast zera, które
+        // czytałoby się jak „nie ma żadnego", mówimy wprost, że nie widać.
+        InfoRow(
+            label = "Zamówienia",
+            value = if (state.orders.ordersAvailable) {
+                state.orders.orders.size.toString()
+            } else {
+                "brak dostępu"
+            },
+        )
+        InfoRow(
+            label = "Zadania otwarte",
+            value = "${state.tasks.openCount}/${state.tasks.totalCount}",
+        )
+        InfoRow("Pliki", state.files.documents.size.toString())
+        InfoRow("Historia", detail.activities.size.toString())
     }
 }

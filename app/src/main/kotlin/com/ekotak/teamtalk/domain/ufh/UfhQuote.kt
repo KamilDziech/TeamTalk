@@ -100,8 +100,9 @@ fun floorManifolds(floor: UfhFloor): Int {
 fun ufhManifolds(state: UfhState): Int = state.floors.sumOf { floorManifolds(it) }
 
 /**
- * Obwody przypadające na jeden rozdzielacz — z nich dobiera się wielkość
- * rozdzielacza i szafki, a więc koszt materiału tych pozycji.
+ * ŚREDNIA obwodów na rozdzielacz — tylko do opisu („ok. 8 na rozdzielacz"),
+ * gdy nie ma podziału z rzutu. Wycena NIE liczy już z tej liczby: wielkość
+ * belki i szafki idzie z [UfhQuoteInput.loopsPerManifold].
  */
 fun ufhManifoldLoops(state: UfhState, loops: Int): Int {
     val m = ufhManifolds(state)
@@ -109,10 +110,120 @@ fun ufhManifoldLoops(state: UfhState, loops: Int): Int {
     return ceil(loops.toDouble() / m).toInt()
 }
 
-/** Rachunek rury PER KONDYGNACJA — jedno miejsce dla wyceny i doboru materiału. */
+/**
+ * Rachunek rury PER KONDYGNACJA — jedno miejsce dla wyceny, doboru materiału,
+ * punktów montażu i karty montażu. Pomieszczenia idą po przydziale z automatu
+ * rozdzielaczy (limit belek z katalogu systemu), dokładnie jak w audycie panelu.
+ */
 fun ufhFloorPipes(state: UfhState): List<FloorPipe> {
     val loopMaxM = ufhLoopMaxM(state.pipeSystem)
-    return state.floors.map { floorPipe(it, loopMaxM) }
+    val manifoldMax = ufhManifoldMax(state.pipeSystem)
+    return state.floors.map { floorPipe(it, loopMaxM, manifoldMax) }
+}
+
+/** Obciążenie rozdzielaczy jednej kondygnacji — port `UfhFloorManifoldPlan` z `offer-quote.ts`. */
+data class UfhFloorManifoldPlan(
+    /** Pętle na kolejnych rozdzielaczach (R1, R2…). */
+    val loopsPerManifold: List<Int>,
+    /** Rodzaj skrzynki per rozdzielacz — w tej samej kolejności. */
+    val boxTypes: List<String>,
+    /** Pętle pomieszczeń, których automat nie przypiął do żadnej kropki. */
+    val unassignedLoops: Int,
+    /** `true` = bez pomiaru z rzutu; pętle rozłożone równo na deklarowaną ilość. */
+    val estimated: Boolean,
+)
+
+/**
+ * Pętle rozłożone równo na rozdzielacze — puste pozycje odpadają (`splitLoopsEvenly`
+ * z `ufh-pick.ts`; to NIE jest [splitLoops] z wyceny, który zostawia zera).
+ */
+fun splitLoopsEvenly(loops: Int, manifolds: Double): List<Int> {
+    val n = max(1, kotlin.math.floor(manifolds).toInt())
+    if (loops <= 0) return emptyList()
+    val base = loops / n
+    val extra = loops % n
+    return List(n) { i -> base + if (i < extra) 1 else 0 }.filter { it > 0 }
+}
+
+/**
+ * Obwody per rozdzielacz na kondygnacji. Z rzutu bierzemy prawdziwy podział
+ * (pomieszczenia przypisane automatem do kropek); bez rzutu suma pętli kondygnacji
+ * rozłożona równo na deklarowaną „Ilość rozdzielaczy" (belka szacunkowa).
+ *
+ * @param planRooms pomieszczenia po [floorPlanRooms] (przydział z automatu)
+ * @param pipe rachunek rury tej kondygnacji ([ufhFloorPipes])
+ */
+fun ufhFloorManifoldPlan(
+    floor: UfhFloor,
+    planRooms: List<RoomShape>,
+    pipe: FloorPipe,
+    loopMaxM: Double,
+): UfhFloorManifoldPlan {
+    val plan = floor.plan()
+    val marks = plan.marks
+    val zones = planZones(planRooms, marks, plan.scale, loopMaxM)
+    val split = splitByManifold(planRooms, marks, plan.scale)
+    val measured = marks.isNotEmpty() && zones.isNotEmpty()
+    val loopsPerManifold = if (measured) {
+        split.groups.map { zonesTotal(zones, it.rooms) }
+    } else {
+        splitLoopsEvenly(pipe.loops, maxOf(1.0, num(floor.manifolds)))
+    }
+    return UfhFloorManifoldPlan(
+        loopsPerManifold = loopsPerManifold,
+        boxTypes = if (measured) {
+            marks.map { markBoxType(it, floor.boxType) }
+        } else {
+            loopsPerManifold.map { floor.boxType }
+        },
+        unassignedLoops = if (measured) zonesTotal(zones, split.rest.rooms) else 0,
+        estimated = !measured,
+    )
+}
+
+/** [ufhFloorManifoldPlan] dla wszystkich kondygnacji audytu (pod [ufhFloorPipes]). */
+fun ufhManifoldPlans(state: UfhState, pipes: List<FloorPipe> = ufhFloorPipes(state)): List<UfhFloorManifoldPlan> {
+    val loopMaxM = ufhLoopMaxM(state.pipeSystem)
+    return state.floors.mapIndexed { i, f ->
+        ufhFloorManifoldPlan(f, floorPlanRooms(f, state.pipeSystem), pipes[i], loopMaxM)
+    }
+}
+
+/**
+ * Obwody per rozdzielacz DO WYCENY (decyzja usera 2026-09-12: cena Oferty
+ * z podziału z rzutu, np. „11 + 15", a nie „13 + 13"). Port `ufhQuoteManifoldLoops`.
+ *  • ŻADNA kondygnacja nie ma podziału z rzutu → równy podział całego budynku
+ *    ([splitLoops] pętli budynku na rozdzielacze do kupienia) — jak dawniej,
+ *  • inaczej per kondygnacja: zmierzona → jej podział (także 0 na pustej kropce),
+ *    niezmierzona → [splitLoops] pętli kondygnacji na jej rozdzielacze (0 → nic).
+ */
+fun ufhQuoteManifoldLoops(
+    state: UfhState,
+    pipes: List<FloorPipe>,
+    plans: List<UfhFloorManifoldPlan>,
+): Pair<List<Int>, Boolean> {
+    if (plans.all { it.estimated }) {
+        return splitLoops(sumPipe(pipes).loops, max(1, ufhManifolds(state))) to true
+    }
+    val out = ArrayList<Int>()
+    state.floors.forEachIndexed { i, f ->
+        val plan = plans.getOrNull(i)
+        if (plan != null && !plan.estimated) {
+            out += plan.loopsPerManifold
+        } else {
+            val count = floorManifolds(f)
+            if (count > 0) out += splitLoops(pipes.getOrNull(i)?.loops ?: 0, count)
+        }
+    }
+    return out to false
+}
+
+/** Obwody per rozdzielacz jako opis („11 + 15 na kolejnych rozdzielaczach"); bez rzutu — średnia. */
+fun manifoldLoopsLabel(input: UfhQuoteInput): String {
+    if (!input.loopsPerManifoldEstimated && input.loopsPerManifold.size > 1) {
+        return "${input.loopsPerManifold.joinToString(" + ")} na kolejnych rozdzielaczach"
+    }
+    return "ok. ${input.manifoldLoops} na rozdzielacz"
 }
 
 /** Wielkości do wzoru — policzone z zapisanego audytu OP. */
@@ -244,8 +355,15 @@ data class UfhQuoteInput(
     val areas: OfferAreas,
     val pipeM: Double,
     val loops: Int,
-    /** Obwody na jeden rozdzielacz (dobór wielkości rozdzielacza i szafki). */
+    /** Średnia obwodów na rozdzielacz — do opisu, nie do ceny ([ufhManifoldLoops]). */
     val manifoldLoops: Int,
+    /**
+     * Obwody PER ROZDZIELACZ, z których wycena dobiera belkę i szafkę ([offerScope])
+     * — kolejno kondygnacje, a w nich R1, R2… Patrz [ufhQuoteManifoldLoops].
+     */
+    val loopsPerManifold: List<Int>,
+    /** `true` = żadna kondygnacja nie ma podziału z rzutu; [loopsPerManifold] to równy podział. */
+    val loopsPerManifoldEstimated: Boolean,
     /** Rozdzielacze i szafki do kupienia (bez zerowania „robi wod-kan"). */
     val manifoldsToBuy: Int,
     val cabinetsToBuy: Int,
@@ -254,13 +372,17 @@ data class UfhQuoteInput(
 
 fun ufhQuoteInput(state: UfhState): UfhQuoteInput {
     val (quantities, warnings) = ufhPointQuantities(state)
-    val pipe = sumPipe(ufhFloorPipes(state))
+    val pipes = ufhFloorPipes(state)
+    val pipe = sumPipe(pipes)
+    val (loopsPerManifold, estimated) = ufhQuoteManifoldLoops(state, pipes, ufhManifoldPlans(state, pipes))
     return UfhQuoteInput(
         quantities = quantities,
         areas = ufhAreas(state),
         pipeM = pipe.total,
         loops = pipe.loops,
         manifoldLoops = ufhManifoldLoops(state, pipe.loops),
+        loopsPerManifold = loopsPerManifold,
+        loopsPerManifoldEstimated = estimated,
         manifoldsToBuy = ufhManifolds(state),
         // Szafki kupujemy tam, gdzie rozdzielacz ma skrzynkę — rodzaj „brak"
         // (rozdzielacz w szachcie) nie generuje pozycji.
@@ -347,7 +469,7 @@ fun offerReasons(state: UfhState, input: UfhQuoteInput): List<OfferReason> {
             topic = "Rozdzielacze i szafki",
             choice = "${input.manifoldsToBuy} szt." +
                 if (input.loops > 0) {
-                    " na ${input.loops} obwodów (ok. ${input.manifoldLoops} na rozdzielacz)"
+                    " na ${input.loops} obwodów (${manifoldLoopsLabel(input)})"
                 } else {
                     ""
                 } +
@@ -658,7 +780,7 @@ fun technicalSections(state: UfhState, input: UfhQuoteInput): List<TechSection> 
             TechRow(
                 "Obwody (pętle)",
                 "${input.loops}",
-                input.manifoldLoops.takeIf { it > 0 }?.let { "ok. $it na rozdzielacz" },
+                input.manifoldLoops.takeIf { it > 0 }?.let { manifoldLoopsLabel(input) },
             ),
             TechRow("Rozdzielacze", "${input.manifoldsToBuy} szt."),
             TechRow("Skrzynki rozdzielaczy", "${q.boxSurface} natynkowe · ${q.boxFlush} podtynkowe"),

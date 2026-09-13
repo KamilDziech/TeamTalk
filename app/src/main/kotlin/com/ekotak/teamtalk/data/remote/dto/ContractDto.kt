@@ -105,6 +105,12 @@ data class ContractFillingDto(
     val zaliczkaProc: Int? = null,
     val terminKoncowyDni: Int? = null,
     val materialy: List<ContractMaterialDto>? = null,
+    /**
+     * Czego w cenie NIE MA (§ zakres wyłączony). Telefon tego nie edytuje, ale
+     * MUSI przenosić: czyta to zakładka „Montaż" (dla ekipy to najważniejsza
+     * połowa listy), a zapis umowy bez tego pola skasowałby je w dokumencie.
+     */
+    val zakresWylaczony: List<String>? = null,
 )
 
 /** Odpowiedź `GET .../wypelnienie` — treść podpisanej umowy do prefillu zmiany. */
@@ -131,6 +137,7 @@ data class ContractChangeRequest(
     val zaliczkaProc: Int? = null,
     val terminKoncowyDni: Int? = null,
     val materialy: List<ContractMaterialDto>? = null,
+    val zakresWylaczony: List<String>? = null,
     val powod: String = "",
     val rodzaj: String = "umowa",
     val potwierdzam: Boolean = true,

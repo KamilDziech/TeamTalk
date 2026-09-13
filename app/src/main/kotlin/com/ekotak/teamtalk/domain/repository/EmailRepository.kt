@@ -4,8 +4,10 @@ import com.ekotak.teamtalk.domain.model.EmailDealOption
 import com.ekotak.teamtalk.domain.model.EmailDraft
 import com.ekotak.teamtalk.domain.model.EmailFolder
 import com.ekotak.teamtalk.domain.model.EmailSnapshot
+import com.ekotak.teamtalk.domain.model.EmailThread
 import com.ekotak.teamtalk.domain.model.EmailThreadDetail
 import com.ekotak.teamtalk.domain.model.EmailThreadPatch
+import com.ekotak.teamtalk.domain.model.Mailbox
 import com.ekotak.teamtalk.domain.model.MailboxScope
 import kotlinx.coroutines.flow.Flow
 
@@ -30,13 +32,30 @@ interface EmailRepository {
     /** Dociąga treść wątku (i oznacza go na serwerze jako przeczytany). */
     suspend fun refreshThread(threadId: String)
 
+    // ── Widok karty deala (zakładka „Komunikacja") ────────────────────────────
+    // Korespondencja JEDNEGO deala: wszystkie foldery, obie skrzynki, bez
+    // wycinka opiekuna — kto widzi kartę, ten widzi jej wątki. Listę składa
+    // serwer (`GET /api/email/threads?dealId=`), telefon trzyma ją w cache
+    // osobno od widoków skrzynki, bo nie ma z czego jej odtworzyć.
+
+    fun observeDealThreads(dealId: String): Flow<List<EmailThread>>
+
+    suspend fun refreshDealThreads(dealId: String)
+
+    /**
+     * Skrzynki do wyboru „Od:" przy pisaniu z karty deala. Z cache, dolewane
+     * z sieci — bez zasięgu zostaje ostatnio pobrana lista, a nie pustka, która
+     * uniemożliwiłaby napisanie wiadomości do kolejki.
+     */
+    suspend fun mailboxes(): List<Mailbox>
+
     /** Wyszukiwanie w skrzynce — wyłącznie po sieci, bez zapisu do cache. */
     suspend fun search(
         accountId: String,
         scope: MailboxScope,
         folder: EmailFolder,
         query: String,
-    ): List<com.ekotak.teamtalk.domain.model.EmailThread>
+    ): List<EmailThread>
 
     /** Gwiazdka, przeczytane, folder, dowiązanie do deala, etykiety. */
     suspend fun patchThread(threadId: String, patch: EmailThreadPatch)

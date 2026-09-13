@@ -1,8 +1,9 @@
 package com.ekotak.teamtalk.domain.usecase.deal
 
 import com.ekotak.teamtalk.domain.model.ArticleGate
+import com.ekotak.teamtalk.domain.model.CommsSendResult
 import com.ekotak.teamtalk.domain.model.KnowledgeArticle
-import com.ekotak.teamtalk.domain.repository.DealMessageRepository
+import com.ekotak.teamtalk.domain.repository.DealCommsRepository
 import com.ekotak.teamtalk.domain.repository.KnowledgeArticleRepository
 import javax.inject.Inject
 
@@ -41,16 +42,21 @@ class GenerateKnowledgeArticleUseCase @Inject constructor(
  * Uwaga: poza oknem 24h od ostatniej wiadomości klienta API odrzuca wysyłkę
  * free-form (422). Nie obchodzimy tego szablonem — reguła jest po stronie
  * WhatsApp Business, a nie nasza.
+ *
+ * Bez zasięgu wysyłka ląduje w kolejce zakładki „Komunikacja" (ta sama droga,
+ * co wiadomość napisana ręcznie) i wynik mówi o tym wprost — artykuł wysyła się
+ * przy kliencie, więc „wyślij" nie może kończyć się błędem tylko dlatego, że
+ * w kotłowni nie ma zasięgu.
  */
 class SendArticleToClientUseCase @Inject constructor(
-    private val messages: DealMessageRepository,
+    private val comms: DealCommsRepository,
 ) {
-    suspend operator fun invoke(dealId: String, article: KnowledgeArticle) {
+    suspend operator fun invoke(dealId: String, article: KnowledgeArticle): CommsSendResult {
         val body = buildString {
             append(article.title.trim())
             append("\n\n")
             append(article.bodyMarkdown.trim())
         }
-        messages.sendWhatsApp(dealId, body)
+        return comms.sendWhatsapp(dealId, body)
     }
 }

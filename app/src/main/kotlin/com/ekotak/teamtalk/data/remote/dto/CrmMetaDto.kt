@@ -20,6 +20,18 @@ data class CategoryDto(
      * technologią pyta o to samo, o co pyta technologia.
      */
     val auditForm: JsonObject? = null,
+    /**
+     * Role montażowe wymagane przez tę technologię (`Category.montageRoles`).
+     * Z nich zakładka „Montaż" liczy pokrycie obsady; dziedziczą się w dół, więc
+     * węzeł producenta zwykle ma tu pustą listę i bierze role od rodzica.
+     */
+    val montageRoles: List<String> = emptyList(),
+    /**
+     * Zakładka „🧰 Narzędzia" węzła — swobodny JSON (`Category.tools`), z którego
+     * powstaje lista sprzętu na wyjazd. Kształt ustala panel, więc trzymamy go
+     * surowo i rozkładamy dopiero w `domain/montaz`.
+     */
+    val tools: JsonObject? = null,
 )
 
 /**

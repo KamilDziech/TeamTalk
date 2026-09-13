@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -41,10 +42,14 @@ import com.ekotak.teamtalk.presentation.service.sheetBottomPadding
 /**
  * Okno pisania wiadomości — jedno na nową pocztę, odpowiedź i przekazanie.
  *
- * Pole „Od" jest tylko do odczytu: adres bierze się z zakładki, w której
- * człowiek jest. To nie oszczędność, tylko zabezpieczenie — wysyłka z cudzej
- * skrzynki i tak kończy się na serwerze kodem 403, a picker nadawcy sugerowałby
- * wybór, którego nie ma.
+ * Pole „Od" jest domyślnie tylko do odczytu: w module adres bierze się
+ * z otwartej zakładki skrzynki. To nie oszczędność, tylko zabezpieczenie —
+ * wysyłka z cudzej skrzynki i tak kończy się na serwerze kodem 403, a picker
+ * nadawcy sugerowałby wybór, którego nie ma.
+ *
+ * Wyjątkiem jest zakładka „Komunikacja" karty deala: tam żadnej zakładki
+ * skrzynki nie ma, a panel pyta w tym miejscu o nadawcę. Podaje więc [senders]
+ * i wtedy — i tylko wtedy — nagłówek zamienia się w wybór skrzynki.
  *
  * Załączniki wybieramy systemowym `OpenDocument` i BIERZEMY TRWAŁE PRAWO do
  * pliku. Zwykły `GetContent` daje dostęp tylko do końca ekranu, a wiadomość
@@ -71,6 +76,14 @@ fun EmailComposeSheet(
     onSend: () -> Unit,
     onSaveDraft: () -> Unit,
     onDismiss: () -> Unit,
+    /**
+     * Skrzynki do wyboru „Od:" jako pary (id, adres). Puste albo jednoelementowe
+     * zostawia nagłówek nieklikalny — tak jest w module, gdzie adres wynika
+     * z otwartej zakładki. Wypełnia je zakładka „Komunikacja" karty deala:
+     * tam żadnej zakładki skrzynki nie ma, a panel też pyta tam o nadawcę.
+     */
+    senders: List<Pair<String, String>> = emptyList(),
+    onPickSender: (String) -> Unit = {},
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val context = LocalContext.current
@@ -129,11 +142,38 @@ fun EmailComposeSheet(
                 }
             }
 
-            Text(
-                text = "Od: $fromAddress",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            if (senders.size > 1) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "Od:",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    senders.forEach { (id, address) ->
+                        FilterChip(
+                            selected = address == fromAddress,
+                            onClick = { onPickSender(id) },
+                            enabled = !sending,
+                            label = {
+                                Text(
+                                    text = address.substringBefore('@'),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            },
+                        )
+                    }
+                }
+            } else {
+                Text(
+                    text = "Od: $fromAddress",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
 
             OutlinedTextField(
                 value = to,

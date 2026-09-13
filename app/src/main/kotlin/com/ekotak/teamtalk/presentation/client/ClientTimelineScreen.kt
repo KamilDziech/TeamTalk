@@ -33,6 +33,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import com.ekotak.teamtalk.presentation.calllog.CallRecordingNote
 import com.ekotak.teamtalk.presentation.components.AppTopBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -284,15 +285,7 @@ private fun ReportRow(report: VoiceReport) {
                 )
             }
         }
-        val content = report.text ?: report.transcript
-        if (!content.isNullOrBlank()) {
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = content,
-                style = MaterialTheme.typography.bodySmall,
-                maxLines = 5,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
+        Spacer(modifier = Modifier.height(4.dp))
+        CallRecordingNote(report = report, compact = true)
     }
 }

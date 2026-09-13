@@ -56,7 +56,14 @@ const db = {
   // Montaz = jeden wyjazd ekipy; karta deala pokazuje je pod drzewem zakresu.
   // Faktury przychodza z KSeF na poziom ORGANIZACJI (bez `dealId`) — deal
   // rozpoznaje swoje po NIP-ie albo nazwie nabywcy, dokladnie jak board360.
-  installations: [],       // {id, organizationId, dealId, scheduledAt, status, difficulty, teamNote, nodeIds[]}
+  // Montaz niesie ZAKRES (`nodeIds`) i obsade z rolami (`assignees`) — z nich
+  // zakladka „Montaz" liczy wymagane role, liste sprzetu i rysunki wykonawcze.
+  installations: [],       // {id, organizationId, dealId, scheduledAt, status, nodeIds[], assignees[], briefedAt}
+  crews: [],               // {id, organizationId, name, color, leaderId, memberIds[]}
+  installationPhotos: [],  // {id, installationId, storageKey, contentType, size, caption, createdAt}
+  // Odprawy montazu (modul Odprawy). Potwierdzenia leza w wierszu komunikatu —
+  // widzi je wylacznie publikujacy, tak jak w board360.
+  briefings: [],           // {id, organizationId, title, body, authorId, receipts:[{userId, ackAt}]}
   ksefInvoices: [],        // {id, organizationId, ksefNumber, direction, invoiceNumber, issueDate, buyerNip, ...}
   // ── Serwis (modul Serwis + kafelek Przeglady) ──────────────────────────────
   serviceJobs: [],         // zlecenia: awaria / przeglad / konserwacja
@@ -92,6 +99,13 @@ const db = {
   emailAttachments: [], // {id, organizationId, messageId, filename, mimeType, sizeBytes, storageKey}
   emailLabels: [],      // {id, organizationId, name, color}
   emailThreadLabels: [],// {threadId, labelId}
+
+  // ── WhatsApp (zakladka „Komunikacja" karty deala) ──────────────────────────
+  // Skrzynka JEDNEGO deala. Bez kredencji Meta board360 zapisuje wysylke ze
+  // statusem `pending_config` — atrapa robi tak samo, zeby telefon zobaczyl
+  // dokladnie ten stan, ktory zobaczy na produkcji. Okno 24h liczy sie od
+  // ostatniej wiadomosci PRZYCHODZACEJ (regula WhatsApp Business).
+  whatsappMessages: [], // {id, organizationId, dealId, direction, body, template, status, createdAt}
 };
 
 const normalizePhone = (p) => String(p || '').replace(/[^0-9]/g, '').replace(/^0+/, '');

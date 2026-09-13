@@ -26,4 +26,10 @@ data class TeamMemberEntity(
     val role: String?,
     val additionalRoles: List<String> = emptyList(),
     val functions: List<String> = emptyList(),
+    /**
+     * Umiejętności montażowe (role z katalogu). Trzymamy je w cache, bo pokrycie
+     * obsady liczy się na budowie bez zasięgu — a bez umiejętności każda rola
+     * wyglądałaby na nieobsadzalną.
+     */
+    val skills: List<String> = emptyList(),
 )

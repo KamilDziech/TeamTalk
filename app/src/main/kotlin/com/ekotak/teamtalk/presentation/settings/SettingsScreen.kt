@@ -19,6 +19,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import com.ekotak.teamtalk.presentation.components.AppTopBar
@@ -45,6 +46,7 @@ fun SettingsScreen(
     val profileState by profileVm.uiState.collectAsState()
     val simCards by settingsVm.simCards.collectAsState()
     val monitoredSubId by settingsVm.monitoredSubId.collectAsState()
+    val recordingUploadEnabled by settingsVm.recordingUploadEnabled.collectAsState()
 
     Scaffold(
         topBar = { AppTopBar(title = "Ustawienia") },
@@ -126,6 +128,43 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 HorizontalDivider()
             }
+
+            // ── Call recordings section ──────────────────────────────────────
+            SectionHeader("Nagrania rozmów")
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Transkrypcja i streszczenie",
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                    Text(
+                        text = "Po rozmowie z karty SIM wybranej wyżej aplikacja wysyła nagranie " +
+                            "na serwer firmy, który zamienia je na tekst i streszcza.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = recordingUploadEnabled,
+                    onCheckedChange = settingsVm::setRecordingUploadEnabled,
+                    modifier = Modifier.padding(start = 12.dp),
+                )
+            }
+            Text(
+                text = "Samo nagrywanie włącza się w aplikacji Telefon: ⋮ → Ustawienia → " +
+                    "Nagrywaj połączenia → Automatycznie nagrywaj połączenia.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+            HorizontalDivider()
 
             // ── App version section ──────────────────────────────────────────
             SectionHeader("Aplikacja")

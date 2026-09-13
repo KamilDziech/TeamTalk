@@ -56,6 +56,18 @@ const ALL_PERMS = [
   // pokazuje je pod drzewem zakresu, tak samo jak panel. W board360 czyta je
   // `installation.view`; montaz i serwisant maja to prawo, bo jada w teren.
   'installation.view',
+  // Planowanie i OBSADA montazu (zakladka „Montaz" karty deala): nowy etap,
+  // zakres robot, sklad ekipy z rolami, uwaga dla ekipy. W board360 ma to
+  // koordynator i zarzad — monter jedzie na robote, ale jej nie planuje.
+  //
+  // UWAGA, na tym stoi test zakladki: serwisant celowo NIE ma tego prawa, wiec
+  // z jego konta `PATCH /installations/:id` musi konczyc sie kodem 403, a samo
+  // WYDANIE MATERIALU (`installation.view` + obsada tego montazu) — przejsc.
+  'installation.assign',
+  // Publikacja komunikatu odprawy z potwierdzeniem odbioru. Odprawe montazu
+  // wysyla koordynator; z konta serwisanta trasa `POST /briefing` oddaje 403,
+  // i tak samo mowi o tym karta montazu w telefonie.
+  'briefing.publish',
   // Faktury pobrane z KSeF. To ksiegowosc, wiec prawo ma admin/zarzad/biuro —
   // handlowiec widzi na karcie kwoty z umowy, ale nie wystawione faktury.
   'ksef.view',
@@ -69,7 +81,7 @@ const ROLE_PERMS = {
     'tasks.view', 'tasks.manage', 'projects.view', 'projects.manage',
     'service.view', 'service.manage', 'calendar.view', 'calendar.override_busy',
     'offer.manage', 'order.manage', 'inventory.view', 'inventory.manage',
-    'hr.view', 'installation.view',
+    'hr.view', 'installation.view', 'installation.assign', 'briefing.publish',
   ],
   // Serwisant widzi projekty, ale nie zaklada w nich zadan — na tym koncie da sie
   // na telefonie sprawdzic, ze krok "projekt" w kreatorze konczy sie kodem 403.

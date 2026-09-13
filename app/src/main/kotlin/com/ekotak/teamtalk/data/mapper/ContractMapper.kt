@@ -102,6 +102,7 @@ fun ContractFillingDto.toDomain(): ContractFilling = ContractFilling(
             instalacja = it.instalacja,
         )
     },
+    zakresWylaczony = zakresWylaczony.orEmpty(),
 )
 
 fun ContractFilling.toDto(): ContractFillingDto = ContractFillingDto(
@@ -115,6 +116,9 @@ fun ContractFilling.toDto(): ContractFillingDto = ContractFillingDto(
     zaliczkaProc = zaliczkaProc,
     terminKoncowyDni = terminKoncowyDni,
     materialy = materialy.map { it.toDto() },
+    // Wyłączenia z umowy przenosimy nietknięte — telefon ich nie edytuje,
+    // a pominięcie pola skasowałoby § „zakres wyłączony" w dokumencie.
+    zakresWylaczony = zakresWylaczony,
 )
 
 fun ContractFilling.toChangeRequest(powod: String, rodzaj: ContractKind): ContractChangeRequest =
@@ -128,6 +132,7 @@ fun ContractFilling.toChangeRequest(powod: String, rodzaj: ContractKind): Contra
         zaliczkaProc = zaliczkaProc,
         terminKoncowyDni = terminKoncowyDni,
         materialy = materialy.map { it.toDto() },
+        zakresWylaczony = zakresWylaczony,
         powod = powod.trim(),
         rodzaj = rodzaj.wire,
         // Świadome „tak, dać klientowi dokument do podpisu" — pytanie zadaje

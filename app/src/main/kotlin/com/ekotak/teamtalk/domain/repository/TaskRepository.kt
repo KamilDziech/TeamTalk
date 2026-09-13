@@ -109,6 +109,12 @@ interface TaskRepository {
     /** Lista członków zespołu (do wyboru osoby przypisanej). */
     suspend fun getMembers(): List<TaskMember>
 
+    /**
+     * Luki kompetencyjne w domenie umiejętności: id osoby → brakujące szczeble
+     * (`sredni:teoria`). Puste = wszyscy dowożą swój wymóg.
+     */
+    suspend fun getSkillGaps(domainId: String): Map<String, List<String>>
+
     /** Aktywne projekty — krok „kogo dotyczy" w kreatorze zadania. */
     suspend fun getProjects(): List<TaskProject>
 

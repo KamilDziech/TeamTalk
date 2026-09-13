@@ -36,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ekotak.teamtalk.domain.model.CallLog
+import com.ekotak.teamtalk.domain.model.VoiceReport
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -53,6 +54,9 @@ fun CallLogDetailScreen(
     val callLog by remember(callLogId, viewModel) {
         viewModel.observeCallLog(callLogId)
     }.collectAsState(initial = null)
+    val reports by remember(callLogId, viewModel) {
+        viewModel.observeReports(callLogId)
+    }.collectAsState(initial = emptyList())
 
     Scaffold(
         topBar = { AppTopBar(title = "Szczegóły połączenia", onNavigateBack = onNavigateBack) },
@@ -66,6 +70,7 @@ fun CallLogDetailScreen(
         } else {
             CallLogDetailContent(
                 callLog = current,
+                reports = reports,
                 onCall = { phone -> viewModel.makeCall(phone) },
                 onNavigateToPostCallNote = onNavigateToPostCallNote,
                 onNavigateToVoiceReport = onNavigateToVoiceReport,
@@ -78,6 +83,7 @@ fun CallLogDetailScreen(
 @Composable
 private fun CallLogDetailContent(
     callLog: CallLog,
+    reports: List<VoiceReport>,
     onCall: (String) -> Unit,
     onNavigateToPostCallNote: (phone: String) -> Unit,
     onNavigateToVoiceReport: () -> Unit,
@@ -116,6 +122,20 @@ private fun CallLogDetailContent(
             DetailRow("Czas trwania", "${it / 60}:${(it % 60).toString().padStart(2, '0')}")
         }
         callLog.simSlot?.let { DetailRow("SIM", it.toString()) }
+
+        if (reports.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(16.dp))
+            HorizontalDivider()
+            reports.forEach { report ->
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = if (report.recordingKey != null) "Nagranie rozmowy" else "Notatka",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                CallRecordingNote(report = report, compact = false)
+            }
+        }
 
         Spacer(modifier = Modifier.height(24.dp))
 

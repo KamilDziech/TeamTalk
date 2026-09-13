@@ -36,6 +36,19 @@ fun LeadIntakeResponseDto.toDomain(): LeadIntake = LeadIntake(
     building = building?.toDomain()?.takeIf { !it.isEmpty },
 )
 
+/** Model domenowy na ciało zapisu (`PATCH .../lead/building`). */
+fun LeadBuilding.toDto(): LeadBuildingDto = LeadBuildingDto(
+    shape = shape,
+    construction = construction,
+    area = area,
+    people = people,
+    floors = floors,
+    stage = stage,
+    windows = windows,
+    heatedBasement = heatedBasement,
+    heatedGarage = heatedGarage,
+)
+
 fun LeadBuildingDto.toDomain(): LeadBuilding = LeadBuilding(
     shape = shape,
     construction = construction,

@@ -74,7 +74,17 @@ data class EmailThreadEntity(
     /** Etykiety jako `id|nazwa|kolor` po średnikach — nigdy po nich nie szukamy. */
     val labelsRaw: String,
     val syncedAt: Long,
-)
+) {
+    companion object {
+        /**
+         * Pseudo-skrzynka widoku karty deala. Korespondencja deala to trzeci
+         * widok tej samej poczty — serwer składa ją ze wszystkich folderów
+         * i obu skrzynek, więc telefon nie umie jej odtworzyć z „Moich" ani
+         * z „Wszystkich" i trzyma osobno, pod tym `accountId` i `scope = dealId`.
+         */
+        const val ACCOUNT_DEAL_CARD = "deal-card"
+    }
+}
 
 /**
  * Wiadomość otwartego wątku. Trzymamy WSZYSTKIE odwiedzone wątki, nie tylko

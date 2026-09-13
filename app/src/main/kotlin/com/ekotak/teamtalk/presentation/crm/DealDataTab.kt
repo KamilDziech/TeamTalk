@@ -43,6 +43,7 @@ import com.ekotak.teamtalk.domain.model.DealBuyerPersona
 import com.ekotak.teamtalk.domain.model.DealDifficulty
 import com.ekotak.teamtalk.domain.model.DealSegment
 import com.ekotak.teamtalk.domain.model.DealStage
+import com.ekotak.teamtalk.domain.model.MeetingKind
 import com.ekotak.teamtalk.domain.model.TravelLeg
 import kotlin.math.roundToInt
 
@@ -314,7 +315,12 @@ private fun AddressCard(
     viewModel: DealDetailViewModel,
 ) {
     SectionCard {
-        SectionTitle("Adres instalacji")
+        // Gwiazdka jak w panelu: spotkanie wstępne „U klienta” nie zapisze się
+        // bez pełnego, zwalidowanego adresu — pole jest wtedy wymagane.
+        SectionTitle(
+            if (state.detail?.deal?.meetingKind == MeetingKind.KLIENT) "Adres instalacji *"
+            else "Adres instalacji",
+        )
         SectionGap()
 
         val draft = state.clientDraft

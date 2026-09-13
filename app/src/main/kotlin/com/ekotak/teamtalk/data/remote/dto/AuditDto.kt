@@ -17,5 +17,10 @@ data class AuditDto(
     val heatloadKw: Double? = null,
     val formData: JsonObject? = null,
     val createdAt: String = "",
+    /**
+     * Wersja rekordu na serwerze (ISO). Kolejka odsyła ją jako
+     * `expectedUpdatedAt`, żeby zapis z terenu nie nadpisał po cichu zmian
+     * zrobionych w panelu od chwili pobrania. `null` = starsze API bez tego pola.
+     */
+    val updatedAt: String? = null,
 )
-

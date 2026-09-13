@@ -5,8 +5,10 @@ import androidx.lifecycle.viewModelScope
 import com.ekotak.teamtalk.domain.model.CallDirection
 import com.ekotak.teamtalk.domain.model.CallLog
 import com.ekotak.teamtalk.domain.model.CallLogFilter
+import com.ekotak.teamtalk.domain.model.VoiceReport
 import com.ekotak.teamtalk.domain.usecase.calllog.GetCallLogsUseCase
 import com.ekotak.teamtalk.domain.usecase.calllog.MakeCallUseCase
+import com.ekotak.teamtalk.domain.usecase.voicereport.GetVoiceReportsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,6 +24,7 @@ import javax.inject.Inject
 class CallLogViewModel @Inject constructor(
     private val getCallLogsUseCase: GetCallLogsUseCase,
     private val makeCallUseCase: MakeCallUseCase,
+    private val getVoiceReportsUseCase: GetVoiceReportsUseCase,
 ) : ViewModel() {
 
     // Zakładka „Nieodebrane" — tylko połączenia nieodebrane.
@@ -35,6 +38,10 @@ class CallLogViewModel @Inject constructor(
     /** Pojedyncze połączenie po ID — dla ekranu szczegółów. */
     fun observeCallLog(id: String): Flow<CallLog?> =
         getCallLogsUseCase(CallLogFilter()).map { list -> list.find { it.id == id } }
+
+    /** Notatki i nagranie rozmowy — cache od razu, lista z serwera w tle. */
+    fun observeReports(callLogId: String): Flow<List<VoiceReport>> =
+        getVoiceReportsUseCase(callLogId = callLogId)
 
     fun makeCall(phoneNumber: String) = makeCallUseCase(phoneNumber)
 }

@@ -23,6 +23,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -31,8 +36,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.ekotak.teamtalk.domain.model.AuditAddressKind
 import com.ekotak.teamtalk.domain.model.Deal
+import com.ekotak.teamtalk.domain.model.DocumentCategory
 import com.ekotak.teamtalk.domain.model.OfferLock
 import com.ekotak.teamtalk.domain.model.TaskMember
+import com.ekotak.teamtalk.domain.model.buildFloorPlans
 
 /**
  * Zakładka „Audyt" karty deala — mobilny odpowiednik zakładki `audyt`
@@ -48,8 +55,7 @@ import com.ekotak.teamtalk.domain.model.TaskMember
  * Czego świadomie NIE ma na telefonie:
  *  • wpisów Heizlast (zapotrzebowanie budynku na ciepło) — zostają w panelu;
  *    telefon ich nie pokazuje ani nie zakłada,
- *  • rysowania po rzucie kondygnacji (kropki rozdzielaczy, pomiar metrażu) —
- *    patrz `UfhAudit.kt`; zapisane wartości przechodzą przez telefon nietknięte,
+ *  • (od 2026-09-12 rzut kondygnacji RYSUJE się także tutaj — `UfhPlanEditor`),
  *  • automatu zmiany oferty po podpisie umowy (nowa umowa / aneks). Formularz
  *    jest wtedy do odczytu i mówi wprost, że zmianę robi się w panelu: to ruch
  *    kończący się dokumentem do podpisu, a nie coś, co robi się na parkingu.
@@ -63,6 +69,19 @@ fun DealAuditTab(
     val detail = state.detail ?: return
     val audit = state.audit
 
+    val pickers = rememberFilePickers { picked ->
+        picked.forEach {
+            viewModel.uploadFile(
+                name = it.name,
+                contentType = it.contentType,
+                bytes = it.bytes,
+                category = DocumentCategory.PROJEKT,
+            )
+        }
+        if (picked.isNotEmpty()) viewModel.selectTab(DealTab.PLIKI)
+    }
+    var ozcOpen by remember { mutableStateOf(false) }
+
     AuditMeetingCard(
         deal = detail.deal,
         members = state.members,
@@ -74,6 +93,29 @@ fun DealAuditTab(
     )
     SectionGap()
 
+    // Ten sam rząd co w panelu („+ Projekt" / „+ OZC" nad drzewem instalacji);
+    // audytor dokłada tu rzut i zapotrzebowanie prosto od klienta.
+    ProjektOzcCard(
+        canManage = state.canManage,
+        busy = state.files.busy,
+        showOzc = hasHeatingPath(audit.installations.map { it.pathLabel }),
+        ozcSummary = ozcSummary(detail.deal.ozcData),
+        onPickProject = pickers::pickFiles,
+        onPhotoProject = pickers::takePhoto,
+        onOzc = { ozcOpen = true },
+    )
+    SectionGap()
+
+    if (ozcOpen) {
+        OzcDialog(
+            state = state,
+            onDismiss = { ozcOpen = false },
+            onSave = { kw, dhw, url, confirmed, area ->
+                viewModel.saveOzc(kw, dhw, url, confirmed, area) { ozcOpen = false }
+            },
+        )
+    }
+
     when {
         // Dopóki pierwszy odczyt nie wróci, spinner zamiast treści — inaczej
         // między wejściem w zakładkę a startem żądania mignąłby komunikat
@@ -84,6 +126,25 @@ fun DealAuditTab(
         ) { CircularProgressIndicator() }
 
         else -> InstallationAuditCard(state = state, viewModel = viewModel)
+    }
+
+    // Zdjęcia OSOBNĄ kartą, nie polem formularza: to inny rodzaj roboty
+    // (obejście domu z telefonem w ręku), a blokada oferty ich nie dotyczy —
+    // kadr niczego nie przelicza, więc wolno go dorobić także po podpisie.
+    if (audit.loaded) {
+        SectionGap()
+        AuditPhotosCard(
+            plan = state.auditPhotoPlan,
+            installationLabel = audit.installations
+                .firstOrNull { it.categoryId == audit.selectedInstallationId }
+                ?.pathLabel,
+            installationId = audit.formOwnerId,
+            canManage = state.canManage,
+            busy = state.files.busy,
+            onTake = viewModel::addAuditPhoto,
+            onSaveNote = viewModel::saveAuditPhotoNote,
+            onDelete = viewModel::deleteAuditPhoto,
+        )
     }
 
     if (audit.loaded && audit.error != null) {
@@ -267,6 +328,13 @@ private fun InstallationAuditCard(
             return@SectionCard
         }
 
+        // Zapis z telefonu odrzucony, bo panel zmienił audyt w międzyczasie —
+        // decyduje audytor, po cichu nie wygrywa żadna strona.
+        val conflicts by viewModel.auditConflicts.collectAsState()
+        if (conflicts.isNotEmpty()) {
+            AuditConflictBanner(conflicts, viewModel::resolveAuditConflict)
+        }
+
         audit.lock?.let { OfferLockedBanner(it) }
 
         UfhAuditForm(
@@ -274,9 +342,14 @@ private fun InstallationAuditCard(
             enabled = state.canManage && !audit.isFormLocked && !audit.isSavingForm,
             hasHeatPump = audit.hasHeatPump,
             onEdit = viewModel::editAuditForm,
+            plans = remember(state.files.documents) { buildFloorPlans(state.files.documents) },
+            hasBasement = state.detail?.deal?.buildingData?.heatedBasement ?: false,
+            saving = audit.isSavingForm,
+            onCommitPlan = viewModel::commitAuditPlan,
         )
 
-        val missing = audit.missing
+        // Braki razem z brakującymi zdjęciami — to jeden i ten sam audyt.
+        val missing = state.auditMissing
         if (missing.isNotEmpty()) {
             Spacer(Modifier.height(12.dp))
             MissingAnswers(missing)

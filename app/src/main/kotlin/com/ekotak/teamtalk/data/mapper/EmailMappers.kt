@@ -81,10 +81,18 @@ fun EmailLabelEntity.toDomain() = EmailLabel(id = id, name = name, color = color
 // ── Wątki ────────────────────────────────────────────────────────────────────
 
 fun EmailThreadDto.toEntity(accountId: String, scope: MailboxScope, syncedAt: Long) =
+    toEntity(accountId, scope.wire, syncedAt)
+
+/**
+ * Wariant z surowym `scope`. Widok karty deala nie jest ani „Moimi", ani
+ * „Wszystkimi" — jego wycinek liczy serwer po `dealId`, więc `scope` niesie tam
+ * właśnie identyfikator deala (patrz `EmailThreadEntity.ACCOUNT_DEAL_CARD`).
+ */
+fun EmailThreadDto.toEntity(accountId: String, scope: String, syncedAt: Long) =
     EmailThreadEntity(
         id = id,
         accountId = accountId,
-        scope = scope.wire,
+        scope = scope,
         subject = subject,
         folder = folder,
         lastAt = lastAt,

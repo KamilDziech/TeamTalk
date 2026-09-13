@@ -75,7 +75,87 @@ function seedCategories(db) {
   db.categories.push(ufh);
   ids['Ogrzewanie podlogowe'] = { id: ufh.id, children: {} };
 
+  seedMontageScope(db, ids, ufh);
+
   return ids;
+}
+
+/**
+ * ZAKRES MONTAZOWY I SPRZET wezlow katalogu — wejscie zakladki „Montaz".
+ *
+ * Z `montageRoles` bierze sie pokrycie obsady (ktora rola jest obsadzona,
+ * ktorej brakuje), z `tools` — lista do spakowania auta. Oba DZIEDZICZA SIE
+ * W DOL, wiec wpisujemy je na TECHNOLOGII, a wezel producenta zostaje pusty:
+ * dzieki temu w atrapie da sie sprawdzic, czy telefon faktycznie chodzi
+ * w gore sciezki, a nie tylko czyta wlasny wezel.
+ *
+ * „Ogrzewanie" celowo NIE ma zadnego sprzetu, a „Ogrzewanie podlogowe" ma —
+ * na tej parze widac oba stany pustej sekcji: „katalog nie ma listy" kontra
+ * „lista jest".
+ */
+function seedMontageScope(db, ids, ufh) {
+  const narzedzie = (name, group, over = {}) => ({
+    id: uuid(),
+    name,
+    group,
+    qty: 1,
+    unit: 'szt.',
+    required: true,
+    beacon: false,
+    owner: 'Ekipa',
+    note: '',
+    ...over,
+  });
+
+  ufh.montageRoles = ['Hydraulik', 'Monter OP', 'Pomocnik'];
+  ufh.tools = {
+    note: 'Przed wyjazdem sprawdz cisnienie w pompie probnej — protokol jest w cenie umowy.',
+    items: [
+      narzedzie('Zszywacz / takery do klipsow', 'Narzedzia reczne'),
+      narzedzie('Nozyce do rur', 'Narzedzia reczne'),
+      narzedzie('Pompa do proby cisnieniowej', 'Sprzet specjalistyczny', { beacon: true }),
+      narzedzie('Poziomica laserowa', 'Pomiar i diagnostyka', { required: false }),
+      narzedzie('Nakolanniki', 'Narzedzia osobiste', { qty: 3, unit: 'para', note: 'na montera' }),
+      narzedzie('Kask, okulary, rekawice', 'BHP', { qty: 3, unit: 'kpl.' }),
+    ],
+  };
+
+  // Klimatyzacja: role wpisane na TECHNOLOGII, a „Multi-split" (wezel-dziecko)
+  // zostaje pusty — na tej parze widac, ze telefon idzie w gore sciezki.
+  // „Elektryk" celowo nie jest niczyja umiejetnoscia: to stan „nikt w zespole
+  // tego nie umie", inny niz „jest kto moze, ale nikt nie wskazany".
+  const klima = db.categories.find((c) => c.id === ids['Klimatyzacja'].id);
+  if (klima) {
+    klima.montageRoles = ['Chlodnik', 'Elektryk'];
+    klima.tools = {
+      note: 'Czynnik i waga zostaja w aucie — nie wnosic na klatke.',
+      items: [
+        narzedzie('Pompa prozniowa + zestaw manometrow', 'Sprzet specjalistyczny', { unit: 'kpl.' }),
+        narzedzie('Waga do czynnika chlodniczego', 'Sprzet specjalistyczny'),
+        narzedzie('Kielichownica / zawijarka do miedzi', 'Sprzet specjalistyczny', { unit: 'kpl.' }),
+        // Ta sama pozycja co przy podlogowce — montaz obejmujacy oba wezly musi
+        // scalic ja w JEDEN wiersz (pompa probna jest jedna).
+        narzedzie('Pompa do proby cisnieniowej', 'Sprzet specjalistyczny', { beacon: true }),
+        narzedzie('Drabina', 'Zaplecze i transport'),
+      ],
+    };
+  }
+
+  // Pompa ciepla: inne role i CZESCIOWO ten sam sprzet — montaz obejmujacy oba
+  // wezly musi scalic powtorki po nazwie (pompa probna jest jedna).
+  const pompa = db.categories.find((c) => c.id === ids['Ogrzewanie'].children['Pompa ciepla']);
+  if (pompa) {
+    pompa.montageRoles = ['Hydraulik', 'Elektryk', 'Pomocnik'];
+    pompa.tools = {
+      note: '',
+      items: [
+        narzedzie('Pompa do proby cisnieniowej', 'Sprzet specjalistyczny', { beacon: true }),
+        narzedzie('Zaciskarka akumulatorowa (szczeki)', 'Elektronarzedzia'),
+        narzedzie('Miernik uniwersalny', 'Pomiar i diagnostyka'),
+        narzedzie('Drabina', 'Zaplecze i transport'),
+      ],
+    };
+  }
 }
 
 function seedUsers(db) {
@@ -95,6 +175,11 @@ function seedUsers(db) {
       clientVisibility: opts.clientVisibility || 'all',
       functions: opts.functions || [],
       additionalRoles: opts.additionalRoles || [],
+      // UMIEJETNOSCI MONTAZOWE — nazwy rol z `Category.montageRoles`. Po nich
+      // zakladka „Montaz" rozroznia dwa braki: „rola nieobsadzona, ale jest kto
+      // moze" od „nikt w firmie tego nie umie". Dlatego rola „Monter OP" ma tu
+      // tylko jedna osobe, a „Elektryk" — zadnej.
+      skills: opts.skills || [],
     };
     db.users.push(user);
     return user;
@@ -103,12 +188,17 @@ function seedUsers(db) {
     serwisant: make('serwisant@ekotak.pl', 'test1234', 'serwisant', 'Jan', 'Serwisant', {
       functions: ['serwis', 'inzynier'],
       additionalRoles: ['montaz'], // wpada tez pod kafelek "Monter"
+      skills: ['Hydraulik', 'Monter OP'],
     }),
     admin: make('admin@ekotak.pl', 'admin1234', 'admin', 'Anna', 'Admin', {
       functions: ['ksiegowosc', 'dotacje'],
     }),
     koordynator: make('koordynator@ekotak.pl', 'test1234', 'koordynator', 'Piotr', 'Koordynator', {
       functions: ['koordynator', 'zaopatrzenie'],
+      // „Audyt" to nie umiejetnosc montazowa, tylko UPRAWNIENIE do bycia osoba
+      // wykonujaca wizje u klienta — po nim panel i mobilka filtruja selektor
+      // wykonawcy spotkania wstepnego. Bez niego lista bylaby pusta.
+      skills: ['Pomocnik', 'Audyt'],
     }),
   };
 }
@@ -1011,7 +1101,10 @@ function seed(db) {
   seedSales(db, { dOffer, dSold, kontrahent, wojcik });
   seedContracts(db, users, { dOffer, dSold, dAudit });
   seedEmail(db, users, { kowalska, wojcik, dQual, dAudit });
+  // Montaze PO kadrach: obsada bierze monterow z kartotek (`seedHr`).
+  seedMontaz(db, users, { dSold, dDone, ufh, ac, heat });
   seedInvoices(db, users, { dSold, dDone, agnieszka });
+  seedComms(db, users, { dAudit, dOffer, wisniewski });
 
   return { users, clients, missedNowak };
 }
@@ -2289,6 +2382,120 @@ function seedContracts(db, users, { dOffer, dSold, dAudit }) {
 }
 
 /**
+ * MONTAZE — teczka robocza ekipy (zakladka „Montaz" karty deala).
+ *
+ * Deal `dSold` dostaje DWA etapy robot plus zaklepane okno, zeby dalo sie
+ * przecwiczyc na telefonie wszystko, co ta zakladka rozroznia:
+ *
+ *  1. **Etap podlogowki** — zakres z DWOCH wezlow (podlogowka + multi-split),
+ *     wiec role i sprzet SUMUJA sie z obu galezi (multi-split dziedziczy je po
+ *     „Klimatyzacji"), a pompa probna wystepujaca w obu listach musi zostac
+ *     scalona w jedna pozycje. Obsada niepelna celowo: Jan umie „Monter OP"
+ *     i ma te role wskazana, „Hydraulik" zostaje bez wskazania (Jan umie oba,
+ *     ale jedzie jako monter), a „Elektryka" i „Chlodnika" nie umie NIKT — to
+ *     trzy rozne stany pokrycia rol na jednym ekranie.
+ *  2. **Etap pompy ciepla po wylewce** — drugi wyjazd tego samego deala, z
+ *     zakresem, ktory pierwszy etap juz zajal na inny dzien („juz w montazu…").
+ *  3. **Rezerwacja terminu** (`reserved`) — do listy montazy NIE wchodzi;
+ *     bez niej nie da sie sprawdzic, czy telefon ja odsiewa.
+ *
+ * Ekipa „Montaz A" ma dwoch ludzi z kadr (Marek, Kasia) i lidera — na niej
+ * sprawdza sie, ze wybor ekipy DOPISUJE sklad do obsady, a nie zastepuje go.
+ */
+function seedMontaz(db, users, { dSold, dDone, ufh, ac, heat }) {
+  const orgId = db.organization.id;
+  const byEmail = (email) => db.users.find((u) => u.email === email) || null;
+  // Monterzy z kartotek kadrowych (patrz `seedHr`) — to oni jada na budowe.
+  const marek = byEmail('marek.kubiak@ekotak.pl');
+  const kasia = byEmail('kasia.duda@ekotak.pl');
+  if (marek) marek.skills = ['Monter OP', 'Pomocnik'];
+  if (kasia) kasia.skills = ['Hydraulik', 'Monter OP'];
+
+  const crew = {
+    id: uuid(),
+    organizationId: orgId,
+    name: 'Montaz A',
+    color: '#44d62c',
+    leaderId: users.serwisant.id,
+    memberIds: [users.serwisant.id, marek, kasia].filter(Boolean).map((m) => m.id || m),
+  };
+  db.crews.push(crew);
+  db.crews.push({
+    id: uuid(),
+    organizationId: orgId,
+    name: 'Montaz B',
+    color: '#5b8def',
+    leaderId: marek ? marek.id : null,
+    memberIds: [marek, kasia].filter(Boolean).map((m) => m.id),
+  });
+
+  // Zakres etapu „montaz" deala — z niego karta wybiera zakres KAZDEGO wyjazdu.
+  const ufhNode = ufh.id;
+  const acNode = ac.children['Multi-split'];
+  const hpNode = heat.children['Pompa ciepla'];
+  db.dealInstallations[dSold.id] = {
+    ...(db.dealInstallations[dSold.id] || {}),
+    montaz: [ufhNode, acNode, hpNode],
+  };
+
+  const montaz = (row) => {
+    db.installations.push({
+      id: uuid(),
+      organizationId: orgId,
+      nodeIds: [],
+      crewId: null,
+      assignees: [],
+      briefedAt: null,
+      briefingMessageId: null,
+      difficulty: null,
+      teamNote: null,
+      durationDays: 2,
+      createdAt: nowIso(),
+      ...row,
+    });
+  };
+
+  montaz({
+    dealId: dSold.id,
+    scheduledAt: daysAhead(7),
+    status: 'planned',
+    difficulty: 'latwy',
+    teamNote: 'Wjazd od podworza, klucze u kierownika biura. Pies uwiazany po 8:00.',
+    nodeIds: [ufhNode, acNode],
+    crewId: crew.id,
+    assignees: [{ userId: users.serwisant.id, role: 'Monter OP' }],
+    durationDays: 3,
+  });
+  montaz({
+    dealId: dSold.id,
+    scheduledAt: daysAhead(35),
+    status: 'planned',
+    difficulty: 'trudny',
+    teamNote: 'Po wylewce — sprawdzic wilgotnosc przed rozruchem',
+    nodeIds: [hpNode],
+    assignees: [],
+  });
+  montaz({
+    dealId: dSold.id,
+    scheduledAt: daysAhead(21),
+    status: 'reserved',
+    teamNote: 'Okno zaklepane z zakladki Oferta — jeszcze bez obsady',
+  });
+
+  // Deal po montazu: robota gotowa, odprawa poszla, zostaje faktura koncowa.
+  montaz({
+    dealId: dDone.id,
+    scheduledAt: daysAgo(28),
+    status: 'done',
+    difficulty: 'normalny',
+    teamNote: 'Uruchomienie i szkolenie klienta wykonane',
+    nodeIds: [hpNode],
+    assignees: [{ userId: users.serwisant.id, role: 'Hydraulik' }],
+    briefedAt: daysAgo(29),
+  });
+}
+
+/**
  * Faktury z KSeF — zakladka „Faktura" karty deala.
  *
  * Dwa deale, dwa warianty dopasowania faktury do deala:
@@ -2379,6 +2586,110 @@ function seedInvoices(db, users, { dSold, dDone, agnieszka }) {
     vatAmount: '960.00',
     grossAmount: '12960.00',
     acquisitionTimestamp: daysAgo(11),
+  });
+}
+
+/**
+ * Zakladka „Komunikacja" karty deala — trzy kanaly, ktore nie maja wlasnego
+ * modulu: watek wewnetrzny, WhatsApp i streszczenia rozmow.
+ *
+ * Zestaw dobrany tak, zeby dalo sie sprawdzic KAZDA sciezke, w ktorej telefon
+ * zachowuje sie inaczej:
+ *  - `dAudit` ma SWIEZA wiadomosc przychodzaca z WhatsAppa (okno 24h OTWARTE),
+ *    wiec wysylka free-form z telefonu przejdzie,
+ *  - `dOffer` ma tylko stara korespondencje (okno ZAMKNIETE) — wysylka konczy
+ *    sie kodem 422 i tekstem reguly WhatsApp Business, ktory ekran pokazuje
+ *    doslownie,
+ *  - streszczenia rozmow sa dwa: jedno z ustaleniami i nastepnym krokiem
+ *    (dopisane recznie), drugie bez nich, zeby bylo widac oba ksztalty wiersza.
+ */
+function seedComms(db, users, { dAudit, dOffer, wisniewski }) {
+  const orgId = db.organization.id;
+
+  // ── Watek wewnetrzny (komentarze kluczowane ID DEALA, nie zadania) ─────────
+  const wpis = (deal, user, body, createdAt) => {
+    db.taskComments.push({
+      id: uuid(),
+      organizationId: orgId,
+      taskId: deal.id,
+      authorId: user.id,
+      body,
+      createdAt,
+    });
+  };
+
+  wpis(
+    dAudit,
+    users.serwisant,
+    'Byłem na audycie. Kotłownia ciasna, bufor wejdzie tylko pionowy.',
+    daysAgo(1.4),
+  );
+  wpis(
+    dAudit,
+    users.koordynator,
+    'Dzieki. Wycene robimy na pionowy 300 l, zaznacze to w ofercie.',
+    daysAgo(1.2),
+  );
+
+  // ── WhatsApp ──────────────────────────────────────────────────────────────
+  const wa = (deal, direction, body, createdAt, status) => {
+    db.whatsappMessages.push({
+      id: uuid(),
+      organizationId: orgId,
+      dealId: deal.id,
+      direction,
+      body,
+      template: null,
+      status,
+      createdAt,
+    });
+  };
+
+  wa(dAudit, 'outbound', 'Dzien dobry, potwierdzam audyt na czwartek 9:00.', daysAgo(2.1), 'delivered');
+  wa(dAudit, 'inbound', 'Dzien dobry, pasuje. Do zobaczenia!', daysAgo(0.2), 'received');
+  wa(dOffer, 'outbound', 'Oferta poszla mailem, prosze o info po przeczytaniu.', daysAgo(3.5), 'delivered');
+  wa(dOffer, 'inbound', 'Dziekuje, odezwe sie w przyszlym tygodniu.', daysAgo(3.4), 'received');
+
+  // ── Streszczenia rozmow przypiete do deala ────────────────────────────────
+  db.voiceReports.push({
+    id: uuid(),
+    organizationId: orgId,
+    userId: users.serwisant.id,
+    callLogId: null,
+    clientId: wisniewski.id,
+    dealId: dAudit.id,
+    text: 'Rozmowa ze stacjonarnego. Klient pyta o termin montazu po audycie.',
+    agreements: 'Montaz w drugiej polowie miesiaca, przed sezonem grzewczym.',
+    nextStep: 'Wyslac wstepny harmonogram montazu.',
+    transcript: null,
+    recordingKey: null,
+    durationSec: null,
+    phoneNumber: wisniewski.phone,
+    direction: null,
+    occurredAt: daysAgo(0.9),
+    source: 'manual',
+    createdAt: daysAgo(0.9),
+    updatedAt: daysAgo(0.9),
+  });
+  db.voiceReports.push({
+    id: uuid(),
+    organizationId: orgId,
+    userId: users.koordynator.id,
+    callLogId: null,
+    clientId: wisniewski.id,
+    dealId: dAudit.id,
+    text: 'Krotko o dojezdzie ekipy — bez ustalen.',
+    agreements: null,
+    nextStep: null,
+    transcript: null,
+    recordingKey: null,
+    durationSec: null,
+    phoneNumber: wisniewski.phone,
+    direction: null,
+    occurredAt: daysAgo(0.4),
+    source: 'manual',
+    createdAt: daysAgo(0.4),
+    updatedAt: daysAgo(0.4),
   });
 }
 

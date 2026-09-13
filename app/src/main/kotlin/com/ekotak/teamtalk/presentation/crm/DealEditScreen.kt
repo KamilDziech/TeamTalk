@@ -314,14 +314,30 @@ private fun MeetingCard(state: DealEditViewModel.UiState, vm: DealEditViewModel)
             onValueChange = { v -> vm.edit { it.copy(meetingUrl = v) } },
             keyboardType = KeyboardType.Uri,
         )
-        if (state.members.isNotEmpty()) {
-            FormMemberPicker(
-                label = "Osoba wykonująca wizję",
-                members = state.members,
-                selectedId = draft.meetingOwnerId,
-                onSelect = { v -> vm.edit { it.copy(meetingOwnerId = v) } },
-            )
+        // Wykonawcą wizji może być tylko osoba z umiejętnością „Audyt" — ta sama
+        // reguła co w panelu. Wyjątkiem jest wykonawca JUŻ zapisany na dealu:
+        // zostaje na liście nawet bez uprawnienia, żeby wybór z przeszłości nie
+        // zniknął po cichu przy pierwszej edycji z telefonu.
+        val auditMembers = state.members.filter {
+            AUDIT_SKILL in it.skills || it.id == draft.meetingOwnerId
         }
+        FormMemberPicker(
+            label = "Osoba wykonująca wizję",
+            members = auditMembers,
+            selectedId = draft.meetingOwnerId,
+            onSelect = { v -> vm.edit { it.copy(meetingOwnerId = v) } },
+            noteFor = { member ->
+                when {
+                    AUDIT_SKILL !in member.skills -> "(bez uprawnienia)"
+                    else -> state.auditSkillGaps[member.id]
+                        ?.takeIf { it.isNotEmpty() }
+                        ?.joinToString(", ", prefix = "(do nadgonienia: ", postfix = ")") {
+                            skillTokenLabel(it)
+                        }
+                }
+            },
+            emptyHint = "Brak osób z uprawnieniem „Audyt” — nadaj je w module Zespół.",
+        )
     }
 }
 

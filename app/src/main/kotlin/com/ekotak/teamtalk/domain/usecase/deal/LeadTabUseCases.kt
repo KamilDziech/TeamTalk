@@ -3,6 +3,7 @@ package com.ekotak.teamtalk.domain.usecase.deal
 import com.ekotak.teamtalk.domain.model.Category
 import com.ekotak.teamtalk.domain.model.DealInstallations
 import com.ekotak.teamtalk.domain.model.InstallationStage
+import com.ekotak.teamtalk.domain.model.LeadBuilding
 import com.ekotak.teamtalk.domain.model.LeadIntake
 import com.ekotak.teamtalk.domain.repository.CrmDirectoryRepository
 import com.ekotak.teamtalk.domain.repository.DealRepository
@@ -30,6 +31,17 @@ class UpdateLeadNoteUseCase @Inject constructor(
     /** Pusty tekst czyści notatkę. Zwraca treść rozwiązaną przez serwer. */
     suspend operator fun invoke(dealId: String, note: String?): String? =
         leadIntakeRepository.updateNote(dealId, note)
+}
+
+/**
+ * Korekta danych budynku ze zgłoszenia. Osobno od notatki, bo to inne pole
+ * i inny kształt ciała — a zapisujemy zawsze CAŁY komplet, tak jak panel.
+ */
+class UpdateLeadBuildingUseCase @Inject constructor(
+    private val leadIntakeRepository: LeadIntakeRepository,
+) {
+    suspend operator fun invoke(dealId: String, building: LeadBuilding): LeadBuilding? =
+        leadIntakeRepository.updateBuilding(dealId, building)
 }
 
 class GetDealInstallationsUseCase @Inject constructor(

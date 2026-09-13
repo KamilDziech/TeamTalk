@@ -21,6 +21,9 @@ import kotlin.math.min
  * bez dobiegu — nie wiadomo, gdzie stoi rozdzielacz względem powierzchni.
  */
 
+/** Limit długości pętli [mb] przy braku wyboru systemu — rura 16 mm. */
+const val PIPE_LOOP_MAX_M = 100.0
+
 /** Dobieg liczymy w obie strony (zasilanie + powrót). */
 const val LEAD_IN_TRIPS = 2
 
@@ -72,6 +75,9 @@ data class PipeItem(
     val lead: Double?,
     /** Suma dobiegów wszystkich pętli [mb]. */
     val leadTotal: Double,
+    /** Najkrótszy / najdłuższy dobieg pętli [mb] (`null` = bez rozdzielacza). */
+    val leadMin: Double? = null,
+    val leadMax: Double? = null,
     val manifoldIndex: Int?,
     val manifoldAuto: Boolean,
     val loops: Int,
@@ -289,6 +295,7 @@ private fun fromRooms(
         } else {
             r1(loops * (lead ?: 0.0))
         }
+        val leadVals = split?.loops?.mapNotNull { it.lead }.orEmpty()
         items += PipeItem(
             key = room.id,
             label = roomLabel(room, i),
@@ -300,6 +307,8 @@ private fun fromRooms(
             heating = heating,
             lead = lead,
             leadTotal = leadTotal,
+            leadMin = leadVals.minOrNull(),
+            leadMax = leadVals.maxOrNull(),
             manifoldIndex = mf.index,
             manifoldAuto = mf.auto,
             loops = loops,
@@ -350,23 +359,64 @@ private fun fromAreas(areas: Map<AreaCat, Double>, loopMaxM: Double): FloorPipe 
 }
 
 /** Pola metrażu kondygnacji jako liczby — wejście dla rachunku z pól. */
-private fun UfhFloor.areaNumbers(): Map<AreaCat, Double> =
+internal fun UfhFloor.areaNumbers(): Map<AreaCat, Double> =
     AreaCat.entries
         .filter { it.field != null }
         .associateWith { c -> area(c.field!!).toM2() ?: 0.0 }
 
 /**
- * Długość rury OP dla jednej kondygnacji. Obrysy z rzutu mają pierwszeństwo
- * (dają dobieg od rozdzielacza); gdy ich nie ma, liczymy z pól metrażu.
+ * Długość rury OP dla jednej kondygnacji — 1:1 `floorPipe` panelu, BEZ automatu
+ * przydziału. Obrysy z rzutu mają pierwszeństwo (dają dobieg od rozdzielacza);
+ * gdy ich nie ma, liczymy z pól metrażu.
+ *
+ * Pomieszczenia mają już przyjść z przydziałem ([autoManifolds]) — bez niego
+ * nieprzypisane biorą najbliższą kropkę, ale bez rozładowania skrzynek ponad
+ * limit belek. Z audytu wołaj wariant dla [UfhFloor].
  */
-fun floorPipe(floor: UfhFloor, loopMaxM: Double): FloorPipe {
-    val plan = floor.plan()
-    if (scaleReady(plan.scale)) {
-        val measured = fromRooms(plan.rooms, plan.marks, plan.scale!!, loopMaxM)
+fun floorPipe(
+    rooms: List<RoomShape>,
+    marks: List<ManifoldMark>,
+    scale: PlanScale?,
+    areas: Map<AreaCat, Double>,
+    loopMaxM: Double = PIPE_LOOP_MAX_M,
+): FloorPipe {
+    if (scaleReady(scale)) {
+        val measured = fromRooms(rooms, marks, scale!!, loopMaxM)
         if (measured.items.isNotEmpty()) return measured
     }
-    val manual = fromAreas(floor.areaNumbers(), loopMaxM)
+    val manual = fromAreas(areas, loopMaxM)
     return if (manual.items.isNotEmpty()) manual else FloorPipe(PipeSource.NONE)
+}
+
+/**
+ * To samo wyliczenie per pomieszczenie (klucz = `RoomShape.id`) — z niego biorą
+ * liczbę pętli strefy na rzucie i automat przydziału.
+ */
+fun roomPipeMap(
+    rooms: List<RoomShape>,
+    marks: List<ManifoldMark>,
+    scale: PlanScale?,
+    loopMaxM: Double = PIPE_LOOP_MAX_M,
+): Map<String, PipeItem> {
+    if (!scaleReady(scale)) return emptyMap()
+    val out = LinkedHashMap<String, PipeItem>()
+    for (it in fromRooms(rooms, marks, scale!!, loopMaxM).items) out[it.key] = it
+    return out
+}
+
+/**
+ * Długość rury OP kondygnacji z audytu — ZAWSZE po przydziale z automatu
+ * (decyzja usera): najbliższy rozdzielacz + rozładowanie skrzynek ponad limit
+ * belek, tak jak liczy audyt w panelu. Jedno wejście dla audytu, oferty,
+ * rozliczenia i montażu, żeby nigdzie nie wyszła inna rura.
+ *
+ * @param loopMaxM limit pętli systemu rur ([ufhLoopMaxM])
+ * @param manifoldMax limit pętli na skrzynkę ([ufhManifoldMax])
+ */
+fun floorPipe(floor: UfhFloor, loopMaxM: Double, manifoldMax: Int): FloorPipe {
+    val plan = floor.plan()
+    val rooms = autoManifolds(plan.rooms, plan.marks, plan.scale, 0.0, loopMaxM, manifoldMax).rooms
+    return floorPipe(rooms, plan.marks, plan.scale, floor.areaNumbers(), loopMaxM)
 }
 
 /** Suma długości rury ze wszystkich kondygnacji. */
@@ -388,4 +438,7 @@ fun loopsLabel(n: Int): String {
 }
 
 /** Metry bieżące po polsku („182,4"). */
-fun fmtMb(n: Double): String = String.format(java.util.Locale.US, "%.1f", n).replace('.', ',')
+fun fmtMb(n: Double): String = jsFixed(n, 1).replace('.', ',')
+
+/** Opis wzoru dobiegu — jeden tekst dla podpowiedzi w UI. */
+const val LEAD_IN_FORMULA = "dobieg pętli = odległość rozdzielacz → jej strefa × 2 × 1,25"

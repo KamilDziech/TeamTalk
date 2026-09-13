@@ -131,6 +131,40 @@ interface EmailDao {
         upsertThreads(threads)
     }
 
+    // ── Widok karty deala ─────────────────────────────────────────────────────
+    // Korespondencja deala to TRZECI widok tej samej poczty: serwer składa ją ze
+    // wszystkich folderów i obu skrzynek, a wpuszcza do niej każdego, kto widzi
+    // kartę. Telefon nie ma z czego jej odtworzyć z widoków „Moje" i „Wszystkie",
+    // więc — dokładnie jak one — leży w cache osobno, pod własnym `accountId`
+    // (stała `EmailThreadEntity.ACCOUNT_DEAL_CARD`) i `scope = dealId`.
+
+    @Query(
+        """
+        SELECT * FROM email_threads
+        WHERE accountId = :account AND scope = :dealId
+        ORDER BY lastAt DESC
+        """,
+    )
+    fun observeDealThreads(account: String, dealId: String): Flow<List<EmailThreadEntity>>
+
+    @Query(
+        """
+        DELETE FROM email_threads
+        WHERE accountId = :account AND scope = :dealId AND id NOT LIKE 'local:%'
+        """,
+    )
+    suspend fun clearDealThreads(account: String, dealId: String)
+
+    @Transaction
+    suspend fun replaceDealThreads(
+        account: String,
+        dealId: String,
+        threads: List<EmailThreadEntity>,
+    ) {
+        clearDealThreads(account, dealId)
+        upsertThreads(threads)
+    }
+
     // ── Wiadomości i załączniki ───────────────────────────────────────────────
 
     @Query("SELECT * FROM email_messages WHERE threadId = :threadId ORDER BY createdAt ASC")

@@ -19,6 +19,8 @@ data class DealDocumentDto(
     val contentType: String = "",
     val category: String = "inne",
     val planData: JsonElement? = null,
+    /** Przypisanie kadru w module zdjęć audytu — patrz `AuditPhotos.kt`. */
+    val photoData: JsonElement? = null,
     val createdAt: String = "",
 )
 

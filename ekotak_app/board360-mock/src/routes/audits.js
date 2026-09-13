@@ -9,7 +9,12 @@
  *  - Heizlast w trybie „szybki" liczy SERWER ze wskaznikow W/m2 — telefon
  *    podaje wejscia (`heatloadInputs`), nie wynik,
  *  - zapis audytu ofertowego dla deala z PODPISANA umowa -> 409, dopoki cialo
- *    nie niesie `zmianaOferty: true` (tu: umow nie ma, wiec 409 nie pada).
+ *    nie niesie `zmianaOferty: true` (tu: umow nie ma, wiec 409 nie pada),
+ *  - PATCH z `expectedUpdatedAt` (ISO, `updatedAt` z chwili pobrania) innym niz
+ *    biezacy `updatedAt` -> 409 `code: "AUDIT_STALE"` z biezacym audytem w
+ *    `current`, bez zapisu. Porownanie po milisekundach. Bez pola zapis
+ *    przechodzi jak dotad. Nieaktualnosc sprawdzana PRZED
+ *    blokada oferty (jak w board360).
  *
  * Uprawnienia: odczyt `crm.view`, zapis `deal.manage`.
  */
@@ -111,6 +116,25 @@ router.post('/deals/:id/audits', requireAuth, requirePermission('deal.manage'), 
   res.status(201).json(view(audit));
 });
 
+/**
+ * Nieaktualna wersja audytu: ksztalt ciala 1:1 z board360
+ * (`mapInspectionsError` -> `AuditStaleError`).
+ */
+function staleConflict(res, audit) {
+  return res.status(409).json({
+    statusCode: 409,
+    error: 'Conflict',
+    code: 'AUDIT_STALE',
+    message:
+      'Audyt zmienil sie od pobrania (ktos zapisal go w miedzyczasie). ' +
+      'Pobierz aktualna wersje i zapisz zmiany ponownie.',
+    current: view(audit),
+  });
+}
+
+/** Data ISO z offsetem albo Z — to samo, co przepuszcza `z.string().datetime({ offset: true })`. */
+const ISO_DATETIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
+
 router.patch('/audits/:id', requireAuth, requirePermission('deal.manage'), (req, res) => {
   const audit = db.audits.find(
     (a) => a.id === req.params.id && a.organizationId === req.user.organizationId,
@@ -120,6 +144,19 @@ router.patch('/audits/:id', requireAuth, requirePermission('deal.manage'), (req,
   const body = req.body || {};
   const message = invalid(body);
   if (message) return unprocessable(res, message);
+
+  if (body.expectedUpdatedAt !== undefined) {
+    // board360 odbija zle wejscie w ZodValidationPipe -> 400 z tablica komunikatow.
+    if (typeof body.expectedUpdatedAt !== 'string' || !ISO_DATETIME.test(body.expectedUpdatedAt)) {
+      return res.status(400).json({
+        statusCode: 400,
+        error: 'Bad Request',
+        message: ['expectedUpdatedAt musi byc data ISO 8601'],
+      });
+    }
+    const expected = new Date(body.expectedUpdatedAt).getTime();
+    if (expected !== new Date(audit.updatedAt).getTime()) return staleConflict(res, audit);
+  }
 
   // PATCH nadpisuje tylko podane pola — `formData` w calosci, bo to jeden
   // dokument formularza, a nie zbior niezaleznych kluczy.
@@ -131,7 +168,11 @@ router.patch('/audits/:id', requireAuth, requirePermission('deal.manage'), (req,
   } else if ('heatloadKw' in body) {
     audit.heatloadKw = body.heatloadKw ?? null;
   }
-  audit.updatedAt = nowIso();
+  // Kazdy zapis musi dac NOWA wersje — dwa PATCH-e w tej samej milisekundzie
+  // mialyby ten sam `updatedAt` i drugi przeszedlby na nieaktualnych danych.
+  const prev = new Date(audit.updatedAt).getTime();
+  const now = new Date(nowIso()).getTime();
+  audit.updatedAt = new Date(Math.max(now, prev + 1)).toISOString();
 
   res.json(view(audit));
 });

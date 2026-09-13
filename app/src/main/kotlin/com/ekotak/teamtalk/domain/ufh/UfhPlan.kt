@@ -10,7 +10,6 @@ import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.math.abs
 import kotlin.math.floor
-import kotlin.math.hypot
 
 /**
  * WARSTWA RZUTU KONDYGNACJI — mobilny odpowiednik `ufh-area-measure.ts`
@@ -227,7 +226,7 @@ internal fun roomsFromJson(v: kotlinx.serialization.json.JsonElement?): List<Roo
  * inaczej przypisanie pomieszczenia do rozdzielacza przeskoczyłoby na cudzą
  * kropkę i dobieg policzyłby się od innej skrzynki.
  */
-private fun marksFromJson(v: kotlinx.serialization.json.JsonElement?): List<ManifoldMark> {
+internal fun marksFromJson(v: kotlinx.serialization.json.JsonElement?): List<ManifoldMark> {
     val arr = v as? JsonArray ?: return emptyList()
     val out = ArrayList<ManifoldMark>()
     val used = HashSet<String>()
@@ -274,7 +273,7 @@ fun unitPoint(p: PlanPoint, aspect: Double): PlanPoint = PlanPoint(p.x, uy(p.y, 
 
 /** Długość odcinka w jednostkach szerokości obrazu. */
 fun segLen(a: PlanPoint, b: PlanPoint, aspect: Double): Double =
-    hypot(b.x - a.x, uy(b.y, aspect) - uy(a.y, aspect))
+    jsHypot(b.x - a.x, uy(b.y, aspect) - uy(a.y, aspect))
 
 /** Czy skala jest kompletna i sensowna (bez tego pomiar jest zablokowany). */
 fun scaleReady(s: PlanScale?): Boolean {
@@ -331,7 +330,7 @@ fun roomBaseM2(room: RoomShape, scale: PlanScale?): Double? {
 }
 
 /** Ile wieloboków (pomieszczeń + łatek) należy do kategorii. */
-private fun catCount(rooms: List<RoomShape>, cat: AreaCat): Int {
+internal fun catCount(rooms: List<RoomShape>, cat: AreaCat): Int {
     var n = 0
     for (r in rooms) {
         if (r.cat == cat) n += 1

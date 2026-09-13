@@ -58,6 +58,7 @@ app.use('/api', require('./src/routes/intake'));
 app.use('/api', require('./src/routes/catalog'));
 app.use('/api', require('./src/routes/telephony'));
 app.use('/api', require('./src/routes/tasks'));
+app.use('/api', require('./src/routes/skills'));
 app.use('/api', require('./src/routes/projects'));
 app.use('/api', require('./src/routes/discussions'));
 app.use('/api', require('./src/routes/service'));
@@ -68,8 +69,10 @@ app.use('/api', require('./src/routes/sales'));
 app.use('/api', require('./src/routes/contracts'));
 app.use('/api', require('./src/routes/email'));
 app.use('/api', require('./src/routes/documents'));
+app.use('/api', require('./src/routes/installations'));
 app.use('/api', require('./src/routes/invoices'));
 app.use('/api', require('./src/routes/preferences'));
+app.use('/api', require('./src/routes/whatsapp'));
 
 app.use((req, res) => res.status(404).json({ message: `Brak trasy: ${req.method} ${req.path}` }));
 

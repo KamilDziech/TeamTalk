@@ -107,6 +107,24 @@ data class ProjectDto(
 )
 
 /** Członek zespołu z GET /api/tasks/members. */
+/**
+ * Pokrycie jednej domeny umiejętności (`GET /api/domain-skills/coverage`).
+ * Czyta to selektor osoby wykonującej audyt: uprawnienie („Audyt" w `skills`)
+ * decyduje, kto jest na liście, a to dokłada notkę, kto nie dowozi wymogu.
+ */
+@Serializable
+data class SkillCoverageResponseDto(val data: SkillCoverageDataDto = SkillCoverageDataDto())
+
+@Serializable
+data class SkillCoverageDataDto(val subjects: List<SkillCoverageSubjectDto> = emptyList())
+
+@Serializable
+data class SkillCoverageSubjectDto(
+    val subjectId: String = "",
+    /** Szczeble brakujące do wymogu tej osoby (`sredni:teoria`); puste = dowiezione. */
+    val missing: List<String> = emptyList(),
+)
+
 @Serializable
 data class TaskMemberDto(
     val id: String,
@@ -119,4 +137,10 @@ data class TaskMemberDto(
     /** Funkcje pełnione w firmie (board360 ADR-0013) — po nich filtrujemy osoby
      *  w kreatorze zadania. Domyślnie pusta lista: starszy backend pola nie zwraca. */
     val functions: List<String> = emptyList(),
+    /**
+     * Umiejętności montażowe — płaski zbiór nazw ról z `Category.montageRoles`.
+     * Po nich zakładka „Montaż" liczy, kto może obsadzić którą rolę i kogo
+     * warto dopisać do ekipy.
+     */
+    val skills: List<String> = emptyList(),
 )

@@ -96,6 +96,7 @@ fun TaskMemberDto.toDomain(): TaskMember = TaskMember(
     role      = role,
     additionalRoles = additionalRoles,
     functions = functions,
+    skills    = skills,
 )
 
 fun ProjectDto.toDomain(): TaskProject = TaskProject(

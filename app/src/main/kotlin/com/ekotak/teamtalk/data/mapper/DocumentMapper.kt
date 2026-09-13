@@ -21,6 +21,7 @@ fun DealDocumentDto.toEntity(dealId: String, syncedAt: Long): DealDocumentEntity
         contentType = contentType,
         category = category,
         planDataJson = planData?.toString(),
+        photoDataJson = photoData?.toString(),
         createdAt = createdAt,
         pending = false,
         localPath = null,
@@ -37,6 +38,7 @@ fun DealDocumentEntity.toDomain(json: Json): DealDocument = DealDocument(
     // Uszkodzony zapis nie może wywrócić całej zakładki: plik bez przygotowania
     // rzutu jest w pełni użytecznym plikiem.
     planData = planDataJson?.let { runCatching { json.parseToJsonElement(it) }.getOrNull() },
+    photoData = photoDataJson?.let { runCatching { json.parseToJsonElement(it) }.getOrNull() },
     createdAt = createdAt,
     pending = pending,
     localPath = localPath,

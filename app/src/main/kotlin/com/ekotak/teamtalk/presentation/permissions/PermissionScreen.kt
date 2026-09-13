@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.ekotak.teamtalk.data.recording.CallRecordingFinder
 import com.ekotak.teamtalk.presentation.theme.Green600
 
 /** Pojedyncze uprawnienie runtime z opisem, po co jest potrzebne. */
@@ -67,6 +68,13 @@ fun requiredAppPermissions(): List<AppPermission> = buildList {
     add(AppPermission(Manifest.permission.READ_CALL_LOG, "Historia połączeń", "Odczyt numeru i czasu rozmowy"))
     add(AppPermission(Manifest.permission.READ_CONTACTS, "Kontakty", "Pokazywanie nazwy dzwoniącego zamiast numeru"))
     add(AppPermission(Manifest.permission.RECORD_AUDIO, "Mikrofon", "Nagrywanie notatek głosowych po rozmowie"))
+    add(
+        AppPermission(
+            CallRecordingFinder.audioPermission(),
+            "Nagrania rozmów",
+            "Wysyłka nagrań z telefonu do transkrypcji i streszczenia",
+        )
+    )
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         add(AppPermission(Manifest.permission.POST_NOTIFICATIONS, "Powiadomienia", "Przypomnienie o notatce po połączeniu"))
     }

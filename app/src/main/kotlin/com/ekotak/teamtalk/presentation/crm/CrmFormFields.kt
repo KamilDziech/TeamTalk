@@ -188,6 +188,48 @@ fun FormSwitch(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Un
     }
 }
 
+/**
+ * Lista rozwijana z jedną wartością tekstową. Osobno od [FormChoiceRow]: tam
+ * opcje są dwie–trzy i mieszczą się w chipach, a tu bywa ich kilkanaście
+ * (terminy montażu okien), więc rząd chipów zająłby pół ekranu.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun FormDropdown(
+    label: String,
+    options: List<String>,
+    selected: String?,
+    nullLabel: String = "—",
+    onSelect: (String?) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+        OutlinedTextField(
+            value = selected?.takeIf { it.isNotBlank() } ?: nullLabel,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(label) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+            trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text(nullLabel) },
+                onClick = { onSelect(null); expanded = false },
+            )
+            options.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option) },
+                    onClick = { onSelect(option); expanded = false },
+                )
+            }
+        }
+    }
+}
+
 /** Wybór osoby z zespołu; „Bez przypisania" czyści pole. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -197,6 +239,14 @@ fun FormMemberPicker(
     selectedId: String?,
     onSelect: (String?) -> Unit,
     allowEmpty: Boolean = true,
+    /**
+     * Notka przy nazwisku (np. „(do nadgonienia: …)"). Panel dokłada ją przy
+     * wyborze wykonawcy audytu: uprawnienie decyduje, kto jest na liście, a to
+     * mówi, kogo wysyłamy mimo niedowiezionego wymogu.
+     */
+    noteFor: (TaskMember) -> String? = { null },
+    /** Tekst zamiast pustej listy — mówi, skąd wziąć uprawnionych. */
+    emptyHint: String? = null,
 ) {
     var expanded by remember { mutableStateOf(false) }
     val selectedLabel = members.firstOrNull { it.id == selectedId }?.displayName
@@ -221,12 +271,23 @@ fun FormMemberPicker(
                 )
             }
             members.forEach { member ->
+                val note = noteFor(member)
                 DropdownMenuItem(
-                    text = { Text(member.displayName) },
+                    text = {
+                        Text(if (note == null) member.displayName else "${member.displayName} $note")
+                    },
                     onClick = { onSelect(member.id); expanded = false },
                 )
             }
         }
+    }
+    if (members.isEmpty() && emptyHint != null) {
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = emptyHint,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

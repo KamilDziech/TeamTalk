@@ -152,7 +152,7 @@ enum class DealBuyerPersona(val wire: String, val label: String) {
 /** Miejsce spotkania wstępnego (zakł. LEAD / Remarketing karty deala). */
 enum class MeetingKind(val wire: String, val label: String) {
     KLIENT("klient", "U klienta"),
-    BIURO("biuro", "W biurze"),
+    BIURO("biuro", "Biuro"),
     ONLINE("online", "Online");
 
     companion object {

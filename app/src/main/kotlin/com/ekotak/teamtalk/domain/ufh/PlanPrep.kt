@@ -182,8 +182,8 @@ internal fun Double.pl(): String =
 
 /** Punkt do zapisu — 4 miejsca po przecinku (precyzja piksela, czytelny JSON). */
 private fun pointToJson(p: PlanPoint): JsonObject = buildJsonObject {
-    put("x", JsonPrimitive(jsRound(p.x * 10000) / 10000))
-    put("y", JsonPrimitive(jsRound(p.y * 10000) / 10000))
+    put("x", jsonNum(jsRound(p.x * 10000) / 10000))
+    put("y", jsonNum(jsRound(p.y * 10000) / 10000))
 }
 
 private fun pointsToJson(points: List<PlanPoint>): JsonArray = buildJsonArray {
@@ -197,8 +197,8 @@ fun scaleToJson(s: PlanScale?): JsonObject? {
     return buildJsonObject {
         put("a", pointToJson(scale.a))
         put("b", pointToJson(scale.b))
-        put("cm", JsonPrimitive(jsRound(scale.cm * 10) / 10))
-        put("aspect", JsonPrimitive(jsRound(scale.aspect * 10000) / 10000))
+        put("cm", jsonNum(jsRound(scale.cm * 10) / 10))
+        put("aspect", jsonNum(jsRound(scale.aspect * 10000) / 10000))
         put("planDocId", scale.planDocId.ifBlank { null }?.let { JsonPrimitive(it) } ?: JsonNull)
         put("at", scale.at.ifBlank { null }?.let { JsonPrimitive(it) } ?: JsonNull)
         put("byName", scale.byName.ifBlank { null }?.let { JsonPrimitive(it) } ?: JsonNull)

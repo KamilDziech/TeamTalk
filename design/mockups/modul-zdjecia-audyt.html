@@ -1,0 +1,1253 @@
+<title>Zdjęcia w audycie</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Roboto:wght@400;500;700&display=swap">
+
+<style>
+/* ── Tokeny strony (te same co modul-urlop.html / modul-serwis.html) ─ */
+:root{
+  --bg:#EEF3F9; --bg-2:#DBE6F2; --surface:#FFFFFF;
+  --fg:#0F1720; --muted:#5A6B7C; --border:#C3CBD4;
+  --brand:#2FA84F; --brand-loud:#44D62C; --ink:#080808;
+  --warn:#B4680A; --danger:#C5343A; --info:#2563EB;
+  --shadow:0 1px 2px rgba(15,23,32,.06), 0 10px 30px rgba(15,23,32,.08);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0B1220; --bg-2:#12161F; --surface:#12161F;
+    --fg:#E6EDF3; --muted:#9FB0C3; --border:#2A3441;
+    --brand:#44D62C; --brand-loud:#44D62C; --ink:#080808;
+    --warn:#F59E0B; --danger:#E5484D; --info:#5B8DEF;
+    --shadow:0 1px 2px rgba(0,0,0,.5), 0 14px 40px rgba(0,0,0,.45);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0B1220; --bg-2:#12161F; --surface:#12161F;
+  --fg:#E6EDF3; --muted:#9FB0C3; --border:#2A3441;
+  --brand:#44D62C; --brand-loud:#44D62C; --ink:#080808;
+  --warn:#F59E0B; --danger:#E5484D; --info:#5B8DEF;
+  --shadow:0 1px 2px rgba(0,0,0,.5), 0 14px 40px rgba(0,0,0,.45);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--fg);
+  font-family:"Archivo","Segoe UI",system-ui,sans-serif;
+  font-size:16px; line-height:1.55; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px 96px}
+h1,h2,h3{text-wrap:balance;margin:0}
+p{margin:0}
+code{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.88em;
+  background:var(--bg-2);border:1px solid var(--border);border-radius:5px;padding:1px 5px;
+}
+
+/* ── Nagłówek ─────────────────────────────────────────────────────── */
+.masthead{padding:52px 0 32px;border-bottom:1px solid var(--border);display:grid;gap:18px}
+.eyebrow{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
+  display:flex;flex-wrap:wrap;align-items:center;gap:10px;
+}
+.eyebrow b{color:var(--brand);font-weight:600}
+.masthead h1{font-size:clamp(34px,5.4vw,58px);font-weight:800;letter-spacing:-.025em;line-height:1.02}
+.lede{font-size:17px;color:var(--muted);max-width:62ch}
+.lede b{color:var(--fg);font-weight:600}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{
+  font-size:12px;padding:4px 11px;border-radius:999px;
+  border:1px solid var(--border);background:var(--surface);color:var(--muted);
+}
+.chip b{color:var(--fg);font-weight:600}
+
+/* ── Sekcje ───────────────────────────────────────────────────────── */
+section{padding:52px 0 0}
+.shead{display:grid;gap:8px;margin-bottom:26px;max-width:70ch}
+.shead h2{font-size:clamp(22px,2.6vw,30px);font-weight:700;letter-spacing:-.015em}
+.shead p{color:var(--muted);font-size:15px}
+.snum{
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--brand);font-weight:600;
+}
+
+.cards{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(268px,1fr))}
+.card{
+  background:var(--surface);border:1px solid var(--border);border-radius:14px;
+  padding:15px 17px;display:grid;gap:7px;align-content:start;
+}
+.card h3{font-size:14.5px;font-weight:700;display:flex;align-items:center;gap:8px}
+.card p{font-size:13.5px;color:var(--muted)}
+.card p + p{margin-top:2px}
+.dot{width:9px;height:9px;border-radius:50%;flex:none;display:inline-block}
+.dot.ok{background:var(--brand)}
+.dot.part{background:var(--warn)}
+.dot.no{background:var(--danger)}
+.dot.new{background:var(--info)}
+
+.tablewrap{overflow-x:auto;border:1px solid var(--border);border-radius:14px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:700px;font-size:13.5px}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:top}
+th{
+  font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--muted);font-weight:600;white-space:nowrap;
+}
+tbody tr:last-child td{border-bottom:none}
+td.mono{font-family:"IBM Plex Mono",monospace;font-size:12px}
+td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.tag{
+  font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--border);
+  color:var(--muted);white-space:nowrap;display:inline-block;
+}
+.tag.jest{color:var(--brand);border-color:color-mix(in srgb,var(--brand) 45%,var(--border))}
+.tag.brak{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 45%,var(--border))}
+.tag.nowe{color:var(--info);border-color:color-mix(in srgb,var(--info) 45%,var(--border))}
+.tag.zm{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 45%,var(--border))}
+
+/* ── Lista decyzji ────────────────────────────────────────────────── */
+.decisions{display:grid;gap:12px;counter-reset:dec}
+.dec{
+  background:var(--surface);border:1px solid var(--border);border-radius:14px;
+  padding:16px 18px 16px 58px;position:relative;display:grid;gap:6px;
+}
+.dec::before{
+  counter-increment:dec;content:counter(dec,decimal-leading-zero);
+  position:absolute;left:18px;top:16px;
+  font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:600;color:var(--brand);
+}
+.dec h3{font-size:15px;font-weight:700}
+.dec p{font-size:13.5px;color:var(--muted)}
+.dec .prop{
+  font-size:13.5px;color:var(--fg);
+  border-left:2px solid color-mix(in srgb,var(--brand) 60%,var(--border));padding-left:11px;
+}
+.dec .prop b{font-weight:700}
+
+/* ── Makiety: telefon ─────────────────────────────────────────────── */
+.screens{display:grid;gap:34px 26px;grid-template-columns:repeat(auto-fit,minmax(330px,1fr))}
+.screenblock{display:grid;gap:16px;justify-items:center}
+.caption{max-width:36ch;display:grid;gap:6px}
+.caption h3{font-size:15.5px;font-weight:700;display:flex;gap:9px;align-items:baseline}
+.caption h3 i{font-style:normal;font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--brand)}
+.caption p{font-size:13px;color:var(--muted)}
+
+.phone{
+  width:340px;padding:11px;border-radius:38px;
+  background:linear-gradient(160deg,#3a4152,#161a22);box-shadow:var(--shadow);flex:none;
+}
+.device{
+  --d-bg:#0B1220;--d-surface:#12161F;--d-panel:#1A212E;
+  --d-fg:#E6EDF3;--d-muted:#9FB0C3;--d-border:#2A3441;
+  --d-brand:#44D62C;--d-ink:#080808;
+  --d-danger:#F85149;--d-warn:#E3A008;--d-info:#4AA3FF;
+  --d-shot:#E8B04B;          /* akcent modułu zdjęć */
+  width:318px;height:672px;border-radius:28px;overflow:hidden;
+  background:var(--d-bg);color:var(--d-fg);
+  font-family:"Roboto",system-ui,sans-serif;font-size:14px;line-height:1.4;
+  display:flex;flex-direction:column;position:relative;
+}
+.statusbar{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:8px 16px 2px;font-size:11px;color:var(--d-muted);
+  font-variant-numeric:tabular-nums;flex:none;
+}
+/* Pasek górny bez wordmarku, tytułu i „Wróć" — AppTopBar od 07.09 rysuje
+   wyłącznie akcje przy prawej krawędzi. */
+.topbar{display:flex;align-items:center;justify-content:flex-end;gap:2px;padding:4px 8px;flex:none}
+.iconbtn{
+  width:32px;height:32px;border-radius:50%;border:none;background:transparent;
+  color:var(--d-fg);display:grid;place-items:center;flex:none;position:relative;
+}
+.iconbtn svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.screen{flex:1;overflow:hidden;padding:0 12px 10px;display:flex;flex-direction:column;gap:9px}
+
+.dealhead{display:grid;gap:2px;padding:0 2px}
+.dealhead b{font-size:16px;font-weight:500}
+.dealhead span{font-size:11px;color:var(--d-muted)}
+.dtabs{display:flex;gap:6px;overflow:hidden;padding-bottom:2px}
+.dtab{
+  font-size:11.5px;padding:4px 10px;border-radius:999px;flex:none;
+  border:1px solid var(--d-border);color:var(--d-muted);
+}
+.dtab[data-on]{background:var(--d-brand);border-color:var(--d-brand);color:var(--d-ink);font-weight:600}
+.pills{display:flex;gap:6px}
+.pill{
+  font-size:11.5px;padding:4px 10px;border-radius:999px;flex:none;
+  border:1px solid var(--d-border);color:var(--d-muted);
+}
+.pill[data-on]{border-color:var(--d-brand);color:var(--d-brand);font-weight:600}
+
+.dcard{
+  background:var(--d-surface);border:1px solid var(--d-border);border-radius:12px;
+  padding:10px 11px;display:grid;gap:9px;
+}
+.dcard.flat{background:transparent;border-style:dashed}
+.dtitle{display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:500}
+.dtitle .count{
+  margin-left:auto;font-size:10.5px;font-family:"IBM Plex Mono",monospace;
+  color:var(--d-ink);background:var(--d-shot);border-radius:999px;padding:1px 7px;font-weight:600;
+}
+.dtitle .count.done{background:var(--d-brand)}
+.dsub{font-size:11px;color:var(--d-muted)}
+.dsub b{color:var(--d-fg);font-weight:500}
+.badge{
+  font-size:9.5px;letter-spacing:.04em;text-transform:uppercase;
+  border-radius:4px;padding:1px 5px;font-weight:600;
+}
+.badge.share{background:color-mix(in srgb,var(--d-info) 22%,transparent);color:var(--d-info)}
+.badge.queue{background:color-mix(in srgb,var(--d-warn) 22%,transparent);color:var(--d-warn)}
+.badge.inst{background:color-mix(in srgb,var(--d-brand) 20%,transparent);color:var(--d-brand)}
+
+/* Kafelek zdjęcia */
+.shots{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.shot{display:grid;gap:4px}
+.frame{
+  position:relative;aspect-ratio:4/3;border-radius:9px;overflow:hidden;
+  background:linear-gradient(155deg,#243043,#161d29);
+  border:1px solid var(--d-border);display:grid;place-items:center;
+}
+.frame svg{width:100%;height:100%;display:block}
+.frame.empty{
+  background:transparent;border:1px dashed color-mix(in srgb,var(--d-shot) 55%,var(--d-border));
+  color:var(--d-shot);
+}
+.frame.empty .cam{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.frame .mark{
+  position:absolute;top:5px;right:5px;width:17px;height:17px;border-radius:50%;
+  display:grid;place-items:center;
+}
+.frame .mark.ok{background:var(--d-brand)}
+.frame .mark.ok svg{width:11px;height:11px;stroke:var(--d-ink);fill:none;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.frame .mark.wait{background:var(--d-warn)}
+.frame .mark.wait svg{width:11px;height:11px;stroke:var(--d-ink);fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.shot b{font-size:10.5px;font-weight:500;line-height:1.25}
+.shot i{font-style:normal;font-size:9.5px;color:var(--d-muted);line-height:1.25}
+.shot.req b{color:var(--d-fg)}
+.reqdot{color:var(--d-shot);font-weight:700}
+
+.floorrow{display:grid;gap:6px}
+.floorname{
+  font-size:11px;color:var(--d-muted);display:flex;align-items:center;gap:6px;
+  font-family:"IBM Plex Mono",monospace;letter-spacing:.03em;
+}
+.floorname b{color:var(--d-fg);font-weight:600;font-family:"Roboto",sans-serif;letter-spacing:0}
+
+.dbtn{
+  border-radius:9px;padding:8px 10px;font-size:12.5px;font-weight:600;text-align:center;
+  background:var(--d-brand);color:var(--d-ink);
+}
+.dbtn.ghost{background:transparent;border:1px solid var(--d-border);color:var(--d-fg);font-weight:500}
+.dbtn.wide{display:flex;align-items:center;justify-content:center;gap:7px}
+.dbtn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+
+.field{
+  border:1px solid var(--d-border);border-radius:9px;padding:7px 9px;display:grid;gap:3px;
+  background:var(--d-panel);
+}
+.field label{font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--d-muted)}
+.field .val{font-size:12.5px}
+.field .val.ph{color:var(--d-muted)}
+.field.focus{border-color:var(--d-brand)}
+
+.bigshot{
+  aspect-ratio:4/3;border-radius:11px;overflow:hidden;border:1px solid var(--d-border);
+  background:linear-gradient(155deg,#243043,#161d29);position:relative;
+}
+.bigshot svg{width:100%;height:100%;display:block}
+.bigshot .cap{
+  position:absolute;left:0;right:0;bottom:0;padding:6px 9px;font-size:10.5px;
+  background:linear-gradient(transparent,rgba(8,10,14,.85));color:#E6EDF3;
+  display:flex;align-items:center;gap:6px;
+}
+.rowbtns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.note{
+  font-size:10.5px;color:var(--d-muted);border-left:2px solid var(--d-border);
+  padding-left:8px;line-height:1.35;
+}
+
+/* ── Makieta: panel (motyw jasny, zawsze) ─────────────────────────── */
+.panelframe{
+  --p-bg:#F4F6F9;--p-surface:#FFFFFF;--p-fg:#111827;--p-muted:#6B7280;
+  --p-border:#D7DDE5;--p-brand:#2FA84F;--p-info:#2563EB;--p-warn:#B4680A;
+  border:1px solid var(--border);border-radius:14px;overflow:hidden;
+  box-shadow:var(--shadow);background:var(--p-bg);color:var(--p-fg);
+  font-family:"Archivo",system-ui,sans-serif;
+}
+.chrome{
+  display:flex;align-items:center;gap:8px;padding:8px 12px;
+  background:#E7EBF1;border-bottom:1px solid var(--p-border);
+}
+.chrome i{width:9px;height:9px;border-radius:50%;background:#C3CBD4;display:block}
+.chrome .url{
+  margin-left:8px;font-family:"IBM Plex Mono",monospace;font-size:11px;color:#5A6B7C;
+  background:#fff;border:1px solid var(--p-border);border-radius:6px;padding:2px 10px;
+}
+.panelbody{display:grid;grid-template-columns:186px 1fr;gap:0;min-height:520px}
+.tree{border-right:1px solid var(--p-border);padding:12px 10px;display:grid;gap:3px;align-content:start;background:#FBFCFD}
+.tree .th{
+  font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--p-muted);padding:0 6px 6px;
+}
+.tnode{font-size:12.5px;padding:5px 8px;border-radius:7px;color:var(--p-fg);display:flex;gap:7px;align-items:center}
+.tnode.sub{margin-left:12px;font-size:12px;color:#374151}
+.tnode[data-on]{background:color-mix(in srgb,var(--p-brand) 14%,#fff);font-weight:600}
+.tnode .k{
+  margin-left:auto;font-size:9.5px;font-family:"IBM Plex Mono",monospace;
+  color:var(--p-muted);
+}
+.pane{padding:14px 16px;display:grid;gap:12px;align-content:start;background:var(--p-bg)}
+.crumbs{font-size:11px;color:var(--p-muted)}
+.pcard{background:var(--p-surface);border:1px solid var(--p-border);border-radius:10px}
+.pbar{
+  display:flex;align-items:center;gap:9px;padding:9px 12px;font-size:13px;font-weight:600;
+  border-bottom:1px solid var(--p-border);
+}
+.pbar .chev{color:var(--p-muted);font-size:11px}
+.pbar .meter{
+  margin-left:auto;font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:600;
+  color:var(--p-warn);
+}
+.pbar.closed{border-bottom:none;font-weight:500;color:#374151}
+.pbody{padding:12px;display:grid;gap:14px}
+.pgroup{display:grid;gap:8px}
+.ghead{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600}
+.ghead .hint{font-weight:400;color:var(--p-muted);font-size:11.5px}
+.pbadge{font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;border-radius:4px;padding:1px 6px;font-weight:700}
+.pbadge.share{background:color-mix(in srgb,var(--p-info) 12%,#fff);color:var(--p-info)}
+.pbadge.inst{background:color-mix(in srgb,var(--p-brand) 14%,#fff);color:#1D7A38}
+.pshots{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:9px}
+.pshot{display:grid;gap:4px}
+.pframe{
+  position:relative;aspect-ratio:4/3;border-radius:8px;overflow:hidden;
+  border:1px solid var(--p-border);background:linear-gradient(155deg,#DCE5EF,#C8D5E4);
+}
+.pframe svg{width:100%;height:100%;display:block}
+.pframe.empty{
+  background:#fff;border:1px dashed #B9C4D0;display:grid;place-items:center;color:#8A99AB;
+}
+.pframe.empty svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.pframe .pm{position:absolute;top:4px;right:4px;width:15px;height:15px;border-radius:50%;display:grid;place-items:center;background:var(--p-brand)}
+.pframe .pm svg{width:9px;height:9px;stroke:#fff;stroke-width:2.8}
+.pshot b{font-size:10.5px;font-weight:600;line-height:1.25}
+.pshot i{font-style:normal;font-size:9.5px;color:var(--p-muted);line-height:1.25}
+.pnote{
+  font-size:10px;color:#374151;background:#F7F9FB;border:1px solid var(--p-border);
+  border-radius:6px;padding:3px 6px;line-height:1.3;
+}
+.pnote.ph{color:#9AA6B4;font-style:italic}
+.pfoot{
+  font-size:11.5px;color:var(--p-muted);border-top:1px solid var(--p-border);
+  padding:9px 12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+}
+.pfoot b{color:var(--p-warn)}
+
+/* ── Reguła liczby rozdzielaczy ───────────────────────────────────── */
+.rule{
+  display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
+  align-items:stretch;
+}
+.rulebox{
+  background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px;
+  display:grid;gap:9px;align-content:start;
+}
+.rulebox h3{font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px}
+.rulebox .eq{
+  font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--muted);
+  background:var(--bg-2);border-radius:8px;padding:8px 10px;line-height:1.6;
+}
+.rulebox .eq b{color:var(--fg)}
+.rulebox ul{margin:0;padding-left:18px;font-size:13px;color:var(--muted);display:grid;gap:5px}
+.rulebox li b{color:var(--fg);font-weight:600}
+
+.foot{
+  margin-top:56px;padding-top:22px;border-top:1px solid var(--border);
+  font-size:12.5px;color:var(--muted);display:flex;flex-wrap:wrap;gap:10px 22px;
+}
+.foot b{color:var(--fg);font-weight:600}
+
+@media (max-width:760px){
+  .panelbody{grid-template-columns:1fr}
+  .tree{border-right:none;border-bottom:1px solid var(--p-border)}
+}
+</style>
+
+<div class="wrap">
+
+<header class="masthead">
+  <div class="eyebrow"><b>ekotak</b> · panel + TeamTalk · koncepcja 09.09.2026</div>
+  <h1>Zdjęcia w audycie</h1>
+  <p class="lede">
+    Audytor wychodzi z domu klienta z formularzem i z niczym więcej. Tydzień później
+    projektant pyta, gdzie stoi rozdzielacz na parterze, a monter — czy da się wjechać
+    pod dom. <b>Moduł zdjęć dokłada do każdej instalacji zestaw kadrów</b>: wspólne dla
+    budynku, obowiązkowe po jednym na każdy rozdzielacz i dowolne dodatkowe z opisem.
+    Na telefonie robi się je aparatem, w miejscu, w którym się stoi.
+  </p>
+  <div class="chips">
+    <span class="chip"><b>Gdzie:</b> karta deala → zakł. „Audyt" → wybrana instalacja</span>
+    <span class="chip"><b>Panel:</b> nowa sekcja w formularzu audytu</span>
+    <span class="chip"><b>Telefon:</b> aparat + pełny offline</span>
+    <span class="chip"><b>Nowe w API:</b> jedno pole <code>photoData</code></span>
+  </div>
+</header>
+
+<!-- 01 ─────────────────────────────────────────────────────────────── -->
+<section>
+  <div class="shead">
+    <div class="snum">01 · Problem</div>
+    <h2>Zdjęcia dziś są, ale nikt nie wie, których brakuje</h2>
+    <p>
+      Pliki deala mają już sekcję „Audyt" — wrzuca się tam zdjęcia luzem. Nikt nie
+      powie, czy komplet jest zrobiony, do której instalacji kadr należy ani co na nim
+      widać. Moduł nie zmienia miejsca przechowywania, dokłada <b>listę kadrów do zrobienia</b>.
+    </p>
+  </div>
+  <div class="cards">
+    <div class="card">
+      <h3><span class="dot ok"></span>Co już działa</h3>
+      <p>Pliki deala w kategorii <code>audyt</code>, upload i podgląd w panelu, aparat
+        i kolejka offline na telefonie (zakł. „Pliki"). Formularz audytu zna kondygnacje
+        i liczbę rozdzielaczy na każdej z nich.</p>
+    </div>
+    <div class="card">
+      <h3><span class="dot no"></span>Czego nie ma</h3>
+      <p>Kadr nie wie, czego dotyczy: budynku czy instalacji, której kondygnacji,
+        którego rozdzielacza. Nie da się odpowiedzieć na pytanie „czy audyt jest
+        udokumentowany".</p>
+    </div>
+    <div class="card">
+      <h3><span class="dot part"></span>Skutek w terenie</h3>
+      <p>Drugi wyjazd po zdjęcie skrzynki rozdzielacza kosztuje dzień pracy i przesuwa
+        montaż. Monter dowiaduje się o wąskim wjeździe na miejscu, z ekipą i towarem.</p>
+    </div>
+    <div class="card">
+      <h3><span class="dot new"></span>Co dokładamy</h3>
+      <p>Trzy grupy kadrów przy każdej instalacji, licznik „5 z 8", opis pod każdym
+        zdjęciem i aparat wpięty wprost w kafelek — bez chodzenia do zakładki „Pliki".</p>
+    </div>
+  </div>
+</section>
+
+<!-- 02 ─────────────────────────────────────────────────────────────── -->
+<section>
+  <div class="shead">
+    <div class="snum">02 · Podział</div>
+    <h2>Trzy grupy kadrów, jedna z nich wspólna dla całego budynku</h2>
+    <p>
+      Podział jest odpowiedzią na pytanie „czy przy drugiej instalacji trzeba to zdjęcie
+      zrobić jeszcze raz". Widok budynku — nie. Rozdzielacz podłogówki — tak, i to tyle
+      razy, ile jest rozdzielaczy.
+    </p>
+  </div>
+  <div class="cards">
+    <div class="card">
+      <h3><span class="badge share" style="font-size:9.5px">wspólne</span>Zdjęcia budynku</h3>
+      <p>Jeden komplet na deala. <b>To samo zdjęcie widać przy każdej instalacji</b> —
+        jeden plik, nie kopia. Zrobione przy podłogówce, widoczne przy pompie ciepła
+        i przy fotowoltaice.</p>
+      <p>Kadry: widok od frontu, elewacja pod jednostkę zewnętrzną, kotłownia,
+        rozdzielnica elektryczna, dojazd i wejście.</p>
+    </div>
+    <div class="card">
+      <h3><span class="badge inst" style="font-size:9.5px">per instalacja</span>Rozdzielacze</h3>
+      <p>Ogrzewanie podłogowe: <b>jedno zdjęcie na każdy rozdzielacz</b>. Liczbę bierzemy
+        z formularza — pola „Ilość rozdzielaczy" na kondygnacjach. Parter 2 + piętro 1
+        = trzy wymagane kadry, każdy podpisany kondygnacją i numerem.</p>
+      <p>Inna technologia = inna lista wymaganych kadrów albo jej brak; rozdzielacze
+        są pytaniem formularza OP.</p>
+    </div>
+    <div class="card">
+      <h3><span class="badge queue" style="font-size:9.5px">dowolne</span>Zdjęcia dodatkowe</h3>
+      <p>Bez limitu, każde z <b>opisem</b> — „przewód wychodzi 30 cm od narożnika",
+        „pęknięty chudziak przy tarasie". Przy dodawaniu audytor wybiera, czy kadr
+        dotyczy budynku (wspólny), czy tej jednej instalacji.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 03 ─────────────────────────────────────────────────────────────── -->
+<section>
+  <div class="shead">
+    <div class="snum">03 · Telefon</div>
+    <h2>Trzy ekrany, po których widać, co zostało do zrobienia</h2>
+    <p>
+      Sekcja „Zdjęcia" siedzi w karcie „Audyt instalacji", pod „Danymi instalacji".
+      Pusty kafelek z aparatem to polecenie: zrób ten kadr. Zapełniony — dowód, że jest.
+    </p>
+  </div>
+
+  <div class="screens">
+
+    <!-- Ekran A -->
+    <div class="screenblock">
+      <div class="phone"><div class="device">
+        <div class="statusbar"><span>9:41</span><span>▮▮▮ ▲ 84%</span></div>
+        <div class="topbar">
+          <span class="iconbtn"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></span>
+          <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>
+        </div>
+        <div class="screen">
+          <div class="dealhead">
+            <b>Kowalscy · Wólka Kosowska</b>
+            <span>Etap: Audyt · opiekun Piotr Nowak</span>
+          </div>
+          <div class="dtabs">
+            <span class="dtab">Dane</span>
+            <span class="dtab" data-on>Audyt</span>
+            <span class="dtab">Oferta</span>
+            <span class="dtab">Pliki</span>
+          </div>
+          <div class="pills">
+            <span class="pill" data-on>Ogrzewanie podłogowe</span>
+            <span class="pill">Pompa ciepła</span>
+          </div>
+
+          <div class="dcard">
+            <div class="dtitle">
+              <span>Zdjęcia</span>
+              <span class="count">5 z 8</span>
+            </div>
+
+            <div class="floorrow">
+              <div class="floorname"><span class="badge share">wspólne dla budynku</span></div>
+              <div class="shots">
+                <div class="shot req">
+                  <div class="frame">
+                    <svg viewBox="0 0 120 90" role="img" aria-label="Widok budynku od frontu">
+                      <rect x="0" y="0" width="120" height="90" fill="#1B2432"/>
+                      <rect x="0" y="62" width="120" height="28" fill="#243244"/>
+                      <path d="M26 44 L60 22 L94 44 Z" fill="#3C5470"/>
+                      <rect x="34" y="44" width="52" height="26" fill="#31445C"/>
+                      <rect x="42" y="50" width="12" height="10" fill="#8FB8E0"/>
+                      <rect x="66" y="50" width="12" height="10" fill="#8FB8E0"/>
+                      <rect x="56" y="58" width="9" height="12" fill="#1B2432"/>
+                      <circle cx="98" cy="20" r="7" fill="#E8B04B" opacity=".55"/>
+                    </svg>
+                    <span class="mark ok"><svg viewBox="0 0 24 24"><path d="M5 13l4 4 10-10"/></svg></span>
+                  </div>
+                  <b>Widok od frontu</b>
+                  <i>09.09, 9:12</i>
+                </div>
+                <div class="shot req">
+                  <div class="frame">
+                    <svg viewBox="0 0 120 90" role="img" aria-label="Kotłownia">
+                      <rect x="0" y="0" width="120" height="90" fill="#1B2432"/>
+                      <rect x="28" y="18" width="40" height="54" rx="4" fill="#33465E"/>
+                      <rect x="34" y="26" width="28" height="14" rx="2" fill="#8FB8E0"/>
+                      <circle cx="42" cy="54" r="4" fill="#E8B04B"/>
+                      <circle cx="54" cy="54" r="4" fill="#5A6B7C"/>
+                      <path d="M68 30 h20 v40" stroke="#7E93AC" stroke-width="4" fill="none"/>
+                      <path d="M68 44 h12" stroke="#7E93AC" stroke-width="4" fill="none"/>
+                      <rect x="82" y="66" width="18" height="8" rx="2" fill="#3C5470"/>
+                    </svg>
+                    <span class="mark ok"><svg viewBox="0 0 24 24"><path d="M5 13l4 4 10-10"/></svg></span>
+                  </div>
+                  <b>Kotłownia / źródło ciepła</b>
+                  <i>09.09, 9:14</i>
+                </div>
+                <div class="shot req">
+                  <div class="frame empty">
+                    <svg class="cam" viewBox="0 0 24 24"><path d="M4 8h3l1.5-2h7L17 8h3v11H4z"/><circle cx="12" cy="13.5" r="3.4"/></svg>
+                  </div>
+                  <b><span class="reqdot">•</span> Rozdzielnica elektryczna</b>
+                  <i>wymagane</i>
+                </div>
+                <div class="shot">
+                  <div class="frame empty">
+                    <svg class="cam" viewBox="0 0 24 24"><path d="M4 8h3l1.5-2h7L17 8h3v11H4z"/><circle cx="12" cy="13.5" r="3.4"/></svg>
+                  </div>
+                  <b>Dojazd i wejście</b>
+                  <i>podpowiadane</i>
+                </div>
+              </div>
+            </div>
+
+            <div class="floorrow">
+              <div class="floorname">ROZDZIELACZE · <b>Parter</b> — 2 szt.</div>
+              <div class="shots">
+                <div class="shot req">
+                  <div class="frame">
+                    <svg viewBox="0 0 120 90" role="img" aria-label="Rozdzielacz w skrzynce">
+                      <rect x="0" y="0" width="120" height="90" fill="#1B2432"/>
+                      <rect x="18" y="14" width="84" height="62" rx="3" fill="#2C3B50"/>
+                      <rect x="26" y="22" width="68" height="46" rx="2" fill="#1F2A3A"/>
+                      <rect x="32" y="34" width="56" height="5" rx="2.5" fill="#B9C6D6"/>
+                      <rect x="32" y="50" width="56" height="5" rx="2.5" fill="#B9C6D6"/>
+                      <g fill="#E8B04B"><circle cx="40" cy="30" r="3"/><circle cx="52" cy="30" r="3"/><circle cx="64" cy="30" r="3"/><circle cx="76" cy="30" r="3"/></g>
+                      <g stroke="#7E93AC" stroke-width="2.4" fill="none"><path d="M40 55v13"/><path d="M52 55v13"/><path d="M64 55v13"/><path d="M76 55v13"/></g>
+                    </svg>
+                    <span class="mark ok"><svg viewBox="0 0 24 24"><path d="M5 13l4 4 10-10"/></svg></span>
+                  </div>
+                  <b>Parter — rozdzielacz 1 z 2</b>
+                  <i>skrzynka podtynkowa</i>
+                </div>
+                <div class="shot req">
+                  <div class="frame empty">
+                    <svg class="cam" viewBox="0 0 24 24"><path d="M4 8h3l1.5-2h7L17 8h3v11H4z"/><circle cx="12" cy="13.5" r="3.4"/></svg>
+                  </div>
+                  <b><span class="reqdot">•</span> Parter — rozdzielacz 2 z 2</b>
+                  <i>wymagane</i>
+                </div>
+              </div>
+            </div>
+
+            <div class="floorrow">
+              <div class="floorname">ROZDZIELACZE · <b>Piętro</b> — 1 szt.</div>
+              <div class="shots">
+                <div class="shot req">
+                  <div class="frame">
+                    <svg viewBox="0 0 120 90" role="img" aria-label="Rozdzielacz natynkowy">
+                      <rect x="0" y="0" width="120" height="90" fill="#1B2432"/>
+                      <rect x="24" y="20" width="72" height="50" rx="3" fill="#324459"/>
+                      <rect x="30" y="36" width="60" height="5" rx="2.5" fill="#C9D4E1"/>
+                      <rect x="30" y="52" width="60" height="5" rx="2.5" fill="#C9D4E1"/>
+                      <g fill="#E8B04B"><circle cx="38" cy="31" r="3"/><circle cx="50" cy="31" r="3"/><circle cx="62" cy="31" r="3"/></g>
+                      <path d="M12 70h96" stroke="#4A6076" stroke-width="3"/>
+                    </svg>
+                    <span class="mark wait"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg></span>
+                  </div>
+                  <b>Piętro — rozdzielacz 1 z 1</b>
+                  <i><span class="badge queue">czeka na wysyłkę</span></i>
+                </div>
+                <div class="shot">
+                  <div class="frame empty" style="border-style:solid;border-color:var(--d-border);color:var(--d-muted)">
+                    <svg class="cam" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+                  </div>
+                  <b>Dodatkowe zdjęcie</b>
+                  <i>z opisem</i>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="dbtn wide">
+            <svg viewBox="0 0 24 24"><path d="M4 8h3l1.5-2h7L17 8h3v11H4z"/><circle cx="12" cy="13.5" r="3.4"/></svg>
+            Zapisz audyt — brakuje 3 zdjęć
+          </div>
+        </div>
+      </div></div>
+      <div class="caption">
+        <h3><i>A</i> Lista kadrów zamiast albumu</h3>
+        <p>Kafelki są posortowane tak, jak się chodzi po domu: najpierw budynek, potem
+          kondygnacja po kondygnacji. Licznik „5 z 8" liczy tylko kadry <b>wymagane</b>.
+          Zegar na kafelku piętra = zdjęcie zrobione bez zasięgu, czeka w kolejce.</p>
+      </div>
+    </div>
+
+    <!-- Ekran B -->
+    <div class="screenblock">
+      <div class="phone"><div class="device">
+        <div class="statusbar"><span>9:41</span><span>▮▮▯ ▲ 83%</span></div>
+        <div class="topbar">
+          <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></span>
+        </div>
+        <div class="screen">
+          <div class="dealhead">
+            <b>Parter — rozdzielacz 2 z 2</b>
+            <span>Ogrzewanie podłogowe · Kowalscy</span>
+          </div>
+
+          <div class="bigshot">
+            <svg viewBox="0 0 160 120" role="img" aria-label="Zdjęcie rozdzielacza w skrzynce podtynkowej">
+              <rect x="0" y="0" width="160" height="120" fill="#1B2432"/>
+              <rect x="0" y="92" width="160" height="28" fill="#212C3C"/>
+              <rect x="26" y="16" width="108" height="80" rx="4" fill="#2C3B50"/>
+              <rect x="34" y="24" width="92" height="64" rx="3" fill="#1F2A3A"/>
+              <rect x="42" y="42" width="76" height="6" rx="3" fill="#C9D4E1"/>
+              <rect x="42" y="64" width="76" height="6" rx="3" fill="#C9D4E1"/>
+              <g fill="#E8B04B"><circle cx="52" cy="36" r="3.6"/><circle cx="68" cy="36" r="3.6"/><circle cx="84" cy="36" r="3.6"/><circle cx="100" cy="36" r="3.6"/><circle cx="116" cy="36" r="3.6"/></g>
+              <g stroke="#7E93AC" stroke-width="3" fill="none">
+                <path d="M52 70v18"/><path d="M68 70v18"/><path d="M84 70v18"/><path d="M100 70v18"/><path d="M116 70v18"/>
+              </g>
+              <rect x="120" y="52" width="10" height="14" rx="2" fill="#4AA3FF" opacity=".7"/>
+            </svg>
+            <div class="cap"><span class="badge inst">instalacja</span> Ogrzewanie podłogowe · Parter</div>
+          </div>
+
+          <div class="field focus">
+            <label>Opis (widoczny w panelu)</label>
+            <div class="val">Skrzynka w ścianie działowej przy schodach, 14 pętli</div>
+          </div>
+
+          <div class="rowbtns">
+            <div class="dbtn ghost">Zrób ponownie</div>
+            <div class="dbtn">Zapisz kadr</div>
+          </div>
+
+          <div class="dcard flat">
+            <div class="dtitle" style="font-size:12.5px"><span>Po zapisaniu</span></div>
+            <div class="dsub">Plik ląduje w <b>Plikach deala → sekcja „Audyt"</b> pod nazwą
+              „Parter — rozdzielacz 2 z 2.jpg". Bez zasięgu kopia leży w pamięci telefonu
+              i idzie kolejką po powrocie łączności.</div>
+          </div>
+
+          <div class="note">
+            Zdjęcie z aparatu ma ~6 MB. Przed odłożeniem do kolejki zmniejszamy dłuższy bok
+            do 2000 px — pakiet 8 kadrów schodzi z ~48 MB do ~6 MB, co w terenie jest
+            różnicą między „wysłane" a „wysyła się do jutra".
+          </div>
+        </div>
+      </div></div>
+      <div class="caption">
+        <h3><i>B</i> Kadr i opis w jednym ruchu</h3>
+        <p>Aparat otwiera się prosto z kafelka (ten sam wybierak, co w zakładce „Pliki" —
+          bez uprawnienia <code>CAMERA</code>). Po zdjęciu jeden ekran: podgląd, opis,
+          zapis. „Zrób ponownie" podmienia kadr, nie mnoży plików.</p>
+      </div>
+    </div>
+
+    <!-- Ekran C -->
+    <div class="screenblock">
+      <div class="phone"><div class="device">
+        <div class="statusbar"><span>9:52</span><span>▮▮▯ ▲ 81%</span></div>
+        <div class="topbar">
+          <span class="iconbtn"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></span>
+          <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>
+        </div>
+        <div class="screen">
+          <div class="dealhead">
+            <b>Kowalscy · Wólka Kosowska</b>
+            <span>Etap: Audyt · opiekun Piotr Nowak</span>
+          </div>
+          <div class="dtabs">
+            <span class="dtab">Dane</span>
+            <span class="dtab" data-on>Audyt</span>
+            <span class="dtab">Oferta</span>
+            <span class="dtab">Pliki</span>
+          </div>
+          <div class="pills">
+            <span class="pill">Ogrzewanie podłogowe</span>
+            <span class="pill" data-on>Pompa ciepła</span>
+          </div>
+
+          <div class="dcard">
+            <div class="dtitle">
+              <span>Zdjęcia</span>
+              <span class="count done">3 z 3</span>
+            </div>
+
+            <div class="floorrow">
+              <div class="floorname"><span class="badge share">wspólne dla budynku</span></div>
+              <div class="dsub">Te same pliki, co przy podłogówce — zrobione raz.</div>
+              <div class="shots">
+                <div class="shot req">
+                  <div class="frame">
+                    <svg viewBox="0 0 120 90" role="img" aria-label="Widok budynku od frontu">
+                      <rect x="0" y="0" width="120" height="90" fill="#1B2432"/>
+                      <rect x="0" y="62" width="120" height="28" fill="#243244"/>
+                      <path d="M26 44 L60 22 L94 44 Z" fill="#3C5470"/>
+                      <rect x="34" y="44" width="52" height="26" fill="#31445C"/>
+                      <rect x="42" y="50" width="12" height="10" fill="#8FB8E0"/>
+                      <rect x="66" y="50" width="12" height="10" fill="#8FB8E0"/>
+                      <rect x="56" y="58" width="9" height="12" fill="#1B2432"/>
+                      <circle cx="98" cy="20" r="7" fill="#E8B04B" opacity=".55"/>
+                    </svg>
+                    <span class="mark ok"><svg viewBox="0 0 24 24"><path d="M5 13l4 4 10-10"/></svg></span>
+                  </div>
+                  <b>Widok od frontu</b>
+                  <i>wspólne · 09.09</i>
+                </div>
+                <div class="shot req">
+                  <div class="frame">
+                    <svg viewBox="0 0 120 90" role="img" aria-label="Kotłownia">
+                      <rect x="0" y="0" width="120" height="90" fill="#1B2432"/>
+                      <rect x="28" y="18" width="40" height="54" rx="4" fill="#33465E"/>
+                      <rect x="34" y="26" width="28" height="14" rx="2" fill="#8FB8E0"/>
+                      <circle cx="42" cy="54" r="4" fill="#E8B04B"/>
+                      <circle cx="54" cy="54" r="4" fill="#5A6B7C"/>
+                      <path d="M68 30 h20 v40" stroke="#7E93AC" stroke-width="4" fill="none"/>
+                      <path d="M68 44 h12" stroke="#7E93AC" stroke-width="4" fill="none"/>
+                      <rect x="82" y="66" width="18" height="8" rx="2" fill="#3C5470"/>
+                    </svg>
+                    <span class="mark ok"><svg viewBox="0 0 24 24"><path d="M5 13l4 4 10-10"/></svg></span>
+                  </div>
+                  <b>Kotłownia / źródło ciepła</b>
+                  <i>wspólne · 09.09</i>
+                </div>
+              </div>
+            </div>
+
+            <div class="floorrow">
+              <div class="floorname"><span class="badge inst">tylko ta instalacja</span></div>
+              <div class="shots">
+                <div class="shot req">
+                  <div class="frame">
+                    <svg viewBox="0 0 120 90" role="img" aria-label="Miejsce na jednostkę zewnętrzną">
+                      <rect x="0" y="0" width="120" height="90" fill="#1B2432"/>
+                      <rect x="0" y="70" width="120" height="20" fill="#243244"/>
+                      <rect x="10" y="10" width="60" height="60" fill="#2E3F55"/>
+                      <rect x="74" y="34" width="36" height="26" rx="3" fill="#3C5470"/>
+                      <circle cx="92" cy="47" r="9" fill="#1F2A3A"/>
+                      <path d="M92 40v14M85 47h14" stroke="#8FB8E0" stroke-width="2"/>
+                      <path d="M74 60v10M110 60v10" stroke="#7E93AC" stroke-width="3"/>
+                    </svg>
+                    <span class="mark ok"><svg viewBox="0 0 24 24"><path d="M5 13l4 4 10-10"/></svg></span>
+                  </div>
+                  <b>Miejsce na jednostkę zewn.</b>
+                  <i>„ściana pd.-zach., 60 cm od okna"</i>
+                </div>
+                <div class="shot">
+                  <div class="frame empty" style="border-style:solid;border-color:var(--d-border);color:var(--d-muted)">
+                    <svg class="cam" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+                  </div>
+                  <b>Dodatkowe zdjęcie</b>
+                  <i>z opisem</i>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="note">
+            Pompa ciepła nie ma w formularzu pytania o rozdzielacze, więc nie ma tu grupy
+            rozdzielaczy. Wymagane są dwa kadry budynku i jeden własny — stąd „3 z 3".
+          </div>
+        </div>
+      </div></div>
+      <div class="caption">
+        <h3><i>C</i> Druga instalacja, te same zdjęcia budynku</h3>
+        <p>Przełączenie pigułki instalacji zmienia tylko dolną grupę. Kadry budynku stoją
+          w obu — <b>jeden plik pokazany dwa razy</b>. Skasowanie go przy pompie ciepła
+          kasuje go też przy podłogówce i mówi o tym wprost.</p>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- 04 ─────────────────────────────────────────────────────────────── -->
+<section>
+  <div class="shead">
+    <div class="snum">04 · Panel</div>
+    <h2>Ta sama sekcja w formularzu audytu, tylko szersza</h2>
+    <p>
+      W panelu „Zdjęcia" to kolejna zwijana sekcja formularza — po „Danych instalacji",
+      przed kondygnacjami. Bez aparatu (to rola telefonu): wybór pliku, przeciągnięcie
+      i wklejenie <code>Ctrl+V</code>, dokładnie jak w zakładce „Pliki".
+    </p>
+  </div>
+
+  <div class="panelframe">
+    <div class="chrome">
+      <i></i><i></i><i></i>
+      <span class="url">board360.pl/app/crm → Kowalscy · Wólka Kosowska → Audyt</span>
+    </div>
+    <div class="panelbody">
+      <div class="tree">
+        <div class="th">Instalacje</div>
+        <div class="tnode">Ogrzewanie</div>
+        <div class="tnode sub" data-on>Ogrzewanie podłogowe <span class="k">5/8</span></div>
+        <div class="tnode sub">Pompa ciepła <span class="k">3/3</span></div>
+        <div class="tnode">Wentylacja</div>
+        <div class="tnode sub">Rekuperacja <span class="k">—</span></div>
+      </div>
+      <div class="pane">
+        <div class="crumbs">Ogrzewanie › Ogrzewanie podłogowe</div>
+
+        <div class="pcard">
+          <div class="pbar closed"><span class="chev">▸</span> Dane ogólne</div>
+        </div>
+        <div class="pcard">
+          <div class="pbar closed"><span class="chev">▸</span> Dane instalacji</div>
+        </div>
+
+        <div class="pcard">
+          <div class="pbar">
+            <span class="chev">▾</span> Zdjęcia
+            <span class="meter">5 / 8 wymaganych</span>
+          </div>
+          <div class="pbody">
+
+            <div class="pgroup">
+              <div class="ghead">
+                <span class="pbadge share">wspólne dla budynku</span>
+                <span class="hint">widoczne przy każdej instalacji tego deala</span>
+              </div>
+              <div class="pshots">
+                <div class="pshot">
+                  <div class="pframe">
+                    <svg viewBox="0 0 120 90" role="img" aria-label="Widok budynku od frontu">
+                      <rect x="0" y="0" width="120" height="90" fill="#C8D5E4"/>
+                      <rect x="0" y="62" width="120" height="28" fill="#B3C4D6"/>
+                      <path d="M26 44 L60 22 L94 44 Z" fill="#7E93AC"/>
+                      <rect x="34" y="44" width="52" height="26" fill="#9AACC0"/>
+                      <rect x="42" y="50" width="12" height="10" fill="#EAF2FA"/>
+                      <rect x="66" y="50" width="12" height="10" fill="#EAF2FA"/>
+                      <rect x="56" y="58" width="9" height="12" fill="#5D7189"/>
+                      <circle cx="98" cy="20" r="7" fill="#E8B04B" opacity=".7"/>
+                    </svg>
+                    <span class="pm"><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4 10-10"/></svg></span>
+                  </div>
+                  <b>Widok od frontu</b>
+                  <div class="pnote">Elewacja frontowa, wjazd od zachodu</div>
+                </div>
+                <div class="pshot">
+                  <div class="pframe">
+                    <svg viewBox="0 0 120 90" role="img" aria-label="Kotłownia">
+                      <rect x="0" y="0" width="120" height="90" fill="#C8D5E4"/>
+                      <rect x="28" y="18" width="40" height="54" rx="4" fill="#9AACC0"/>
+                      <rect x="34" y="26" width="28" height="14" rx="2" fill="#EAF2FA"/>
+                      <circle cx="42" cy="54" r="4" fill="#E8B04B"/>
+                      <circle cx="54" cy="54" r="4" fill="#7E93AC"/>
+                      <path d="M68 30 h20 v40" stroke="#7E93AC" stroke-width="4" fill="none"/>
+                      <path d="M68 44 h12" stroke="#7E93AC" stroke-width="4" fill="none"/>
+                      <rect x="82" y="66" width="18" height="8" rx="2" fill="#8FA3B8"/>
+                    </svg>
+                    <span class="pm"><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4 10-10"/></svg></span>
+                  </div>
+                  <b>Kotłownia / źródło ciepła</b>
+                  <div class="pnote">Kocioł węglowy do demontażu, komin Ø160</div>
+                </div>
+                <div class="pshot">
+                  <div class="pframe empty">
+                    <svg viewBox="0 0 24 24"><path d="M4 8h3l1.5-2h7L17 8h3v11H4z"/><circle cx="12" cy="13.5" r="3.4"/></svg>
+                  </div>
+                  <b>Rozdzielnica elektryczna</b>
+                  <i>wymagane — przeciągnij plik</i>
+                </div>
+                <div class="pshot">
+                  <div class="pframe empty">
+                    <svg viewBox="0 0 24 24"><path d="M4 8h3l1.5-2h7L17 8h3v11H4z"/><circle cx="12" cy="13.5" r="3.4"/></svg>
+                  </div>
+                  <b>Dojazd i wejście</b>
+                  <i>podpowiadane</i>
+                </div>
+              </div>
+            </div>
+
+            <div class="pgroup">
+              <div class="ghead">
+                <span class="pbadge inst">rozdzielacze</span>
+                <span class="hint">3 kadry — z pól „Ilość rozdzielaczy" na kondygnacjach</span>
+              </div>
+              <div class="pshots">
+                <div class="pshot">
+                  <div class="pframe">
+                    <svg viewBox="0 0 120 90" role="img" aria-label="Rozdzielacz podtynkowy">
+                      <rect x="0" y="0" width="120" height="90" fill="#C8D5E4"/>
+                      <rect x="18" y="14" width="84" height="62" rx="3" fill="#AFC0D2"/>
+                      <rect x="26" y="22" width="68" height="46" rx="2" fill="#E7EEF6"/>
+                      <rect x="32" y="34" width="56" height="5" rx="2.5" fill="#6C7F95"/>
+                      <rect x="32" y="50" width="56" height="5" rx="2.5" fill="#6C7F95"/>
+                      <g fill="#D08A1F"><circle cx="40" cy="30" r="3"/><circle cx="52" cy="30" r="3"/><circle cx="64" cy="30" r="3"/><circle cx="76" cy="30" r="3"/></g>
+                      <g stroke="#8FA3B8" stroke-width="2.4" fill="none"><path d="M40 55v13"/><path d="M52 55v13"/><path d="M64 55v13"/><path d="M76 55v13"/></g>
+                    </svg>
+                    <span class="pm"><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4 10-10"/></svg></span>
+                  </div>
+                  <b>Parter — rozdzielacz 1 z 2</b>
+                  <div class="pnote">Podtynkowa w ścianie działowej, 14 pętli</div>
+                </div>
+                <div class="pshot">
+                  <div class="pframe empty">
+                    <svg viewBox="0 0 24 24"><path d="M4 8h3l1.5-2h7L17 8h3v11H4z"/><circle cx="12" cy="13.5" r="3.4"/></svg>
+                  </div>
+                  <b>Parter — rozdzielacz 2 z 2</b>
+                  <i>wymagane</i>
+                </div>
+                <div class="pshot">
+                  <div class="pframe">
+                    <svg viewBox="0 0 120 90" role="img" aria-label="Rozdzielacz natynkowy">
+                      <rect x="0" y="0" width="120" height="90" fill="#C8D5E4"/>
+                      <rect x="24" y="20" width="72" height="50" rx="3" fill="#AFC0D2"/>
+                      <rect x="30" y="36" width="60" height="5" rx="2.5" fill="#6C7F95"/>
+                      <rect x="30" y="52" width="60" height="5" rx="2.5" fill="#6C7F95"/>
+                      <g fill="#D08A1F"><circle cx="38" cy="31" r="3"/><circle cx="50" cy="31" r="3"/><circle cx="62" cy="31" r="3"/></g>
+                      <path d="M12 70h96" stroke="#8FA3B8" stroke-width="3"/>
+                    </svg>
+                    <span class="pm"><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4 10-10"/></svg></span>
+                  </div>
+                  <b>Piętro — rozdzielacz 1 z 1</b>
+                  <div class="pnote ph">bez opisu — kliknij, żeby dopisać</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="pgroup">
+              <div class="ghead">
+                <span class="pbadge inst">dodatkowe</span>
+                <span class="hint">bez limitu, każde z opisem</span>
+              </div>
+              <div class="pshots">
+                <div class="pshot">
+                  <div class="pframe">
+                    <svg viewBox="0 0 120 90" role="img" aria-label="Pęknięcie chudziaka">
+                      <rect x="0" y="0" width="120" height="90" fill="#D3D8DE"/>
+                      <path d="M0 58h120v32H0z" fill="#C2C8D0"/>
+                      <path d="M14 90 L46 40 L58 52 L74 18 L88 44 L104 30" stroke="#8A929C" stroke-width="3" fill="none"/>
+                      <path d="M30 74 L52 62 L70 78" stroke="#9AA2AC" stroke-width="2" fill="none"/>
+                      <rect x="86" y="62" width="26" height="6" rx="3" fill="#E8B04B"/>
+                    </svg>
+                    <span class="pm"><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4 10-10"/></svg></span>
+                  </div>
+                  <b>Zdjęcie dodatkowe</b>
+                  <div class="pnote">Pęknięty chudziak przy tarasie — do naprawy przed wylewką</div>
+                </div>
+                <div class="pshot">
+                  <div class="pframe empty">
+                    <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+                  </div>
+                  <b>Dodaj zdjęcie</b>
+                  <i>plik, przeciągnięcie albo Ctrl+V</i>
+                </div>
+              </div>
+            </div>
+
+          </div>
+          <div class="pfoot">
+            <span><b>Brakuje 3 zdjęć wymaganych</b> — audyt zapiszesz, ale nie jest udokumentowany.</span>
+            <span>Wszystkie kadry widać też w zakładce „Pliki", sekcja „Audyt".</span>
+          </div>
+        </div>
+
+        <div class="pcard">
+          <div class="pbar closed"><span class="chev">▸</span> Kondygnacja 1 — Parter</div>
+        </div>
+        <div class="pcard">
+          <div class="pbar closed"><span class="chev">▸</span> Kondygnacja 2 — Piętro</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 05 ─────────────────────────────────────────────────────────────── -->
+<section>
+  <div class="shead">
+    <div class="snum">05 · Reguła</div>
+    <h2>Skąd bierze się liczba kadrów rozdzielaczy</h2>
+    <p>
+      Nie pytamy audytora „ile zdjęć chcesz zrobić" — liczba wynika z odpowiedzi, którą
+      już dał w formularzu. Zmieni odpowiedź, zmieni się lista kadrów.
+    </p>
+  </div>
+  <div class="rule">
+    <div class="rulebox">
+      <h3><span class="dot new"></span>Rachunek</h3>
+      <div class="eq">
+        wymagane = Σ <b>floors[i].manifolds</b><br>
+        Parter&nbsp;&nbsp;… 2<br>
+        Piętro&nbsp;&nbsp;&nbsp;… 1<br>
+        Poddasze … 0<br>
+        <b>razem&nbsp;&nbsp;… 3</b>
+      </div>
+      <p style="font-size:13px;color:var(--muted)">
+        Etykietę kadru składamy z nazwy kondygnacji i numeru: „Parter — rozdzielacz 2 z 2".
+        Gdy w panelu są już kropki rozdzielaczy na rzucie, kadr dziedziczy z nich rodzaj
+        skrzynki jako podpis.
+      </p>
+    </div>
+    <div class="rulebox">
+      <h3><span class="dot part"></span>Gdy liczba się zmienia</h3>
+      <ul>
+        <li><b>W górę</b> (2 → 3): dochodzi pusty kafelek, licznik rośnie.</li>
+        <li><b>W dół</b> (2 → 1): zdjęcia <b>nigdy nie kasujemy</b>. Nadmiarowy kadr
+          przechodzi do „dodatkowych" z adnotacją „rozdzielacz zdjęty z listy".</li>
+        <li><b>0 rozdzielaczy</b> na kondygnacji: brak kadrów, brak pustych kafelków.</li>
+        <li><b>Kondygnacja usunięta</b>: to samo co „w dół" — kadr zostaje jako dodatkowy.</li>
+      </ul>
+    </div>
+    <div class="rulebox">
+      <h3><span class="dot ok"></span>Czego reguła nie robi</h3>
+      <ul>
+        <li>Nie blokuje zapisu audytu — brak zdjęć to <b>ostrzeżenie</b>, jak brakujące
+          odpowiedzi dziś.</li>
+        <li>Nie wymusza kadrów na technologiach bez rozdzielaczy (pompa ciepła,
+          fotowoltaika) — te mają tylko budynek i dodatkowe.</li>
+        <li>Nie dotyka warstwy rzutu. Kropki, obrysy i skala zostają w panelu i przechodzą
+          przez telefon nietknięte.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 06 ─────────────────────────────────────────────────────────────── -->
+<section>
+  <div class="shead">
+    <div class="snum">06 · Dane</div>
+    <h2>Zdjęcie to plik deala, nie pole formularza</h2>
+    <p>
+      Kadry zapisujemy tam, gdzie już są — jako <code>DealDocument</code> w kategorii
+      <code>audyt</code>. Dokładamy im jedno pole: <code>photoData</code>, czyli
+      odpowiedź na pytanie „czego to zdjęcie dotyczy".
+    </p>
+  </div>
+
+  <div class="tablewrap" style="margin-bottom:16px">
+    <table>
+      <thead>
+        <tr><th>Warstwa</th><th>Co dokładamy</th><th>Stan</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Baza</td>
+          <td><code>deal_documents.photoData</code> — nullowalny JSON, obok istniejącego
+            <code>planData</code>. Migracja Prisma, jedna kolumna.</td>
+          <td><span class="tag nowe">nowe</span></td>
+        </tr>
+        <tr>
+          <td>API</td>
+          <td><code>photoData</code> jako pole multipartu przy <code>POST /deals/:id/documents</code>
+            (atomowo z treścią) oraz <code>PATCH /documents/:id/photo-data</code> do samej
+            zmiany opisu. Uprawnienia bez zmian: odczyt <code>crm.view</code>, zapis
+            <code>deal.manage</code>.</td>
+          <td><span class="tag nowe">nowe</span></td>
+        </tr>
+        <tr>
+          <td>Panel</td>
+          <td>Sekcja „Zdjęcia" w formularzu audytu + model kadrów (grupy, licznik braków).
+            Upload i podgląd przez to, co ma zakładka „Pliki".</td>
+          <td><span class="tag nowe">nowe</span></td>
+        </tr>
+        <tr>
+          <td>Telefon</td>
+          <td>Sekcja w karcie „Audyt instalacji", aparat z <code>rememberFilePickers</code>,
+            zmniejszanie kadru, kolumna <code>photoDataJson</code> w cache
+            <code>deal_documents</code> i rodzaj <code>photo</code> w kolejce.</td>
+          <td><span class="tag nowe">nowe</span></td>
+        </tr>
+        <tr>
+          <td>Kolejka offline</td>
+          <td><code>document_mutations</code> niesie <code>photoData</code> w ładunku
+            wgrania — zdjęcie i jego przypisanie idą razem albo wcale.</td>
+          <td><span class="tag zm">rozszerzenie</span></td>
+        </tr>
+        <tr>
+          <td>Atrapa board360</td>
+          <td>Przyjmowanie i oddawanie <code>photoData</code>, żeby dało się to sprawdzić
+            bez produkcji.</td>
+          <td><span class="tag zm">rozszerzenie</span></td>
+        </tr>
+        <tr>
+          <td>Warstwa rzutu</td>
+          <td>Bez zmian. Kropki rozdzielaczy, obrysy i skala zostają w panelu.</td>
+          <td><span class="tag jest">bez zmian</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="cards">
+    <div class="card">
+      <h3><span class="dot new"></span>Kształt <code>photoData</code></h3>
+      <p style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--fg);line-height:1.7">
+        kind: "audit-photo"<br>
+        scope: "budynek" | &lt;categoryId&gt;<br>
+        role: "budynek" | "rozdzielacz" | "dodatkowe"<br>
+        slot: "widok-frontu" (dla kadrów budynku)<br>
+        floorIndex, manifoldIndex (dla rozdzielaczy)<br>
+        note: opis<br>
+        takenAt: kiedy zrobione
+      </p>
+    </div>
+    <div class="card">
+      <h3><span class="dot ok"></span>Dlaczego przy pliku, a nie w <code>formData</code></h3>
+      <p>Zdjęcie budynku jest jedno, a audytów tyle, ile instalacji — w formularzu
+        musiałoby się dublować i rozjeżdżać.</p>
+      <p>Kolejka audytu wysyła <b>cały</b> dokument <code>formData</code> jednym wierszem.
+        Zdjęcie dopisane w piwnicy przegrałoby z zapisem formularza z parteru.</p>
+      <p>Plik istnieje, zanim powstanie rekord audytu.</p>
+    </div>
+    <div class="card">
+      <h3><span class="dot no"></span>Odrzucone: dopisanie do <code>planData</code></h3>
+      <p>Kusiło, bo trasa i kolejka są gotowe. Ale <code>planData</code> to
+        „przygotowanie rzutu" — wciśnięcie tam zdjęć byłoby kłamstwem w nazwie, a zapis
+        podmienia całe pole, więc groziłby skasowaniem obrysów pomieszczeń.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 07 ─────────────────────────────────────────────────────────────── -->
+<section>
+  <div class="shead">
+    <div class="snum">07 · Do potwierdzenia</div>
+    <h2>Sześć rzeczy, które chcę usłyszeć przed pisaniem kodu</h2>
+    <p>Przy każdej jest propozycja — „zgoda" wystarczy, żebym ruszył.</p>
+  </div>
+  <div class="decisions">
+
+    <div class="dec">
+      <h3>Lista kadrów budynku</h3>
+      <p>Stała lista wspólna dla wszystkich dealów, czy definiowana w katalogu jak
+        formularz audytu?</p>
+      <div class="prop"><b>Proponuję:</b> stała pięciopozycyjna lista w kodzie — widok od
+        frontu, elewacja pod jednostkę zewnętrzną, kotłownia, rozdzielnica elektryczna,
+        dojazd i wejście. Trzy pierwsze wymagane, dwa podpowiadane. Definiowanie w
+        katalogu dokładamy, gdy okaże się potrzebne.</div>
+    </div>
+
+    <div class="dec">
+      <h3>Czy brak zdjęć blokuje zapis audytu</h3>
+      <p>Dziś brakujące odpowiedzi nie blokują — przycisk zmienia tylko kolor.</p>
+      <div class="prop"><b>Proponuję:</b> tak samo. Braki zdjęć idą jako jedna pozycja
+        listy braków („Brakuje 3 zdjęć rozdzielaczy") i osobny licznik „5 z 8”. Zapis
+        zawsze przechodzi.</div>
+    </div>
+
+    <div class="dec">
+      <h3>Blokada po podpisie umowy</h3>
+      <p>Po podpisie formularz audytu jest zamknięty, bo z niego liczy się oferta.
+        Zdjęcia niczego nie przeliczają, a montaż i serwis ich potrzebują.</p>
+      <div class="prop"><b>Proponuję:</b> zdjęcia zostają otwarte przy zamkniętym
+        formularzu — można dorobić kadr i opis bez otwierania oferty i bez aneksu.</div>
+    </div>
+
+    <div class="dec">
+      <h3>Widoczność w zakładce „Pliki"</h3>
+      <p>Kadry to pliki deala, więc pojawią się w sekcji „Audyt" zakładki „Pliki".</p>
+      <div class="prop"><b>Proponuję:</b> zostawić je tam widoczne, z etykietą kadru
+        („Parter — rozdzielacz 1 z 2”) i informacją, że plik należy do audytu, żeby nikt
+        nie skasował go przypadkiem.</div>
+    </div>
+
+    <div class="dec">
+      <h3>Zmniejszanie zdjęć na telefonie</h3>
+      <p>Kadr z aparatu to 5–8 MB; ośmiu kadrów przez LTE pod lasem nie wyślemy.</p>
+      <div class="prop"><b>Proponuję:</b> przed wrzuceniem do kolejki zmniejszamy dłuższy
+        bok do 2000 px, JPEG ~85% (typowo 600–900 KB). Wersji pełnej nie trzymamy — do
+        oglądania skrzynki i podpisów na tabliczce to nadmiar.</div>
+    </div>
+
+    <div class="dec">
+      <h3>Kto może kasować kadry</h3>
+      <p>Dziś usunięcie pliku deala wymaga <code>deal.manage</code>.</p>
+      <div class="prop"><b>Proponuję:</b> bez zmian, plus pytanie potwierdzające przy
+        kadrze wspólnym: „to zdjęcie widać przy 3 instalacjach — usunąć wszędzie?".</div>
+    </div>
+
+  </div>
+</section>
+
+<!-- 08 ─────────────────────────────────────────────────────────────── -->
+<section>
+  <div class="shead">
+    <div class="snum">08 · Zakres</div>
+    <h2>Co robimy, a czego świadomie nie</h2>
+  </div>
+  <div class="cards">
+    <div class="card">
+      <h3><span class="dot ok"></span>W zakresie</h3>
+      <p>Kolumna <code>photoData</code> i dwie trasy w API. Sekcja „Zdjęcia" w panelu
+        i na telefonie. Aparat, kolejka offline, zmniejszanie kadru. Licznik braków wpięty
+        w listę braków audytu. Atrapa board360 podniesiona do nowego kontraktu.</p>
+    </div>
+    <div class="card">
+      <h3><span class="dot no"></span>Poza zakresem</h3>
+      <p>Rysowanie po zdjęciu (strzałki, wymiary) — to osobny temat. Rozpoznawanie
+        tabliczek znamionowych. Galeria zdjęć w ofercie dla klienta. Zdjęcia przy
+        etapach innych niż audyt (montaż ma własne, powykonawcze).</p>
+    </div>
+    <div class="card">
+      <h3><span class="dot part"></span>Ryzyka</h3>
+      <p>Migracja Room musi być odporna na telefony, które kolumnę już mają — wyjątek
+        w <code>migrate()</code> zamurowuje bazę na stałe.</p>
+      <p>Zdjęcie wspólne kasowane z jednej instalacji znika ze wszystkich — stąd pytanie
+        potwierdzające.</p>
+    </div>
+  </div>
+</section>
+
+<div class="foot">
+  <span><b>ekotak</b> · koncepcja modułu zdjęć w audycie</span>
+  <span>09.09.2026</span>
+  <span>Makieta poglądowa — kadry narysowane, nie fotograficzne.</span>
+</div>
+
+</div>

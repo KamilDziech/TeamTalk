@@ -18,4 +18,10 @@ data class VoiceReportEntity(
     val durationSec: Int?,
     val createdAt: String,
     val updatedAt: String,
+    // v30 — transkrypcja i streszczenie nagrania rozmowy (MIGRATION_29_30).
+    val summary: String? = null,
+    val agreements: String? = null,
+    val nextStep: String? = null,
+    val transcriptionStatus: String? = null,
+    val transcriptionError: String? = null,
 )

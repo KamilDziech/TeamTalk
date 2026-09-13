@@ -94,7 +94,7 @@ fun DealRemarketingTab(
     )
     SectionGap()
 
-    MaterialsCard(
+    ProjektOzcCard(
         canManage = state.canManage,
         busy = state.files.busy,
         // „+ OZC" tylko wtedy, gdy klient ma w zakresie cokolwiek z gałęzi
@@ -109,12 +109,14 @@ fun DealRemarketingTab(
 
     MeetingCard(
         deal = detail.deal,
+        client = detail.client,
         members = state.members,
         canManage = state.canManage,
         isSaving = state.isSaving,
         onKindSelect = viewModel::setMeetingKind,
         onTermChange = viewModel::setMeetingAt,
         onEdit = onEdit,
+        onGoToDane = { viewModel.selectTab(DealTab.DANE) },
     )
 
     if (ozcOpen) {
@@ -231,7 +233,7 @@ private fun RemarketingScopeCard(
  * sfotografować.
  */
 @Composable
-private fun MaterialsCard(
+fun ProjektOzcCard(
     canManage: Boolean,
     busy: Boolean,
     showOzc: Boolean,
@@ -300,7 +302,15 @@ private fun MaterialsCard(
  * `stageHasHeating` w panelu (porównanie nazwy korzenia, bez rozróżniania
  * wielkości liter).
  */
-private fun hasHeating(catalog: List<CategoryNode>, selected: Set<String>): Boolean {
+/**
+ * Wariant dla zakładek, które trzymają gotowe ścieżki węzłów zamiast drzewa
+ * (Audyt). Korzeń ścieżki to nazwa gałęzi katalogu, więc pytanie „czy klient
+ * ma cokolwiek z Ogrzewania" sprowadza się do jej pierwszego członu.
+ */
+fun hasHeatingPath(paths: List<String>): Boolean =
+    paths.any { it.substringBefore(" › ").trim().lowercase() == "ogrzewanie" }
+
+fun hasHeating(catalog: List<CategoryNode>, selected: Set<String>): Boolean {
     if (selected.isEmpty()) return false
 
     fun anySelected(node: CategoryNode): Boolean =

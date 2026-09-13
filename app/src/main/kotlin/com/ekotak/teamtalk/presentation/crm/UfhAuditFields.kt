@@ -55,6 +55,14 @@ import com.ekotak.teamtalk.domain.model.ufhAsksWarrantyDocs
 import com.ekotak.teamtalk.domain.model.ufhInstallProgress
 import com.ekotak.teamtalk.domain.model.ufhMinSpacingCm
 import com.ekotak.teamtalk.domain.model.ufhPipeSystemLabel
+import com.ekotak.teamtalk.domain.model.FloorPlanDoc
+import com.ekotak.teamtalk.domain.ufh.AreaCat
+import com.ekotak.teamtalk.domain.ufh.FloorAuditResult
+import com.ekotak.teamtalk.domain.ufh.FloorPlanPatch
+import com.ekotak.teamtalk.domain.ufh.floorTitle
+import com.ekotak.teamtalk.domain.ufh.jsNum
+import com.ekotak.teamtalk.domain.ufh.ufhAuditSummary
+import com.ekotak.teamtalk.domain.ufh.withFloorBoxType
 import kotlin.math.abs
 import kotlin.math.round
 
@@ -79,7 +87,16 @@ fun UfhAuditForm(
     enabled: Boolean,
     hasHeatPump: Boolean,
     onEdit: ((UfhState) -> UfhState) -> Unit,
+    /** Rzuty kondygnacji ze slotów „Projekt domu" (zakładka „Pliki"). */
+    plans: List<FloorPlanDoc> = emptyList(),
+    hasBasement: Boolean = false,
+    saving: Boolean = false,
+    /** Zapis zmiany na rzucie kondygnacji — od razu do audytu, jak w panelu. */
+    onCommitPlan: ((Int, FloorPlanPatch) -> Unit)? = null,
 ) {
+    // Jeden przelot po formularzu: rura, strefy, podejścia, pojemność — te same
+    // liczby, z których liczy się Oferta.
+    val summary = remember(form) { ufhAuditSummary(form) }
     val (filled, total) = ufhInstallProgress(form)
 
     UfhSection(title = "Dane ogólne") {
@@ -261,10 +278,22 @@ fun UfhAuditForm(
         initiallyExpanded = true,
     ) {
         form.floors.forEachIndexed { index, floor ->
+            val sourceFloor = summary.supply.sourceFloor
             UfhFloorCard(
                 index = index,
                 floor = floor,
+                floorCount = form.floors.size,
                 pipeSystem = form.pipeSystem,
+                result = summary.floors[index],
+                plans = plans,
+                hasBasement = hasBasement,
+                sourceElsewhere = if (sourceFloor >= 0 && sourceFloor != index) {
+                    floorTitle(sourceFloor, form.floors[sourceFloor].name)
+                } else {
+                    ""
+                },
+                saving = saving,
+                onCommitPlan = onCommitPlan?.let { commit -> { patch: FloorPlanPatch -> commit(index, patch) } },
                 enabled = enabled,
                 canRemove = enabled && form.floors.size > 1,
                 onEditFloor = { edit ->
@@ -284,6 +313,7 @@ fun UfhAuditForm(
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("Dodaj kondygnację") }
         }
+        UfhBuildingSummaryBlock(summary)
     }
 }
 
@@ -296,7 +326,14 @@ fun UfhAuditForm(
 private fun UfhFloorCard(
     index: Int,
     floor: UfhFloor,
+    floorCount: Int,
     pipeSystem: String,
+    result: FloorAuditResult,
+    plans: List<FloorPlanDoc>,
+    hasBasement: Boolean,
+    sourceElsewhere: String,
+    saving: Boolean,
+    onCommitPlan: ((FloorPlanPatch) -> Unit)?,
     enabled: Boolean,
     canRemove: Boolean,
     onEditFloor: ((UfhFloor) -> UfhFloor) -> Unit,
@@ -357,7 +394,8 @@ private fun UfhFloorCard(
             label = "Skrzynka rozdzielacza",
             options = UFH_BOX_TYPES,
             selected = floor.boxType.takeIf { it.isNotBlank() },
-            onSelect = { v -> onEditFloor { it.copy(boxType = v.orEmpty()) } },
+            // Wybór z listy ustawia typ dla CAŁEJ kondygnacji i czyści typy kropek.
+            onSelect = { v -> onEditFloor { withFloorBoxType(it, v.orEmpty()) } },
             enabled = enabled,
         )
 
@@ -381,6 +419,24 @@ private fun UfhFloorCard(
                 onTextChange = { v -> onEditFloor { it.withArea(field, v) } },
                 decimal = true,
             )
+            // Suma z obrysów tej kategorii — pole zostaje edytowalne, a rozjazd
+            // z pomiarem można jednym dotknięciem przepisać (jak w panelu).
+            val cat = AreaCat.entries.firstOrNull { it.field == field }
+            val measured = cat?.let { result.sums[it]?.m2 }
+            if (cat != null && measured != null) {
+                val differs = kotlin.math.abs((floor.area(field).toM2() ?: 0.0) - measured) > 0.05
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Text(
+                        text = "z rzutu: ${pl1(measured)} m² (${result.sums[cat]?.count ?: 0} pom.)",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (differs) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (differs && enabled) {
+                        TextButton(onClick = { onEditFloor { it.withArea(field, jsNum(measured)) } }) { Text("przepisz") }
+                    }
+                }
+            }
         }
 
         Spacer(Modifier.height(8.dp))
@@ -412,6 +468,31 @@ private fun UfhFloorCard(
             enabled = enabled,
             onValueChange = { v -> onEditFloor { it.copy(comment = v) } },
         )
+        result.areaMessage?.let {
+            Spacer(Modifier.height(6.dp))
+            Hint(it)
+        }
+
+        // Ile rury zejdzie na tej kondygnacji — z metrażu i dobiegów.
+        UfhPipeLengthsBlock(pipe = result.pipe, floorNo = index + 1, pipeSystem = pipeSystem)
+
+        // Rzut kondygnacji: rozdzielacze, źródło ciepła, skala i obrysy.
+        if (onCommitPlan != null) {
+            UfhFloorPlanBlock(
+                index = index,
+                floor = floor,
+                floorCount = floorCount,
+                pipeSystem = pipeSystem,
+                plans = plans,
+                hasBasement = hasBasement,
+                result = result,
+                sourceElsewhere = sourceElsewhere,
+                enabled = enabled,
+                saving = saving,
+                onEditFloor = onEditFloor,
+                onCommit = onCommitPlan,
+            )
+        }
     }
 }
 

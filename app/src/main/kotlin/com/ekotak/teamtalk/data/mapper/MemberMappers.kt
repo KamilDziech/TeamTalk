@@ -19,6 +19,7 @@ fun TaskMemberDto.toTeamMemberEntity(): TeamMemberEntity = TeamMemberEntity(
     role = role,
     additionalRoles = additionalRoles,
     functions = functions,
+    skills = skills,
 )
 
 fun TeamMemberEntity.toDomain(): TaskMember = TaskMember(
@@ -29,4 +30,5 @@ fun TeamMemberEntity.toDomain(): TaskMember = TaskMember(
     role = role,
     additionalRoles = additionalRoles,
     functions = functions,
+    skills = skills,
 )
