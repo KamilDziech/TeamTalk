@@ -18,7 +18,11 @@ object AssistantActionType {
     const val CREATE_DEAL_NOTE = "create_deal_note"
     const val CREATE_SERVICE_JOB = "create_service_job"
     const val CREATE_LEAVE_REQUEST = "create_leave_request"
+    const val CREATE_CONTACT = "create_contact"
 }
+
+/** Wynik wykonania akcji: podsumowanie z serwera + założona karta (przy `create_contact`). */
+data class AssistantActionOutcome(val summary: String, val clientId: String? = null)
 
 /**
  * Propozycja akcji czekająca na zatwierdzenie. `args` przechodzą przez telefon

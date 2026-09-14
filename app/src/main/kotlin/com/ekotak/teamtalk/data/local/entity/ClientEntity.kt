@@ -28,4 +28,10 @@ data class ClientEntity(
     val category: String?,
     val createdAt: String?,
     val updatedAt: String?,
+    // Dane firmowe z wizytówki (Room 32). Domyślne null — starsze wiersze ich nie mają.
+    val companyName: String? = null,
+    val nip: String? = null,
+    val jobTitle: String? = null,
+    val website: String? = null,
+    val businessRole: String? = null,
 )

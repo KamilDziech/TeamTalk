@@ -62,6 +62,13 @@ data class Client(
     val category: ClientCategory = ClientCategory.KLIENT,
     val createdAt: String? = null,
     val updatedAt: String? = null,
+    /** Dane firmowe (np. z wizytówki zeskanowanej w asystencie). */
+    val companyName: String? = null,
+    val nip: String? = null,
+    val jobTitle: String? = null,
+    val website: String? = null,
+    /** Rola kontaktu spoza klientów (dystrybutor, hurtownia…); „b2b" przy kliencie firmowym. */
+    val businessRole: String? = null,
 ) {
     val displayName: String
         get() = listOf(firstName, lastName).filter { it.isNotBlank() }.joinToString(" ").ifBlank { primaryPhone ?: "" }

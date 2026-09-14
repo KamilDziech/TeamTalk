@@ -358,10 +358,15 @@ private fun DataTab(
         }
 
         item(key = "fields") {
+            client.companyName?.takeIf { it.isNotBlank() }?.let { InfoRow("Firma", it) }
+            client.nip?.takeIf { it.isNotBlank() }?.let { InfoRow("NIP", it) }
+            client.jobTitle?.takeIf { it.isNotBlank() }?.let { InfoRow("Stanowisko", it) }
+            client.businessRole?.takeIf { it.isNotBlank() && it != "b2b" }?.let { InfoRow("Rola", it) }
             InfoRow("Telefon", client.phone ?: "—")
             client.phone2?.takeIf { it.isNotBlank() }?.let { InfoRow("Telefon 2", it) }
             InfoRow("E-mail", client.email ?: "—")
             client.email2?.takeIf { it.isNotBlank() }?.let { InfoRow("E-mail 2", it) }
+            client.website?.takeIf { it.isNotBlank() }?.let { InfoRow("Strona www", it) }
             InfoRow("Adres", client.address ?: "—")
             InfoRow(
                 label = "Adres zwalidowany",

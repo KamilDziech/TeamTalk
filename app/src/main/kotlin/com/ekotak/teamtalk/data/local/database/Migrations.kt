@@ -620,6 +620,20 @@ val MIGRATION_30_31 = object : Migration(30, 31) {
 }
 
 /**
+ * Dane firmowe w karcie kontaktu — skan wizytówki w asystencie (2026-09-13):
+ * nazwa firmy, NIP, stanowisko, strona www i rola kontaktu spoza klientów.
+ */
+val MIGRATION_31_32 = object : Migration(31, 32) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.addColumnIfMissing("clients", "companyName", "TEXT")
+        db.addColumnIfMissing("clients", "nip", "TEXT")
+        db.addColumnIfMissing("clients", "jobTitle", "TEXT")
+        db.addColumnIfMissing("clients", "website", "TEXT")
+        db.addColumnIfMissing("clients", "businessRole", "TEXT")
+    }
+}
+
+/**
  * `ALTER TABLE … ADD COLUMN`, które przeżywa telefon deweloperski.
  *
  * Zwykłe `ADD COLUMN` wywraca migrację na „duplicate column name", gdy kolumna

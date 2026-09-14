@@ -75,7 +75,7 @@ import com.ekotak.teamtalk.data.local.entity.*
         MontazMutationEntity::class,
         LeadOutboxEntity::class,
     ],
-    version = 31,
+    version = 32,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)

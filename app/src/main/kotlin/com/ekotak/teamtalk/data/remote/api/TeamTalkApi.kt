@@ -74,6 +74,13 @@ interface TeamTalkApi {
         @Body request: AssistantActionRequest,
     ): AssistantActionResultDto
 
+    /** Skan wizytówki (zdjęcie w polu `file`): QR i/lub odczyt modelem, bez zapisu. */
+    @Multipart
+    @POST("api/assistant/card-scan")
+    suspend fun scanBusinessCard(
+        @Part file: MultipartBody.Part,
+    ): com.ekotak.teamtalk.data.remote.dto.CardScanResponseDto
+
     // ── Deals (CRM / lejek sprzedaży) ──────────────────────────────────────────
     // Odczyt wymaga `crm.view`, zmiany `deal.manage` (RBAC egzekwuje API).
     // Uwaga: lista NIE zwraca klienta — dane klienta doklejamy z `api/clients`.

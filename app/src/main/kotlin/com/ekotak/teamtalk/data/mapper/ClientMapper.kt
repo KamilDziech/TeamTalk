@@ -32,6 +32,11 @@ fun ClientResponseDto.toEntity(): ClientEntity = ClientEntity(
     category            = category,
     createdAt           = createdAt,
     updatedAt           = updatedAt,
+    companyName         = companyName,
+    nip                 = nip,
+    jobTitle            = jobTitle,
+    website             = website,
+    businessRole        = businessRole,
 )
 
 fun ClientEntity.toDomain(): Client = Client(
@@ -60,6 +65,11 @@ fun ClientEntity.toDomain(): Client = Client(
     category        = ClientCategory.fromWire(category),
     createdAt       = createdAt,
     updatedAt       = updatedAt,
+    companyName     = companyName,
+    nip             = nip,
+    jobTitle        = jobTitle,
+    website         = website,
+    businessRole    = businessRole,
 )
 
 fun ClientResponseDto.toDomain(): Client = Client(
@@ -88,6 +98,11 @@ fun ClientResponseDto.toDomain(): Client = Client(
     category        = ClientCategory.fromWire(category),
     createdAt       = createdAt,
     updatedAt       = updatedAt,
+    companyName     = companyName,
+    nip             = nip,
+    jobTitle        = jobTitle,
+    website         = website,
+    businessRole    = businessRole,
 )
 
 /** Brak obu tras = dojazd niepoliczony (`null`), nie „trasa nieznaleziona". */

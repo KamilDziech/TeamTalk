@@ -611,6 +611,18 @@ private fun StepClient(state: LeadWizardViewModel.UiState, vm: LeadWizardViewMod
         KeyboardOptions(keyboardType = KeyboardType.Email))
     Hint("Wystarczy telefon albo e-mail.")
 
+    state.company?.let { company ->
+        SubQuestion(if (company.segment == "b2b") "Firma z wizytówki" else "Z wizytówki")
+        TextInput("Firma", company.companyName, { v -> vm.onCompany { it.copy(companyName = v) } }, "Nazwa firmy",
+            KeyboardOptions(capitalization = KeyboardCapitalization.Words))
+        TextInput("NIP", company.nip, { v -> vm.onCompany { it.copy(nip = v) } }, "0000000000",
+            KeyboardOptions(keyboardType = KeyboardType.Number))
+        TextInput("Stanowisko", company.jobTitle, { v -> vm.onCompany { it.copy(jobTitle = v) } }, "np. Kierownik",
+            KeyboardOptions(capitalization = KeyboardCapitalization.Sentences))
+        TextInput("Strona www", company.website, { v -> vm.onCompany { it.copy(website = v) } }, "firma.pl",
+            KeyboardOptions(keyboardType = KeyboardType.Uri))
+    }
+
     SubQuestion("Skąd o nas wie?")
     ChipFlow {
         LeadOrigin.entries.forEach { o ->
@@ -739,6 +751,16 @@ private fun summaryGroups(s: LeadWizardViewModel.UiState): List<SummaryGroup> = 
             "Klient", LeadStep.DANE,
             listOf(
                 "Imię i nazwisko" to s.fullName.trim().ifBlank { "—" },
+            ) + (
+                s.company?.let { c ->
+                    listOf(
+                        "Segment" to if (c.segment == "b2b") "Firma (B2B)" else "Indywidualny",
+                        "Firma" to c.companyName.trim().ifBlank { "—" },
+                        "NIP" to c.nip.trim().ifBlank { "—" },
+                        "Stanowisko" to c.jobTitle.trim().ifBlank { "—" },
+                    )
+                } ?: emptyList()
+            ) + listOf(
                 "Miejscowość" to listOf(s.postalCode, s.city).filter { it.isNotBlank() }.joinToString(" ").ifBlank { "—" },
                 "Telefon" to s.phone.trim().ifBlank { "—" },
                 "E-mail" to s.email.trim().ifBlank { "—" },

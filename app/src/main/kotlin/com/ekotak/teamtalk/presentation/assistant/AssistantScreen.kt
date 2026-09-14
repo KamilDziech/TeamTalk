@@ -6,6 +6,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -20,12 +21,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -40,6 +45,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -74,11 +82,24 @@ private val EXAMPLES = listOf(
 @Composable
 fun AssistantScreen(
     onNavigateBack: () -> Unit,
+    onOpenLeadWizard: () -> Unit = {},
+    onOpenClient: (String) -> Unit = {},
     viewModel: AssistantViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     val listState = rememberLazyListState()
+    val cardPickers = rememberCardPhotoPickers(onPhoto = viewModel::onCardPhoto)
+    var cardMenu by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        viewModel.navigation.collect { nav ->
+            when (nav) {
+                AssistantViewModel.Navigation.OpenLeadWizard -> onOpenLeadWizard()
+                is AssistantViewModel.Navigation.OpenClient -> onOpenClient(nav.clientId)
+            }
+        }
+    }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -93,7 +114,7 @@ fun AssistantScreen(
     }
 
     // Nowa wiadomość (albo „…” w trakcie liczenia) zawsze na widoku.
-    LaunchedEffect(state.log.size, state.pending) {
+    LaunchedEffect(state.log.size, state.pending, state.scanning) {
         val last = state.log.size
         if (last > 0) listState.animateScrollToItem(last)
     }
@@ -140,9 +161,14 @@ fun AssistantScreen(
                             Text(
                                 text = "Odpowiadam na podstawie wiedzy firmy i danych z systemu — " +
                                     "kartoteki klientów i kart deali. Mogę też zaproponować " +
-                                    "zadanie, wydarzenie, notatkę, zlecenie serwisowe albo wniosek urlopowy.",
+                                    "zadanie, wydarzenie, notatkę, zlecenie serwisowe albo wniosek urlopowy. " +
+                                    "Wizytówkę (zdjęcie albo kod QR) dodasz przyciskiem aparatu.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            SuggestionChip(
+                                onClick = { cardPickers.takePhoto() },
+                                label = { Text("📇 Zeskanuj wizytówkę") },
                             )
                             EXAMPLES.forEach { example ->
                                 SuggestionChip(
@@ -155,11 +181,44 @@ fun AssistantScreen(
                 }
 
                 itemsIndexed(state.log) { index, entry ->
-                    MessageBubble(
-                        message = entry.message,
-                        actions = entry.actions,
-                        onRunAction = { actionIndex -> viewModel.runAction(index, actionIndex) },
-                    )
+                    val scan = entry.scan
+                    if (scan != null) {
+                        CardScanCard(
+                            scan = scan,
+                            onKind = { viewModel.chooseKind(index, it) },
+                            onLead = { viewModel.chooseLead(index, it) },
+                            onRole = { viewModel.chooseRole(index, it) },
+                            onOtherRole = { viewModel.chooseOtherRole(index) },
+                            onOtherRoleText = { viewModel.onOtherRoleText(index, it) },
+                            onToggleEdit = { viewModel.toggleCardEdit(index) },
+                            onField = { field, value -> viewModel.onCardField(index, field, value) },
+                            onSave = { viewModel.saveScan(index) },
+                            onOpenLead = { viewModel.openLead(index) },
+                            onOpenClient = { viewModel.openClient(index) },
+                        )
+                    } else {
+                        MessageBubble(
+                            message = entry.message,
+                            actions = entry.actions,
+                            onRunAction = { actionIndex -> viewModel.runAction(index, actionIndex) },
+                        )
+                    }
+                }
+
+                if (state.scanning) {
+                    item(key = "scanning") {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                            Text(
+                                text = "Czytam wizytówkę…",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
                 }
 
                 if (state.pending) {
@@ -215,6 +274,32 @@ fun AssistantScreen(
                     },
                     enabled = !state.pending,
                 )
+                Box {
+                    IconButton(
+                        onClick = { cardMenu = true },
+                        enabled = !state.scanning,
+                    ) {
+                        Icon(Icons.Default.PhotoCamera, contentDescription = "Zeskanuj wizytówkę")
+                    }
+                    DropdownMenu(expanded = cardMenu, onDismissRequest = { cardMenu = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Zrób zdjęcie wizytówki") },
+                            leadingIcon = { Icon(Icons.Default.PhotoCamera, contentDescription = null) },
+                            onClick = {
+                                cardMenu = false
+                                cardPickers.takePhoto()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Wybierz z galerii") },
+                            leadingIcon = { Icon(Icons.Default.PhotoLibrary, contentDescription = null) },
+                            onClick = {
+                                cardMenu = false
+                                cardPickers.pickFromGallery()
+                            },
+                        )
+                    }
+                }
                 IconButton(
                     onClick = { handleMicClick() },
                     enabled = !state.pending && state.micAvailable,

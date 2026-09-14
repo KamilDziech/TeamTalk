@@ -32,6 +32,7 @@ import com.ekotak.teamtalk.data.local.database.MIGRATION_27_28
 import com.ekotak.teamtalk.data.local.database.MIGRATION_28_29
 import com.ekotak.teamtalk.data.local.database.MIGRATION_29_30
 import com.ekotak.teamtalk.data.local.database.MIGRATION_30_31
+import com.ekotak.teamtalk.data.local.database.MIGRATION_31_32
 import com.ekotak.teamtalk.data.local.database.TeamTalkDatabase
 import dagger.Module
 import dagger.Provides
@@ -82,6 +83,7 @@ object DatabaseModule {
                 MIGRATION_28_29,
                 MIGRATION_29_30,
                 MIGRATION_30_31,
+                MIGRATION_31_32,
             )
             .fallbackToDestructiveMigration()
             .build()

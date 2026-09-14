@@ -123,6 +123,20 @@ data class LeadDraft(
     val city: String?,
     val origin: LeadOrigin?,
     val referralFrom: String?,
+    /** Firma z wizytówki zeskanowanej w asystencie; null = kreator otwarty z kafelka. */
+    val company: LeadCompany? = null,
+)
+
+/**
+ * Dane firmowe leada z wizytówki. `segment = b2b` ustawia na karcie deala
+ * „Firma (B2B)" i nabywcę faktury; firma, NIP, stanowisko i www idą do kartoteki.
+ */
+data class LeadCompany(
+    val segment: String,
+    val companyName: String,
+    val nip: String,
+    val jobTitle: String,
+    val website: String,
 )
 
 /** Wynik zapisu: karta w lejku albo lead w kolejce do wysłania. */

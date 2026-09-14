@@ -38,4 +38,47 @@ data class ProposedActionDto(
 data class AssistantActionRequest(val type: String, val args: JsonObject)
 
 @Serializable
-data class AssistantActionResultDto(val ok: Boolean = false, val summary: String = "")
+data class AssistantActionResultDto(
+    val ok: Boolean = false,
+    val summary: String = "",
+    /** Karta założona akcją `create_contact` — do „Otwórz kartę". */
+    val clientId: String? = null,
+)
+
+/** `POST /api/assistant/card-scan` — odczyt wizytówki, bez zapisu. */
+@Serializable
+data class CardScanResponseDto(
+    /** qr | photo | qr+photo */
+    val source: String = "photo",
+    val card: ScannedCardDto = ScannedCardDto(),
+    val duplicates: List<CardDuplicateDto> = emptyList(),
+    /** Czy wołający może zapisać kontakt (`deal.manage`). */
+    val canSave: Boolean = false,
+)
+
+@Serializable
+data class ScannedCardDto(
+    val firstName: String = "",
+    val lastName: String = "",
+    val companyName: String = "",
+    val jobTitle: String = "",
+    val nip: String = "",
+    val phone: String = "",
+    val phone2: String = "",
+    val email: String = "",
+    val email2: String = "",
+    val website: String = "",
+    val street: String = "",
+    val postalCode: String = "",
+    val city: String = "",
+)
+
+@Serializable
+data class CardDuplicateDto(
+    val id: String,
+    val name: String = "",
+    val companyName: String? = null,
+    val category: String? = null,
+    val phone: String? = null,
+    val email: String? = null,
+)

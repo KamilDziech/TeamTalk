@@ -172,6 +172,11 @@ internal fun LeadDraft.toRequest(clientRef: String): AppLeadRequestDto {
         postalCode = postalCode?.trim()?.ifBlank { null },
         city = city?.trim()?.ifBlank { null },
         leadOrigin = originWire,
+        segment = company?.segment,
+        companyName = company?.companyName?.trim()?.ifBlank { null },
+        nip = company?.nip?.trim()?.ifBlank { null },
+        jobTitle = company?.jobTitle?.trim()?.ifBlank { null },
+        website = company?.website?.trim()?.ifBlank { null },
         referralFrom = referralFrom?.trim()?.ifBlank { null }
             .takeIf { originWire == LeadOrigin.REKOMENDACJA.wire },
     )

@@ -39,6 +39,11 @@ data class ClientResponseDto(
     val category: String? = null,
     val createdAt: String? = null,
     val updatedAt: String? = null,
+    val companyName: String? = null,
+    val nip: String? = null,
+    val jobTitle: String? = null,
+    val website: String? = null,
+    val businessRole: String? = null,
 )
 
 /** Ciało `POST /api/clients`. Minimum wymagane przez API: imię i nazwisko. */

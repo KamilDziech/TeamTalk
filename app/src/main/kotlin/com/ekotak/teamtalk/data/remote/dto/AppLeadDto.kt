@@ -32,6 +32,12 @@ data class AppLeadRequestDto(
     val city: String? = null,
     val leadOrigin: String? = null,
     val referralFrom: String? = null,
+    /** Lead z wizytówki: b2b | indywidualny. */
+    val segment: String? = null,
+    val companyName: String? = null,
+    val nip: String? = null,
+    val jobTitle: String? = null,
+    val website: String? = null,
 )
 
 @Serializable

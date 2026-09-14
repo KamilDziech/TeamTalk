@@ -6,6 +6,7 @@ import com.ekotak.teamtalk.data.local.preferences.SessionPreferences
 import com.ekotak.teamtalk.data.repository.LeadRejectedException
 import com.ekotak.teamtalk.domain.model.FloorHeatingVariant
 import com.ekotak.teamtalk.domain.model.LeadChannel
+import com.ekotak.teamtalk.domain.model.LeadCompany
 import com.ekotak.teamtalk.domain.model.LeadConstruction
 import com.ekotak.teamtalk.domain.model.LeadDraft
 import com.ekotak.teamtalk.domain.model.LeadEvent
@@ -48,6 +49,7 @@ class LeadWizardViewModel @Inject constructor(
     private val leads: LeadRepository,
     private val members: MemberRepository,
     private val sessionPreferences: SessionPreferences,
+    prefillStore: LeadPrefillStore,
 ) : ViewModel() {
 
     data class UiState(
@@ -92,6 +94,8 @@ class LeadWizardViewModel @Inject constructor(
         val email: String = "",
         val origin: LeadOrigin? = null,
         val referralFrom: String = "",
+        /** Firma z wizytówki zeskanowanej w asystencie (null = kreator z kafelka). */
+        val company: LeadCompany? = null,
         // ── Zapis ─────────────────────────────────────────────────────────────
         val pendingCount: Int = 0,
         val isSaving: Boolean = false,
@@ -172,6 +176,19 @@ class LeadWizardViewModel @Inject constructor(
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
     init {
+        // Asystent otwiera kreator z danymi wizytówki — reszta rozmowy bez zmian.
+        prefillStore.take()?.let { p ->
+            _uiState.update {
+                it.copy(
+                    fullName = p.fullName,
+                    phone = p.phone,
+                    email = p.email,
+                    postalCode = formatPostal(p.postalCode),
+                    city = p.city,
+                    company = p.company,
+                )
+            }
+        }
         viewModelScope.launch {
             val session = sessionPreferences.session.first()
             _uiState.update {
@@ -308,6 +325,9 @@ class LeadWizardViewModel @Inject constructor(
 
     fun onReferral(v: String) = _uiState.update { it.copy(referralFrom = v) }
 
+    fun onCompany(transform: (LeadCompany) -> LeadCompany) =
+        _uiState.update { s -> s.copy(company = s.company?.let(transform)) }
+
     // ── Zapis ────────────────────────────────────────────────────────────────
 
     fun save() {
@@ -344,6 +364,7 @@ class LeadWizardViewModel @Inject constructor(
             city = s.city,
             origin = s.origin,
             referralFrom = s.referralFrom,
+            company = s.company,
         )
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true, error = null) }

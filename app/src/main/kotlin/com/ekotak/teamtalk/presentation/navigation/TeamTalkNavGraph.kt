@@ -299,7 +299,12 @@ private fun MainScreen(
             // Czat z asystentem firmowym: wiedza z Kontekstu + dane CRM z serwera,
             // akcje zapisu dopiero po zatwierdzeniu przez człowieka.
             composable("assistant") {
-                AssistantScreen(onNavigateBack = { navController.popBackStack() })
+                AssistantScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    // Wizytówka → „Założyć lead": kreator zabiera dane z LeadPrefillStore.
+                    onOpenLeadWizard = { navController.navigate("lead") },
+                    onOpenClient = { clientId -> navController.navigate("client/$clientId") },
+                )
             }
 
             // ── Magazyn (kafelek pulpitu) ──────────────────────────────────────
