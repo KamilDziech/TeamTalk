@@ -38,13 +38,15 @@ data class LeadBuilding(
     val floors: Int? = null,
     val stage: String? = null,
     val windows: String? = null,
+    /** Termin instalacji przy domu zamieszkałym (np. „Instalacja za 3 miesiące"). */
+    val installTiming: String? = null,
     val heatedBasement: Boolean = false,
     val heatedGarage: Boolean = false,
 ) {
     val isEmpty: Boolean
         get() = shape.isNullOrBlank() && construction.isNullOrBlank() && area.isNullOrBlank() &&
             people.isNullOrBlank() && floors == null && stage.isNullOrBlank() &&
-            windows.isNullOrBlank() && !heatedBasement && !heatedGarage
+            windows.isNullOrBlank() && installTiming.isNullOrBlank() && !heatedBasement && !heatedGarage
 }
 
 /**

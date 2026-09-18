@@ -839,6 +839,7 @@ private fun LeadBuildingCard(
         InfoRow("Kondygnacje", building.floors?.toString())
         InfoRow("Etap budowy", building.stage)
         InfoRow("Okna", building.windows)
+        InfoRow("Termin instalacji", building.installTiming)
         InfoRow("Piwnica", if (building.heatedBasement) "ogrzewana" else null)
         InfoRow("Garaż", if (building.heatedGarage) "ogrzewany" else null)
 
@@ -897,6 +898,19 @@ private val BUILDING_WINDOWS = listOf(
     "Montaż okien później niż za 24 miesiące",
     "Termin jeszcze nieokreślony",
     "Okna już zamontowane",
+)
+/* Dom zamieszkały — ta sama skala co okna w kreatorze /targi i w panelu. */
+private val BUILDING_INSTALL_TIMINGS = listOf(
+    "Instalacja za miesiąc",
+    "Instalacja za 2 miesiące",
+    "Instalacja za 3 miesiące",
+    "Instalacja za 3–6 miesięcy",
+    "Instalacja za 6–9 miesięcy",
+    "Instalacja za 9–12 miesięcy",
+    "Instalacja za 12–18 miesięcy",
+    "Instalacja za 18–24 miesiące",
+    "Instalacja później niż za 24 miesiące",
+    "Termin jeszcze nieokreślony",
 )
 
 /**
@@ -957,6 +971,9 @@ private fun LeadBuildingDialog(
                 }
                 FormDropdown("Montaż okien", BUILDING_WINDOWS, form.windows) {
                     form = form.copy(windows = it)
+                }
+                FormDropdown("Termin instalacji", BUILDING_INSTALL_TIMINGS, form.installTiming) {
+                    form = form.copy(installTiming = it)
                 }
                 FormSwitch("Ogrzewana piwnica", form.heatedBasement) {
                     form = form.copy(heatedBasement = it)

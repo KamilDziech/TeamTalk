@@ -82,6 +82,12 @@ router.patch(
       building[key] = raw == null ? null : String(raw).trim() || null;
     }
 
+    // installTiming (dom zamieszkaly) jest opcjonalny — brak klucza = bez zmian,
+    // jak w board360 (starsze klienty nie wysylaja tego pola).
+    building.installTiming = 'installTiming' in body
+      ? (body.installTiming == null ? null : String(body.installTiming).trim() || null)
+      : (lead.building && lead.building.installTiming) || null;
+
     lead.building = building;
     deal.updatedAt = nowIso();
     return res.json(building);
@@ -195,6 +201,7 @@ router.post('/intake/app/lead', requireAuth, requirePermission('deal.manage'), (
       floors: null,
       stage: newHouse ? null : 'Modernizuję instalacje — mieszkam już',
       windows: null,
+      installTiming: null,
       heatedBasement: newHouse && building.heatedBasement === true,
       heatedGarage: newHouse && building.heatedGarage === true,
     },

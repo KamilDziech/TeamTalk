@@ -42,6 +42,8 @@ data class LeadBuildingDto(
     val floors: Int? = null,
     val stage: String? = null,
     val windows: String? = null,
+    /** Dom zamieszkały: „Kiedy chcesz instalować?" — osobno od okien. */
+    val installTiming: String? = null,
     val heatedBasement: Boolean = false,
     val heatedGarage: Boolean = false,
 )
@@ -79,6 +81,7 @@ fun buildLeadBuildingBody(building: LeadBuildingDto): JsonObject = buildJsonObje
     put("floors", building.floors?.let { JsonPrimitive(it) } ?: JsonNull)
     text("stage", building.stage)
     text("windows", building.windows)
+    text("installTiming", building.installTiming)
     put("heatedBasement", JsonPrimitive(building.heatedBasement))
     put("heatedGarage", JsonPrimitive(building.heatedGarage))
 }

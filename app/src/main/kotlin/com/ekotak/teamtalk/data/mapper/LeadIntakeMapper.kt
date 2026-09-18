@@ -45,6 +45,7 @@ fun LeadBuilding.toDto(): LeadBuildingDto = LeadBuildingDto(
     floors = floors,
     stage = stage,
     windows = windows,
+    installTiming = installTiming,
     heatedBasement = heatedBasement,
     heatedGarage = heatedGarage,
 )
@@ -57,6 +58,7 @@ fun LeadBuildingDto.toDomain(): LeadBuilding = LeadBuilding(
     floors = floors,
     stage = stage,
     windows = windows,
+    installTiming = installTiming,
     heatedBasement = heatedBasement,
     heatedGarage = heatedGarage,
 )
