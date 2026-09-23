@@ -24,6 +24,7 @@ import com.ekotak.teamtalk.data.sync.ServiceSyncScheduler
 import com.ekotak.teamtalk.data.sync.SettlementSyncScheduler
 import com.ekotak.teamtalk.data.sync.TaskSyncScheduler
 import com.ekotak.teamtalk.service.CallMonitorService
+import com.ekotak.teamtalk.worker.BriefingWorker
 import com.ekotak.teamtalk.worker.CalendarReminderWorker
 import com.ekotak.teamtalk.worker.LeaveNotifyWorker
 import com.ekotak.teamtalk.worker.MentionsWorker
@@ -69,6 +70,7 @@ class TeamTalkApp : Application(), Configuration.Provider {
         super.onCreate()
         createNotificationChannel()
         scheduleMentionsPolling()
+        scheduleBriefingPolling()
         scheduleTaskReminders()
         scheduleSlaAlerts()
         scheduleCalendarReminders()
@@ -175,6 +177,26 @@ class TeamTalkApp : Application(), Configuration.Provider {
         )
     }
 
+    /**
+     * Odpytywanie skrzynki odprawy co 15 minut — tak samo jak wywołania, z tego
+     * samego powodu: board360 nie ma pusha. Bez sieci robotnik i tak nic nie
+     * zrobi, więc wymagamy połączenia.
+     */
+    private fun scheduleBriefingPolling() {
+        val request = PeriodicWorkRequestBuilder<BriefingWorker>(15, TimeUnit.MINUTES)
+            .setConstraints(
+                Constraints.Builder()
+                    .setRequiredNetworkType(NetworkType.CONNECTED)
+                    .build(),
+            )
+            .build()
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            BriefingWorker.UNIQUE_NAME,
+            ExistingPeriodicWorkPolicy.KEEP,
+            request,
+        )
+    }
+
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val nm = getSystemService(NotificationManager::class.java)
@@ -194,6 +216,15 @@ class TeamTalkApp : Application(), Configuration.Provider {
                     NotificationManager.IMPORTANCE_HIGH,
                 ).apply {
                     description = "Prośba o dodanie notatki po zakończonej rozmowie"
+                }
+            )
+            nm.createNotificationChannel(
+                NotificationChannel(
+                    NotificationHelper.BRIEFING_CHANNEL_ID,
+                    "Odprawa",
+                    NotificationManager.IMPORTANCE_HIGH,
+                ).apply {
+                    description = "Komunikaty firmowe i zmiany w harmonogramie ekip"
                 }
             )
             nm.createNotificationChannel(

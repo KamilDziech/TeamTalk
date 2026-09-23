@@ -27,6 +27,7 @@ class SessionPreferences @Inject constructor(
         private val KEY_DISPLAY_NAME   = stringPreferencesKey("display_name")
         private val KEY_THEME          = stringPreferencesKey("theme_mode")
         private val KEY_MENTIONS_SEEN_AT = longPreferencesKey("mentions_seen_at")
+        private val KEY_BRIEFING_SEEN_AT = longPreferencesKey("briefing_seen_at")
         private val KEY_SYNC_PROBLEM   = stringPreferencesKey("task_sync_problem")
         private val KEY_REMINDERS_DAY  = longPreferencesKey("task_reminders_day")
 
@@ -92,6 +93,17 @@ class SessionPreferences @Inject constructor(
 
     suspend fun saveMentionsSeenAt(millis: Long) {
         dataStore.edit { it[KEY_MENTIONS_SEEN_AT] = millis }
+    }
+
+    /**
+     * Do kiedy trąbiliśmy o komunikatach odprawy. Ten sam mechanizm co przy
+     * wywołaniach: bez znacznika robotnik przypominałby o tym samym piśmie co
+     * kwadrans. 0 = jeszcze nic nie pokazywaliśmy.
+     */
+    val briefingSeenAt: Flow<Long> = dataStore.data.map { it[KEY_BRIEFING_SEEN_AT] ?: 0L }
+
+    suspend fun saveBriefingSeenAt(millis: Long) {
+        dataStore.edit { it[KEY_BRIEFING_SEEN_AT] = millis }
     }
 
     /**

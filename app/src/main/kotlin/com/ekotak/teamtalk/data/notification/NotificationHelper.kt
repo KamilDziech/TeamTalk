@@ -44,6 +44,9 @@ class NotificationHelper @Inject constructor(
         /** Kreator LEAD: lead z kolejki, którego serwer nie przyjął. */
         const val LEADS_CHANNEL_ID = "leads_sync"
 
+        /** Komunikaty odprawy — także te z Harmonogramu („Opublikuj tydzień"). */
+        const val BRIEFING_CHANNEL_ID = "briefing"
+
         /** Jedno powiadomienie na przypomnienia — kolejne podmienia poprzednie. */
         private const val REMINDER_NOTIFICATION_ID = 4200
         private val idCounter = AtomicInteger(1000)
@@ -418,5 +421,44 @@ class NotificationHelper @Inject constructor(
             .build()
 
         NotificationManagerCompat.from(context).notify(idCounter.getAndIncrement(), notification)
+    }
+    /**
+     * KOMUNIKAT ODPRAWY. Jedyny kanał, którym moduły dają znać ekipie o czymś,
+     * co wydarzyło się w biurze — dziś opublikowany tydzień w Harmonogramie.
+     * board360 nie ma pusha, więc treść przynosi robotnik odpytujący skrzynkę
+     * (`BriefingWorker`), a stąd ląduje w szufladzie i prowadzi do modułu.
+     *
+     * [notificationId] liczymy z identyfikatora komunikatu, żeby powtórne
+     * odpytanie podmieniało powiadomienie zamiast dokładać kolejne.
+     */
+    fun showBriefingNotification(title: String, text: String, notificationId: Int, urgent: Boolean) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED
+        ) return
+
+        val contentIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra(MainActivity.EXTRA_OPEN_BRIEFING, true)
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            notificationId,
+            contentIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+        val notification = NotificationCompat.Builder(context, BRIEFING_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_ekotak)
+            .setColor(ContextCompat.getColor(context, R.color.ekotak_green))
+            .setContentTitle(title)
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setPriority(if (urgent) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .build()
+
+        NotificationManagerCompat.from(context).notify(notificationId, notification)
     }
 }

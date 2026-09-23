@@ -38,6 +38,7 @@ import com.ekotak.teamtalk.presentation.history.HistoryScreen
 import com.ekotak.teamtalk.presentation.email.EmailScreen
 import com.ekotak.teamtalk.presentation.email.EmailThreadScreen
 import com.ekotak.teamtalk.presentation.lead.LeadWizardScreen
+import com.ekotak.teamtalk.presentation.briefing.BriefingScreen
 import com.ekotak.teamtalk.presentation.leave.LeaveScreen
 import com.ekotak.teamtalk.presentation.map.MapScreen
 import com.ekotak.teamtalk.presentation.map.RouteHistoryScreen
@@ -96,6 +97,8 @@ fun TeamTalkNavGraph(
     deepLinkLeaveTab: String? = null,
     /** Wejście z powiadomienia o poczcie, której serwer nie przyjął z kolejki. */
     deepLinkOpenEmail: Boolean = false,
+    /** Wejście z powiadomienia o komunikacie odprawy (także z Harmonogramu). */
+    deepLinkOpenBriefing: Boolean = false,
 ) {
     val navController = rememberNavController()
     val sessionState by viewModel.sessionState.collectAsState()
@@ -139,6 +142,7 @@ fun TeamTalkNavGraph(
                 deepLinkCalendarEventId = deepLinkCalendarEventId,
                 deepLinkLeaveTab = deepLinkLeaveTab,
                 deepLinkOpenEmail = deepLinkOpenEmail,
+                deepLinkOpenBriefing = deepLinkOpenBriefing,
             )
         }
     }
@@ -155,6 +159,8 @@ private fun MainScreen(
     deepLinkLeaveTab: String? = null,
     /** Wejście z powiadomienia o poczcie, której serwer nie przyjął z kolejki. */
     deepLinkOpenEmail: Boolean = false,
+    /** Wejście z powiadomienia o komunikacie odprawy. */
+    deepLinkOpenBriefing: Boolean = false,
 ) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -209,6 +215,14 @@ private fun MainScreen(
         }
     }
 
+    // Komunikat odprawy prowadzi do skrzynki: treść jest w środku, a przy
+    // okazji widać, co jeszcze czeka na odhaczenie.
+    LaunchedEffect(deepLinkOpenBriefing) {
+        if (deepLinkOpenBriefing) {
+            navController.navigate("briefing") { launchSingleTop = true }
+        }
+    }
+
     // Powiadomienie o odrzuconej wysyłce prowadzi do skrzynki — samej wiadomości
     // już w niej nie ma (serwer jej nie przyjął), więc otwieramy listę.
     LaunchedEffect(deepLinkOpenEmail) {
@@ -245,6 +259,7 @@ private fun MainScreen(
                         // Moduły mające już ekran mobilny prowadzą wprost do niego;
                         // reszta na zaślepkę z opisem modułu.
                         val route = when (module.key) {
+                            "briefing" -> "briefing"
                             "clients" -> "clients"
                             "crm" -> "crm"
                             "lead" -> "lead"
@@ -510,6 +525,11 @@ private fun MainScreen(
                     onNavigateBack = { navController.popBackStack() },
                     onOpenDeal = { dealId -> navController.navigate("deal/$dealId") },
                 )
+            }
+
+            // ── Odprawa (skrzynka komunikatów firmowych) ──────────────────────
+            composable("briefing") {
+                BriefingScreen(onNavigateBack = { navController.popBackStack() })
             }
 
             // ── Urlop (kafelek pulpitu = zakładka HR → Urlop) ─────────────────

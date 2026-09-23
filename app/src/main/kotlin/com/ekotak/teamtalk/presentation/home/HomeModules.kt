@@ -76,6 +76,16 @@ val HOME_MODULES: List<HomeModule> = listOf(
         ),
     ),
     HomeModule(
+        key = "briefing",
+        label = "Odprawa",
+        desc = "Komunikaty z biura i zmiany w harmonogramie ekip",
+        color = Color(0xFFF59E0B),
+        icon = moduleIcon(
+            "M11 4h9a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-5l-4 3.5V15H5a1 1 0 0 1-1-1V8",
+            "M7 4.5v5M4.5 7h5",
+        ),
+    ),
+    HomeModule(
         key = "crm",
         label = "CRM",
         desc = "Leady, deale, oferty — główny moduł sprzedaży",

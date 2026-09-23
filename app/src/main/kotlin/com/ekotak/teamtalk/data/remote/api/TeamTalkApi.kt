@@ -661,6 +661,22 @@ interface TeamTalkApi {
     @POST("api/briefing")
     suspend fun publishBriefing(@Body request: BriefingCreateRequest): BriefingCreatedDto
 
+    // ── SKRZYNKA odprawy (moduł „Odprawa" na pulpicie) ──
+    //
+    // Te trzy trasy chodzą pod `briefing.view`, które ma każdy: komunikat
+    // firmowy jest po to, żeby dotarł. Publikacja (wyżej) zostaje pod
+    // `briefing.publish`, czyli u koordynatora.
+
+    @GET("api/briefing/inbox")
+    suspend fun getBriefingInbox(): List<BriefingInboxDto>
+
+    @GET("api/briefing/unread-count")
+    suspend fun getBriefingUnreadCount(): BriefingUnreadDto
+
+    /** Odhaczenie odbioru — serwer oddaje 204, więc bez ciała odpowiedzi. */
+    @POST("api/briefing/{id}/ack")
+    suspend fun ackBriefing(@Path("id") id: String)
+
     /** Potwierdzenia odbioru odprawy; widzi je wyłącznie publikujący. */
     @GET("api/briefing/sent/{id}/receipts")
     suspend fun getBriefingReceipts(@Path("id") id: String): List<BriefingReceiptDto>

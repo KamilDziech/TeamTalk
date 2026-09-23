@@ -20,6 +20,9 @@ abstract class RepositoryModule {
     abstract fun bindAuthRepository(impl: AuthRepositoryImpl): AuthRepository
 
     @Binds @Singleton
+    abstract fun bindBriefingRepository(impl: BriefingRepositoryImpl): BriefingRepository
+
+    @Binds @Singleton
     abstract fun bindClientRepository(impl: ClientRepositoryImpl): ClientRepository
 
     @Binds @Singleton
