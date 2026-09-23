@@ -7,10 +7,12 @@ import androidx.room.Query
 import androidx.room.Transaction
 import com.ekotak.teamtalk.data.local.entity.MontazCrewEntity
 import com.ekotak.teamtalk.data.local.entity.MontazEntity
+import com.ekotak.teamtalk.data.local.entity.MontazJobEntity
 import com.ekotak.teamtalk.data.local.entity.MontazMaterialEntity
 import com.ekotak.teamtalk.data.local.entity.MontazMutationEntity
 import com.ekotak.teamtalk.data.local.entity.MontazPackEntity
 import com.ekotak.teamtalk.data.local.entity.MontazPhotoEntity
+import com.ekotak.teamtalk.data.local.entity.MontazProtocolEntity
 
 /** Cache i kolejka zakładki „Montaż" karty deala. */
 @Dao
@@ -124,6 +126,62 @@ interface MontazDao {
 
     @Query("DELETE FROM montaz_pack WHERE installationId = :installationId")
     suspend fun clearPacked(installationId: String)
+
+    // ── Moduł Montaż: wyjazdy i protokoły ─────────────────────────────────────
+
+    /** Moje wyjazdy z cache — kolejność listy: najbliższy termin na górze. */
+    @Query("SELECT * FROM montaz_jobs ORDER BY scheduledAt IS NULL, scheduledAt ASC")
+    suspend fun getJobs(): List<MontazJobEntity>
+
+    @Query("SELECT * FROM montaz_jobs WHERE id = :id")
+    suspend fun getJob(id: String): MontazJobEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertJobs(rows: List<MontazJobEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertJob(row: MontazJobEntity)
+
+    @Query("DELETE FROM montaz_jobs WHERE id NOT IN (:keep)")
+    suspend fun deleteJobsNotIn(keep: List<String>)
+
+    /**
+     * Podmiana listy wyjazdów odpowiedzią serwera. Pustej listy NIE bierzemy za
+     * prawdę o świecie — to zwykle nieudany odczyt, a ekipa bez zasięgu
+     * zostałaby wtedy bez teczki na dziś.
+     */
+    @Transaction
+    suspend fun replaceJobs(rows: List<MontazJobEntity>) {
+        if (rows.isEmpty()) return
+        deleteJobsNotIn(rows.map { it.id })
+        upsertJobs(rows)
+    }
+
+    @Query("SELECT * FROM montaz_protocols WHERE installationId = :installationId")
+    suspend fun getProtocol(installationId: String): MontazProtocolEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertProtocol(row: MontazProtocolEntity)
+
+    /**
+     * Przepisanie zdjęcia przypiętego do pytania z id lokalnego na serwerowe.
+     * Podmiana tekstu, a nie przepisywanie całego JSON-a: identyfikator jest
+     * losowym UUID-em z prefiksem, więc trafić może tylko w siebie, a zapis
+     * protokołu w tej samej chwili (ekipa wypełnia kolejne pytania) nie ma
+     * z czym się wyścigować o cały dokument.
+     */
+    @Query(
+        "UPDATE montaz_protocols SET formJson = replace(formJson, :localId, :serverId) " +
+            "WHERE installationId = :installationId",
+    )
+    suspend fun retargetProtocolPhoto(installationId: String, localId: String, serverId: String)
+
+    /** To samo w protokole czekającym w kolejce — poszedłby ze starym id. */
+    @Query(
+        "UPDATE montaz_mutations SET payload = replace(payload, :localId, :serverId) " +
+            "WHERE targetId = :installationId AND kind = 'protocol_save'",
+    )
+    suspend fun retargetProtocolPayload(installationId: String, localId: String, serverId: String)
 
     // ── Kolejka ───────────────────────────────────────────────────────────────
 

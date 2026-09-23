@@ -144,6 +144,12 @@ data class MontazMutationEntity(
         /** `POST /briefing` + ostemplowanie montażu — odprawa do obsady. */
         const val KIND_BRIEFING = "briefing"
 
+        /** `POST /installations/{id}/status` — start i koniec roboty (moduł Montaż). */
+        const val KIND_STATUS = "job_status"
+
+        /** `PUT /installations/{id}/protocol` — protokół odbioru (moduł Montaż). */
+        const val KIND_PROTOCOL = "protocol_save"
+
         /** Prefiks identyfikatora nadawanego lokalnie do czasu wysyłki. */
         const val LOCAL_ID_PREFIX = "local:"
     }

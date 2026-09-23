@@ -73,9 +73,11 @@ import com.ekotak.teamtalk.data.local.entity.*
         MontazPhotoEntity::class,
         MontazPackEntity::class,
         MontazMutationEntity::class,
+        MontazJobEntity::class,
+        MontazProtocolEntity::class,
         LeadOutboxEntity::class,
     ],
-    version = 32,
+    version = 33,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)

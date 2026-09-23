@@ -9,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
@@ -43,6 +44,10 @@ import com.ekotak.teamtalk.presentation.map.RouteHistoryScreen
 import com.ekotak.teamtalk.presentation.home.HomeScreen
 import com.ekotak.teamtalk.presentation.assistant.AssistantScreen
 import com.ekotak.teamtalk.presentation.home.ModulePlaceholderScreen
+import com.ekotak.teamtalk.presentation.installations.JobPackingScreen
+import com.ekotak.teamtalk.presentation.installations.JobProtocolScreen
+import com.ekotak.teamtalk.presentation.installations.JobScreen
+import com.ekotak.teamtalk.presentation.installations.JobsScreen
 import com.ekotak.teamtalk.presentation.home.homeModule
 import com.ekotak.teamtalk.presentation.inventory.InventoryScreen
 import com.ekotak.teamtalk.presentation.inventory.ProductDetailScreen
@@ -260,6 +265,9 @@ private fun MainScreen(
                             "inventory" -> "inventory"
                             "projects" -> "projects"
                             "training" -> "training"
+                            // Kafelek „Montaże" — moduł montażysty (pakowanie,
+                            // dojazd, protokół), nie planowanie z panelu.
+                            "installations" -> "installations"
                             else -> "module/${module.key}"
                         }
                         navController.navigate(route)
@@ -439,6 +447,51 @@ private fun MainScreen(
                 arguments = listOf(navArgument("cardId") { type = NavType.StringType }),
             ) {
                 WarrantyCardScreen(onNavigateBack = { navController.popBackStack() })
+            }
+
+            // ── Montaże (kafelek pulpitu) ─────────────────────────────────────
+            // Moduł montażysty: moje wyjazdy → teczka wyjazdu → pakowanie
+            // i protokół. Makieta: design/mockups/modul-montaz.html.
+            composable("installations") {
+                JobsScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onOpenJob = { jobId -> navController.navigate("montaz/$jobId") },
+                )
+            }
+
+            // Trzy ekrany jednego wyjazdu siedzą we WSPÓLNYM podgrafie, żeby
+            // dzieliły jeden ViewModel: licznik spakowanych pozycji ma być ten
+            // sam na karcie i na liście pakowania, a niezapisane odpowiedzi
+            // protokołu nie mogą przepadać przy cofnięciu do karty.
+            navigation(
+                route = "montaz/{jobId}",
+                startDestination = "montaz/{jobId}/karta",
+                arguments = listOf(navArgument("jobId") { type = NavType.StringType }),
+            ) {
+                composable("montaz/{jobId}/karta") { entry ->
+                    val parent = remember(entry) { navController.getBackStackEntry("montaz/{jobId}") }
+                    val jobId = entry.arguments?.getString("jobId").orEmpty()
+                    JobScreen(
+                        onNavigateBack = { navController.popBackStack() },
+                        onOpenPacking = { navController.navigate("montaz/$jobId/pakowanie") },
+                        onOpenProtocol = { navController.navigate("montaz/$jobId/protokol") },
+                        viewModel = hiltViewModel(parent),
+                    )
+                }
+                composable("montaz/{jobId}/pakowanie") { entry ->
+                    val parent = remember(entry) { navController.getBackStackEntry("montaz/{jobId}") }
+                    JobPackingScreen(
+                        onNavigateBack = { navController.popBackStack() },
+                        viewModel = hiltViewModel(parent),
+                    )
+                }
+                composable("montaz/{jobId}/protokol") { entry ->
+                    val parent = remember(entry) { navController.getBackStackEntry("montaz/{jobId}") }
+                    JobProtocolScreen(
+                        onNavigateBack = { navController.popBackStack() },
+                        viewModel = hiltViewModel(parent),
+                    )
+                }
             }
 
             // ── Email (kafelek pulpitu = poczta huba Komunikacja) ─────────────

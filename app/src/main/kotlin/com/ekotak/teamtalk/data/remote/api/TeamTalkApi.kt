@@ -4,6 +4,7 @@ import com.ekotak.teamtalk.data.remote.dto.*
 import kotlinx.serialization.json.JsonObject
 import okhttp3.MultipartBody
 import okhttp3.ResponseBody
+import retrofit2.Response
 import retrofit2.http.*
 
 interface TeamTalkApi {
@@ -613,6 +614,45 @@ interface TeamTalkApi {
         @Path("id") id: String,
         @Part file: MultipartBody.Part,
     ): MontazPhotoDto
+
+    // ── Moduł Montaż (kafelek „Montaże") ──────────────────────────────────────
+    // Trzy trasy dla montażysty, wszystkie pod `installation.view` z zawężeniem
+    // do OBSADY montażu po stronie API. Teczkę składa serwer, bo rola `montaz`
+    // nie widzi ani kartoteki (`crm.view`), ani katalogu (`catalog.view`) —
+    // patrz `MontazJobDto`.
+
+    /** Moje montaże; `scope=crew` pokazuje wyjazdy całej firmy (zmiennik). */
+    @GET("api/installations/my")
+    suspend fun getMyJobs(
+        @Query("scope") scope: String? = null,
+        @Query("from") from: String? = null,
+        @Query("to") to: String? = null,
+    ): List<JobRowDto>
+
+    /** Teczka wyjazdu — klient, zakres z umowy, sprzęt, pytania protokołu. */
+    @GET("api/installations/{id}/job")
+    suspend fun getJob(@Path("id") id: String): JobPacketDto
+
+    /** Start i koniec roboty (maszyna statusów po stronie API). */
+    @POST("api/installations/{id}/status")
+    suspend fun setJobStatus(
+        @Path("id") id: String,
+        @Body request: JobStatusRequest,
+    ): MontazDto
+
+    /**
+     * Protokół odbioru. Odpowiedź bywa PUSTA (montaż bez protokołu), więc
+     * `Response`, a nie samo DTO: puste ciało wywróciłoby deserializację,
+     * a „jeszcze nie sporządzony" to normalny stan, nie awaria.
+     */
+    @GET("api/installations/{id}/protocol")
+    suspend fun getProtocol(@Path("id") id: String): Response<ProtocolDto>
+
+    @PUT("api/installations/{id}/protocol")
+    suspend fun saveProtocol(
+        @Path("id") id: String,
+        @Body request: ProtocolSaveRequest,
+    ): ProtocolDto
 
     // ── Odprawa montażu (moduł Odprawy) ───────────────────────────────────────
     // Publikacja wymaga `briefing.publish` (koordynator), więc monter dostanie

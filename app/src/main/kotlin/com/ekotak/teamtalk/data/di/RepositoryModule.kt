@@ -124,4 +124,10 @@ abstract class RepositoryModule {
     abstract fun bindMontazRepository(
         impl: MontazRepositoryImpl,
     ): MontazRepository
+
+    /** Moduł Montaż (kafelek „Montaże") — wyjazdy, teczka i protokół odbioru. */
+    @Binds @Singleton
+    abstract fun bindMontazJobRepository(
+        impl: MontazJobRepositoryImpl,
+    ): MontazJobRepository
 }

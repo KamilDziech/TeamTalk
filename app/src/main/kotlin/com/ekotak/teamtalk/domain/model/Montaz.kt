@@ -87,6 +87,13 @@ data class MontazMaterial(
     val pending: Boolean = false,
 )
 
+/**
+ * Klucz pozycji na liście pakowania — wspólny dla karty deala i modułu Montaż.
+ * Prefiks `mat:` odgradza materiał od sprzętu: „zgrzewarka" z magazynu i
+ * „zgrzewarka" z listy narzędzi to dwa różne ptaszki.
+ */
+val MontazMaterial.packKey: String get() = "mat:" + itemName.trim().lowercase()
+
 /** Ekipa z modułu Zespół — skrót do obsady montażu. */
 data class MontazCrew(
     val id: String,

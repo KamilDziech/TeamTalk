@@ -148,7 +148,10 @@ val HOME_MODULES: List<HomeModule> = listOf(
     HomeModule(
         key = "installations",
         label = "Montaże",
-        desc = "Planowanie i realizacja instalacji",
+        // Na telefonie to moduł MONTAŻYSTY, a nie planowanie z panelu: pakowanie
+        // w magazynie, nawigacja pod budowę i protokół odbioru (2026-09-23).
+        // Terminy i obsadę układa koordynator w panelu.
+        desc = "Pakowanie, dojazd i protokół odbioru",
         color = Color(0xFF4F8CFF),
         icon = moduleIcon(
             rect(3f, 5f, 18f, 11f, 1.5f),

@@ -9,6 +9,8 @@ import com.ekotak.teamtalk.data.local.entity.MontazMutationEntity.Companion.KIND
 import com.ekotak.teamtalk.data.local.entity.MontazMutationEntity.Companion.KIND_ISSUE
 import com.ekotak.teamtalk.data.local.entity.MontazMutationEntity.Companion.KIND_PATCH
 import com.ekotak.teamtalk.data.local.entity.MontazMutationEntity.Companion.KIND_PHOTO
+import com.ekotak.teamtalk.data.local.entity.MontazMutationEntity.Companion.KIND_PROTOCOL
+import com.ekotak.teamtalk.data.local.entity.MontazMutationEntity.Companion.KIND_STATUS
 import com.ekotak.teamtalk.data.local.entity.MontazMutationEntity.Companion.LOCAL_ID_PREFIX
 import com.ekotak.teamtalk.data.local.entity.MontazPackEntity
 import com.ekotak.teamtalk.data.local.entity.MontazPhotoEntity
@@ -19,8 +21,10 @@ import com.ekotak.teamtalk.data.mapper.toDomain
 import com.ekotak.teamtalk.data.mapper.toEntity
 import com.ekotak.teamtalk.data.remote.api.TeamTalkApi
 import com.ekotak.teamtalk.data.remote.dto.BriefingCreateRequest
+import com.ekotak.teamtalk.data.remote.dto.JobStatusRequest
 import com.ekotak.teamtalk.data.remote.dto.MontazCreateRequest
 import com.ekotak.teamtalk.data.remote.dto.MontazIssueRequest
+import com.ekotak.teamtalk.data.remote.dto.ProtocolSaveRequest
 import com.ekotak.teamtalk.data.sync.MontazSyncScheduler
 import com.ekotak.teamtalk.domain.model.BriefingAck
 import com.ekotak.teamtalk.domain.model.MaterialStatus
@@ -31,6 +35,7 @@ import com.ekotak.teamtalk.domain.model.MontazPhoto
 import com.ekotak.teamtalk.domain.model.MontazSnapshot
 import com.ekotak.teamtalk.domain.model.MontazStatus
 import com.ekotak.teamtalk.domain.repository.MontazPatch
+import com.ekotak.teamtalk.domain.repository.MontazPhotoSaved
 import com.ekotak.teamtalk.domain.repository.MontazRepository
 import com.ekotak.teamtalk.domain.repository.MontazSaveResult
 import com.ekotak.teamtalk.domain.repository.MontazSyncResult
@@ -313,18 +318,19 @@ class MontazRepositoryImpl @Inject constructor(
         installationId: String,
         bytes: ByteArray,
         fileName: String,
-    ): MontazSaveResult {
+    ): MontazPhotoSaved {
         if (!installationId.startsWith(LOCAL_ID_PREFIX)) {
             val sent = runCatching {
                 api.uploadMontazPhoto(installationId, part(bytes, fileName))
             }.getOrNull()
             if (sent != null) {
                 dao.upsertPhoto(sent.toEntity(System.currentTimeMillis()))
-                return MontazSaveResult.SENT
+                return MontazPhotoSaved(sent.id, MontazSaveResult.SENT)
             }
         }
 
-        val staged = photos.stage(bytes, fileName) ?: return MontazSaveResult.QUEUED
+        val staged = photos.stage(bytes, fileName)
+            ?: return MontazPhotoSaved("", MontazSaveResult.QUEUED)
         val localId = LOCAL_ID_PREFIX + UUID.randomUUID()
         val now = System.currentTimeMillis()
         dao.upsertPhoto(
@@ -348,7 +354,7 @@ class MontazRepositoryImpl @Inject constructor(
             },
             now = now,
         )
-        return MontazSaveResult.QUEUED
+        return MontazPhotoSaved(localId, MontazSaveResult.QUEUED)
     }
 
     override suspend fun sendBriefing(
@@ -521,10 +527,38 @@ class MontazRepositoryImpl @Inject constructor(
                             part(file.readBytes(), body.text("name") ?: file.name),
                         )
                         dao.upsertPhoto(sent.toEntity(System.currentTimeMillis()))
+                        // Kadr dostał id od serwera — a mógł być już przypięty
+                        // do pytania protokołu. Przepisujemy go wszędzie, gdzie
+                        // go użyto, bo inaczej protokół wskazywałby na zdjęcie,
+                        // którego już nie ma.
+                        dao.retargetProtocolPhoto(row.installationId, row.targetId, sent.id)
+                        dao.retargetProtocolPayload(row.installationId, row.targetId, sent.id)
                         // Atrapa i kopia z `outbox` znikają dopiero teraz —
                         // do tej chwili były jedynym śladem tego kadru.
                         dao.deletePhoto(row.targetId)
                         photos.dropStaged(path)
+                    }
+
+                    // ── moduł Montaż (kafelek „Montaże") ──
+                    // Obie te zmiany powstają na budowie, w tej samej kolejce
+                    // co reszta: start roboty przed protokołem, bo serwer
+                    // przepuszcza `done` dopiero z `in_progress`.
+
+                    KIND_STATUS -> {
+                        val status = body.text("status") ?: throw IllegalStateException("status")
+                        api.setJobStatus(row.targetId, JobStatusRequest(status))
+                    }
+
+                    KIND_PROTOCOL -> {
+                        val form = body["formData"] as? JsonObject
+                            ?: throw IllegalStateException("formData")
+                        api.saveProtocol(
+                            row.targetId,
+                            ProtocolSaveRequest(
+                                formData = form,
+                                signature = body.text("signature"),
+                            ),
+                        )
                     }
 
                     KIND_BRIEFING -> {
@@ -572,6 +606,8 @@ class MontazRepositoryImpl @Inject constructor(
             KIND_PATCH -> "Zmiana montażu przepadła"
             KIND_ISSUE -> "Wydanie materiału na budowę przepadło"
             KIND_PHOTO -> "Zdjęcie z montażu nie zostało wysłane"
+            KIND_STATUS -> "Zmiana stanu montażu nie dotarła do biura"
+            KIND_PROTOCOL -> "Protokół odbioru nie został wysłany"
             else -> "Odprawa nie poszła do ekipy"
         }
         val code = (e as? HttpException)?.code()

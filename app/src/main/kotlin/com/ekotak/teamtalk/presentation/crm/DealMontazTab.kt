@@ -47,6 +47,7 @@ import com.ekotak.teamtalk.domain.model.DocumentCategory
 import com.ekotak.teamtalk.domain.model.MaterialStatus
 import com.ekotak.teamtalk.domain.model.Montaz
 import com.ekotak.teamtalk.domain.model.MontazMaterial
+import com.ekotak.teamtalk.domain.model.packKey
 import com.ekotak.teamtalk.domain.model.MontazPhoto
 import com.ekotak.teamtalk.domain.model.TaskMember
 import com.ekotak.teamtalk.domain.montaz.CoverageKind
@@ -1312,7 +1313,6 @@ internal fun montazPlanDocument(dealId: String, docId: String, name: String) = D
 )
 
 /** Klucz pozycji materiału na liście pakowania — po nazwie, jak przy sprzęcie. */
-private val MontazMaterial.packKey: String get() = "mat:" + itemName.trim().lowercase()
 
 private const val THUMB_PX = 240
 

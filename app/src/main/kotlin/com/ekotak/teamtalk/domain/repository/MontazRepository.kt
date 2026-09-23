@@ -48,13 +48,18 @@ interface MontazRepository {
         reservationIds: List<String>,
     ): MontazSaveResult
 
-    /** Zdjęcie powykonawcze; bez zasięgu kopia leży w telefonie do wysyłki. */
+    /**
+     * Zdjęcie powykonawcze; bez zasięgu kopia leży w telefonie do wysyłki.
+     * Oddaje też ID kadru, bo protokół odbioru przypina zdjęcia do KONKRETNYCH
+     * pytań — bez identyfikatora „zdjęcie manometru" byłoby nie do odróżnienia
+     * od reszty galerii.
+     */
     suspend fun addPhoto(
         dealId: String,
         installationId: String,
         bytes: ByteArray,
         fileName: String,
-    ): MontazSaveResult
+    ): MontazPhotoSaved
 
     /**
      * Odprawa do OSÓB z obsady (nie do ekipy jako grupy) z wymaganym
@@ -103,6 +108,13 @@ data class MontazPatch(
  * budowie dwie różne informacje.
  */
 enum class MontazSaveResult { SENT, QUEUED }
+
+/**
+ * Dodany kadr. [photoId] jest tymczasowe (`local:…`), dopóki zdjęcie czeka
+ * w kolejce — po wysyłce kolejka przepisuje je na id z serwera także tam, gdzie
+ * już go użyto (odpowiedzi protokołu).
+ */
+data class MontazPhotoSaved(val photoId: String, val result: MontazSaveResult)
 
 /** Wynik przebiegu kolejki: `RETRY` = sieć znowu zawiodła, wpisy zostają. */
 enum class MontazSyncResult { DONE, RETRY }

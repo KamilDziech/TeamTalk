@@ -634,6 +634,56 @@ val MIGRATION_31_32 = object : Migration(31, 32) {
 }
 
 /**
+ * 32 → 33: moduł Montaż (kafelek „Montaże") — wyjazdy i protokoły odbioru.
+ *
+ * Dwie tabele, obie `IF NOT EXISTS` z tego samego powodu, co `addColumnIfMissing`
+ * przy kolumnach: na telefonach zespołu tabela bywa już założona mimo niższej
+ * wersji bazy (starszy build wgrany po nowszym), a wyjątek z `migrate()`
+ * zamurowałby Rooma na stałe.
+ *
+ * `montaz_jobs` trzyma teczkę w jednym polu JSON (`packetJson`) — czyta się ją
+ * i zapisuje w całości, więc rozbicie na tabele kosztowałoby składanie przy
+ * każdym otwarciu karty i migrację przy każdej zmianie kontraktu.
+ */
+val MIGRATION_32_33 = object : Migration(32, 33) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `montaz_jobs` (
+                `id` TEXT NOT NULL,
+                `dealId` TEXT NOT NULL,
+                `dealCode` TEXT,
+                `clientName` TEXT NOT NULL,
+                `address` TEXT,
+                `city` TEXT,
+                `scheduledAt` TEXT,
+                `status` TEXT NOT NULL,
+                `durationDays` INTEGER NOT NULL,
+                `difficulty` TEXT,
+                `scopeNames` TEXT NOT NULL,
+                `packetJson` TEXT,
+                `syncedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `montaz_protocols` (
+                `installationId` TEXT NOT NULL,
+                `formJson` TEXT NOT NULL,
+                `signature` TEXT,
+                `closedAt` TEXT,
+                `pendingSince` INTEGER,
+                `syncedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`installationId`)
+            )
+            """.trimIndent(),
+        )
+    }
+}
+
+/**
  * `ALTER TABLE … ADD COLUMN`, które przeżywa telefon deweloperski.
  *
  * Zwykłe `ADD COLUMN` wywraca migrację na „duplicate column name", gdy kolumna

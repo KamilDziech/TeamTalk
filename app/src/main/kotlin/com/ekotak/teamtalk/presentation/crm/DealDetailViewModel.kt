@@ -4985,7 +4985,7 @@ class DealDetailViewModel @Inject constructor(
             _uiState.update { state ->
                 state.copy(
                     montaz = state.montaz.copy(isSaving = false, photos = photos),
-                    message = when (result.getOrNull()) {
+                    message = when (result.getOrNull()?.result) {
                         MontazSaveResult.SENT -> "Zdjęcie dodane."
                         MontazSaveResult.QUEUED ->
                             "Zdjęcie zapisane w telefonie — wyślemy, gdy wróci zasięg."

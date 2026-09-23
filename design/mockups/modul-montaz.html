@@ -1,0 +1,1282 @@
+<title>Montaż w TeamTalku</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Roboto:wght@400;500;700&display=swap">
+
+<style>
+/* ── Tokeny strony (te same co modul-serwis.html / modul-zdjecia-audyt.html) ─ */
+:root{
+  --bg:#EEF3F9; --bg-2:#DBE6F2; --surface:#FFFFFF;
+  --fg:#0F1720; --muted:#5A6B7C; --border:#C3CBD4;
+  --brand:#2FA84F; --brand-loud:#44D62C; --ink:#080808;
+  --warn:#B4680A; --danger:#C5343A; --info:#2563EB;
+  --shadow:0 1px 2px rgba(15,23,32,.06), 0 10px 30px rgba(15,23,32,.08);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0B1220; --bg-2:#12161F; --surface:#12161F;
+    --fg:#E6EDF3; --muted:#9FB0C3; --border:#2A3441;
+    --brand:#44D62C; --brand-loud:#44D62C; --ink:#080808;
+    --warn:#F59E0B; --danger:#E5484D; --info:#5B8DEF;
+    --shadow:0 1px 2px rgba(0,0,0,.5), 0 14px 40px rgba(0,0,0,.45);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0B1220; --bg-2:#12161F; --surface:#12161F;
+  --fg:#E6EDF3; --muted:#9FB0C3; --border:#2A3441;
+  --brand:#44D62C; --brand-loud:#44D62C; --ink:#080808;
+  --warn:#F59E0B; --danger:#E5484D; --info:#5B8DEF;
+  --shadow:0 1px 2px rgba(0,0,0,.5), 0 14px 40px rgba(0,0,0,.45);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--fg);
+  font-family:"Archivo","Segoe UI",system-ui,sans-serif;
+  font-size:16px; line-height:1.55; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px 96px}
+h1,h2,h3{text-wrap:balance;margin:0}
+p{margin:0}
+code{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.88em;
+  background:var(--bg-2);border:1px solid var(--border);border-radius:5px;padding:1px 5px;
+}
+
+/* ── Nagłówek ─────────────────────────────────────────────────────── */
+.masthead{padding:52px 0 32px;border-bottom:1px solid var(--border);display:grid;gap:18px}
+.eyebrow{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
+  display:flex;flex-wrap:wrap;align-items:center;gap:10px;
+}
+.eyebrow b{color:var(--brand);font-weight:600}
+.masthead h1{font-size:clamp(34px,5.4vw,58px);font-weight:800;letter-spacing:-.025em;line-height:1.02}
+.lede{font-size:17px;color:var(--muted);max-width:64ch}
+.lede b{color:var(--fg);font-weight:600}
+.headchips{display:flex;flex-wrap:wrap;gap:8px}
+.hchip{
+  font-size:12px;padding:4px 11px;border-radius:999px;
+  border:1px solid var(--border);background:var(--surface);color:var(--muted);
+}
+.hchip b{color:var(--fg);font-weight:600}
+
+/* ── Sekcje ───────────────────────────────────────────────────────── */
+section{padding:52px 0 0}
+.shead{display:grid;gap:8px;margin-bottom:26px;max-width:72ch}
+.shead h2{font-size:clamp(22px,2.6vw,30px);font-weight:700;letter-spacing:-.015em}
+.shead p{color:var(--muted);font-size:15px}
+.snum{
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--brand);font-weight:600;
+}
+
+.cards{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(268px,1fr))}
+.card{
+  background:var(--surface);border:1px solid var(--border);border-radius:14px;
+  padding:15px 17px;display:grid;gap:7px;align-content:start;
+}
+.card h3{font-size:14.5px;font-weight:700;display:flex;align-items:center;gap:8px}
+.card p{font-size:13.5px;color:var(--muted)}
+.card p + p{margin-top:2px}
+.card b{color:var(--fg)}
+.dot{width:9px;height:9px;border-radius:50%;flex:none;display:inline-block}
+.dot.ok{background:var(--brand)}
+.dot.part{background:var(--warn)}
+.dot.no{background:var(--danger)}
+.dot.new{background:var(--info)}
+
+.tablewrap{overflow-x:auto;border:1px solid var(--border);border-radius:14px;background:var(--surface);margin-top:18px}
+table{border-collapse:collapse;width:100%;min-width:720px;font-size:13.5px}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:top}
+th{
+  font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--muted);font-weight:600;white-space:nowrap;
+}
+tbody tr:last-child td{border-bottom:none}
+td.mono{font-family:"IBM Plex Mono",monospace;font-size:12px}
+.tag{
+  font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--border);
+  color:var(--muted);white-space:nowrap;display:inline-block;
+}
+.tag.jest{color:var(--brand);border-color:color-mix(in srgb,var(--brand) 45%,var(--border))}
+.tag.brak{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 45%,var(--border))}
+.tag.nowe{color:var(--info);border-color:color-mix(in srgb,var(--info) 45%,var(--border))}
+.tag.zm{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 45%,var(--border))}
+
+/* ── Lista decyzji ────────────────────────────────────────────────── */
+.decisions{display:grid;gap:12px;counter-reset:dec}
+.dec{
+  background:var(--surface);border:1px solid var(--border);border-radius:14px;
+  padding:16px 18px 16px 58px;position:relative;display:grid;gap:6px;
+}
+.dec::before{
+  counter-increment:dec;content:counter(dec,decimal-leading-zero);
+  position:absolute;left:18px;top:16px;
+  font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:600;color:var(--brand);
+}
+.dec h3{font-size:15px;font-weight:700}
+.dec p{font-size:13.5px;color:var(--muted)}
+.dec .prop{
+  font-size:13.5px;color:var(--fg);
+  border-left:2px solid color-mix(in srgb,var(--brand) 60%,var(--border));padding-left:11px;
+}
+.dec .prop b{font-weight:700}
+
+/* ── Makiety: telefon ─────────────────────────────────────────────── */
+.screens{display:grid;gap:34px 26px;grid-template-columns:repeat(auto-fit,minmax(330px,1fr))}
+.screenblock{display:grid;gap:16px;justify-items:center}
+.caption{max-width:36ch;display:grid;gap:6px}
+.caption h3{font-size:15.5px;font-weight:700;display:flex;gap:9px;align-items:baseline}
+.caption h3 i{font-style:normal;font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--brand)}
+.caption p{font-size:13px;color:var(--muted)}
+.caption p b{color:var(--fg)}
+
+.phone{
+  width:340px;padding:11px;border-radius:38px;
+  background:linear-gradient(160deg,#3a4152,#161a22);box-shadow:var(--shadow);flex:none;
+}
+.device{
+  --d-bg:#0B1220;--d-surface:#12161F;--d-panel:#1A212E;
+  --d-fg:#E6EDF3;--d-muted:#9FB0C3;--d-border:#2A3441;
+  --d-brand:#44D62C;--d-ink:#080808;
+  --d-danger:#F85149;--d-warn:#E3A008;--d-info:#4AA3FF;--d-violet:#C084FC;
+  --d-mont:#4F8CFF;          /* akcent modułu Montaże (kolor kafelka) */
+  width:318px;height:672px;border-radius:28px;overflow:hidden;
+  background:var(--d-bg);color:var(--d-fg);
+  font-family:"Roboto",system-ui,sans-serif;font-size:14px;line-height:1.4;
+  display:flex;flex-direction:column;position:relative;
+}
+.statusbar{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:8px 16px 2px;font-size:11px;color:var(--d-muted);
+  font-variant-numeric:tabular-nums;flex:none;
+}
+/* Pasek górny bez tytułu i „Wróć" — AppTopBar od 2026-09-07 rysuje same akcje. */
+.topbar{display:flex;align-items:center;justify-content:flex-end;gap:2px;padding:4px 8px;flex:none}
+.iconbtn{
+  width:32px;height:32px;border-radius:50%;border:none;background:transparent;
+  color:var(--d-fg);display:grid;place-items:center;flex:none;position:relative;
+}
+.iconbtn svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.screen{flex:1;overflow:hidden;padding:0 12px 10px;display:flex;flex-direction:column;gap:9px}
+
+/* kafelki pulpitu */
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.tile{
+  background:var(--d-surface);border:1px solid var(--d-border);border-radius:14px;
+  padding:11px 10px;display:grid;gap:4px;align-content:start;position:relative;
+}
+.tile .ic{
+  width:34px;height:34px;border-radius:11px;display:grid;place-items:center;
+  background:color-mix(in srgb,var(--c) 20%,transparent);color:var(--c);
+}
+.tile .ic svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tile b{font-size:12.5px;font-weight:500}
+.tile span{font-size:10px;color:var(--d-muted);line-height:1.3}
+.tile.hot{border-color:color-mix(in srgb,var(--c) 55%,var(--d-border))}
+.tile .new{
+  position:absolute;top:9px;right:9px;font-style:normal;font-size:9px;font-weight:700;
+  padding:1px 6px;border-radius:999px;background:var(--d-info);color:var(--d-ink);
+}
+.tile .cnt{
+  position:absolute;top:9px;right:9px;font-style:normal;font-size:9.5px;font-weight:700;
+  padding:1px 7px;border-radius:999px;background:var(--c);color:var(--d-ink);
+}
+
+/* segmenty i chipy */
+.seg{display:flex;background:var(--d-panel);border-radius:999px;padding:3px;gap:3px;flex:none}
+.seg span{flex:1;text-align:center;font-size:12px;padding:6px 4px;border-radius:999px;color:var(--d-muted)}
+.seg span[data-on]{background:color-mix(in srgb,var(--d-mont) 24%,var(--d-surface));color:var(--d-mont);font-weight:700}
+.chiprow{display:flex;gap:6px;flex:none;overflow:hidden}
+.chip{
+  font-size:11px;padding:4px 9px;border-radius:999px;border:1px solid var(--d-border);
+  color:var(--d-muted);display:inline-flex;align-items:center;gap:5px;white-space:nowrap;
+}
+.chip[data-on]{background:var(--d-panel);border-color:var(--d-fg);color:var(--d-fg);font-weight:500}
+.daylabel{
+  font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--d-muted);
+  font-weight:700;padding-top:4px;flex:none;
+}
+
+/* wiersz montażu na liście */
+.job{
+  display:flex;gap:9px;padding:9px 8px 9px 9px;border-bottom:1px solid var(--d-border);
+  border-left:3px solid transparent;align-items:flex-start;
+}
+.job[data-st="dzis"]{border-left-color:var(--d-mont);background:color-mix(in srgb,var(--d-mont) 8%,transparent)}
+.job[data-st="robota"]{border-left-color:var(--d-warn);background:color-mix(in srgb,var(--d-warn) 8%,transparent)}
+.job[data-st="done"]{border-left-color:var(--d-brand)}
+.job .tm{
+  width:40px;flex:none;text-align:center;display:grid;gap:1px;
+  font-variant-numeric:tabular-nums;
+}
+.job .tm b{font-size:13px;font-weight:600}
+.job .tm span{font-size:9.5px;color:var(--d-muted)}
+.job .nm{flex:1;min-width:0;display:grid;gap:3px}
+.job .nm b{font-size:12.8px;font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.job .nm span{font-size:10.5px;color:var(--d-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.job.doner .nm b{color:var(--d-muted)}
+.scopes{display:flex;gap:4px;flex-wrap:wrap}
+.sc{font-size:9px;padding:1px 6px;border-radius:999px;border:1px solid var(--d-border);color:var(--d-muted)}
+.sc.ufh{color:#7FD1FF;border-color:color-mix(in srgb,#7FD1FF 45%,var(--d-border))}
+.sc.pc{color:var(--d-violet);border-color:color-mix(in srgb,var(--d-violet) 45%,var(--d-border))}
+.state{
+  font-size:9.5px;padding:2px 7px;border-radius:999px;white-space:nowrap;flex:none;align-self:center;
+  border:1px solid var(--d-border);color:var(--d-muted);
+}
+.state.pack{color:var(--d-warn);border-color:color-mix(in srgb,var(--d-warn) 50%,transparent);background:color-mix(in srgb,var(--d-warn) 13%,transparent)}
+.state.ok{color:var(--d-brand);border-color:color-mix(in srgb,var(--d-brand) 50%,transparent);background:color-mix(in srgb,var(--d-brand) 13%,transparent)}
+.state.prot{color:var(--d-info);border-color:color-mix(in srgb,var(--d-info) 50%,transparent);background:color-mix(in srgb,var(--d-info) 13%,transparent)}
+
+/* nagłówek karty wyjazdu */
+.jobhead{
+  background:var(--d-surface);border:1px solid var(--d-border);border-radius:14px;
+  padding:11px 12px;display:grid;gap:7px;flex:none;
+}
+.jobhead .kl{font-size:15.5px;font-weight:500;line-height:1.2}
+.jobhead .ad{font-size:11.5px;color:var(--d-muted)}
+.jobhead .meta{display:flex;gap:6px;flex-wrap:wrap}
+.nav{
+  display:flex;align-items:center;justify-content:center;gap:8px;padding:11px;border-radius:12px;
+  background:var(--d-mont);color:var(--d-ink);font-size:14px;font-weight:700;
+}
+.nav svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.nav.ghost{background:var(--d-panel);color:var(--d-fg);border:1px solid var(--d-border);font-weight:500;font-size:12.5px}
+
+/* pasek 4 kroków */
+.steps{display:flex;gap:5px;flex:none}
+.step{
+  flex:1;display:grid;gap:3px;justify-items:center;padding:6px 2px;border-radius:10px;
+  border:1px solid var(--d-border);background:var(--d-surface);
+}
+.step i{
+  font-style:normal;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;
+  font-size:9.5px;font-weight:700;border:1.5px solid var(--d-border);color:var(--d-muted);
+}
+.step b{font-size:9.5px;font-weight:500;color:var(--d-muted)}
+.step[data-on="done"]{border-color:color-mix(in srgb,var(--d-brand) 50%,var(--d-border))}
+.step[data-on="done"] i{background:var(--d-brand);border-color:var(--d-brand);color:var(--d-ink)}
+.step[data-on="done"] b{color:var(--d-fg)}
+.step[data-on="now"]{border-color:var(--d-mont);background:color-mix(in srgb,var(--d-mont) 13%,var(--d-surface))}
+.step[data-on="now"] i{background:var(--d-mont);border-color:var(--d-mont);color:var(--d-ink)}
+.step[data-on="now"] b{color:var(--d-fg);font-weight:700}
+
+/* sekcje karty */
+.sec{
+  background:var(--d-surface);border:1px solid var(--d-border);border-radius:13px;
+  padding:9px 11px;display:grid;gap:6px;flex:none;
+}
+.sec .st{display:flex;align-items:center;gap:7px}
+.sec .st b{font-size:12px;font-weight:700;flex:1}
+.sec .st span{font-size:10px;color:var(--d-muted);font-variant-numeric:tabular-nums}
+.sec .st .chev{color:var(--d-muted);display:grid;place-items:center}
+.sec .st .chev svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+.sec p{font-size:11px;color:var(--d-muted)}
+.sec .li{font-size:11.5px;display:flex;gap:7px;align-items:flex-start}
+.sec .li i{font-style:normal;color:var(--d-brand);flex:none}
+.sec .li.no i{color:var(--d-danger)}
+.note{
+  font-size:11px;color:var(--d-warn);background:color-mix(in srgb,var(--d-warn) 12%,transparent);
+  border:1px solid color-mix(in srgb,var(--d-warn) 40%,transparent);border-radius:10px;padding:7px 9px;
+}
+.note.bad{color:#FF9A8F;background:color-mix(in srgb,var(--d-danger) 12%,transparent);border-color:color-mix(in srgb,var(--d-danger) 40%,transparent)}
+.note.sync{color:var(--d-info);background:color-mix(in srgb,var(--d-info) 12%,transparent);border-color:color-mix(in srgb,var(--d-info) 40%,transparent)}
+
+/* listy pakowania */
+.packlist{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden}
+.grp{
+  font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--d-muted);
+  font-weight:700;padding:8px 2px 3px;
+}
+.prow{display:flex;align-items:center;gap:9px;padding:6px 2px;border-bottom:1px solid var(--d-border)}
+.cbx{
+  width:21px;height:21px;border-radius:6px;border:2px solid var(--d-border);flex:none;
+  display:grid;place-items:center;color:var(--d-ink);
+}
+.cbx[data-on]{background:var(--d-brand);border-color:var(--d-brand)}
+.cbx svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round}
+.prow .nm{flex:1;min-width:0;display:grid;gap:1px}
+.prow .nm b{font-size:12.3px;font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.prow .nm b.req{font-weight:700}
+.prow .nm span{font-size:10px;color:var(--d-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.prow .nm span.bad{color:var(--d-danger)}
+.prow.done .nm b{color:var(--d-muted)}
+.prow .qt{font-size:11px;color:var(--d-fg);font-variant-numeric:tabular-nums;flex:none}
+.prow .flag{font-size:9.5px;color:var(--d-muted);flex:none}
+.prow .flag.iss{color:var(--d-brand)}
+.prow .flag.q{color:var(--d-info)}
+
+/* dolna belka akcji */
+.bottom{display:grid;gap:7px;flex:none}
+.btn{
+  padding:11px;border-radius:12px;text-align:center;font-size:13px;font-weight:700;
+  background:var(--d-brand);color:var(--d-ink);
+}
+.btn.sec2{background:var(--d-panel);color:var(--d-fg);border:1px solid var(--d-border);font-weight:500;font-size:12.5px}
+.btn.off{background:var(--d-panel);color:var(--d-muted);border:1px solid var(--d-border);font-weight:500}
+.btn.blue{background:var(--d-mont)}
+
+/* protokół */
+.qhead{
+  display:flex;align-items:center;gap:8px;background:var(--d-surface);border:1px solid var(--d-border);
+  border-radius:12px;padding:8px 10px;flex:none;
+}
+.qhead .nm{flex:1;min-width:0;display:grid;gap:1px}
+.qhead .nm b{font-size:12.5px;font-weight:500}
+.qhead .nm span{font-size:10px;color:var(--d-muted)}
+.ring{
+  width:40px;height:40px;border-radius:50%;flex:none;display:grid;place-items:center;
+  font-size:10.5px;font-weight:700;color:var(--d-fg);
+  background:conic-gradient(var(--d-brand) var(--p),var(--d-panel) 0);
+  position:relative;
+}
+.ring::after{content:"";position:absolute;inset:4px;border-radius:50%;background:var(--d-surface)}
+.ring b{position:relative;z-index:1;font-variant-numeric:tabular-nums}
+.qlist{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;gap:7px}
+.q{
+  background:var(--d-surface);border:1px solid var(--d-border);border-radius:12px;
+  padding:8px 10px;display:grid;gap:6px;
+}
+.q[data-need]{border-color:color-mix(in srgb,var(--d-danger) 45%,var(--d-border))}
+.q .qt{display:flex;gap:8px;align-items:flex-start}
+.q .qt b{flex:1;font-size:12px;font-weight:400;line-height:1.35}
+.q .qt .must{font-size:9px;color:var(--d-danger);flex:none;padding-top:2px}
+.q .qt .must.ok{color:var(--d-brand)}
+.yn{display:flex;gap:6px}
+.yn span{
+  flex:1;text-align:center;font-size:11.5px;padding:6px;border-radius:9px;
+  border:1px solid var(--d-border);color:var(--d-muted);
+}
+.yn span[data-on="y"]{background:color-mix(in srgb,var(--d-brand) 20%,transparent);border-color:var(--d-brand);color:var(--d-brand);font-weight:700}
+.yn span[data-on="n"]{background:color-mix(in srgb,var(--d-danger) 18%,transparent);border-color:var(--d-danger);color:#FF9A8F;font-weight:700}
+.inp{
+  background:var(--d-panel);border:1px solid var(--d-border);border-radius:9px;
+  padding:7px 9px;font-size:12px;color:var(--d-fg);display:flex;align-items:center;gap:6px;
+}
+.inp .ph{color:var(--d-muted)}
+.inp .un{margin-left:auto;font-size:10.5px;color:var(--d-muted)}
+.shots{display:flex;gap:6px;align-items:center}
+.thumb{
+  width:52px;height:52px;border-radius:9px;flex:none;border:1px solid var(--d-border);
+  background:linear-gradient(140deg,#25405e,#16212f);position:relative;overflow:hidden;
+}
+.thumb.p2{background:linear-gradient(140deg,#3d3524,#221c14)}
+.thumb i{
+  position:absolute;right:3px;bottom:3px;font-style:normal;font-size:8px;color:var(--d-fg);
+  background:rgba(0,0,0,.55);border-radius:4px;padding:0 3px;
+}
+.addshot{
+  width:52px;height:52px;border-radius:9px;flex:none;display:grid;place-items:center;
+  border:1.5px dashed var(--d-border);color:var(--d-muted);
+}
+.addshot.need{border-color:color-mix(in srgb,var(--d-danger) 60%,transparent);color:var(--d-danger)}
+.addshot svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.sig{
+  height:86px;border:1px dashed var(--d-border);border-radius:11px;background:var(--d-panel);
+  display:grid;place-items:center;color:var(--d-muted);font-size:11px;position:relative;overflow:hidden;
+}
+.sig svg{position:absolute;inset:0;width:100%;height:100%;stroke:var(--d-fg);fill:none;stroke-width:2.2;stroke-linecap:round}
+
+/* arkusz */
+.scrim{position:absolute;inset:0;background:rgba(4,8,15,.55)}
+.sheet{
+  position:absolute;left:0;right:0;bottom:0;background:var(--d-surface);
+  border-top:1px solid var(--d-border);border-radius:20px 20px 0 0;padding:10px 14px 16px;
+  display:flex;flex-direction:column;gap:9px;
+}
+.grab{width:34px;height:4px;border-radius:999px;background:var(--d-border);margin:0 auto 2px}
+.sheet h4{margin:0;font-size:15px;font-weight:500}
+.sheet .sum{display:grid;gap:5px}
+.sumrow{display:flex;align-items:center;gap:8px;font-size:12px}
+.sumrow i{font-style:normal;flex:none;width:16px;text-align:center}
+.sumrow i.ok{color:var(--d-brand)}
+.sumrow i.no{color:var(--d-danger)}
+.sumrow span{margin-left:auto;color:var(--d-muted);font-size:11px;font-variant-numeric:tabular-nums}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="eyebrow">
+      <span>TeamTalk Android</span> · <b>moduł Montaż</b> · <span>koncepcja 2026-09-23</span>
+    </div>
+    <h1>Montaż w TeamTalku</h1>
+    <p class="lede">
+      Kafelek <b>„Montaże”</b> jest na Pulpicie od początku i do dziś prowadzi w zaślepkę. Zakładka
+      „Montaż” w karcie deala istnieje i jest pełna, ale wchodzi się do niej <b>drogą handlowca</b>:
+      CRM → deal → zakładka. Montażysta ma inny dzień: rano magazyn, potem dojazd, potem robota,
+      na koniec podpis klienta. Ta koncepcja opisuje moduł ułożony wzdłuż <b>tej</b> ścieżki —
+      pakowanie z odhaczaniem materiału i narzędzi, nawigacja pod budowę i protokół powykonawczy,
+      którego pytania i wymagane zdjęcia <b>wynikają z zakresu zlecenia</b>.
+    </p>
+    <div class="headchips">
+      <span class="hchip"><b>5</b> ekranów</span>
+      <span class="hchip"><b>1</b> nowa trasa API</span>
+      <span class="hchip"><b>2</b> zmiany w istniejącym API</span>
+      <span class="hchip"><b>nowa</b> zakładka w katalogu</span>
+      <span class="hchip">pełny <b>offline</b></span>
+    </div>
+  </header>
+
+  <section>
+    <div class="shead">
+      <div class="snum">01 — Punkt wyjścia</div>
+      <h2>Co już jest, a czego brakuje</h2>
+      <p>
+        Połowa roboty jest zrobiona i nie ma sensu pisać jej drugi raz: listę wyjazdową materiału,
+        listę sprzętu z katalogu i zdjęcia powykonawcze umie już zakładka „Montaż” karty deala
+        (<code>DealMontazTab.kt</code>, 1343 linie). Moduł ma być <b>drugim wejściem do tych samych
+        mechanizmów</b> — ułożonym w kolejności dnia montażysty — plus jednym elementem, którego
+        nie ma nigdzie: protokołem odbioru na telefonie.
+      </p>
+    </div>
+    <div class="cards">
+      <div class="card">
+        <h3><i class="dot ok"></i> Jest: lista wyjazdowa</h3>
+        <p>
+          <code>GET /installations/:id/deal-materials</code> oddaje pozycje odłożone w magazynie pod
+          deala razem z <b>pokryciem i brakami</b> (liczy je API, bo zna rezerwacje wszystkich deali).
+          Wydanie: <code>POST …/deal-materials/issue</code> — use-case dopuszcza <b>obsadę tego
+          montażu</b>, nie tylko koordynatora.
+        </p>
+      </div>
+      <div class="card">
+        <h3><i class="dot ok"></i> Jest: lista sprzętu z katalogu</h3>
+        <p>
+          <code>montazTools()</code> składa sprzęt z zakładki „🧰 Narzędzia” węzłów zakresu:
+          dziedziczy w dół, sumuje przy kilku technologiach i sortuje <b>w kolejności pakowania
+          auta</b>, a nie alfabetem. Ptaszki są dziś czysto lokalne (zamiennik wydruku).
+        </p>
+      </div>
+      <div class="card">
+        <h3><i class="dot part"></i> Jest połowicznie: co wykonać</h3>
+        <p>
+          Rysunki rzutów, pętle i specyfikacja lecą z audytu (<code>montazRobota()</code>), a zakres
+          „co jest w cenie” z <b>podpisanej umowy</b>. Tyle że jedno i drugie stoi za prawem
+          <code>crm.view</code>, którego rola <code>montaz</code> <b>nie ma</b>.
+        </p>
+      </div>
+      <div class="card">
+        <h3><i class="dot no"></i> Brak: moje montaże</h3>
+        <p>
+          <code>GET /installations?technicianId=…</code> istnieje, ale zwraca <b>samo
+          <code>dealId</code></b> — bez klienta, adresu i telefonu. Lista „co mam dziś” nie ma
+          dziś z czego powstać.
+        </p>
+      </div>
+      <div class="card">
+        <h3><i class="dot no"></i> Brak: nawigacja</h3>
+        <p>
+          Serwis, Lead i Audyt mają „Wyznacz trasę” (<code>geo:0,0?q=</code>), montaż nie ma nic.
+          Adres budowy jest w kartotece klienta, więc wystarczy podać go w teczce wyjazdu.
+        </p>
+      </div>
+      <div class="card">
+        <h3><i class="dot no"></i> Brak: protokół</h3>
+        <p>
+          W panelu protokół jest <b>jeden, sztywny, pod pompę ciepła</b>: model, nr seryjny,
+          7 pozycji checklisty, podpis. Podłogówka wypełnia go nie swoimi polami. Na telefonie
+          protokołu nie ma wcale.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead">
+      <div class="snum">02 — Ścieżka dnia</div>
+      <h2>Pięć ekranów w kolejności, w jakiej się je otwiera</h2>
+      <p>
+        Moduł nie jest kolejną tablicą do przeglądania. Ma <b>prowadzić</b>: rano otwiera się na
+        „dziś”, w magazynie na pakowaniu, w aucie na nawigacji, po robocie na protokole. Kolejność
+        kroków jest widoczna na stałym pasku, więc ekipa wie, co zostało.
+      </p>
+    </div>
+    <div class="screens">
+
+      <div class="screenblock">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>6:12</span><span>▾ ▮▮▮ 91%</span></div>
+          <div class="topbar">
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></span>
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4"/></svg></span>
+          </div>
+          <div class="screen">
+            <div class="tiles">
+              <div class="tile hot" style="--c:#4F8CFF">
+                <i class="cnt">2 dziś</i>
+                <span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="11" rx="1.5"/><path d="M9 5v11M15 5v11M3 10.5h18M12 16v4M8.5 20h7"/></svg></span>
+                <b>Montaże</b><span>Pakowanie, dojazd, protokół</span>
+              </div>
+              <div class="tile" style="--c:#FF7B54">
+                <span class="ic"><svg viewBox="0 0 24 24"><path d="M15.4 4.4a4.5 4.5 0 0 0-5.9 5.5L4 15.4a2 2 0 0 0 2.8 2.8l5.5-5.5a4.5 4.5 0 0 0 5.5-5.9l-2.7 2.7-2.4-.6-.6-2.4z"/></svg></span>
+                <b>Serwis</b><span>Zgłoszenia i przeglądy</span>
+              </div>
+              <div class="tile" style="--c:#EAB308">
+                <span class="ic"><svg viewBox="0 0 24 24"><path d="M20.5 15.6V8.4a1.5 1.5 0 0 0-.8-1.3l-6.9-3.8a1.5 1.5 0 0 0-1.6 0L4.3 7.1a1.5 1.5 0 0 0-.8 1.3v7.2a1.5 1.5 0 0 0 .8 1.3l6.9 3.8a1.5 1.5 0 0 0 1.6 0l6.9-3.8a1.5 1.5 0 0 0 .8-1.3z"/><path d="M3.7 7.6 12 12.2l8.3-4.6M12 12.2V21"/></svg></span>
+                <b>Magazyn</b><span>Stany i ruchy materiału</span>
+              </div>
+              <div class="tile" style="--c:#C084FC">
+                <span class="ic"><svg viewBox="0 0 24 24"><path d="M9 4.5H6.5A1.5 1.5 0 0 0 5 6v13a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 19V6a1.5 1.5 0 0 0-1.5-1.5H15"/><rect x="9" y="2.8" width="6" height="3.4" rx="1"/><path d="M8.6 12l1.7 1.7 3.4-3.4M15.5 16.5h-7"/></svg></span>
+                <b>Zadania</b><span>Twoje zadania</span>
+              </div>
+              <div class="tile" style="--c:#FB7185">
+                <span class="ic"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="1.8"/><path d="M3.5 9.5h17M8 3.5v3M16 3.5v3"/></svg></span>
+                <b>Kalendarz</b><span>Terminy i wizyty</span>
+              </div>
+              <div class="tile" style="--c:#17B3A3">
+                <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3.2l7 2.6v5.6c0 4.2-2.9 7.6-7 9.4-4.1-1.8-7-5.2-7-9.4V5.8z"/><path d="M8.8 12.1l2.2 2.2 4.2-4.4"/></svg></span>
+                <b>Przeglądy</b><span>Karty gwarancyjne</span>
+              </div>
+            </div>
+          </div>
+        </div></div>
+        <div class="caption">
+          <h3><i>00</i> Pulpit</h3>
+          <p>
+            Kafelek zostaje na swoim miejscu i w swoim kolorze, zmienia się tylko opis i licznik:
+            <b>ile montaży masz dziś</b>. Dla roli <code>montaz</code> to jedyne wejście do robót —
+            karty deala nie otworzy, bo nie ma <code>crm.view</code>.
+          </p>
+        </div>
+      </div>
+
+      <div class="screenblock">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>6:13</span><span>▾ ▮▮▮ 91%</span></div>
+          <div class="topbar">
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></span>
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="1.8"/><path d="M3.5 9.5h17M8 3.5v3M16 3.5v3"/></svg></span>
+          </div>
+          <div class="screen">
+            <div class="seg">
+              <span data-on>Moje</span><span>Ekipa</span><span>Zakończone</span>
+            </div>
+            <div class="chiprow">
+              <span class="chip" data-on>Dziś <b>2</b></span>
+              <span class="chip">Tydzień <b>6</b></span>
+              <span class="chip">Bez terminu <b>1</b></span>
+            </div>
+            <div class="daylabel">Wtorek · 23 września</div>
+            <div class="job" data-st="dzis">
+              <div class="tm"><b>7:30</b><span>2 dni</span></div>
+              <div class="nm">
+                <b>Kowalscy — Bielsko-Biała</b>
+                <span>ul. Sarni Stok 14 · 18 km</span>
+                <div class="scopes"><span class="sc ufh">Podłogówka</span><span class="sc">Rozdzielacze ×3</span></div>
+              </div>
+              <span class="state pack">12/21</span>
+            </div>
+            <div class="job" data-st="robota">
+              <div class="tm"><b>od wcz.</b><span>dzień 2</span></div>
+              <div class="nm">
+                <b>Nowak — Czechowice</b>
+                <span>ul. Legionów 8 · 9 km</span>
+                <div class="scopes"><span class="sc pc">Pompa ciepła</span><span class="sc">Bufor 200 l</span></div>
+              </div>
+              <span class="state prot">protokół</span>
+            </div>
+            <div class="daylabel">Czwartek · 25 września</div>
+            <div class="job">
+              <div class="tm"><b>8:00</b><span>1 dzień</span></div>
+              <div class="nm">
+                <b>Wspólnota „Słoneczna”</b>
+                <span>Katowice, ul. Ptasia 3 · 47 km</span>
+                <div class="scopes"><span class="sc pc">Pompa ciepła</span></div>
+              </div>
+              <span class="state">plan</span>
+            </div>
+            <div class="job doner" data-st="done">
+              <div class="tm"><b>18.09</b><span>—</span></div>
+              <div class="nm">
+                <b>Zieliński — Pszczyna</b>
+                <span>Protokół zamknięty · PDF</span>
+                <div class="scopes"><span class="sc ufh">Podłogówka</span></div>
+              </div>
+              <span class="state ok">✓</span>
+            </div>
+          </div>
+        </div></div>
+        <div class="caption">
+          <h3><i>01</i> Moje montaże</h3>
+          <p>
+            Sekcje po dniach, a nie płaska lista — montażysta pyta „co mam dziś”, nie „co jest
+            w systemie”. Prawa krawędź niesie <b>jedną informację o stanie</b>: ile spakowane,
+            albo czego brakuje do zamknięcia. <b>Ekipa</b> pokazuje wyjazdy kolegów z tej samej
+            ekipy, <b>Zakończone</b> — archiwum z PDF-ami protokołów.
+          </p>
+        </div>
+      </div>
+
+      <div class="screenblock">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>6:21</span><span>▾ ▮▮▮ 90%</span></div>
+          <div class="topbar">
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></span>
+          </div>
+          <div class="screen">
+            <div class="jobhead">
+              <div class="kl">Kowalscy — Bielsko-Biała</div>
+              <div class="ad">ul. Sarni Stok 14 · wt. 23.09, 7:30 · 2 dni</div>
+              <div class="meta">
+                <span class="chip">Podłogówka</span><span class="chip">Rozdzielacze ×3</span><span class="chip">trudny</span>
+              </div>
+              <div class="nav">
+                <svg viewBox="0 0 24 24"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.6"/></svg>
+                Nawiguj — 18 km
+              </div>
+            </div>
+            <div class="steps">
+              <div class="step" data-on="now"><i>1</i><b>Pakowanie</b></div>
+              <div class="step"><i>2</i><b>Dojazd</b></div>
+              <div class="step"><i>3</i><b>Robota</b></div>
+              <div class="step"><i>4</i><b>Protokół</b></div>
+            </div>
+            <div class="sec">
+              <div class="st"><b>Zabrać z magazynu</b><span>12 / 21</span><span class="chev"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></span></div>
+              <p>Materiał 8/14 · narzędzia 4/7 · <b style="color:var(--d-danger)">brakuje: mata 30 mm</b></p>
+            </div>
+            <div class="sec">
+              <div class="st"><b>Co wykonać</b><span>zał. nr 1 umowy</span><span class="chev"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></span></div>
+              <div class="li"><i>✓</i><span>Ogrzewanie podłogowe — 186 m², 9 pętli, 3 rozdzielacze</span></div>
+              <div class="li"><i>✓</i><span>Próba szczelności 6 bar / 24 h</span></div>
+              <div class="li no"><i>✗</i><span>Wylewka — <b>poza umową</b></span></div>
+            </div>
+            <div class="sec">
+              <div class="st"><b>Obsada</b><span>3 osoby</span></div>
+              <p>M. Wójcik (brygadzista) · P. Adamek (monter) · K. Sroka (pomocnik)</p>
+            </div>
+            <div class="note">
+              UWAGA dla ekipy: pies na posesji, klucz u sąsiada spod 12. Brama od strony ogrodu.
+            </div>
+            <div class="sec">
+              <div class="st"><b>Rysunki z audytu</b><span>2 rzuty</span><span class="chev"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></span></div>
+              <p>Parter i piętro z kropkami rozdzielaczy — otwierają się bez zasięgu.</p>
+            </div>
+          </div>
+        </div></div>
+        <div class="caption">
+          <h3><i>02</i> Karta wyjazdu</h3>
+          <p>
+            Wszystko, co ekipa ma wiedzieć, w jednej teczce: adres z przyciskiem nawigacji na
+            samej górze, pasek czterech kroków, zakres <b>z podpisanej umowy</b> razem z tym, co
+            jest <b>poza</b> nią, obsada i uwaga. Nic się tu nie wpisuje — to ekran do czytania.
+          </p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <section>
+    <div class="shead">
+      <div class="snum">03 — Magazyn</div>
+      <h2>Pakowanie: dwie listy, dwa różne ptaszki</h2>
+      <p>
+        Materiał i narzędzia wyglądają podobnie, ale znaczą co innego. <b>Materiał</b> jest
+        rezerwacją magazynową: odhaczenie mówi „leży na aucie”, a osobne <b>wydanie</b> zdejmuje
+        towar ze stanu i podpisuje się pod nim imieniem. <b>Narzędzia</b> nie mają stanu — wracają
+        wieczorem, więc ptaszek jest tylko listą kontrolną przy klapie bagażnika.
+      </p>
+    </div>
+    <div class="screens">
+
+      <div class="screenblock">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>6:34</span><span>▾ ▮▮▮ 88%</span></div>
+          <div class="topbar">
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></span>
+          </div>
+          <div class="screen">
+            <div class="seg"><span data-on>Materiał <b>8/14</b></span><span>Narzędzia 4/7</span></div>
+            <div class="note bad">
+              Mata systemowa 30 mm — brakuje 40 m² na stanie. Wydać można, ale ekipa musi o tym
+              wiedzieć: dostawa wg zakładki „Zamówienie” w czwartek.
+            </div>
+            <div class="packlist">
+              <div class="prow done">
+                <span class="cbx" data-on><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span>
+                <div class="nm"><b>Rura PE-RT 16×2,0</b><span>Kan-therm · rolka 600 m</span></div>
+                <span class="qt">1 800 m</span><span class="flag iss">wydane</span>
+              </div>
+              <div class="prow done">
+                <span class="cbx" data-on><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span>
+                <div class="nm"><b>Rozdzielacz 9-obiegowy</b><span>+ szafka podtynkowa</span></div>
+                <span class="qt">3 szt</span><span class="flag iss">wydane</span>
+              </div>
+              <div class="prow">
+                <span class="cbx"></span>
+                <div class="nm"><b>Mata systemowa 30 mm</b><span class="bad">brakuje 40 m² — dostawa 25.09</span></div>
+                <span class="qt">186 m²</span>
+              </div>
+              <div class="prow">
+                <span class="cbx"></span>
+                <div class="nm"><b>Taśma brzegowa 8 mm</b><span>rolka 50 m</span></div>
+                <span class="qt">12 szt</span>
+              </div>
+              <div class="prow">
+                <span class="cbx"></span>
+                <div class="nm"><b>Plastyfikator do jastrychu</b><span>kanister 10 l</span></div>
+                <span class="qt">4 szt</span>
+              </div>
+              <div class="prow done">
+                <span class="cbx" data-on><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span>
+                <div class="nm"><b>Klipsy montażowe</b><span>opak. 500 szt</span></div>
+                <span class="qt">6 opak</span><span class="flag q">w kolejce</span>
+              </div>
+            </div>
+            <div class="bottom">
+              <div class="btn">Wydaj spakowane (3 poz.)</div>
+            </div>
+          </div>
+        </div></div>
+        <div class="caption">
+          <h3><i>03</i> Pakowanie — materiał</h3>
+          <p>
+            Ptaszek = <b>leży na aucie</b>. Wydanie idzie jednym przyciskiem na dole, bo w hali
+            nikt nie klika czternaście razy „Wydaj”. Braki są czerwone i <b>nie blokują</b>
+            wyjazdu — tak samo jak w panelu. Bez zasięgu wydanie czeka w kolejce („w kolejce”),
+            a magazyn zobaczy je po powrocie w zasięg.
+          </p>
+        </div>
+      </div>
+
+      <div class="screenblock">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>6:41</span><span>▾ ▮▮▮ 88%</span></div>
+          <div class="topbar">
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></span>
+          </div>
+          <div class="screen">
+            <div class="seg"><span>Materiał 11/14</span><span data-on>Narzędzia <b>4/7</b></span></div>
+            <div class="packlist">
+              <div class="grp">Elektronarzędzia</div>
+              <div class="prow done">
+                <span class="cbx" data-on><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span>
+                <div class="nm"><b class="req">Zgrzewarka do PE-RT</b><span>Magazyn · ◉ beacon</span></div>
+                <span class="qt">1 szt</span>
+              </div>
+              <div class="prow">
+                <span class="cbx"></span>
+                <div class="nm"><b class="req">Wiertarka udarowa + wiertła</b><span>Ekipa</span></div>
+                <span class="qt">2 szt</span>
+              </div>
+              <div class="grp">Sprzęt specjalistyczny</div>
+              <div class="prow done">
+                <span class="cbx" data-on><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span>
+                <div class="nm"><b class="req">Tacker do klipsów</b><span>Magazyn · 2 tech. → 1 szt</span></div>
+                <span class="qt">1 szt</span>
+              </div>
+              <div class="prow">
+                <span class="cbx"></span>
+                <div class="nm"><b class="req">Pompa do próby ciśnieniowej</b><span>Magazyn · ◉ beacon</span></div>
+                <span class="qt">1 szt</span>
+              </div>
+              <div class="grp">Pomiar i diagnostyka</div>
+              <div class="prow done">
+                <span class="cbx" data-on><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span>
+                <div class="nm"><b class="req">Manometr z rejestracją</b><span>do zdjęcia w protokole</span></div>
+                <span class="qt">1 szt</span>
+              </div>
+              <div class="prow done">
+                <span class="cbx" data-on><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span>
+                <div class="nm"><b>Kamera termowizyjna</b><span>przydatne</span></div>
+                <span class="qt">1 szt</span>
+              </div>
+              <div class="grp">BHP</div>
+              <div class="prow">
+                <span class="cbx"></span>
+                <div class="nm"><b class="req">Nakolanniki, okulary, rękawice</b><span>Ekipa · 3 komplety</span></div>
+                <span class="qt">3 kpl</span>
+              </div>
+            </div>
+            <div class="bottom">
+              <div class="btn sec2">Zgłoś brak sprzętu koordynatorowi</div>
+              <div class="btn off">Gotowe do wyjazdu — zostało 3 wymagane</div>
+            </div>
+          </div>
+        </div></div>
+        <div class="caption">
+          <h3><i>04</i> Pakowanie — narzędzia</h3>
+          <p>
+            Sekcje w <b>kolejności pakowania auta</b> (tak jak <code>TOOL_GROUPS</code>), wymagane
+            pogrubione, przy każdym po co jedzie i skąd się bierze. „Zgłoś brak” zakłada
+            <b>jedno zbiorcze zadanie</b> dla koordynatora z listą niespakowanych pozycji — nie
+            trzeba do niego dzwonić o 6:40.
+          </p>
+        </div>
+      </div>
+
+      <div class="screenblock">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>7:02</span><span>▾ ▮▮▮ 87%</span></div>
+          <div class="topbar">
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></span>
+          </div>
+          <div class="screen">
+            <div class="seg"><span>Materiał 14/14</span><span data-on>Narzędzia <b>7/7</b></span></div>
+            <div class="packlist" style="opacity:.45">
+              <div class="grp">Elektronarzędzia</div>
+              <div class="prow done"><span class="cbx" data-on><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span><div class="nm"><b>Zgrzewarka do PE-RT</b><span>Magazyn</span></div><span class="qt">1 szt</span></div>
+              <div class="prow done"><span class="cbx" data-on><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span><div class="nm"><b>Wiertarka udarowa</b><span>Ekipa</span></div><span class="qt">2 szt</span></div>
+              <div class="grp">Sprzęt specjalistyczny</div>
+              <div class="prow done"><span class="cbx" data-on><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span><div class="nm"><b>Tacker do klipsów</b><span>Magazyn</span></div><span class="qt">1 szt</span></div>
+            </div>
+            <div class="scrim"></div>
+            <div class="sheet">
+              <div class="grab"></div>
+              <h4>Gotowe do wyjazdu?</h4>
+              <div class="sum">
+                <div class="sumrow"><i class="ok">✓</i> Materiał spakowany <span>14 / 14</span></div>
+                <div class="sumrow"><i class="ok">✓</i> Materiał wydany z magazynu <span>14 poz.</span></div>
+                <div class="sumrow"><i class="ok">✓</i> Narzędzia wymagane <span>7 / 7</span></div>
+                <div class="sumrow"><i class="no">!</i> Mata 30 mm — brak 40 m² <span>dostawa 25.09</span></div>
+              </div>
+              <div class="note">
+                Braku nie blokujemy. Klikając „Wyjeżdżamy” potwierdzasz, że ekipa o nim wie —
+                koordynator zobaczy ten montaż jako <b>w realizacji</b>.
+              </div>
+              <div class="nav">
+                <svg viewBox="0 0 24 24"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.6"/></svg>
+                Wyjeżdżamy — nawiguj
+              </div>
+              <div class="btn sec2">Jeszcze nie</div>
+            </div>
+          </div>
+        </div></div>
+        <div class="caption">
+          <h3><i>05</i> Wyjazd</h3>
+          <p>
+            Jeden przycisk domyka krok 1 i otwiera krok 2: montaż przechodzi w <b>w realizacji</b>,
+            a telefon uruchamia nawigację pod adres budowy (<code>geo:0,0?q=</code> — apkę wybiera
+            system, tak jak w Serwisie). Ostrzeżenia <b>informują, nie blokują</b>.
+          </p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <section>
+    <div class="shead">
+      <div class="snum">04 — Protokół</div>
+      <h2>Pytania biorą się z zakresu, nie z jednego szablonu</h2>
+      <p>
+        Dziś protokół jest w panelu jeden i pod pompę ciepła. Propozycja: protokół <b>składa się
+        tak samo jak lista sprzętu</b> — z węzłów katalogu objętych zakresem montażu. Podłogówka
+        wnosi próbę ciśnieniową i zdjęcie rozdzielacza, pompa ciepła tabliczkę znamionową
+        i rozruch, a pozycje wspólne (uprzątnięcie, instruktaż, odbiór) dokłada węzeł-korzeń.
+        Montaż obejmujący dwie technologie dostaje <b>sumę</b> pytań, bez powtórek.
+      </p>
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <h3><i class="dot new"></i> Typy pytań</h3>
+        <p>
+          <b>✓/✗</b> (wykonane / nie dotyczy), <b>liczba</b> z jednostką (ciśnienie, temperatura,
+          m²), <b>tekst</b> (nr seryjny), <b>wybór</b> z listy, <b>zdjęcie</b>. Każde pytanie ma
+          flagę <b>wymagane</b> i własny wymóg zdjęcia: brak / opcjonalne / <b>wymagane (min. n)</b>.
+        </p>
+      </div>
+      <div class="card">
+        <h3><i class="dot new"></i> Skąd schemat</h3>
+        <p>
+          Nowa zakładka <b>„📋 Protokół”</b> w karcie węzła katalogu — obok istniejących
+          „🧰 Narzędzia” i ról montażowych. Te same trzy zasady: dziedziczenie w dół, suma po
+          zakresie, kolejność sekcji = kolejność robót. Biuro zmienia pytania <b>bez deployu</b>.
+        </p>
+      </div>
+      <div class="card">
+        <h3><i class="dot part"></i> Co blokuje zamknięcie</h3>
+        <p>
+          Tylko pytania oznaczone jako wymagane i brakujące zdjęcia wymagane. Reszta może zostać
+          pusta. Zamknięcie protokołu ustawia montaż na <b>wykonany</b> i generuje PDF do wysyłki
+          klientowi.
+        </p>
+      </div>
+    </div>
+
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>Węzeł katalogu</th><th>Pytanie</th><th>Typ</th><th>Zdjęcie</th><th>Wymagane</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Korzeń (wspólne)</td><td>Teren uprzątnięty, gruz wywieziony</td><td class="mono">✓/✗</td><td>opcjonalne</td><td>tak</td></tr>
+          <tr><td>Korzeń (wspólne)</td><td>Instruktaż użytkownika przeprowadzony</td><td class="mono">✓/✗</td><td>—</td><td>tak</td></tr>
+          <tr><td>Ogrzewanie podłogowe</td><td>Liczba wykonanych pętli</td><td class="mono">liczba</td><td>—</td><td>tak</td></tr>
+          <tr><td>Ogrzewanie podłogowe</td><td>Próba szczelności — ciśnienie</td><td class="mono">liczba (bar)</td><td><b>wymagane</b> — manometr</td><td>tak</td></tr>
+          <tr><td>Ogrzewanie podłogowe</td><td>Próba szczelności — czas</td><td class="mono">liczba (h)</td><td>—</td><td>tak</td></tr>
+          <tr><td>Ogrzewanie podłogowe</td><td>Rozdzielacze opisane i wyregulowane</td><td class="mono">✓/✗</td><td><b>wymagane</b> — po 1 na rozdzielacz</td><td>tak</td></tr>
+          <tr><td>Ogrzewanie podłogowe</td><td>Rura w płycie przed zalaniem</td><td class="mono">✓/✗</td><td><b>wymagane</b> — min. 2 kadry</td><td>tak</td></tr>
+          <tr><td>Pompa ciepła</td><td>Model i nr seryjny</td><td class="mono">tekst</td><td><b>wymagane</b> — tabliczka</td><td>tak</td></tr>
+          <tr><td>Pompa ciepła</td><td>Rozruch: grzanie i CWU</td><td class="mono">✓/✗</td><td>opcjonalne</td><td>tak</td></tr>
+          <tr><td>Pompa ciepła</td><td>Temperatura zasilania po rozruchu</td><td class="mono">liczba (°C)</td><td>—</td><td>nie</td></tr>
+          <tr><td>Pompa ciepła</td><td>Podłączenie do internetu / aplikacji</td><td class="mono">wybór</td><td>—</td><td>nie</td></tr>
+          <tr><td>Zamknięcie</td><td>Usterki i uwagi</td><td class="mono">tekst</td><td>opcjonalne</td><td>nie</td></tr>
+          <tr><td>Zamknięcie</td><td>Odbiór bez zastrzeżeń + podpis klienta</td><td class="mono">✓/✗ + podpis</td><td>—</td><td>tak</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="screens" style="margin-top:34px">
+
+      <div class="screenblock">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>15:48</span><span>▾ ▮▮ 54%</span></div>
+          <div class="topbar">
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></span>
+          </div>
+          <div class="screen">
+            <div class="qhead">
+              <div class="ring" style="--p:66%"><b>6/9</b></div>
+              <div class="nm"><b>Protokół odbioru</b><span>Kowalscy · podłogówka · 9 pytań wymaganych</span></div>
+            </div>
+            <div class="chiprow">
+              <span class="chip" data-on>Wspólne</span><span class="chip">Podłogówka <b>4</b></span><span class="chip">Zamknięcie</span>
+            </div>
+            <div class="qlist">
+              <div class="q">
+                <div class="qt"><b>Liczba wykonanych pętli</b><span class="must ok">✓</span></div>
+                <div class="inp"><span>9</span><span class="un">pętli · z audytu: 9</span></div>
+              </div>
+              <div class="q">
+                <div class="qt"><b>Próba szczelności — ciśnienie i czas</b><span class="must ok">✓</span></div>
+                <div class="inp"><span>6,0</span><span class="un">bar</span></div>
+                <div class="inp"><span>24</span><span class="un">h</span></div>
+                <div class="shots">
+                  <div class="thumb"><i>manometr</i></div>
+                  <div class="addshot"><svg viewBox="0 0 24 24"><path d="M12 6v12M6 12h12"/></svg></div>
+                </div>
+              </div>
+              <div class="q" data-need>
+                <div class="qt"><b>Rozdzielacze opisane i wyregulowane</b><span class="must">zdjęcie</span></div>
+                <div class="yn"><span data-on="y">Wykonane</span><span>Nie dotyczy</span></div>
+                <div class="shots">
+                  <div class="thumb"><i>R1</i></div>
+                  <div class="thumb p2"><i>R2</i></div>
+                  <div class="addshot need"><svg viewBox="0 0 24 24"><path d="M4 8.5h3.5L9 6h6l1.5 2.5H20v9.5H4z"/><circle cx="12" cy="13" r="3"/></svg></div>
+                </div>
+                <p style="font-size:10.5px;color:var(--d-danger);margin:0">Brakuje zdjęcia rozdzielacza R3.</p>
+              </div>
+              <div class="q">
+                <div class="qt"><b>Rura w płycie przed zalaniem</b><span class="must ok">✓</span></div>
+                <div class="yn"><span data-on="y">Wykonane</span><span>Nie dotyczy</span></div>
+                <div class="shots"><div class="thumb"></div><div class="thumb p2"></div><div class="addshot"><svg viewBox="0 0 24 24"><path d="M12 6v12M6 12h12"/></svg></div></div>
+              </div>
+            </div>
+          </div>
+        </div></div>
+        <div class="caption">
+          <h3><i>06</i> Protokół — pytania z zakresu</h3>
+          <p>
+            Chipy u góry to <b>sekcje zakresu</b>, pierścień liczy pytania wymagane. Czerwona
+            ramka i podpis pod pytaniem mówią wprost, czego brakuje — zamiast komunikatu
+            „uzupełnij formularz” na końcu. Wartości znane z audytu (liczba pętli) są
+            <b>podpowiedzią</b>, nie sztywnym wpisem.
+          </p>
+        </div>
+      </div>
+
+      <div class="screenblock">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>16:05</span><span>▾ ▮▮ 51%</span></div>
+          <div class="topbar">
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></span>
+          </div>
+          <div class="screen">
+            <div class="qhead">
+              <div class="ring" style="--p:100%"><b>9/9</b></div>
+              <div class="nm"><b>Zamknięcie protokołu</b><span>Kowalscy · 23.09, 16:05</span></div>
+            </div>
+            <div class="qlist">
+              <div class="q">
+                <div class="qt"><b>Usterki i uwagi</b></div>
+                <div class="inp"><span class="ph">Brak — komplet zgodnie z umową.</span></div>
+              </div>
+              <div class="q">
+                <div class="qt"><b>Odbiór bez zastrzeżeń</b><span class="must ok">✓</span></div>
+                <div class="yn"><span data-on="y">Tak</span><span>Z uwagami</span></div>
+              </div>
+              <div class="q">
+                <div class="qt"><b>Odbierający</b><span class="must ok">✓</span></div>
+                <div class="inp"><span>Marek Kowalski</span></div>
+                <div class="sig">
+                  <svg viewBox="0 0 220 86" preserveAspectRatio="none"><path d="M18 60c14-26 24-30 30-14s10 20 18 8 12-28 20-14 10 22 18 12 14-26 22-14 12 20 20 14 16-18 22-10"/></svg>
+                </div>
+                <p style="font-size:10.5px;color:var(--d-muted);margin:0">Podpis palcem na telefonie — trafia do PDF-u.</p>
+              </div>
+            </div>
+            <div class="bottom">
+              <div class="btn">Zamknij protokół i wyślij</div>
+              <div class="btn sec2">Zapisz i dokończ później</div>
+            </div>
+          </div>
+        </div></div>
+        <div class="caption">
+          <h3><i>07</i> Protokół — zamknięcie</h3>
+          <p>
+            Podpis zbiera się <b>na budowie, na telefonie</b> — tak jak w panelu
+            (<code>SignaturePad</code>), tylko palcem. Zamknięcie ustawia montaż na
+            <b>wykonany</b>, odkłada PDF w magazynie plików i pokazuje go w archiwum listy.
+            „Dokończ później” zapisuje wersję roboczą w telefonie.
+          </p>
+        </div>
+      </div>
+
+      <div class="screenblock">
+        <div class="phone"><div class="device">
+          <div class="statusbar"><span>16:06</span><span>✈ ▮▮ 51%</span></div>
+          <div class="topbar">
+            <span class="iconbtn"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></span>
+          </div>
+          <div class="screen">
+            <div class="note sync">
+              Bez zasięgu. <b>7 zmian czeka w telefonie</b> — wyślemy je same, gdy wróci sieć.
+            </div>
+            <div class="sec">
+              <div class="st"><b>Kolejka wyjazdu</b><span>7 pozycji</span></div>
+              <div class="li"><i>↑</i><span>Wydanie materiału — 14 pozycji</span></div>
+              <div class="li"><i>↑</i><span>Start robót (w realizacji) · 7:02</span></div>
+              <div class="li"><i>↑</i><span>Protokół — 9 odpowiedzi + podpis</span></div>
+              <div class="li"><i>↑</i><span>Zdjęcia — 4 kadry (rozdzielacze, manometr)</span></div>
+            </div>
+            <div class="sec">
+              <div class="st"><b>Co działa bez zasięgu</b></div>
+              <p>
+                Cała teczka wyjazdu: adres i nawigacja, zakres z umowy, rysunki rzutów, listy
+                pakowania, pytania protokołu i aparat. Kopie zdjęć leżą w pamięci telefonu,
+                nie w cache — przeżyją sprzątanie pamięci.
+              </p>
+            </div>
+            <div class="sec">
+              <div class="st"><b>Czego nie zrobisz offline</b></div>
+              <p>
+                PDF protokołu (składa go serwer) i zmiana obsady. Jedno i drugie może poczekać
+                do zasięgu — podpis klienta jest już zebrany.
+              </p>
+            </div>
+          </div>
+        </div></div>
+        <div class="caption">
+          <h3><i>08</i> Bez zasięgu</h3>
+          <p>
+            Kotłownia w stanie surowym to miejsce bez zasięgu — dlatego <b>pełny offline z
+            kolejką</b>, jak w Zadaniach, Serwisie i karcie deala. Ekipa widzi wprost, co jest
+            zapisane w telefonie, a czego biuro jeszcze nie widzi.
+          </p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <section>
+    <div class="shead">
+      <div class="snum">05 — Poza telefonem</div>
+      <h2>Co trzeba dołożyć w API, panelu i katalogu</h2>
+      <p>
+        Moduł nie da się zrobić „tylko w Kotlinie”. Trzy rzeczy są po stronie serwera, dwie
+        w panelu — i jedna z nich jest pilna: gdyby panel dalej zapisywał <b>swój sztywny
+        formularz</b> pod ten sam protokół, nadpisałby to, co ekipa wypełniła na budowie.
+      </p>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>Miejsce</th><th>Co</th><th>Po co</th><th>Stan</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="mono">GET /installations/:id/job</td>
+            <td>Teczka wyjazdu: klient, adres, telefon, geo, zakres z umowy, uwaga, obsada, schemat protokołu</td>
+            <td>Rola <code>montaz</code> nie ma <code>crm.view</code>, a lista montaży zwraca samo <code>dealId</code>. Jedno żądanie = jeden wyjazd do cache’u.</td>
+            <td><span class="tag nowe">nowe</span></td>
+          </tr>
+          <tr>
+            <td class="mono">GET /installations?mine</td>
+            <td>Filtr „moje” + klient i miejscowość w wierszu listy</td>
+            <td>Dziś trzeba znać własne <code>userId</code> i doczytywać deale po jednym.</td>
+            <td><span class="tag zm">zmiana</span></td>
+          </tr>
+          <tr>
+            <td class="mono">PATCH /installations/:id</td>
+            <td>Sama zmiana <code>status</code> dozwolona dla <b>obsady</b> montażu</td>
+            <td>Trasa wymaga <code>installation.assign</code>, którego montażysta nie ma — nie zacznie i nie zakończy roboty. Wzór gotowy: tak działa wydanie materiału.</td>
+            <td><span class="tag zm">zmiana</span></td>
+          </tr>
+          <tr>
+            <td class="mono">Category.protocol</td>
+            <td>Zakładka „📋 Protokół” w karcie węzła katalogu + pole w DTO</td>
+            <td>Bez edytora nikt nie wpisze pytań; bez pytań protokół jest pusty.</td>
+            <td><span class="tag nowe">nowe</span></td>
+          </tr>
+          <tr>
+            <td class="mono">ProtocolSection (panel)</td>
+            <td>Formularz z tego samego schematu zamiast sztywnych pól pompy ciepła</td>
+            <td>Inaczej panel <b>nadpisze</b> protokół wypełniony na budowie. Stare protokoły czytamy dalej.</td>
+            <td><span class="tag zm">zmiana</span></td>
+          </tr>
+          <tr>
+            <td class="mono">PdfKitProtocolPdf</td>
+            <td>Render generyczny: sekcje, odpowiedzi, miniatury zdjęć, podpis</td>
+            <td>Dziś renderer zna <code>pumpModel</code> i jedną checklistę — dla podłogówki wypluje pustą kartkę.</td>
+            <td><span class="tag zm">zmiana</span></td>
+          </tr>
+          <tr>
+            <td class="mono">POST …/photos</td>
+            <td>Bez zmian — zdjęcia pytań przypinamy przez <code>photoIds</code> w odpowiedzi</td>
+            <td>Nie ruszamy kontraktu API: protokół trzyma mapę pytanie → zdjęcia, plik idzie zwykłym uploadem.</td>
+            <td><span class="tag jest">jest</span></td>
+          </tr>
+          <tr>
+            <td class="mono">deal-materials (+/issue)</td>
+            <td>Bez zmian</td>
+            <td>Listę wyjazdową i wydanie z ograniczeniem do obsady API ma od dawna.</td>
+            <td><span class="tag jest">jest</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="cards" style="margin-top:22px">
+      <div class="card">
+        <h3><i class="dot new"></i> Kształt zapisu protokołu</h3>
+        <p>
+          <code>formData</code> zostaje wolnym JSON-em, więc API zapisu nie wymaga zmian:
+          <code>{ schemaVersion, nodeIds, answers: { id → { value, note, photoIds } }, issues,
+          accepted, clientName, closedAt }</code>, a <code>signature</code> jak dotąd osobno.
+        </p>
+        <p>Stary protokół (pompa ciepła) rozpoznajemy po braku <code>schemaVersion</code> i czytamy po staremu.</p>
+      </div>
+      <div class="card">
+        <h3><i class="dot new"></i> Room i kolejka</h3>
+        <p>
+          Nowe tabele: teczki wyjazdów, ptaszki pakowania, wersje robocze protokołów i wspólna
+          kolejka <code>installation_mutations</code> (wydanie, status, protokół, zdjęcia).
+          Migracja dopisana <b>idempotentnie</b> — telefony ekipy bywają w połowie drogi.
+        </p>
+      </div>
+      <div class="card">
+        <h3><i class="dot part"></i> Czego moduł NIE robi</h3>
+        <p>
+          Nie planuje terminów, nie zmienia obsady, nie liczy materiału z audytu i nie wystawia
+          faktur. Planowanie zostaje u koordynatora w panelu — telefon jest po stronie
+          <b>wykonania</b>.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead">
+      <div class="snum">06 — Do potwierdzenia</div>
+      <h2>Osiem decyzji przed kodowaniem</h2>
+      <p>Przy każdej jest propozycja — wystarczy napisać „wszystko tak” albo wskazać, co zmieniamy.</p>
+    </div>
+    <div class="decisions">
+
+      <div class="dec">
+        <h3>Skąd biorą się pytania protokołu</h3>
+        <p>
+          Albo z katalogu (nowa zakładka w węźle, biuro edytuje samo), albo na sztywno w kodzie
+          telefonu i panelu (szybciej o jakiś dzień, każda zmiana to deploy).
+        </p>
+        <div class="prop">
+          <b>Propozycja:</b> katalog — tak samo jak narzędzia i role montażowe. Na start wsiewamy
+          gotowe zestawy dla <b>podłogówki</b> i <b>pompy ciepła</b>, żeby moduł od pierwszego dnia
+          miał co pokazać.
+        </div>
+      </div>
+
+      <div class="dec">
+        <h3>Czy ptaszki pakowania widzi koordynator</h3>
+        <p>
+          Dziś ptaszek żyje wyłącznie w telefonie. Wysyłanie go na serwer daje biuru podgląd
+          „ekipa spakowana w 12/21”, ale to kolejna rzecz do synchronizacji.
+        </p>
+        <div class="prop">
+          <b>Propozycja:</b> ptaszki zostają lokalne, a na serwer idzie <b>jedno zdarzenie —
+          „wyjeżdżamy”</b> (zmiana statusu). Koordynator dostaje informację, która naprawdę coś
+          znaczy, bez szumu z odhaczania pojedynczych rolek.
+        </div>
+      </div>
+
+      <div class="dec">
+        <h3>Odhaczenie materiału a wydanie z magazynu</h3>
+        <p>
+          Czy ptaszek ma od razu zdejmować towar ze stanu, czy wydanie jest osobnym krokiem?
+        </p>
+        <div class="prop">
+          <b>Propozycja:</b> osobno. Ptaszek = „leży na aucie”, a wydanie robi jeden przycisk
+          <b>„Wydaj spakowane”</b> na dole listy. Ruch magazynowy zostaje świadomą decyzją
+          z podpisem, a nie efektem ubocznym klikania.
+        </div>
+      </div>
+
+      <div class="dec">
+        <h3>Czy montażysta zmienia status montażu</h3>
+        <p>
+          Dziś zmiana wymaga prawa <code>installation.assign</code>, którego rola <code>montaz</code>
+          nie ma — więc ekipa nie może zaznaczyć ani startu, ani końca roboty.
+        </p>
+        <div class="prop">
+          <b>Propozycja:</b> API dopuszcza <b>samą zmianę statusu</b> dla osób z obsady tego
+          montażu (tak jak przy wydaniu materiału). Terminy i obsada nadal tylko dla koordynatora.
+        </div>
+      </div>
+
+      <div class="dec">
+        <h3>Co zamyka montaż</h3>
+        <p>
+          Czy „wykonany” ustawia ekipa ręcznie, czy robi to zamknięcie protokołu?
+        </p>
+        <div class="prop">
+          <b>Propozycja:</b> zamknięcie protokołu ustawia <b>wykonany</b> automatycznie.
+          Protokół z podpisem klienta to jedyny wiarygodny dowód, że robota jest skończona.
+        </div>
+      </div>
+
+      <div class="dec">
+        <h3>PDF i panel w tym samym zadaniu</h3>
+        <p>
+          Nowy kształt protokołu wymaga przepisania generatora PDF i formularza w panelu. Można
+          to odłożyć, ale wtedy PDF wyjdzie pusty, a panel nadpisze wypełniony protokół.
+        </p>
+        <div class="prop">
+          <b>Propozycja:</b> robimy od razu — inaczej protokół nie dojdzie do klienta, a biuro
+          skasuje pracę ekipy pierwszym otwarciem zakładki.
+        </div>
+      </div>
+
+      <div class="dec">
+        <h3>Podpis klienta na telefonie</h3>
+        <p>
+          Czy klient podpisuje palcem na telefonie montażysty, czy podpis zostaje w panelu
+          (biuro dogrywa go później)?
+        </p>
+        <div class="prop">
+          <b>Propozycja:</b> na telefonie, na budowie. Podpis zebrany wieczorem w biurze to
+          podpis, którego nikt nie zbierze.
+        </div>
+      </div>
+
+      <div class="dec">
+        <h3>Zgłoszenie braku sprzętu</h3>
+        <p>
+          Co się dzieje, gdy w magazynie nie ma wymaganego narzędzia — telefon o tym milczy, czy
+          ktoś dostaje sygnał?
+        </p>
+        <div class="prop">
+          <b>Propozycja:</b> przycisk „Zgłoś brak” zakłada <b>jedno zbiorcze zadanie</b> dla
+          koordynatora z listą brakujących pozycji i numerem montażu. Bez dzwonienia o 6:40.
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+</div>
