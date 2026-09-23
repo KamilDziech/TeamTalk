@@ -601,7 +601,7 @@ private fun DealLink(dealId: String, onOpenDeal: (String) -> Unit) {
 private val NAME_W = 120.dp
 private val HEAD_H = 40.dp
 private val CAP_H = 24.dp
-private val CREW_H = 50.dp
+private val CREW_H = 56.dp
 private val MEMBER_H = 30.dp
 private val POOL_H = 40.dp
 
@@ -1091,6 +1091,8 @@ private fun StageBar(
                 (if (s.pending) "⏳ " else "") + s.clientName + (s.city?.let { " · $it" } ?: ""),
                 color = fg,
                 fontSize = 11.sp,
+                lineHeight = 14.sp,
+                style = NoPad,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Clip,
@@ -1101,6 +1103,8 @@ private fun StageBar(
                         " · ${s.durationDays} dn." + if (s.locked) " · 🔒" else "",
                     color = fg.copy(alpha = 0.85f),
                     fontSize = 10.sp,
+                    lineHeight = 13.sp,
+                    style = NoPad,
                     maxLines = 1,
                     overflow = TextOverflow.Clip,
                 )
@@ -1111,12 +1115,19 @@ private fun StageBar(
                 Modifier
                     .align(Alignment.TopEnd)
                     .padding(top = 2.dp, end = 12.dp)
-                    .size(14.dp)
+                    .size(16.dp)
                     .clip(CircleShape)
                     .background(palette.warn),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("!", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    "!",
+                    color = Color.White,
+                    fontSize = 11.sp,
+                    lineHeight = 11.sp,
+                    style = NoPad,
+                    fontWeight = FontWeight.Bold,
+                )
             }
         }
         // Uchwyt długości — ciągnięcie bez przytrzymania, jak w panelu.
@@ -1288,3 +1299,11 @@ private fun LegendItem(label: String, bg: Color, fg: Color, dashed: Boolean = fa
 internal fun crewColor(hex: String?, fallback: Color): Color =
     hex?.let { runCatching { Color(android.graphics.Color.parseColor(it)) }.getOrNull() } ?: fallback
 
+
+/**
+ * Tekst bez dodatkowego marginesu fontu: w pasku o stałej wysokości Android
+ * dokłada nad i pod literami kilka pikseli i drugi wiersz wypadał poza pasek.
+ */
+private val NoPad = androidx.compose.ui.text.TextStyle(
+    platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = false),
+)

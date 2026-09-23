@@ -1484,6 +1484,13 @@ val MIGRATION_28_29 = object : Migration(28, 29) {
  */
 val MIGRATION_33_34 = object : Migration(33, 34) {
     override fun migrate(db: SupportSQLiteDatabase) {
+        // Numer 33 miały na telefonach DWA różne schematy: z repo (Montaż)
+        // i z lokalnego builda modułu Cele, który nie znał ani wizytówki
+        // (31→32), ani tabel Montażu (32→33). Taka baza wywracała Rooma przy
+        // walidacji `clients` (2026-09-23, telefon koordynatora). Oba kroki
+        // są idempotentne, więc powtarzamy je tu bez szkody dla baz z repo.
+        MIGRATION_31_32.migrate(db)
+        MIGRATION_32_33.migrate(db)
         db.execSQL(
             """
             CREATE TABLE IF NOT EXISTS `goal_views` (
