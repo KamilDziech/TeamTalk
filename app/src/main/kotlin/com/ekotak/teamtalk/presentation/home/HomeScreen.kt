@@ -25,6 +25,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -45,7 +48,12 @@ import androidx.compose.ui.unit.dp
  * AppTopBar, wpuszczając gradient pod pasek).
  */
 @Composable
-fun HomeScreen(onOpenModule: (HomeModule) -> Unit) {
+fun HomeScreen(
+    onOpenModule: (HomeModule) -> Unit,
+    viewModel: HomeViewModel = hiltViewModel(),
+) {
+    val permissions by viewModel.permissions.collectAsState()
+    val modules = HOME_MODULES.filter { it.requiredPermission == null || it.requiredPermission in permissions }
     Scaffold(
         contentWindowInsets = WindowInsets.statusBars,
     ) { padding ->
@@ -58,7 +66,7 @@ fun HomeScreen(onOpenModule: (HomeModule) -> Unit) {
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            items(HOME_MODULES, key = { it.key }) { module ->
+            items(modules, key = { it.key }) { module ->
                 ModuleTile(module = module, onClick = { onOpenModule(module) })
             }
         }

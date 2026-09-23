@@ -1423,4 +1423,32 @@ interface TeamTalkApi {
     /** Zamknięcie okresu: migawka wyniku i propozycja punktów motywacyjnych. */
     @POST("api/goals/{id}/close")
     suspend fun closeGoal(@Path("id") id: String): GoalDto
+
+    // ── Harmonogram ekip (kafelek „Harmonogram") ──────────────────────────────
+    // Wszystkie trasy na `installation.assign` (koordynator, zarząd, admin).
+    // Zmiana terminu, ekipy i składu idzie ZWYKŁYM `PATCH /installations/{id}`
+    // (`updateMontaz`) — tak samo jak w panelu; serwer zapisuje szkic, a ekipy
+    // widzą go po „Opublikuj tydzień".
+
+    /** Oś czasu: ekipy, ludzie, urlopy, dni z obłożeniem, etapy i „Do zaplanowania". */
+    @GET("api/schedule")
+    suspend fun getCrewSchedule(
+        @Query("from") from: String,
+        @Query("to") to: String,
+    ): ScheduleDto
+
+    /** „Opublikuj tydzień": szkice tygodnia stają się wersją ekip + Odprawa do obsady. */
+    @POST("api/schedule/publish")
+    suspend fun publishScheduleWeek(@Body request: SchedulePublishRequest): SchedulePublishResponse
+
+    /** Firmowy przełącznik: czy ekipy widzą dopiero wersję opublikowaną. */
+    @PUT("api/schedule/settings")
+    suspend fun setScheduleSettings(@Body request: ScheduleSettingsRequest): JsonObject
+
+    /** „Zaplanuj" deala z etapu „Montaż" — po jednym etapie na instalację z zakresu. */
+    @POST("api/schedule/deal/{dealId}/plan")
+    suspend fun planScheduleDeal(
+        @Path("dealId") dealId: String,
+        @Body body: JsonObject,
+    ): SchedulePlanDealResponse
 }

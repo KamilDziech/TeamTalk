@@ -50,6 +50,7 @@ import com.ekotak.teamtalk.presentation.installations.JobPackingScreen
 import com.ekotak.teamtalk.presentation.installations.JobProtocolScreen
 import com.ekotak.teamtalk.presentation.installations.JobScreen
 import com.ekotak.teamtalk.presentation.installations.JobsScreen
+import com.ekotak.teamtalk.presentation.schedule.CrewScheduleScreen
 import com.ekotak.teamtalk.presentation.home.homeModule
 import com.ekotak.teamtalk.presentation.inventory.InventoryScreen
 import com.ekotak.teamtalk.presentation.inventory.ProductDetailScreen
@@ -286,6 +287,8 @@ private fun MainScreen(
                             // Kafelek „Montaże" — moduł montażysty (pakowanie,
                             // dojazd, protokół), nie planowanie z panelu.
                             "installations" -> "installations"
+                            // Harmonogram ekip — planowanie koordynatora 1:1 z panelem.
+                            "crew-schedule" -> "crew-schedule"
                             else -> "module/${module.key}"
                         }
                         navController.navigate(route)
@@ -517,6 +520,16 @@ private fun MainScreen(
                         viewModel = hiltViewModel(parent),
                     )
                 }
+            }
+
+            // ── Harmonogram ekip (kafelek pulpitu) ────────────────────────────
+            // Oś ekip × dni z panelu (`/app/schedule`): przeciąganie etapów,
+            // szuflada etapu, „Do zaplanowania" i publikacja tygodnia.
+            composable("crew-schedule") {
+                CrewScheduleScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onOpenDeal = { dealId -> navController.navigate("deal/$dealId") },
+                )
             }
 
             // ── Email (kafelek pulpitu = poczta huba Komunikacja) ─────────────

@@ -26,6 +26,11 @@ data class HomeModule(
     /** Kolor akcentu kafelka (META[key].color w board360). */
     val color: Color,
     val icon: ImageVector,
+    /**
+     * Uprawnienie, bez którego kafelka nie widać (jak `roles` w rejestrze
+     * panelu). `null` = widzi każdy, a o odmowie mówi dopiero ekran modułu.
+     */
+    val requiredPermission: String? = null,
 )
 
 // ── Pomocniki: SVG board360 → ImageVector ────────────────────────────────────
@@ -182,6 +187,23 @@ val HOME_MODULES: List<HomeModule> = listOf(
             "M9 5v11M15 5v11M3 10.5h18",
             "M12 16v4M8.5 20h7",
         ),
+    ),
+    // Harmonogram ekip — oś montaży koordynatora, 1:1 z modułem panelu
+    // (`crew-schedule`, w menu między Montażami a Serwisem). Kafelek widzą
+    // tylko ci, którzy planują: `installation.assign` = koordynator, zarząd
+    // i admin (decyzja 2026-09-23). Monter ma swoje „Montaże".
+    HomeModule(
+        key = "crew-schedule",
+        label = "Harmonogram",
+        desc = "Ekipy na osi czasu — planowanie i publikacja tygodnia",
+        color = Color(0xFF3FB6A8),
+        icon = moduleIcon(
+            rect(3f, 4f, 18f, 17f, 2f),
+            "M3 9h18",
+            "M7 13h7",
+            "M10 17h8",
+        ),
+        requiredPermission = "installation.assign",
     ),
     HomeModule(
         key = "projects",

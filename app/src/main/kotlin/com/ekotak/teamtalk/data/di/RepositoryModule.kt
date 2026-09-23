@@ -139,4 +139,10 @@ abstract class RepositoryModule {
     abstract fun bindGoalRepository(
         impl: GoalRepositoryImpl,
     ): GoalRepository
+
+    /** Harmonogram ekip (kafelek „Harmonogram") — oś montaży koordynatora. */
+    @Binds @Singleton
+    abstract fun bindCrewScheduleRepository(
+        impl: CrewScheduleRepositoryImpl,
+    ): CrewScheduleRepository
 }

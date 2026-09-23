@@ -236,8 +236,17 @@ class MontazRepositoryImpl @Inject constructor(
             return MontazSaveResult.QUEUED
         }
 
+        // Czekająca zmiana (także przesunięcie z Harmonogramu ekip — ta sama
+        // kolejka) idzie RAZEM z nową; samo skasowanie wpisu po wysłaniu nowej
+        // zgubiłoby ją bez śladu.
+        val waiting = dao.getMutationPayload(id, KIND_PATCH)?.let(::parse)
+        val merged = if (waiting == null) body else buildJsonObject {
+            waiting.forEach { (key, value) -> put(key, value) }
+            body.forEach { (key, value) -> put(key, value) }
+        }
+
         return try {
-            val updated = api.updateMontaz(id, body)
+            val updated = api.updateMontaz(id, merged)
             dao.upsertMontaz(updated.toEntity(json, System.currentTimeMillis()))
             dao.deleteMutation(id, KIND_PATCH)
             MontazSaveResult.SENT
