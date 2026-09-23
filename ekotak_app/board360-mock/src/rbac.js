@@ -71,6 +71,12 @@ const ALL_PERMS = [
   // Faktury pobrane z KSeF. To ksiegowosc, wiec prawo ma admin/zarzad/biuro —
   // handlowiec widzi na karcie kwoty z umowy, ale nie wystawione faktury.
   'ksef.view',
+  // Modul Cele — ODCZYT ma kazda rola (`goals.view`), bo kazdy widzi swoje cele
+  // i cele firmy. `goals.manage` (zakladanie i zamykanie celow) ma wylacznie
+  // zarzad; zwierzchnik robi to bez tej flagi, przez `hrProfiles.managerId` —
+  // i wlasnie na tym stoi test zakladki „Zespolu" z konta koordynatora.
+  'goals.view',
+  'goals.manage',
 ];
 
 const ROLE_PERMS = {
@@ -82,6 +88,7 @@ const ROLE_PERMS = {
     'service.view', 'service.manage', 'calendar.view', 'calendar.override_busy',
     'offer.manage', 'order.manage', 'inventory.view', 'inventory.manage',
     'hr.view', 'installation.view', 'installation.assign', 'briefing.publish',
+    'goals.view',
   ],
   // Serwisant widzi projekty, ale nie zaklada w nich zadan — na tym koncie da sie
   // na telefonie sprawdzic, ze krok "projekt" w kreatorze konczy sie kodem 403.
@@ -90,7 +97,7 @@ const ROLE_PERMS = {
   serwisant: [
     'crm.view', 'telephony.use', 'tasks.view', 'tasks.manage', 'projects.view',
     'service.view', 'service.manage', 'calendar.view', 'hr.view',
-    'installation.view',
+    'installation.view', 'goals.view',
   ],
   // Biuro celowo BEZ serwisu — tak samo jak w board360, gdzie modul Serwis ma
   // role admin / koordynator / serwisant / montaz. Konta biurowego seed nie
@@ -102,16 +109,16 @@ const ROLE_PERMS = {
     'hr.view', 'hr.manage',
     // Biuro obsluguje kontakt@ekotak.pl na co dzien — widzi cala skrzynke.
     'email.view_all',
-    'installation.view', 'ksef.view',
+    'installation.view', 'ksef.view', 'goals.view',
   ],
   // Montaz widzi magazyn, ale nie zaklada zamowien — na tym koncie sprawdza sie
   // zakladka „Zamowienie" w wariancie „rezerwacja jest, zamowien nie widac".
   montaz: [
     'crm.view', 'tasks.view', 'tasks.manage', 'projects.view',
     'service.view', 'service.manage', 'calendar.view', 'inventory.view',
-    'hr.view', 'installation.view',
+    'hr.view', 'installation.view', 'goals.view',
   ],
-  stazysta: ['hr.view'],
+  stazysta: ['hr.view', 'goals.view'],
 };
 
 const permsFor = (role) => ROLE_PERMS[role] || [];

@@ -73,6 +73,7 @@ app.use('/api', require('./src/routes/installations'));
 app.use('/api', require('./src/routes/invoices'));
 app.use('/api', require('./src/routes/preferences'));
 app.use('/api', require('./src/routes/whatsapp'));
+app.use('/api', require('./src/routes/goals'));
 
 app.use((req, res) => res.status(404).json({ message: `Brak trasy: ${req.method} ${req.path}` }));
 

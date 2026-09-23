@@ -42,6 +42,7 @@ import com.ekotak.teamtalk.presentation.briefing.BriefingScreen
 import com.ekotak.teamtalk.presentation.leave.LeaveScreen
 import com.ekotak.teamtalk.presentation.map.MapScreen
 import com.ekotak.teamtalk.presentation.map.RouteHistoryScreen
+import com.ekotak.teamtalk.presentation.goals.GoalsScreen
 import com.ekotak.teamtalk.presentation.home.HomeScreen
 import com.ekotak.teamtalk.presentation.assistant.AssistantScreen
 import com.ekotak.teamtalk.presentation.home.ModulePlaceholderScreen
@@ -280,6 +281,8 @@ private fun MainScreen(
                             "inventory" -> "inventory"
                             "projects" -> "projects"
                             "training" -> "training"
+                            // Kafelek „Cele" — trzy zakładki 1:1 z panelem.
+                            "goals" -> "goals"
                             // Kafelek „Montaże" — moduł montażysty (pakowanie,
                             // dojazd, protokół), nie planowanie z panelu.
                             "installations" -> "installations"
@@ -316,6 +319,13 @@ private fun MainScreen(
                         }
                     },
                 )
+            }
+
+            // ── Cele (kafelek pulpitu) ─────────────────────────────────────────
+            // Pełne 1:1 z /app/goals panelu: cele osobiste, działu i firmy,
+            // kreator, wpis ręczny i zamykanie okresu — wszystko z pełnym offline.
+            composable("goals") {
+                GoalsScreen(onNavigateBack = { navController.popBackStack() })
             }
 
             // ── Asystent (kafelek pulpitu) ─────────────────────────────────────

@@ -118,6 +118,20 @@ val HOME_MODULES: List<HomeModule> = listOf(
             "M18 14.4a6 6 0 0 1 3 5.1",
         ),
     ),
+    // Cele (decyzja 2026-09-23). Raporty świadomie pominięto na mobile jako
+    // „biurkowe", ale cel jest OSOBISTY: człowiek w terenie ma widzieć, ile
+    // dowiózł i czy jest w tempie, bez wracania do biurka.
+    HomeModule(
+        key = "goals",
+        label = "Cele",
+        desc = "Cele osobiste, działu i firmy — realizacja i tempo okresu",
+        color = Color(0xFFFBBF24),
+        icon = moduleIcon(
+            circle(12f, 12f, 8f),
+            circle(12f, 12f, 4.4f),
+            circle(12f, 12f, 1.2f),
+        ),
+    ),
     HomeModule(
         key = "map",
         label = "Mapa",

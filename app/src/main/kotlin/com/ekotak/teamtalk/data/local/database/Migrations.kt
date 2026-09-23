@@ -1463,3 +1463,67 @@ val MIGRATION_28_29 = object : Migration(28, 29) {
         db.addColumnIfMissing("audit_mutations", "conflictAt", "INTEGER")
     }
 }
+
+/**
+ * 33 → 34: moduł Cele — cele osobiste, działu i firmy z pełnym offline.
+ *
+ * Cztery tabele. Trzy pierwsze to cache migawek (`goal_views`), przebiegów
+ * do wykresu (`goal_trends`) i katalogu mierników (`goal_catalog`) — każda
+ * trzyma odpowiedź serwera W CAŁOŚCI jako JSON, bo realizację i status liczy
+ * wyłącznie serwer, a dopisanie miernika w panelu nie ma wymuszać migracji
+ * bazy na telefonach zespołu.
+ *
+ * Czwarta, `goal_mutations`, to kolejka decyzji podjętych bez zasięgu —
+ * jedyna ich kopia do czasu wysłania, więc tę wersję robimy migracją,
+ * a nie skasowaniem cache'u.
+ *
+ * Wszystkie `IF NOT EXISTS` z tego samego powodu, co `addColumnIfMissing`
+ * przy kolumnach: na telefonach zespołu tabela bywa już założona mimo niższej
+ * wersji bazy (starszy build wgrany po nowszym), a wyjątek z `migrate()`
+ * zamurowałby Rooma na stałe.
+ */
+val MIGRATION_33_34 = object : Migration(33, 34) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `goal_views` (
+                `key` TEXT NOT NULL,
+                `payload` TEXT NOT NULL,
+                `syncedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`key`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `goal_trends` (
+                `goalId` TEXT NOT NULL,
+                `payload` TEXT NOT NULL,
+                `syncedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`goalId`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `goal_catalog` (
+                `id` INTEGER NOT NULL,
+                `payload` TEXT NOT NULL,
+                `syncedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `goal_mutations` (
+                `goalId` TEXT NOT NULL,
+                `field` TEXT NOT NULL,
+                `payload` TEXT NOT NULL,
+                `createdAt` INTEGER NOT NULL,
+                PRIMARY KEY(`goalId`, `field`)
+            )
+            """.trimIndent(),
+        )
+    }
+}

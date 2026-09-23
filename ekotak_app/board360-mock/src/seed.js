@@ -2691,6 +2691,34 @@ function seedComms(db, users, { dAudit, dOffer, wisniewski }) {
     createdAt: daysAgo(0.4),
     updatedAt: daysAgo(0.4),
   });
+
+  // ── Regulamin punktowy (modul Zespol) ──────────────────────────────────────
+  // Cztery pozycje wystarcza, zeby kreator celu mial z czego wybrac nagrode
+  // i zeby dalo sie sprawdzic propozycje punktow po zamknieciu okresu.
+  const rules = [
+    { code: 'CEL_KWARTALNY', name: 'Cel kwartalny osiagniety', category: 'Wyniki', points: 50 },
+    { code: 'CEL_MIESIECZNY', name: 'Cel miesieczny osiagniety', category: 'Wyniki', points: 20 },
+    { code: 'SLA_100', name: 'Pelne dotrzymanie SLA', category: 'Terminowosc', points: 30 },
+    { code: 'SZKOLENIE', name: 'Szkolenie zaliczone w terminie', category: 'Rozwoj', points: 10 },
+  ];
+  rules.forEach((r, i) => {
+    db.motivationRules.push({
+      id: uuid(),
+      organizationId: db.organization.id,
+      code: r.code,
+      name: r.name,
+      category: r.category,
+      points: r.points,
+      period: 'quarter',
+      mode: 'manual',
+      source: 'Cele',
+      notes: '',
+      active: true,
+      sortOrder: i,
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+    });
+  });
 }
 
 module.exports = { seed, makeDeal, daysAgo, daysAhead, nowIso };

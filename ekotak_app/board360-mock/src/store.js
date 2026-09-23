@@ -105,6 +105,18 @@ const db = {
   // statusem `pending_config` — atrapa robi tak samo, zeby telefon zobaczyl
   // dokladnie ten stan, ktory zobaczy na produkcji. Okno 24h liczy sie od
   // ostatniej wiadomosci PRZYCHODZACEJ (regula WhatsApp Business).
+  // ── Punkty motywacyjne (modul Zespol) ──────────────────────────────────────
+  // Atrapa trzyma sam TARYFIKATOR i przyznania — tyle, ile potrzebuje modul
+  // Cele, zeby dalo sie przypisac nagrode i sprawdzic, ze zamkniecie okresu
+  // zaklada PROPOZYCJE punktow (status `proposed`, zatwierdza zarzad).
+  motivationRules: [],  // {id, organizationId, code, name, category, points, active, sortOrder}
+  motivationPoints: [], // {id, organizationId, userId, points, reason, ruleId, status, awardedOn}
+  // ── Modul Cele ─────────────────────────────────────────────────────────────
+  // Cel trzyma samo ZOBOWIAZANIE; realizacje liczy sie przy odczycie z deali,
+  // ofert, audytow i zlecen — tak samo jak w board360.
+  goals: [],           // {id, organizationId, scope, ownerUserId, teamKey, metric, name, target, direction, periodKey, warnAtPct, status}
+  goalCheckins: [],    // {id, organizationId, goalId, value, note, reportedOn} — STAN celu `manual`
+  goalSnapshots: [],   // {id, organizationId, goalId, value, pct, closedAt} — wynik na zamkniecie okresu
   whatsappMessages: [], // {id, organizationId, dealId, direction, body, template, status, createdAt}
 };
 

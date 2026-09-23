@@ -49,6 +49,9 @@ class NotificationHelper @Inject constructor(
         /** Reguły: pytanie czekające na odpowiedź (moduł „Reguły"). */
         const val RULES_CHANNEL_ID = "rule_questions"
 
+        /** Cele: zapis z kolejki, którego serwer nie przyjął. */
+        const val GOALS_CHANNEL_ID = "goals_sync"
+
         /** Jedno powiadomienie na przypomnienia — kolejne podmienia poprzednie. */
         private const val REMINDER_NOTIFICATION_ID = 4200
         private val idCounter = AtomicInteger(1000)
@@ -399,6 +402,42 @@ class NotificationHelper @Inject constructor(
             .build()
 
         NotificationManagerCompat.from(context).notify(runId.hashCode(), notification)
+    }
+
+    /**
+     * Cel albo wpis zapisany bez zasięgu, którego serwer nie przyjął — zwykle
+     * dlatego, że cel w międzyczasie skasowano albo okres już zamknięto.
+     * Człowiek widział zapis na ekranie jako zrobiony, więc musi się dowiedzieć,
+     * że go nie ma.
+     */
+    fun showGoalNotification(title: String, text: String, notificationId: Int) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED
+        ) return
+
+        val contentIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            notificationId,
+            contentIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+        val notification = NotificationCompat.Builder(context, GOALS_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_ekotak)
+            .setColor(ContextCompat.getColor(context, R.color.ekotak_green))
+            .setContentTitle(title)
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .build()
+
+        NotificationManagerCompat.from(context).notify(notificationId, notification)
     }
 
     fun showMissedCallNotification(callerLabel: String, callLogId: String? = null) {

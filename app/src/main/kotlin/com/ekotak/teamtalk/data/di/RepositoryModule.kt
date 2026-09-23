@@ -133,4 +133,10 @@ abstract class RepositoryModule {
     abstract fun bindMontazJobRepository(
         impl: MontazJobRepositoryImpl,
     ): MontazJobRepository
+
+    /** Moduł Cele — cele osobiste, działu i firmy z pełnym offline. */
+    @Binds @Singleton
+    abstract fun bindGoalRepository(
+        impl: GoalRepositoryImpl,
+    ): GoalRepository
 }

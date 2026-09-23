@@ -331,6 +331,15 @@ class TeamTalkApp : Application(), Configuration.Provider {
             )
             nm.createNotificationChannel(
                 NotificationChannel(
+                    NotificationHelper.GOALS_CHANNEL_ID,
+                    "Cele",
+                    NotificationManager.IMPORTANCE_DEFAULT,
+                ).apply {
+                    description = "Zapis celu zrobiony bez zasięgu, którego serwer nie przyjął"
+                }
+            )
+            nm.createNotificationChannel(
+                NotificationChannel(
                     CallMonitorService.CHANNEL_ID,
                     "Monitorowanie połączenia",
                     NotificationManager.IMPORTANCE_LOW,

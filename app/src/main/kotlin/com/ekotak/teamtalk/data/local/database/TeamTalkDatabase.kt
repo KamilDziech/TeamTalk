@@ -74,10 +74,14 @@ import com.ekotak.teamtalk.data.local.entity.*
         MontazPackEntity::class,
         MontazMutationEntity::class,
         MontazJobEntity::class,
+        GoalViewEntity::class,
+        GoalTrendEntity::class,
+        GoalCatalogEntity::class,
+        GoalMutationEntity::class,
         MontazProtocolEntity::class,
         LeadOutboxEntity::class,
     ],
-    version = 33,
+    version = 34,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -111,4 +115,5 @@ abstract class TeamTalkDatabase : RoomDatabase() {
     abstract fun dealCommsDao(): DealCommsDao
     abstract fun montazDao(): MontazDao
     abstract fun leadOutboxDao(): LeadOutboxDao
+    abstract fun goalDao(): GoalDao
 }
