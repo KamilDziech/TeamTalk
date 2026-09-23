@@ -6,20 +6,27 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.ekotak.teamtalk.data.local.preferences.SessionPreferences
 import com.ekotak.teamtalk.data.notification.NotificationHelper
-import com.ekotak.teamtalk.domain.repository.DiscussionRepository
+import com.ekotak.teamtalk.domain.model.ChatKind
+import com.ekotak.teamtalk.domain.repository.ChatRepository
 import com.ekotak.teamtalk.presentation.crm.parseIsoMillis
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.first
 
 /**
- * Powiadomienia o wywołaniach (@) w komentarzach zadań.
+ * Powiadomienia Komunikatora.
  *
- * board360 nie wysyła pusha, więc pytamy sami — co 15 minut (krócej WorkManager
- * i tak nie pozwala), wzorem skanera nieodebranych połączeń. Trąbimy tylko o
- * dyskusjach z nieprzeczytanymi, których ostatni komentarz jest NOWSZY niż
- * ostatnie pokazane powiadomienie — inaczej ten sam komentarz wracałby co
- * kwadrans do skutku.
+ * board360 nie wysyła jeszcze pusha (projekt Firebase dopiero przed nami), więc
+ * pytamy sami — co 15 minut, bo krócej WorkManager i tak nie pozwala. To jest
+ * TYMCZASOWE: gdy dojdzie FCM, ten robotnik zostaje wyłącznie jako siatka
+ * bezpieczeństwa na telefony z ubitym kanałem pusha.
+ *
+ * Trąbimy o rozmowach z nieprzeczytanymi, których ostatnia wiadomość jest
+ * NOWSZA niż ostatnie pokazane powiadomienie — inaczej ta sama wiadomość
+ * wracałaby co kwadrans do skutku. Wyciszone rozmowy pomijamy, a z pozostałych
+ * bierzemy wiadomości prywatne (rozmowa dwóch osób jest zawsze do mnie) oraz
+ * wywołania przez „@" w grupach i wątkach zadań — reszta grupowego ruchu
+ * zostaje przy liczniku w skrzynce, bez wibrowania telefonem.
  *
  * Bez sesji nie ma czego pytać: robotnik kończy się sukcesem, żeby WorkManager
  * nie próbował w kółko po wylogowaniu.
@@ -28,7 +35,7 @@ import kotlinx.coroutines.flow.first
 class MentionsWorker @AssistedInject constructor(
     @Assisted context: Context,
     @Assisted params: WorkerParameters,
-    private val discussions: DiscussionRepository,
+    private val chat: ChatRepository,
     private val sessionPreferences: SessionPreferences,
     private val notifications: NotificationHelper,
 ) : CoroutineWorker(context, params) {
@@ -41,26 +48,29 @@ class MentionsWorker @AssistedInject constructor(
         sessionPreferences.token.first() ?: return Result.success()
 
         val seenAt = sessionPreferences.mentionsSeenAt.first()
-        val list = runCatching { discussions.listDiscussions() }
-            .getOrElse { return Result.retry() }
+        val threads = runCatching { chat.listThreads() }.getOrElse { return Result.retry() }
 
         var newest = seenAt
-        for (discussion in list) {
-            val comment = discussion.lastComment ?: continue
-            val at = parseIsoMillis(comment.createdAt) ?: continue
+        for (thread in threads) {
+            val message = thread.lastMessage ?: continue
+            val at = parseIsoMillis(message.createdAt) ?: continue
             if (at > newest) newest = at
-            // Powiadamiamy tylko o WYWOŁANIACH (@), nie o każdym nowym
-            // komentarzu w dyskusji, w której bierzemy udział: kanał nazywa się
-            // „Wywołania w zadaniach" i tak go człowiek rozumie. Zwykłe odpowiedzi
-            // widać po liczniku w skrzynce — bez wibrowania telefonu.
-            if (!discussion.mentionedMe || discussion.unreadCount == 0 || at <= seenAt) continue
+
+            if (thread.muted || thread.unreadCount == 0 || at <= seenAt) continue
             // Pierwsze uruchomienie (seenAt == 0) nie zasypuje szuflady zaległą
-            // korespondencją — zapamiętujemy stan i trąbimy dopiero od następnego.
+            // korespondencją — zapamiętujemy stan i trąbimy od następnego razu.
             if (seenAt == 0L) continue
-            notifications.showMentionNotification(
-                title = discussion.title,
-                teaser = "${comment.authorName}: ${comment.body}",
-                taskId = discussion.taskId,
+            val worthNotifying = thread.kind == ChatKind.DIRECT || thread.mentionedMe
+            if (!worthNotifying) continue
+
+            notifications.showChatNotification(
+                title = thread.title,
+                teaser = if (thread.kind == ChatKind.DIRECT) {
+                    message.preview
+                } else {
+                    "${message.authorName}: ${message.preview}"
+                },
+                threadId = thread.id,
             )
         }
 

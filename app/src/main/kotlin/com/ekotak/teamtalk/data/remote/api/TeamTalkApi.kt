@@ -1451,4 +1451,124 @@ interface TeamTalkApi {
         @Path("dealId") dealId: String,
         @Body body: JsonObject,
     ): SchedulePlanDealResponse
+
+    // ── Komunikator (`/api/chat/…`) ─────────────────────────────────────────
+    //
+    // Czat zespołu na wzór WhatsAppa. Jedna skrzynka na rozmowy dwóch osób,
+    // grupy, kanały ogłoszeń ORAZ wątki komentarzy zadań — te ostatnie mają id
+    // z przedrostkiem `task:`, więc ścieżki biorą zwykły string. Strumienia SSE
+    // telefon nie słucha: powiadomienia chodzą robotnikiem, a wątek odświeża
+    // się przy wejściu i przy odsłonięciu ekranu.
+
+    @GET("api/chat/threads")
+    suspend fun getChatThreads(@Query("archived") archived: String? = null): List<ChatThreadDto>
+
+    @GET("api/chat/unread-count")
+    suspend fun getChatUnreadCount(): UnreadCountDto
+
+    @GET("api/chat/people")
+    suspend fun getChatPeople(): List<ChatPersonDto>
+
+    @GET("api/chat/search")
+    suspend fun searchChat(@Query("q") query: String): List<ChatSearchHitDto>
+
+    @GET("api/chat/starred")
+    suspend fun getStarredChatMessages(): List<ChatSearchHitDto>
+
+    @GET("api/chat/threads/{id}")
+    suspend fun getChatThread(
+        @Path("id") id: String,
+        @Query("before") before: String? = null,
+    ): ChatThreadDetailDto
+
+    @POST("api/chat/direct")
+    suspend fun openChatDirect(@Body request: OpenDirectRequest): ChatIdResponse
+
+    @POST("api/chat/groups")
+    suspend fun createChatGroup(@Body request: CreateChatGroupRequest): ChatIdResponse
+
+    @POST("api/chat/threads/{id}/messages")
+    suspend fun sendChatMessage(
+        @Path("id") id: String,
+        @Body request: SendChatMessageRequest,
+    ): ChatMessageDto
+
+    @POST("api/chat/threads/{id}/polls")
+    suspend fun sendChatPoll(
+        @Path("id") id: String,
+        @Body request: ChatPollRequest,
+    ): ChatMessageDto
+
+    /**
+     * Załącznik: zdjęcie, plik albo głosówka. Metadane nagrania idą polami
+     * formularza (`durationSec`, `waveform` po przecinku), bo upload to
+     * multipart — tak samo, jak przypisanie kadru przy zdjęciach audytu.
+     */
+    @Multipart
+    @POST("api/chat/threads/{id}/attachments")
+    suspend fun sendChatAttachment(
+        @Path("id") id: String,
+        @Part file: MultipartBody.Part,
+        @Part("body") body: okhttp3.RequestBody? = null,
+        @Part("replyToId") replyToId: okhttp3.RequestBody? = null,
+        @Part("durationSec") durationSec: okhttp3.RequestBody? = null,
+        @Part("waveform") waveform: okhttp3.RequestBody? = null,
+    ): ChatMessageDto
+
+    /** Bajty załącznika — telefon zapisuje je do pliku i oddaje systemowi. */
+    @Streaming
+    @GET("api/chat/attachments/{messageId}")
+    suspend fun downloadChatAttachment(@Path("messageId") messageId: String): ResponseBody
+
+    @POST("api/chat/threads/{id}/read")
+    suspend fun markChatRead(@Path("id") id: String)
+
+    @POST("api/chat/threads/{id}/unread")
+    suspend fun markChatUnread(@Path("id") id: String)
+
+    /** Meldunek „doszło" — z niego bierze się drugi ptaszek u nadawcy. */
+    @POST("api/chat/delivered")
+    suspend fun markChatDelivered()
+
+    @POST("api/chat/threads/{id}/typing")
+    suspend fun pingChatTyping(@Path("id") id: String)
+
+    @PATCH("api/chat/threads/{id}/settings")
+    suspend fun patchChatSettings(
+        @Path("id") id: String,
+        @Body request: ChatSettingsRequest,
+    )
+
+    @POST("api/chat/threads/{id}/leave")
+    suspend fun leaveChatThread(@Path("id") id: String)
+
+    @POST("api/chat/threads/{id}/pin-message")
+    suspend fun pinChatMessage(
+        @Path("id") id: String,
+        @Body request: ChatPinMessageRequest,
+    )
+
+    @POST("api/chat/messages/{id}/reactions")
+    suspend fun toggleChatReaction(
+        @Path("id") id: String,
+        @Body request: ChatReactionRequest,
+    )
+
+    @POST("api/chat/messages/{id}/star")
+    suspend fun toggleChatStar(@Path("id") id: String)
+
+    @POST("api/chat/messages/{id}/vote")
+    suspend fun voteChatPoll(
+        @Path("id") id: String,
+        @Body request: ChatVoteRequest,
+    )
+
+    @POST("api/chat/messages/{id}/forward")
+    suspend fun forwardChatMessage(
+        @Path("id") id: String,
+        @Body request: ChatForwardRequest,
+    )
+
+    @GET("api/chat/messages/{id}/receipts")
+    suspend fun getChatReceipts(@Path("id") id: String): ChatReceiptsDto
 }

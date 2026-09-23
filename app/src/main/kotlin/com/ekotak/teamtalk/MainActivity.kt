@@ -52,6 +52,9 @@ class MainActivity : ComponentActivity() {
 
         /** Skrzynka odprawy otwierana z powiadomienia o nowym komunikacie. */
         const val EXTRA_OPEN_BRIEFING = "extra_open_briefing"
+
+        /** Rozmowa w Komunikatorze otwierana z powiadomienia o wiadomości. */
+        const val EXTRA_CHAT_THREAD_ID = "extra_chat_thread_id"
     }
 
     private val settingsVm: SettingsViewModel by viewModels()
@@ -63,6 +66,7 @@ class MainActivity : ComponentActivity() {
     private var deepLinkLeaveTab by mutableStateOf<String?>(null)
     private var deepLinkOpenEmail by mutableStateOf(false)
     private var deepLinkOpenBriefing by mutableStateOf(false)
+    private var deepLinkChatThreadId by mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -75,6 +79,7 @@ class MainActivity : ComponentActivity() {
         deepLinkLeaveTab = intent.getStringExtra(EXTRA_LEAVE_TAB)
         deepLinkOpenEmail = intent.getBooleanExtra(EXTRA_OPEN_EMAIL, false)
         deepLinkOpenBriefing = intent.getBooleanExtra(EXTRA_OPEN_BRIEFING, false)
+        deepLinkChatThreadId = intent.getStringExtra(EXTRA_CHAT_THREAD_ID)
         if (intent.getBooleanExtra(EXTRA_OPEN_POST_CALL_NOTE, false)) {
             deepLinkPostCallPhone = intent.getStringExtra(EXTRA_POST_CALL_PHONE) ?: ""
         }
@@ -113,6 +118,7 @@ class MainActivity : ComponentActivity() {
                         deepLinkLeaveTab = deepLinkLeaveTab,
                         deepLinkOpenEmail = deepLinkOpenEmail,
                         deepLinkOpenBriefing = deepLinkOpenBriefing,
+                        deepLinkChatThreadId = deepLinkChatThreadId,
                     )
                 }
             }
@@ -128,6 +134,7 @@ class MainActivity : ComponentActivity() {
         deepLinkLeaveTab = intent.getStringExtra(EXTRA_LEAVE_TAB)
         deepLinkOpenEmail = intent.getBooleanExtra(EXTRA_OPEN_EMAIL, false)
         deepLinkOpenBriefing = intent.getBooleanExtra(EXTRA_OPEN_BRIEFING, false)
+        deepLinkChatThreadId = intent.getStringExtra(EXTRA_CHAT_THREAD_ID)
         if (intent.getBooleanExtra(EXTRA_OPEN_POST_CALL_NOTE, false)) {
             deepLinkPostCallPhone = intent.getStringExtra(EXTRA_POST_CALL_PHONE) ?: ""
         }

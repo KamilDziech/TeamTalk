@@ -66,7 +66,8 @@ import com.ekotak.teamtalk.presentation.service.WarrantyCardScreen
 import com.ekotak.teamtalk.presentation.settings.SettingsScreen
 import com.ekotak.teamtalk.presentation.task.CreateTaskScreen
 import com.ekotak.teamtalk.presentation.task.CreateTaskViewModel
-import com.ekotak.teamtalk.presentation.discussion.DiscussionListScreen
+import com.ekotak.teamtalk.presentation.chat.ChatListScreen
+import com.ekotak.teamtalk.presentation.chat.ChatThreadScreen
 import com.ekotak.teamtalk.presentation.task.TaskDetailScreen
 import com.ekotak.teamtalk.presentation.task.TaskListScreen
 import com.ekotak.teamtalk.presentation.training.LessonScreen
@@ -101,6 +102,8 @@ fun TeamTalkNavGraph(
     deepLinkOpenEmail: Boolean = false,
     /** Wejście z powiadomienia o komunikacie odprawy (także z Harmonogramu). */
     deepLinkOpenBriefing: Boolean = false,
+    /** Wejście z powiadomienia o wiadomości w Komunikatorze. */
+    deepLinkChatThreadId: String? = null,
 ) {
     val navController = rememberNavController()
     val sessionState by viewModel.sessionState.collectAsState()
@@ -145,6 +148,7 @@ fun TeamTalkNavGraph(
                 deepLinkLeaveTab = deepLinkLeaveTab,
                 deepLinkOpenEmail = deepLinkOpenEmail,
                 deepLinkOpenBriefing = deepLinkOpenBriefing,
+                deepLinkChatThreadId = deepLinkChatThreadId,
             )
         }
     }
@@ -163,6 +167,8 @@ private fun MainScreen(
     deepLinkOpenEmail: Boolean = false,
     /** Wejście z powiadomienia o komunikacie odprawy. */
     deepLinkOpenBriefing: Boolean = false,
+    /** Wejście z powiadomienia o wiadomości w Komunikatorze. */
+    deepLinkChatThreadId: String? = null,
 ) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -217,6 +223,14 @@ private fun MainScreen(
         }
     }
 
+    // Powiadomienie o wiadomości prowadzi WPROST do rozmowy — po to się je
+    // klika. Id wątku bywa `task:<taskId>`, więc w ścieżce jedzie zakodowane.
+    LaunchedEffect(deepLinkChatThreadId) {
+        deepLinkChatThreadId?.let { threadId ->
+            navController.navigate("chat/${Uri.encode(threadId)}") { launchSingleTop = true }
+        }
+    }
+
     // Komunikat odprawy prowadzi do skrzynki: treść jest w środku, a przy
     // okazji widać, co jeszcze czeka na odhaczenie.
     LaunchedEffect(deepLinkOpenBriefing) {
@@ -266,7 +280,7 @@ private fun MainScreen(
                             "crm" -> "crm"
                             "lead" -> "lead"
                             "tasks" -> "tasks"
-                            "communication" -> "discussions"
+                            "communication" -> "chat"
                             "map" -> "map"
                             "service" -> "service"
                             // Drugie wejście do TEGO SAMEGO ekranu, otwarte od razu
@@ -609,11 +623,26 @@ private fun MainScreen(
                 )
             }
 
-            // ── Komunikator wewnętrzny (kafelek „Komunikacja") ─────────────────
-            composable("discussions") {
-                DiscussionListScreen(
-                    onOpenTask = { taskId -> navController.navigate("task/$taskId") },
+            // ── Komunikator (kafelek „Komunikacja") ───────────────────────────
+            //
+            // Od 2026-09-23 skrzynka otwiera WŁASNY ekran rozmowy, a nie kartę
+            // zadania: telefon ma czat z dymkami, załącznikami i kolejką offline.
+            // Id wątku bywa `task:<taskId>`, więc w ścieżce jedzie zakodowane.
+            composable("chat") {
+                ChatListScreen(
+                    onOpenThread = { threadId -> navController.navigate("chat/${Uri.encode(threadId)}") },
                     onNavigateBack = { navController.popBackStack() },
+                )
+            }
+
+            composable(
+                route = "chat/{threadId}",
+                arguments = listOf(navArgument("threadId") { type = NavType.StringType }),
+            ) {
+                ChatThreadScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onOpenTask = { taskId -> navController.navigate("task/$taskId") },
+                    onOpenDeal = { dealId -> navController.navigate("deal/$dealId") },
                 )
             }
 

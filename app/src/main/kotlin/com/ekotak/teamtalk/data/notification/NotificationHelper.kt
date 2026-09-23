@@ -97,6 +97,48 @@ class NotificationHelper @Inject constructor(
     }
 
     /**
+     * Nowa wiadomość w Komunikatorze. [title] to nazwa rozmowy, [teaser] —
+     * „Autor: początek treści". Dotknięcie otwiera WPROST tę rozmowę.
+     *
+     * Osobna metoda od [showMentionNotification], bo prowadzi gdzie indziej
+     * (ekran czatu, nie karta zadania) — kanał zostaje ten sam, żeby człowiek
+     * miał jedno miejsce do wyciszenia wszystkiego, co przychodzi od zespołu.
+     *
+     * Id powiadomienia liczymy z id rozmowy: kolejne wiadomości podmieniają
+     * poprzednie zamiast piętrzyć się w szufladzie.
+     */
+    fun showChatNotification(title: String, teaser: String, threadId: String) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED
+        ) return
+
+        val contentIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra(MainActivity.EXTRA_CHAT_THREAD_ID, threadId)
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            threadId.hashCode(),
+            contentIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+        val notification = NotificationCompat.Builder(context, MENTIONS_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_ekotak)
+            .setColor(ContextCompat.getColor(context, R.color.ekotak_green))
+            .setContentTitle(title)
+            .setContentText(teaser)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(teaser))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .build()
+
+        NotificationManagerCompat.from(context).notify(threadId.hashCode(), notification)
+    }
+
+    /**
      * Przypomnienie o zadaniach na dziś i zaległych. [taskId] podane, gdy
      * zadanie jest jedno — wtedy dotknięcie prowadzi wprost w jego kartę;
      * przy kilku otwieramy listę, bo nie ma jednego oczywistego celu.

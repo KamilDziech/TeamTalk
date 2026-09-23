@@ -1534,3 +1534,87 @@ val MIGRATION_33_34 = object : Migration(33, 34) {
         )
     }
 }
+
+/**
+ * 34 → 35: Komunikator (czat zespołu na wzór WhatsAppa).
+ *
+ * Cztery tabele. Trzy pierwsze to cache: skrzynka (`chat_threads`), wiadomości
+ * otwartych wątków (`chat_thread_messages`) i katalog osób (`chat_people`).
+ * Każda trzyma odpowiedź serwera W CAŁOŚCI jako JSON w `payload` — kontrakt
+ * wiadomości ma kilkanaście pól i będzie rósł, a dopisanie pola w panelu nie
+ * ma wymuszać kolejnej migracji na telefonach zespołu. Osobnymi kolumnami są
+ * tylko te, po których sortujemy i filtrujemy.
+ *
+ * Czwarta, `chat_mutations`, to kolejka wiadomości napisanych bez zasięgu —
+ * jedyna ich kopia do czasu wysłania, więc tę wersję robimy migracją, a nie
+ * skasowaniem cache'u.
+ *
+ * Wszystkie `IF NOT EXISTS` z tego samego powodu, co przy poprzednich wersjach:
+ * na telefonach zespołu tabela bywa już założona mimo niższej wersji bazy
+ * (starszy build wgrany po nowszym), a wyjątek z `migrate()` zamurowałby
+ * Rooma na stałe.
+ */
+val MIGRATION_34_35 = object : Migration(34, 35) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `chat_threads` (
+                `id` TEXT NOT NULL,
+                `payload` TEXT NOT NULL,
+                `lastAt` TEXT NOT NULL,
+                `pinned` INTEGER NOT NULL,
+                `archived` INTEGER NOT NULL,
+                `syncedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `chat_thread_messages` (
+                `id` TEXT NOT NULL,
+                `threadId` TEXT NOT NULL,
+                `payload` TEXT NOT NULL,
+                `createdAt` TEXT NOT NULL,
+                `syncedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_chat_thread_messages_threadId` " +
+                "ON `chat_thread_messages` (`threadId`)",
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `chat_people` (
+                `id` TEXT NOT NULL,
+                `payload` TEXT NOT NULL,
+                `name` TEXT NOT NULL,
+                `department` TEXT NOT NULL,
+                `syncedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `chat_mutations` (
+                `localId` TEXT NOT NULL,
+                `threadId` TEXT NOT NULL,
+                `kind` TEXT NOT NULL,
+                `payload` TEXT NOT NULL,
+                `filePath` TEXT,
+                `fileName` TEXT,
+                `mimeType` TEXT,
+                `createdAt` INTEGER NOT NULL,
+                PRIMARY KEY(`localId`)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_chat_mutations_threadId` " +
+                "ON `chat_mutations` (`threadId`)",
+        )
+    }
+}
