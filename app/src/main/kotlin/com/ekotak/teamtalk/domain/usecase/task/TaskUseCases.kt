@@ -77,3 +77,25 @@ class ToggleTaskPriorityUseCase @Inject constructor(
             TaskPatch(priority = Edit(if (high) TaskPriority.HIGH else TaskPriority.NORMAL)),
         )
 }
+
+/**
+ * Pytanie reguły przypięte do zadania. Zwraca null dla zadań założonych ręcznie
+ * — karta pokazuje wtedy zwykły widok, bez formularza odpowiedzi.
+ */
+class GetRuleQuestionUseCase @Inject constructor(
+    private val taskRepository: TaskRepository,
+) {
+    suspend operator fun invoke(taskId: String): com.ekotak.teamtalk.domain.model.RuleQuestion? =
+        taskRepository.getRuleQuestion(taskId)
+}
+
+/**
+ * Odpowiedź na pytanie reguły: zapisuje wpis w historii obiektu i zamyka
+ * zadanie. Bez zasięgu odkłada się w kolejce modułu Zadania.
+ */
+class AnswerRuleQuestionUseCase @Inject constructor(
+    private val taskRepository: TaskRepository,
+) {
+    suspend operator fun invoke(taskId: String, runId: String, answer: Map<String, String>) =
+        taskRepository.answerRuleQuestion(taskId, runId, answer)
+}

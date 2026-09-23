@@ -34,5 +34,15 @@ data class TaskMutationEntity(
 
         /** Prefiks identyfikatora nadawanego lokalnie do czasu wysłania. */
         const val LOCAL_ID_PREFIX = "local:"
+
+        /**
+         * Pseudopole odpowiedzi na pytanie reguły. Nie jest łatką zadania:
+         * idzie własnym żądaniem (`POST /api/rules/questions/:runId/answer`),
+         * bo to ono zapisuje wpis w historii pojazdu i dopiero przy okazji
+         * zamyka zadanie. Wysyłane PRZED zwykłymi łatkami tego zadania —
+         * inaczej odhaczenie poszłoby jako osobna zmiana, a odpowiedź
+         * przepadłaby razem z nią.
+         */
+        const val FIELD_RULE_ANSWER = "__rule_answer"
     }
 }

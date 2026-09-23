@@ -5,6 +5,7 @@ import com.ekotak.teamtalk.data.local.dao.TaskMutationDao
 import com.ekotak.teamtalk.data.local.entity.TaskEntity
 import com.ekotak.teamtalk.data.local.entity.TaskMutationEntity
 import com.ekotak.teamtalk.data.local.entity.TaskMutationEntity.Companion.FIELD_CREATE
+import com.ekotak.teamtalk.data.local.entity.TaskMutationEntity.Companion.FIELD_RULE_ANSWER
 import com.ekotak.teamtalk.data.local.entity.TaskMutationEntity.Companion.LOCAL_ID_PREFIX
 import com.ekotak.teamtalk.data.local.preferences.SessionPreferences
 import com.ekotak.teamtalk.data.mapper.applyPatch
@@ -15,9 +16,13 @@ import com.ekotak.teamtalk.data.remote.api.TeamTalkApi
 import com.ekotak.teamtalk.data.remote.dto.AddCommentRequest
 import com.ekotak.teamtalk.data.remote.dto.CreateTaskRequest
 import com.ekotak.teamtalk.data.remote.dto.PreferenceSetRequest
+import com.ekotak.teamtalk.data.remote.dto.QueuedRuleAnswer
 import com.ekotak.teamtalk.data.remote.dto.QueuedTaskCreate
+import com.ekotak.teamtalk.data.remote.dto.RuleAnswerRequest
 import com.ekotak.teamtalk.data.remote.dto.buildTaskPatch
 import com.ekotak.teamtalk.data.sync.TaskSyncScheduler
+import com.ekotak.teamtalk.domain.model.PendingRuleQuestion
+import com.ekotak.teamtalk.domain.model.RuleQuestion
 import com.ekotak.teamtalk.domain.model.Task
 import com.ekotak.teamtalk.domain.model.TaskAttachment
 import com.ekotak.teamtalk.domain.model.TaskComment
@@ -267,7 +272,21 @@ class TaskRepositoryImpl @Inject constructor(
                 }
             }
 
-            val rows = entries.filter { it.field != FIELD_CREATE }
+            // Odpowiedź na pytanie reguły idzie przed łatkami: to ona zapisuje
+            // wpis w historii pojazdu i zamyka zadanie po stronie serwera.
+            val ruleAnswer = entries.firstOrNull { it.field == FIELD_RULE_ANSWER }
+            if (ruleAnswer != null) {
+                when (sendQueuedRuleAnswer(taskId, ruleAnswer.payload)) {
+                    QueuedOutcome.Sent -> Unit
+                    QueuedOutcome.Retry -> {
+                        networkFailed = true
+                        continue
+                    }
+                    QueuedOutcome.Dropped -> Unit
+                }
+            }
+
+            val rows = entries.filter { it.field != FIELD_CREATE && it.field != FIELD_RULE_ANSWER }
             if (rows.isEmpty()) continue
             val body = buildJsonObject {
                 rows.forEach { row ->
@@ -449,6 +468,110 @@ class TaskRepositoryImpl @Inject constructor(
         )
         syncScheduler.scheduleSync()
         return entity
+    }
+
+    // ── Pytania reguł ──────────────────────────────────────────────────────
+
+    /**
+     * Pytanie przypięte do zadania. Bez zasięgu oddajemy `null` zamiast rzucać:
+     * karta ma się otworzyć i pokazać to, co wie, a nie wywalić się dlatego, że
+     * nie dało się sprawdzić, czy zadanie pochodzi z reguły.
+     */
+    override suspend fun getRuleQuestion(taskId: String): RuleQuestion? = try {
+        api.getRuleQuestion(taskId)?.toDomain()
+    } catch (_: IOException) {
+        null
+    }
+
+    /**
+     * Odpowiedź na pytanie reguły. Bez zasięgu ląduje w kolejce zadania, a samo
+     * zadanie zamyka się lokalnie — człowiek w terenie ma zobaczyć skutek swojej
+     * decyzji od razu, tak samo jak przy każdej innej zmianie w module Zadania.
+     */
+    override suspend fun answerRuleQuestion(
+        taskId: String,
+        runId: String,
+        answer: Map<String, String>,
+    ) {
+        val body = buildJsonObject {
+            answer.forEach { (key, value) -> if (value.isNotBlank()) put(key, JsonPrimitive(value)) }
+        }
+        try {
+            api.answerRuleQuestion(runId, RuleAnswerRequest(body))
+            taskDao.getById(taskId)?.let { taskDao.upsert(it.copy(status = "done")) }
+            return
+        } catch (_: IOException) {
+            // Brak sieci — do kolejki (niżej).
+        }
+        mutationDao.upsertAll(
+            listOf(
+                TaskMutationEntity(
+                    taskId = taskId,
+                    field = FIELD_RULE_ANSWER,
+                    payload = json.encodeToString(
+                        QueuedRuleAnswer.serializer(),
+                        QueuedRuleAnswer(runId = runId, answer = body),
+                    ),
+                    createdAt = System.currentTimeMillis(),
+                ),
+            ),
+        )
+        taskDao.getById(taskId)?.let { taskDao.upsert(it.copy(status = "done")) }
+        syncScheduler.scheduleSync()
+    }
+
+    override suspend fun getPendingRuleQuestions(): List<PendingRuleQuestion> = try {
+        api.getPendingRuleQuestions().map {
+            PendingRuleQuestion(
+                runId = it.runId,
+                taskId = it.taskId,
+                ruleName = it.ruleName,
+                question = it.question,
+                subjectLabel = it.subjectLabel,
+                occurredAt = it.occurredAt,
+            )
+        }
+    } catch (_: IOException) {
+        emptyList()
+    }
+
+    /** Co się stało z zakolejkowanym żądaniem spoza `PATCH`-a zadania. */
+    private enum class QueuedOutcome { Sent, Retry, Dropped }
+
+    /**
+     * Wysyła odpowiedź odłożoną bez zasięgu. Odmowa serwera (410/403 — ktoś
+     * odpowiedział przed nami albo pytanie trafiło gdzie indziej) jest
+     * ostateczna: wpis znika z kolejki, a człowiek dostaje o tym komunikat,
+     * bo to jego notatka przepadła.
+     */
+    private suspend fun sendQueuedRuleAnswer(taskId: String, payload: String): QueuedOutcome {
+        val queued = try {
+            json.decodeFromString(QueuedRuleAnswer.serializer(), payload)
+        } catch (_: Exception) {
+            mutationDao.delete(taskId, listOf(FIELD_RULE_ANSWER))
+            return QueuedOutcome.Dropped
+        }
+        return try {
+            api.answerRuleQuestion(queued.runId, RuleAnswerRequest(queued.answer))
+            mutationDao.delete(taskId, listOf(FIELD_RULE_ANSWER))
+            QueuedOutcome.Sent
+        } catch (_: IOException) {
+            QueuedOutcome.Retry
+        } catch (e: HttpException) {
+            mutationDao.delete(taskId, listOf(FIELD_RULE_ANSWER))
+            val title = taskDao.getById(taskId)?.title
+            sessionPreferences.saveSyncProblem(ruleAnswerDiscardMessage(title, e.code()))
+            QueuedOutcome.Dropped
+        }
+    }
+
+    private fun ruleAnswerDiscardMessage(taskTitle: String?, code: Int): String {
+        val what = if (taskTitle != null) "„$taskTitle”" else "reguły"
+        return when (code) {
+            403 -> "Odpowiedź na pytanie $what przepadła — pytanie trafiło do kogoś innego."
+            404 -> "Odpowiedź na pytanie $what przepadła — pytania już nie ma."
+            else -> "Odpowiedź na pytanie $what przepadła — serwer ją odrzucił (kod $code)."
+        }
     }
 
     private companion object {

@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ekotak.teamtalk.domain.model.Edit
+import com.ekotak.teamtalk.domain.model.RuleQuestion
 import com.ekotak.teamtalk.domain.model.Task
 import com.ekotak.teamtalk.domain.model.TaskAttachment
 import com.ekotak.teamtalk.domain.model.TaskComment
@@ -14,6 +15,8 @@ import com.ekotak.teamtalk.domain.model.TaskSection
 import com.ekotak.teamtalk.domain.model.slaLabel
 import com.ekotak.teamtalk.domain.model.TaskStatus
 import com.ekotak.teamtalk.domain.usecase.task.AddTaskCommentUseCase
+import com.ekotak.teamtalk.domain.usecase.task.AnswerRuleQuestionUseCase
+import com.ekotak.teamtalk.domain.usecase.task.GetRuleQuestionUseCase
 import com.ekotak.teamtalk.domain.usecase.task.DeleteTaskAttachmentUseCase
 import com.ekotak.teamtalk.domain.usecase.task.DeleteTaskUseCase
 import com.ekotak.teamtalk.domain.usecase.task.DownloadTaskAttachmentUseCase
@@ -58,6 +61,8 @@ class TaskDetailViewModel @Inject constructor(
     private val deleteAttachment: DeleteTaskAttachmentUseCase,
     private val getTaskMembers: GetTaskMembersUseCase,
     private val markDiscussionRead: MarkDiscussionReadUseCase,
+    private val getRuleQuestion: GetRuleQuestionUseCase,
+    private val answerRuleQuestion: AnswerRuleQuestionUseCase,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -76,6 +81,12 @@ class TaskDetailViewModel @Inject constructor(
         val sending: Boolean = false,
         val uploading: Boolean = false,
         val attachments: List<TaskAttachment> = emptyList(),
+        /**
+         * Pytanie reguły przypięte do tego zadania. null = zadanie założone
+         * ręcznie; wtedy karta wygląda jak zawsze.
+         */
+        val ruleQuestion: RuleQuestion? = null,
+        val answeringRule: Boolean = false,
     )
 
     private val _uiState = MutableStateFlow(UiState())
@@ -85,6 +96,7 @@ class TaskDetailViewModel @Inject constructor(
         load()
         loadMembers()
         loadAttachments()
+        loadRuleQuestion()
     }
 
     private fun load() {
@@ -122,6 +134,59 @@ class TaskDetailViewModel @Inject constructor(
                         it.copy(members = members, membersById = members.associateBy { m -> m.id })
                     }
                 }
+        }
+    }
+
+
+    // ── Pytanie reguły ─────────────────────────────────────────────────────
+
+    /**
+     * Zadanie z akcji „Zapytaj człowieka" ma formularz odpowiedzi zamiast
+     * samego odhaczenia. Pytanie dociągamy osobno i po cichu: brak zasięgu
+     * albo zadanie spoza reguł to zwyczajny brak formularza, nie błąd karty.
+     */
+    private fun loadRuleQuestion() {
+        viewModelScope.launch {
+            runCatching { getRuleQuestion(taskId) }
+                .onSuccess { question -> _uiState.update { it.copy(ruleQuestion = question) } }
+        }
+    }
+
+    /**
+     * Wysłanie odpowiedzi. Serwer zamyka zadanie sam, więc po zapisie
+     * odświeżamy kartę — także po to, by pokazać stan „czeka na wysyłkę",
+     * gdy odpowiedź poszła do kolejki offline.
+     */
+    fun answerRule(answer: Map<String, String>) {
+        val question = _uiState.value.ruleQuestion ?: return
+        val missing = question.fields.firstOrNull { it.required && answer[it.key].isNullOrBlank() }
+        if (missing != null) {
+            _uiState.update { it.copy(error = "Pole „${missing.label}” jest wymagane.") }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(answeringRule = true, error = null) }
+            try {
+                answerRuleQuestion(taskId, question.runId, answer)
+                _uiState.update {
+                    it.copy(
+                        answeringRule = false,
+                        message = "Odpowiedź zapisana.",
+                        ruleQuestion = question.copy(
+                            answered = true,
+                            answerNote = answer["note"],
+                        ),
+                    )
+                }
+                load()
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        answeringRule = false,
+                        error = crmErrorMessage(e, "Nie udało się zapisać odpowiedzi"),
+                    )
+                }
+            }
         }
     }
 

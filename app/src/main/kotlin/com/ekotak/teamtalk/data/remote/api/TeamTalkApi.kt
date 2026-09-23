@@ -1347,4 +1347,80 @@ interface TeamTalkApi {
      */
     @GET("api/domain-skills/me")
     suspend fun getMySkills(): MySkillsEnvelopeDto
+
+    // ── Pytania reguł (moduł „Reguły") ────────────────────────────────────
+
+    /**
+     * Pytanie doczepione do zadania. Reguła zakłada zwykłe zadanie, ale karta
+     * ma pokazać formularz zamiast samego „odhacz" — stąd osobne pytanie przy
+     * otwarciu. Zadanie spoza reguł oddaje puste ciało (null).
+     *
+     * Trasa stoi POZA uprawnieniem `rules.manage`: odpowiada osoba, do której
+     * zadanie trafiło, a nie zarząd.
+     */
+    @GET("api/rules/questions/by-task/{taskId}")
+    suspend fun getRuleQuestion(@Path("taskId") taskId: String): RuleQuestionDto?
+
+    /**
+     * Pytania reguł czekające na zalogowanego — źródło powiadomień w telefonie.
+     * Serwer oddaje tylko te, których zadanie jest przypisane tej osobie i wciąż
+     * otwarte: na zamknięte zadanie nikt nie czeka z odpowiedzią.
+     */
+    @GET("api/rules/questions/pending")
+    suspend fun getPendingRuleQuestions(): List<PendingRuleQuestionDto>
+
+    /** Odpowiedź na pytanie reguły — zamyka zadanie i zapisuje wpis w historii. */
+    @POST("api/rules/questions/{runId}/answer")
+    suspend fun answerRuleQuestion(
+        @Path("runId") runId: String,
+        @Body request: RuleAnswerRequest,
+    ): RuleAnswerResultDto
+
+    // ── Cele (moduł „Cele") ───────────────────────────────────────────────
+    //
+    // Te same trasy, co panel (decyzja 2026-09-23): realizację i status liczy
+    // serwer, telefon tylko rysuje. Odczyt stoi za `goals.view`, które ma
+    // KAŻDA rola; zapis bramkuje serwer — `goals.manage` albo bycie
+    // zwierzchnikiem adresata (`users.managerId`).
+
+    /** Katalog mierników i działów — z tego buduje się kreator celu. */
+    @GET("api/goals/metrics")
+    suspend fun getGoalCatalog(): GoalCatalogDto
+
+    /** Cele osobiste: bez `userId` własne, z nim — podwładnego. */
+    @GET("api/goals/personal")
+    suspend fun getPersonalGoals(
+        @Query("period") period: String,
+        @Query("userId") userId: String? = null,
+    ): PersonalGoalsDto
+
+    @GET("api/goals/team")
+    suspend fun getTeamGoals(
+        @Query("period") period: String,
+        @Query("team") team: String,
+    ): TeamGoalsDto
+
+    @GET("api/goals/company")
+    suspend fun getCompanyGoals(@Query("period") period: String): CompanyGoalsDto
+
+    /** Przebieg celu narastająco — osiem cięć okresu do wykresu. */
+    @GET("api/goals/{id}/trend")
+    suspend fun getGoalTrend(@Path("id") id: String): GoalTrendDto
+
+    @POST("api/goals")
+    suspend fun createGoal(@Body body: GoalWriteDto): GoalDto
+
+    @PATCH("api/goals/{id}")
+    suspend fun updateGoal(@Path("id") id: String, @Body body: GoalWriteDto): GoalDto
+
+    @DELETE("api/goals/{id}")
+    suspend fun deleteGoal(@Path("id") id: String): Response<Unit>
+
+    /** Wpis ręczny do celu `manual` — stan na dany dzień. */
+    @POST("api/goals/{id}/checkin")
+    suspend fun checkinGoal(@Path("id") id: String, @Body body: GoalCheckinDto): Response<Unit>
+
+    /** Zamknięcie okresu: migawka wyniku i propozycja punktów motywacyjnych. */
+    @POST("api/goals/{id}/close")
+    suspend fun closeGoal(@Path("id") id: String): GoalDto
 }

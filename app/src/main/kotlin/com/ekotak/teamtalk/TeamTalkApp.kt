@@ -28,6 +28,7 @@ import com.ekotak.teamtalk.worker.BriefingWorker
 import com.ekotak.teamtalk.worker.CalendarReminderWorker
 import com.ekotak.teamtalk.worker.LeaveNotifyWorker
 import com.ekotak.teamtalk.worker.MentionsWorker
+import com.ekotak.teamtalk.worker.RuleQuestionWorker
 import com.ekotak.teamtalk.worker.ServiceSlaWorker
 import com.ekotak.teamtalk.worker.TaskReminderWorker
 import dagger.hilt.android.HiltAndroidApp
@@ -71,6 +72,7 @@ class TeamTalkApp : Application(), Configuration.Provider {
         createNotificationChannel()
         scheduleMentionsPolling()
         scheduleBriefingPolling()
+        scheduleRuleQuestionPolling()
         scheduleTaskReminders()
         scheduleSlaAlerts()
         scheduleCalendarReminders()
@@ -121,6 +123,25 @@ class TeamTalkApp : Application(), Configuration.Provider {
             .build()
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             MentionsWorker.UNIQUE_NAME,
+            ExistingPeriodicWorkPolicy.KEEP,
+            request,
+        )
+    }
+
+    /**
+     * Pytania reguł czekające na odpowiedź. Ten sam rytm co wywołania — co
+     * kwadrans i tylko przy sieci, bo źródłem jest trasa w board360.
+     */
+    private fun scheduleRuleQuestionPolling() {
+        val request = PeriodicWorkRequestBuilder<RuleQuestionWorker>(15, TimeUnit.MINUTES)
+            .setConstraints(
+                Constraints.Builder()
+                    .setRequiredNetworkType(NetworkType.CONNECTED)
+                    .build(),
+            )
+            .build()
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            RuleQuestionWorker.UNIQUE_NAME,
             ExistingPeriodicWorkPolicy.KEEP,
             request,
         )
@@ -297,6 +318,15 @@ class TeamTalkApp : Application(), Configuration.Provider {
                     NotificationManager.IMPORTANCE_DEFAULT,
                 ).apply {
                     description = "Lead zapisany bez zasięgu, którego serwer nie przyjął"
+                }
+            )
+            nm.createNotificationChannel(
+                NotificationChannel(
+                    NotificationHelper.RULES_CHANNEL_ID,
+                    "Pytania reguł",
+                    NotificationManager.IMPORTANCE_DEFAULT,
+                ).apply {
+                    description = "Reguła pyta, co wpisać — np. po wizycie auta w warsztacie"
                 }
             )
             nm.createNotificationChannel(

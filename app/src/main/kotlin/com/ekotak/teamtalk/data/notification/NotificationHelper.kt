@@ -46,6 +46,8 @@ class NotificationHelper @Inject constructor(
 
         /** Komunikaty odprawy — także te z Harmonogramu („Opublikuj tydzień"). */
         const val BRIEFING_CHANNEL_ID = "briefing"
+        /** Reguły: pytanie czekające na odpowiedź (moduł „Reguły"). */
+        const val RULES_CHANNEL_ID = "rule_questions"
 
         /** Jedno powiadomienie na przypomnienia — kolejne podmienia poprzednie. */
         private const val REMINDER_NOTIFICATION_ID = 4200
@@ -358,6 +360,45 @@ class NotificationHelper @Inject constructor(
             .build()
 
         NotificationManagerCompat.from(context).notify(notificationId, notification)
+    }
+
+    /**
+     * Pytanie reguły czekające na odpowiedź. Dotknięcie otwiera kartę zadania,
+     * w której siedzi formularz — bo odpowiedzi udziela się tam, a nie
+     * w powiadomieniu.
+     *
+     * Id liczone z `runId`: kolejny przebieg robotnika podmienia powiadomienie
+     * o tym samym pytaniu, zamiast mnożyć je w szufladzie.
+     */
+    fun showRuleQuestionNotification(title: String, text: String, taskId: String, runId: String) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED
+        ) return
+
+        val contentIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra(MainActivity.EXTRA_TASK_ID, taskId)
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            runId.hashCode(),
+            contentIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+        val notification = NotificationCompat.Builder(context, RULES_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_ekotak)
+            .setColor(ContextCompat.getColor(context, R.color.ekotak_green))
+            .setContentTitle(title)
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .build()
+
+        NotificationManagerCompat.from(context).notify(runId.hashCode(), notification)
     }
 
     fun showMissedCallNotification(callerLabel: String, callLogId: String? = null) {

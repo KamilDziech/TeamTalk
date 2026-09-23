@@ -1,5 +1,7 @@
 package com.ekotak.teamtalk.domain.repository
 
+import com.ekotak.teamtalk.domain.model.PendingRuleQuestion
+import com.ekotak.teamtalk.domain.model.RuleQuestion
 import com.ekotak.teamtalk.domain.model.Task
 import com.ekotak.teamtalk.domain.model.TaskAttachment
 import com.ekotak.teamtalk.domain.model.TaskComment
@@ -135,4 +137,24 @@ interface TaskRepository {
         link: TaskLink = TaskLink.None,
         section: TaskSection? = null,
     ): Task
+
+    /**
+     * Pytanie reguły przypięte do zadania — `null`, gdy zadanie założył człowiek
+     * albo gdy nie dało się tego sprawdzić bez zasięgu (karta ma się otworzyć
+     * tak czy inaczej).
+     */
+    suspend fun getRuleQuestion(taskId: String): RuleQuestion?
+
+    /**
+     * Odpowiedź na pytanie reguły: zapis wpisu w historii obiektu i zamknięcie
+     * zadania. Bez zasięgu ląduje w kolejce zadania, a zadanie zamyka się
+     * lokalnie.
+     */
+    suspend fun answerRuleQuestion(taskId: String, runId: String, answer: Map<String, String>)
+
+    /**
+     * Pytania reguł czekające na zalogowanego — pod powiadomienie w tle.
+     * Bez zasięgu pusta lista: robotnik spróbuje przy następnym przebiegu.
+     */
+    suspend fun getPendingRuleQuestions(): List<PendingRuleQuestion>
 }

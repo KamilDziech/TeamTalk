@@ -162,6 +162,18 @@ fun TaskDetailScreen(
                     ) {
                         if (task != null) {
                             item { TaskHeader(task, state.saving, viewModel) }
+                            // Zadanie z reguły pyta, a nie czeka na odhaczenie —
+                            // formularz odpowiedzi stoi zaraz pod nagłówkiem, bo
+                            // to jedyna rzecz, której ta karta od kogoś wymaga.
+                            state.ruleQuestion?.let { question ->
+                                item {
+                                    RuleQuestionCard(
+                                        question = question,
+                                        saving = state.answeringRule,
+                                        onAnswer = viewModel::answerRule,
+                                    )
+                                }
+                            }
                             item {
                                 TaskFieldRows(
                                     task = task,

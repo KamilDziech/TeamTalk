@@ -28,6 +28,7 @@ class SessionPreferences @Inject constructor(
         private val KEY_THEME          = stringPreferencesKey("theme_mode")
         private val KEY_MENTIONS_SEEN_AT = longPreferencesKey("mentions_seen_at")
         private val KEY_BRIEFING_SEEN_AT = longPreferencesKey("briefing_seen_at")
+        private val KEY_RULE_QUESTIONS_SEEN = stringPreferencesKey("rule_questions_seen")
         private val KEY_SYNC_PROBLEM   = stringPreferencesKey("task_sync_problem")
         private val KEY_REMINDERS_DAY  = longPreferencesKey("task_reminders_day")
 
@@ -104,6 +105,22 @@ class SessionPreferences @Inject constructor(
 
     suspend fun saveBriefingSeenAt(millis: Long) {
         dataStore.edit { it[KEY_BRIEFING_SEEN_AT] = millis }
+     * Pytania reguł, o których już trąbiliśmy (id zadziałań po przecinku).
+     * Tu nie wystarczy znacznik czasu jak przy wywołaniach: pytanie wisi
+     * w stanie „czeka" tak długo, aż ktoś odpowie, więc bez listy widzianych
+     * wracałoby w powiadomieniu co kwadrans.
+     */
+    val ruleQuestionsSeen: Flow<Set<String>> = dataStore.data.map { prefs ->
+        prefs[KEY_RULE_QUESTIONS_SEEN]
+            ?.split(',')
+            ?.filter { it.isNotBlank() }
+            ?.toSet()
+            .orEmpty()
+    }
+
+    /** Zapisujemy tylko pytania WCIĄŻ oczekujące — lista nie puchnie w nieskończoność. */
+    suspend fun saveRuleQuestionsSeen(ids: Set<String>) {
+        dataStore.edit { it[KEY_RULE_QUESTIONS_SEEN] = ids.joinToString(",") }
     }
 
     /**
