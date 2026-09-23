@@ -105,6 +105,9 @@ class SessionPreferences @Inject constructor(
 
     suspend fun saveBriefingSeenAt(millis: Long) {
         dataStore.edit { it[KEY_BRIEFING_SEEN_AT] = millis }
+    }
+
+    /**
      * Pytania reguł, o których już trąbiliśmy (id zadziałań po przecinku).
      * Tu nie wystarczy znacznik czasu jak przy wywołaniach: pytanie wisi
      * w stanie „czeka" tak długo, aż ktoś odpowie, więc bez listy widzianych
