@@ -237,6 +237,7 @@ fun ChatThreadScreen(
                             onForward = { viewModel.forward(message, emptyList()) },
                             onReceipts = { viewModel.showReceipts(message) },
                             onVote = { viewModel.vote(message, it) },
+                            onOpenOrigin = onOpenTask,
                             onOpenAttachment = {
                                 viewModel.openAttachment(message) { file ->
                                     openFile.launch(file.viewIntent(context, message))

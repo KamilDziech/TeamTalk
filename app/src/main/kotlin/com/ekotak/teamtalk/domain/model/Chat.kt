@@ -124,6 +124,11 @@ data class ChatQuoted(
     val preview: String,
 )
 
+data class ChatOrigin(
+    val taskId: String,
+    val title: String,
+)
+
 data class ChatReaction(
     val emoji: String,
     val count: Int,
@@ -148,6 +153,9 @@ data class ChatMessage(
     val linkPreview: ChatLinkPreview?,
     val reactions: List<ChatReaction>,
     val starred: Boolean,
+    /** Grupa klienta (od 2026-09-24): zadanie deala, pod którym padł komentarz;
+     *  null = karta deala albo zwykły czat. */
+    val origin: ChatOrigin? = null,
     /** Czeka w kolejce offline — dymek jest przygaszony, a zamiast ptaszka zegar. */
     val pending: Boolean = false,
 ) {

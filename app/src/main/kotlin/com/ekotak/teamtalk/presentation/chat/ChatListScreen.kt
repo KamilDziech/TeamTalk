@@ -322,7 +322,7 @@ private fun ChatThreadRow(
                     if (thread.kind == ChatKind.TASK) {
                         Spacer(Modifier.width(6.dp))
                         Text(
-                            text = "zadanie",
+                            text = if (thread.dealId != null) "klient" else "zadanie",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

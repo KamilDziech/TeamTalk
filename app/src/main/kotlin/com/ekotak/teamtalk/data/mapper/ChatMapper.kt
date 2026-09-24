@@ -18,6 +18,7 @@ import com.ekotak.teamtalk.domain.model.ChatLastMessage
 import com.ekotak.teamtalk.domain.model.ChatLinkPreview
 import com.ekotak.teamtalk.domain.model.ChatMessage
 import com.ekotak.teamtalk.domain.model.ChatMessageKind
+import com.ekotak.teamtalk.domain.model.ChatOrigin
 import com.ekotak.teamtalk.domain.model.ChatPerson
 import com.ekotak.teamtalk.domain.model.ChatPoll
 import com.ekotak.teamtalk.domain.model.ChatQuoted
@@ -93,6 +94,7 @@ fun ChatMessageDto.toDomain(): ChatMessage = ChatMessage(
     linkPreview = linkPreview?.toDomain(),
     reactions = reactions.map { it.toDomain() },
     starred = starred,
+    origin = origin?.let { ChatOrigin(taskId = it.taskId, title = it.title.ifBlank { "Zadanie" }) },
 )
 
 fun ChatThreadDto.toDomain(pendingCount: Int = 0): ChatThread = ChatThread(

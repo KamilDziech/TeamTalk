@@ -78,6 +78,8 @@ fun ChatBubble(
     onReceipts: () -> Unit,
     onVote: (Int) -> Unit,
     onOpenAttachment: () -> Unit,
+    /** Grupa klienta: stuknięcie w plakietkę zadania otwiera jego kartę. */
+    onOpenOrigin: (String) -> Unit = {},
 ) {
     if (message.kind == ChatMessageKind.SYSTEM) {
         ChatCenterChip(message.body)
@@ -129,6 +131,19 @@ fun ChatBubble(
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = EkotakGreen,
+                    )
+                }
+
+                message.origin?.let { origin ->
+                    Text(
+                        text = "Zadanie: ${origin.title}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .padding(bottom = 2.dp)
+                            .clickable { onOpenOrigin(origin.taskId) },
                     )
                 }
 

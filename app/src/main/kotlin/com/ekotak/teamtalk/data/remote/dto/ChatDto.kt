@@ -88,6 +88,14 @@ data class ChatMessageDto(
     val mentionedIds: List<String> = emptyList(),
     val reactions: List<ChatReactionDto> = emptyList(),
     val starred: Boolean = false,
+    /** Grupa klienta: zadanie deala, pod którym padł komentarz (null = karta deala). */
+    val origin: ChatOriginDto? = null,
+)
+
+@Serializable
+data class ChatOriginDto(
+    val taskId: String,
+    val title: String = "",
 )
 
 @Serializable
