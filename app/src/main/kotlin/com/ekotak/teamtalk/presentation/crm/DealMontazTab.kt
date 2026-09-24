@@ -69,8 +69,9 @@ import com.ekotak.teamtalk.presentation.theme.SyncBlue
  * wybranego montażu. Kolejność sekcji jest ta sama, co w panelu — handlowiec
  * i koordynator znają ją z biurka i szukają tego samego w tym samym miejscu.
  *
- * CZEGO TU NIE MA, tak samo jak w panelu: zmiany TERMINU (przesunięcie widzi
- * pojemność okien, a tę pokazuje wyłącznie moduł „Montaże") i protokołu odbioru
+ * CZEGO TU NIE MA, tak samo jak w panelu: zmiany TERMINU i OBSADY (ekipa,
+ * osoby, role — kto i kiedy układa się wyłącznie w Harmonogramie, decyzja
+ * usera 2026-09-24) i protokołu odbioru
  * (formularz z podpisem inwestora zostaje w panelu).
  *
  * CO TELEFON MA PONAD PANEL — bo w biurze nie miałoby sensu:
@@ -126,7 +127,7 @@ fun DealMontazTab(
         SectionCard {
             Text(
                 text = "Ten deal nie ma jeszcze montaży. Termin rezerwuje się w zakładce " +
-                    "„Oferta”, a planuje w module „Montaże” — albo dodaj etap powyżej.",
+                    "„Oferta”, a planuje w Harmonogramie — albo dodaj etap powyżej.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -140,7 +141,7 @@ fun DealMontazTab(
     ZakresCard(state, selected, viewModel)
     SectionGap()
 
-    ObsadaCard(state, selected, viewModel)
+    ObsadaCard(state, selected)
     SectionGap()
 
     MaterialCard(state, viewModel)
@@ -262,8 +263,8 @@ private fun EtapChip(
 // ── Termin i miejsce ─────────────────────────────────────────────────────────
 
 /**
- * Termin jest tu TYLKO do odczytu, tak samo jak w panelu — przesunięcie musi
- * widzieć pojemność okien tygodnia. Za to telefon dokłada dwie rzeczy, po które
+ * Termin jest tu TYLKO do odczytu, tak samo jak w panelu — układa się go
+ * w Harmonogramie, gdzie widać obłożenie ekip. Za to telefon dokłada dwie rzeczy, po które
  * sięga się w aucie: nawigację pod adres i telefon do klienta.
  */
 @Composable
@@ -316,8 +317,8 @@ private fun TerminCard(
 
         Spacer(Modifier.height(8.dp))
         Text(
-            text = "Termin zmienia się wyłącznie w module „Montaże” — tam widać pojemność " +
-                "okien i przesunięcie nie przepełni tygodnia po cichu.",
+            text = "Termin i obsadę układa się wyłącznie w Harmonogramie w panelu — tam widać " +
+                "obłożenie ekip i urlopy.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -412,16 +413,19 @@ private fun ZakresCard(
 
 // ── Obsada ───────────────────────────────────────────────────────────────────
 
+/**
+ * Obsada TYLKO do odczytu, tak samo jak w panelu (decyzja usera 2026-09-24):
+ * kto montuje i kiedy układa się wyłącznie w Harmonogramie — ekipa, osoby
+ * i role. Karta pokazuje stan i pokrycie ról, żeby ekipa wiedziała, kto jedzie.
+ */
 @Composable
 private fun ObsadaCard(
     state: DealDetailViewModel.UiState,
     selected: Montaz,
-    viewModel: DealDetailViewModel,
 ) {
     val montaz = state.montaz
     val summary = montaz.summary
-    var pickingPerson by remember { mutableStateOf(false) }
-    var roleFor by remember { mutableStateOf<String?>(null) }
+    val crewName = montaz.crews.firstOrNull { it.id == selected.crewId }?.name
 
     SectionCard {
         SectionTitle(
@@ -442,34 +446,9 @@ private fun ObsadaCard(
             Spacer(Modifier.height(8.dp))
         }
 
-        // Ekipa jako skrót do obsady — wybór DOPISUJE skład, nie zastępuje go.
-        Text(
-            text = "Ekipa",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(4.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            ChoicePill(
-                label = "bez ekipy",
-                selected = selected.crewId == null,
-                enabled = !montaz.isSaving,
-                onClick = { viewModel.chooseMontazCrew(null) },
-            )
-            montaz.crews.forEach { crew ->
-                ChoicePill(
-                    label = crew.name,
-                    selected = crew.id == selected.crewId,
-                    enabled = !montaz.isSaving,
-                    onClick = { viewModel.chooseMontazCrew(crew.id) },
-                )
-            }
-        }
+        InfoRow("Ekipa", crewName ?: "bez ekipy")
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(8.dp))
         if (selected.assignees.isEmpty()) {
             Text(
                 text = "Nikt nie przypisany — bez obsady nie da się wysłać odprawy.",
@@ -479,61 +458,18 @@ private fun ObsadaCard(
         } else {
             selected.assignees.forEach { a ->
                 val person = state.members.firstOrNull { it.id == a.userId }
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            text = person?.displayName ?: a.userId,
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                        Text(
-                            text = a.role ?: "bez roli",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (a.role == null) Orange600 else MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    TextButton(
-                        enabled = !montaz.isSaving,
-                        onClick = { roleFor = if (roleFor == a.userId) null else a.userId },
-                    ) { Text("Rola") }
-                    TextButton(
-                        enabled = !montaz.isSaving,
-                        onClick = { viewModel.removeMontazPerson(a.userId) },
-                    ) { Text("Zdejmij") }
-                }
-                if (roleFor == a.userId) {
-                    RolePicker(
-                        roles = montaz.coverage.map { it.role },
-                        current = a.role,
-                        enabled = !montaz.isSaving,
-                        onPick = { role ->
-                            viewModel.setMontazRole(a.userId, role)
-                            roleFor = null
-                        },
+                Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                    Text(
+                        text = person?.displayName ?: a.userId,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        text = a.role ?: "bez roli",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (a.role == null) Orange600 else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
-        }
-
-        Spacer(Modifier.height(8.dp))
-        OutlinedButton(
-            onClick = { pickingPerson = !pickingPerson },
-            enabled = !montaz.isSaving,
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text(if (pickingPerson) "Zamknij listę osób" else "Dopisz osobę") }
-
-        if (pickingPerson) {
-            Spacer(Modifier.height(8.dp))
-            PersonPicker(
-                members = state.members.filterNot { m -> selected.assignees.any { it.userId == m.id } },
-                enabled = !montaz.isSaving,
-                onPick = { userId ->
-                    viewModel.addMontazPerson(userId)
-                    pickingPerson = false
-                },
-            )
         }
 
         if (montaz.coverage.isNotEmpty()) {
@@ -561,7 +497,7 @@ private fun ObsadaCard(
                     RoleState.ASSIGNED -> c.assignedIds.joinToString(", ") { nameOf(state.members, it) }
                     RoleState.SKILLED ->
                         "umie: " + c.skilledIds.joinToString(", ") { nameOf(state.members, it) } +
-                            " — wskaż rolę przy osobie"
+                            " — rolę wskazuje się w Harmonogramie"
                     RoleState.MISSING -> if (c.candidateIds.isEmpty()) {
                         "nikt w zespole nie ma tej umiejętności"
                     } else {
@@ -586,73 +522,13 @@ private fun ObsadaCard(
                 color = Orange600,
             )
         }
-    }
-}
 
-@Composable
-private fun RolePicker(
-    roles: List<String>,
-    current: String?,
-    enabled: Boolean,
-    onPick: (String?) -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        ChoicePill(
-            label = "bez roli",
-            selected = current == null,
-            enabled = enabled,
-            onClick = { onPick(null) },
-        )
-        roles.forEach { role ->
-            ChoicePill(
-                label = role,
-                selected = role == current,
-                enabled = enabled,
-                onClick = { onPick(role) },
-            )
-        }
-    }
-}
-
-@Composable
-private fun PersonPicker(
-    members: List<TaskMember>,
-    enabled: Boolean,
-    onPick: (String) -> Unit,
-) {
-    if (members.isEmpty()) {
+        Spacer(Modifier.height(8.dp))
         Text(
-            text = "Wszyscy z zespołu są już w obsadzie.",
+            text = "Ekipę, osoby i role ustawia się wyłącznie w Harmonogramie w panelu.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        return
-    }
-    // Najpierw ci, którzy cokolwiek umieją montażowo — na budowie szuka się
-    // konkretnej roli, a nie nazwiska z początku alfabetu.
-    members.sortedByDescending { it.skills.size }.forEach { m ->
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(8.dp))
-                .clickable(enabled = enabled) { onPick(m.id) }
-                .padding(vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text(text = m.displayName, style = MaterialTheme.typography.bodyMedium)
-                if (m.skills.isNotEmpty()) {
-                    Text(
-                        text = m.skills.joinToString(", "),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        }
     }
 }
 

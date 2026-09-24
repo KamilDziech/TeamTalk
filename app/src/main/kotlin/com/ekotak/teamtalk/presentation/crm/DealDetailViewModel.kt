@@ -63,7 +63,6 @@ import com.ekotak.teamtalk.domain.model.Mailbox
 import com.ekotak.teamtalk.domain.model.MaterialStatus
 import com.ekotak.teamtalk.domain.model.MeetingKind
 import com.ekotak.teamtalk.domain.model.Montaz
-import com.ekotak.teamtalk.domain.model.MontazAssignee
 import com.ekotak.teamtalk.domain.model.MontazCrew
 import com.ekotak.teamtalk.domain.model.MontazMaterial
 import com.ekotak.teamtalk.domain.model.MontazPhoto
@@ -112,7 +111,6 @@ import com.ekotak.teamtalk.domain.montaz.montazRobota
 import com.ekotak.teamtalk.domain.montaz.montazToolNotes
 import com.ekotak.teamtalk.domain.montaz.montazTools
 import com.ekotak.teamtalk.domain.montaz.roleCoverage
-import com.ekotak.teamtalk.domain.montaz.suggestRole
 import com.ekotak.teamtalk.domain.repository.AuditInstallations
 import com.ekotak.teamtalk.domain.repository.AuditRepository
 import com.ekotak.teamtalk.domain.repository.AuditSaveResult
@@ -4830,74 +4828,6 @@ class DealDetailViewModel @Inject constructor(
             selected.nodeIds + nodeId
         }
         saveMontaz(MontazPatch(nodeIds = next), "Zakres montażu zapisany.")
-    }
-
-    /**
-     * Wybór ekipy WYPEŁNIA obsadę, a nie ją zastępuje: ludzie już dopisani (np.
-     * ktoś spoza ekipy do próby szczelności) zostają, bo to oni jadą, a nie
-     * ekipa jako byt. Wyczyszczenie zdejmuje samą etykietę — skład zostaje.
-     */
-    fun chooseMontazCrew(crewId: String?) {
-        val state = _uiState.value
-        val selected = state.montaz.selected ?: return
-        if (crewId == null) {
-            saveMontaz(MontazPatch(clearCrew = true), "Ekipa odpięta od montażu.")
-            return
-        }
-        val crew = state.montaz.crews.firstOrNull { it.id == crewId } ?: return
-        val have = selected.assignees.map { it.userId }.toSet()
-        val skillsOf = state.members.associate { it.id to it.skills }
-        // Role rozdajemy PO KOLEI, odhaczając zajęte: bez tego trzech ludzi z tą
-        // samą umiejętnością dostałoby trzy razy „Hydraulik", a reszta ról
-        // zostałaby pusta — czyli ten fałszywy obraz obsady, który karta zbija.
-        val taken = selected.assignees.mapNotNull { it.role }.toMutableSet()
-        val added = crew.memberIds
-            .filter { it !in have }
-            .map { userId ->
-                val role = suggestRole(userId, state.montaz.coverage, skillsOf[userId].orEmpty(), taken)
-                if (role != null) taken += role
-                MontazAssignee(userId, role)
-            }
-        saveMontaz(
-            MontazPatch(crewId = crewId, assignees = selected.assignees + added),
-            if (added.isEmpty()) {
-                "Ekipa „${crew.name}” przypisana."
-            } else {
-                "Ekipa „${crew.name}” — dopisano ${added.size} os."
-            },
-        )
-    }
-
-    fun addMontazPerson(userId: String) {
-        val state = _uiState.value
-        val selected = state.montaz.selected ?: return
-        if (selected.assignees.any { it.userId == userId }) return
-        val skills = state.members.firstOrNull { it.id == userId }?.skills.orEmpty()
-        val role = suggestRole(userId, state.montaz.coverage, skills)
-        saveMontaz(
-            MontazPatch(assignees = selected.assignees + MontazAssignee(userId, role)),
-            "${memberName(userId)} dopisany do montażu.",
-        )
-    }
-
-    fun removeMontazPerson(userId: String) {
-        val selected = _uiState.value.montaz.selected ?: return
-        saveMontaz(
-            MontazPatch(assignees = selected.assignees.filterNot { it.userId == userId }),
-            "${memberName(userId)} zdjęty z obsady.",
-        )
-    }
-
-    fun setMontazRole(userId: String, role: String?) {
-        val selected = _uiState.value.montaz.selected ?: return
-        saveMontaz(
-            MontazPatch(
-                assignees = selected.assignees.map {
-                    if (it.userId == userId) it.copy(role = role) else it
-                },
-            ),
-            "Rola zapisana.",
-        )
     }
 
     fun editMontazNote(text: String) {
