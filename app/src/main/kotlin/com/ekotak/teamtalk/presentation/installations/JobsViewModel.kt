@@ -3,6 +3,8 @@ package com.ekotak.teamtalk.presentation.installations
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ekotak.teamtalk.domain.model.MontazJobRow
+import com.ekotak.teamtalk.domain.model.MyDays
+import com.ekotak.teamtalk.domain.repository.CrewScheduleRepository
 import com.ekotak.teamtalk.domain.model.MontazStatus
 import com.ekotak.teamtalk.domain.repository.MontazJobRepository
 import com.ekotak.teamtalk.presentation.crm.parseIsoMillis
@@ -26,6 +28,7 @@ import javax.inject.Inject
 @HiltViewModel
 class JobsViewModel @Inject constructor(
     private val repository: MontazJobRepository,
+    private val schedule: CrewScheduleRepository,
 ) : ViewModel() {
 
     /** Co pokazujemy: moje wyjazdy, wyjazdy ekipy, archiwum. */
@@ -43,6 +46,11 @@ class JobsViewModel @Inject constructor(
         val weekCount: Int = 0,
         val fromCache: Boolean = false,
         val error: String? = null,
+        /**
+         * Dni wolne i pracujące z Harmonogramu (wersja opublikowana): po nich
+         * liczymy koniec montażu z przerwą na weekend czy szkolenie.
+         */
+        val myDays: MyDays? = null,
     )
 
     private val _uiState = MutableStateFlow(UiState())
@@ -69,6 +77,9 @@ class JobsViewModel @Inject constructor(
             val snapshot = runCatching {
                 repository.getJobs(crew = _uiState.value.scope == Scope.CREW)
             }.getOrNull()
+            val today = java.time.LocalDate.now()
+            val days = runCatching { schedule.myDays(today.minusDays(30), today.plusDays(90)) }.getOrNull()
+            if (days != null) _uiState.update { it.copy(myDays = days) }
             all = snapshot?.jobs ?: all
             _uiState.update {
                 it.copy(

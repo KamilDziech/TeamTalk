@@ -180,6 +180,7 @@ fun CrewScheduleScreen(
                             palette = palette,
                             drag = drag,
                             personDrag = personDrag,
+                            onDayTap = viewModel::openDay,
                             onToggle = viewModel::toggle,
                             onSelect = { viewModel.select(it) },
                             onMove = { s, day, crew -> viewModel.moveStage(s, day, crew) },
@@ -303,6 +304,34 @@ fun CrewScheduleScreen(
         )
     }
 
+    state.dayPick?.let { pick ->
+        val sch = state.schedule ?: return@let
+        DaySheet(
+            sch = sch,
+            pick = pick,
+            busy = state.saving,
+            onClose = viewModel::closeDay,
+            onWorkday = viewModel::setCrewWorkday,
+            onBlock = viewModel::blockFromDay,
+        )
+    }
+
+    if (state.blocksOpen) {
+        state.schedule?.let { sch ->
+            BlocksSheet(
+                sch = sch,
+                form = state.blockForm,
+                defaultDay = if (!state.today.isBefore(sch.from) && !state.today.isAfter(sch.to)) state.today else sch.from,
+                busy = state.saving,
+                onClose = viewModel::closeBlocks,
+                onEdit = viewModel::editBlock,
+                onSave = viewModel::saveBlock,
+                onDelete = viewModel::deleteBlock,
+                onRestore = viewModel::restoreBlock,
+            )
+        }
+    }
+
     state.confirm?.let { c ->
         AlertDialog(
             onDismissRequest = viewModel::dismissConfirm,
@@ -336,7 +365,7 @@ private fun Header(
     vm: CrewScheduleViewModel,
 ) {
     val warned = sch.stages.count { it.warnings.isNotEmpty() }
-    val drafts = sch.stages.count { it.draft }
+    val drafts = draftCount(sch)
     val weeks = draftWeeks(sch)
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
 
@@ -374,6 +403,11 @@ private fun Header(
             if (warned > 0) Chip("⚠ $warned z ostrzeżeniem", palette.warnBg, palette.warn)
             if (sch.settings.publishEnabled && drafts > 0) Chip("Szkic: $drafts", palette.plannedBg, palette.planned)
             if (state.pendingCount > 0) Chip("⏳ ${state.pendingCount} czeka na wysłanie", palette.surf2, SyncBlue)
+        }
+
+        val activeBlocks = sch.blocks.count { !it.removed }
+        OutlinedButton(onClick = { vm.openBlocks() }, modifier = Modifier.fillMaxWidth()) {
+            Text("Blokady dni" + if (activeBlocks > 0) " ($activeBlocks)" else "")
         }
 
         if (sch.settings.publishEnabled) {
@@ -729,6 +763,7 @@ private fun ScheduleGrid(
     palette: SchedulePalette,
     drag: BacklogDragState,
     personDrag: PersonDragState,
+    onDayTap: (String, LocalDate) -> Unit,
     onToggle: (String) -> Unit,
     onSelect: (String) -> Unit,
     onMove: (ScheduleStage, LocalDate, String?) -> Unit,
@@ -921,6 +956,8 @@ private fun ScheduleGrid(
                         GridRow.Cap -> CapRow(sch, state.zoom, palette, dayW)
                         is GridRow.Crew -> StageRow(
                             height = r.height,
+                            crewId = r.crew.id,
+                            onDayTap = { day -> onDayTap(r.crew.id, day) },
                             stages = stagesByCrew[r.crew.id].orEmpty(),
                             sch = sch,
                             state = state,
@@ -1077,17 +1114,47 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.bottomLine(color: C
     drawLine(color, Offset(0f, size.height - 0.5f), Offset(size.width, size.height - 0.5f), 1f)
 }
 
-/** Tło dni: weekend/święto przygaszone, dziś podbite, pionowe kreski między dniami. */
-private fun Modifier.dayCells(sch: CrewSchedule, today: LocalDate, palette: SchedulePalette, dayPx: Float): Modifier =
+/**
+ * Tło dni: dzień wolny przygaszony (kalendarz EKIPY — pracująca sobota, blokada
+ * ekipy), blokada w paski, dzień pracy w dzień wolny podkreślony, dziś podbite.
+ */
+private fun Modifier.dayCells(
+    sch: CrewSchedule,
+    today: LocalDate,
+    palette: SchedulePalette,
+    dayPx: Float,
+    crewId: String? = null,
+): Modifier =
     drawBehind {
+        val cal = sch.calendar
         sch.days.forEachIndexed { i, d ->
             val x = i * dayPx
-            if (!d.workday) drawRect(palette.off, Offset(x, 0f), Size(dayPx, size.height))
+            val own = cal.crewDay(crewId, d.date)
+            val work = own?.workday ?: d.workday
+            if (!work) drawRect(palette.off, Offset(x, 0f), Size(dayPx, size.height))
+            if (!work && isBlockLabel(own?.label ?: d.label)) {
+                clipRect(x, 0f, x + dayPx, size.height) {
+                    val step = 10.dp.toPx()
+                    var sx = x - size.height
+                    while (sx < x + dayPx) {
+                        drawLine(palette.blockBg, Offset(sx, size.height), Offset(sx + size.height, 0f), 4.dp.toPx())
+                        sx += step
+                    }
+                }
+            }
+            if (own?.exception == true && work) {
+                drawRect(palette.workExBg, Offset(x, 0f), Size(dayPx, size.height))
+                drawLine(palette.workEx, Offset(x, size.height - 1.dp.toPx()), Offset(x + dayPx, size.height - 1.dp.toPx()), 2.dp.toPx())
+            }
             if (d.date == today) drawRect(palette.planned.copy(alpha = 0.10f), Offset(x, 0f), Size(dayPx, size.height))
             drawLine(palette.line, Offset(x + dayPx - 0.5f, 0f), Offset(x + dayPx - 0.5f, size.height), 1f)
         }
         bottomLine(palette.line)
     }
+
+/** Etykieta dnia wolnego pochodzi z blokady (a nie z weekendu czy święta). */
+internal fun isBlockLabel(label: String?): Boolean =
+    label != null && label != "Dzień wolny" && label != "Święto"
 
 @Composable
 private fun DayCells(sch: CrewSchedule, today: LocalDate, palette: SchedulePalette, dayW: Dp, height: Dp) {
@@ -1111,6 +1178,9 @@ private fun HeadRow(sch: CrewSchedule, state: CrewScheduleViewModel.UiState, pal
                 } else {
                     Text(DOW[d.date.dayOfWeek.value - 1], style = MaterialTheme.typography.labelSmall, color = color)
                     Text(dm(d.date), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = color)
+                    d.label?.let {
+                        Text(it, fontSize = 8.sp, color = palette.block, maxLines = 1, overflow = TextOverflow.Ellipsis, style = NoPad)
+                    }
                 }
             }
         }
@@ -1129,6 +1199,9 @@ private fun CapRow(sch: CrewSchedule, zoom: Int, palette: SchedulePalette, dayW:
                     .background(if (!d.workday) palette.off else if (over) palette.warnBg else Color.Transparent),
                 contentAlignment = Alignment.Center,
             ) {
+                if (!d.workday && d.load > 0) {
+                    Text("${d.load}", style = MaterialTheme.typography.labelSmall, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 if (d.workday) {
                     Text(
                         if (zoom == 35) "${d.load}" else "${d.load}/${d.limit}",
@@ -1157,6 +1230,10 @@ private fun place(sch: CrewSchedule, a: LocalDate, b: LocalDate, dayPx: Float): 
 @Composable
 private fun StageRow(
     height: Dp,
+    /** Ekipa wiersza — jej kalendarz; `null` = „Bez ekipy". */
+    crewId: String? = null,
+    /** Stuknięcie w pusty dzień ekipy (pracujemy / zablokuj). */
+    onDayTap: ((LocalDate) -> Unit)? = null,
     stages: List<ScheduleStage>,
     sch: CrewSchedule,
     state: CrewScheduleViewModel.UiState,
@@ -1182,8 +1259,40 @@ private fun StageRow(
             .fillMaxWidth()
             .height(height)
             .background(if (hot) palette.planned.copy(alpha = 0.14f) else Color.Transparent)
-            .dayCells(sch, state.today, palette, dayPx),
+            .dayCells(sch, state.today, palette, dayPx, crewId)
+            .then(
+                if (onDayTap == null) Modifier else Modifier.pointerInput(sch.from, sch.days.size, dayPx) {
+                    detectTapGestures { p ->
+                        val idx = floor(p.x / dayPx).toInt().coerceIn(0, sch.days.size - 1)
+                        onDayTap(sch.from.plusDays(idx.toLong()))
+                    }
+                },
+            ),
     ) {
+        // Podpisy dni ekipy: blokada albo „pracuje" w dzień wolny.
+        if (crewId != null && state.zoom != 35) {
+            val cal = sch.calendar
+            sch.days.forEachIndexed { i, d ->
+                val own = cal.crewDay(crewId, d.date)
+                val work = own?.workday ?: d.workday
+                val text = when {
+                    own?.exception == true && work -> "pracuje"
+                    !work && isBlockLabel(own?.label ?: d.label) -> own?.label ?: d.label
+                    else -> null
+                } ?: return@forEachIndexed
+                Text(
+                    text,
+                    fontSize = 8.sp,
+                    color = if (work) palette.workEx else palette.block,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = NoPad,
+                    modifier = Modifier
+                        .offset { IntOffset((i * dayPx).roundToInt() + 3.dp.roundToPx(), (height - 12.dp).roundToPx()) }
+                        .width(with(density) { dayPx.toDp() } - 6.dp),
+                )
+            }
+        }
         // Przerwa technologiczna między etapami tego samego deala w tej ekipie.
         stages.forEach { s ->
             if (s.stageNo < 2) return@forEach
@@ -1439,8 +1548,26 @@ private fun PersonRow(
         Modifier
             .fillMaxWidth()
             .height(MEMBER_H)
-            .dayCells(sch, state.today, palette, dayPx),
+            .dayCells(sch, state.today, palette, dayPx, r.home?.id),
     ) {
+        // Blokada osoby (szkolenie jednego montera) — montażu nie przesuwa.
+        sch.blocks.filter { it.userId == pid && !it.removed }.forEach { b ->
+            val (left, width) = place(sch, b.start, b.end, dayPx) ?: return@forEach
+            Box(
+                Modifier
+                    .offset { IntOffset(left.roundToInt(), 4.dp.roundToPx()) }
+                    .width(with(density) { width.toDp() })
+                    .height(MEMBER_H - 8.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(palette.blockBg)
+                    .border(1.dp, palette.block, RoundedCornerShape(4.dp)),
+                contentAlignment = Alignment.CenterStart,
+            ) {
+                if (state.zoom != 35) {
+                    Text(b.label, fontSize = 9.sp, color = palette.block, maxLines = 1, modifier = Modifier.padding(horizontal = 4.dp))
+                }
+            }
+        }
         sch.leaves.filter { it.userId == pid }.forEach { l ->
             val (left, width) = place(sch, l.start, l.end, dayPx) ?: return@forEach
             Box(
@@ -1478,7 +1605,9 @@ private fun PersonRow(
             val sDays = s.workdays(cal)
             val crew = s.crewId?.let { id -> sch.crews.firstOrNull { it.id == id } }
             val borrowed = crew != null && crew.id != r.home?.id
-            val clash = s.warnings.any { w -> w.userId == pid && (w.code == "leave" || w.code == "double_booking") }
+            val clash = s.warnings.any { w ->
+                w.userId == pid && (w.code == "leave" || w.code == "double_booking" || w.code == "person_block")
+            }
             val c = crewColor(crew?.color, palette.muted)
             // Wypożyczenie na część etapu = osobny kawałek na każdy ciąg dni.
             runs(sDays, presence(sDays, a)).forEach piece@{ (a0, b0) ->
@@ -1524,6 +1653,9 @@ private fun Legend(publishEnabled: Boolean, palette: SchedulePalette) {
         LegendItem("Urlop", palette.leave.copy(alpha = 0.5f), palette.leave)
         LegendItem("Przerwa technologiczna", Color.Transparent, palette.muted, dashed = true)
         LegendItem("Czeka na wysłanie", Color.Transparent, SyncBlue, text = "⏳")
+        LegendItem("Dzień wolny", palette.off, palette.line)
+        LegendItem("Blokada", palette.blockBg, palette.block)
+        LegendItem("Ekipa pracuje w dzień wolny", palette.workExBg, palette.workEx)
     }
 }
 

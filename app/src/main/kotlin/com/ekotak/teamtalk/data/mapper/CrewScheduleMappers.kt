@@ -4,7 +4,11 @@ import com.ekotak.teamtalk.data.remote.dto.ScheduleBacklogDto
 import com.ekotak.teamtalk.data.remote.dto.ScheduleDto
 import com.ekotak.teamtalk.data.remote.dto.ScheduleMoveRequest
 import com.ekotak.teamtalk.data.remote.dto.ScheduleStageDto
+import com.ekotak.teamtalk.domain.model.BlockReason
+import com.ekotak.teamtalk.domain.model.BlockScope
 import com.ekotak.teamtalk.domain.model.CrewSchedule
+import com.ekotak.teamtalk.domain.model.ScheduleBlock
+import com.ekotak.teamtalk.domain.model.ScheduleCrewDay
 import com.ekotak.teamtalk.domain.model.DatePrecision
 import com.ekotak.teamtalk.domain.model.PersonMove
 import com.ekotak.teamtalk.domain.model.PublishedVersion
@@ -49,7 +53,7 @@ fun ScheduleDto.toDomain(): CrewSchedule = CrewSchedule(
     },
     people = people.map { SchedulePerson(it.id, it.name, it.skills, it.crewIds, it.montage) },
     leaves = leaves.map { ScheduleLeave(it.userId, day(it.start), day(it.end), it.type) },
-    days = days.map { ScheduleDay(day(it.date), it.workday, it.load, it.limit) },
+    days = days.map { ScheduleDay(day(it.date), it.workday, it.load, it.limit, it.label) },
     stages = stages.map { it.toDomain() },
     backlog = backlog.map { it.toDomain() },
     unplanned = unplanned.map { d ->
@@ -60,6 +64,24 @@ fun ScheduleDto.toDomain(): CrewSchedule = CrewSchedule(
             installationNames = d.installations.map { it.name },
             since = day(d.since),
         )
+    },
+    blocks = calendar.blocks.map { b ->
+        ScheduleBlock(
+            id = b.id,
+            scope = BlockScope.fromWire(b.scope),
+            crewId = b.crewId,
+            userId = b.userId,
+            start = day(b.start),
+            end = day(b.end),
+            reason = BlockReason.fromWire(b.reason),
+            note = b.note,
+            label = b.label,
+            draft = b.draft,
+            removed = b.removed,
+        )
+    },
+    crewDays = calendar.crewDays.map {
+        ScheduleCrewDay(it.crewId, day(it.date), it.workday, it.exception, it.draft, it.label)
     },
 )
 
@@ -161,7 +183,7 @@ fun StagePatch.toJson(): JsonObject = buildJsonObject {
  */
 fun CrewSchedule.withPending(patches: Map<String, JsonObject>): CrewSchedule {
     if (patches.isEmpty()) return this
-    val cal = ScheduleCalendar(days)
+    val cal = calendar
 
     val stagesOut = mutableListOf<ScheduleStage>()
     val backlogOut = mutableListOf<ScheduleBacklogItem>()
@@ -198,11 +220,12 @@ fun CrewSchedule.withPending(patches: Map<String, JsonObject>): CrewSchedule {
 private fun ScheduleStage.applying(patch: JsonObject, cal: ScheduleCalendar): ScheduleStage {
     val start = patch.text("scheduledAt")?.let(::day) ?: scheduledAt
     val duration = patch.int("durationDays") ?: durationDays
+    val crew = if (patch.containsKey("crewId")) patch.text("crewId") else crewId
     return copy(
         scheduledAt = start,
         durationDays = duration,
-        endDate = cal.endOf(start, duration),
-        crewId = if (patch.containsKey("crewId")) patch.text("crewId") else crewId,
+        endDate = cal.endOf(start, duration, crew),
+        crewId = crew,
         assignees = (patch["assignees"] as? JsonArray)?.mapNotNull { el ->
             val o = el as? JsonObject ?: return@mapNotNull null
             val user = o.text("userId") ?: return@mapNotNull null

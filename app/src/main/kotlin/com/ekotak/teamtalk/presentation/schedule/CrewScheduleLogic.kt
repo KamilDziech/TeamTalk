@@ -55,7 +55,8 @@ internal fun windowLabel(b: ScheduleBacklogItem): String {
 
 /** Wykorzystanie ekipy w oknie: dni robocze z montażem / wszystkie dni robocze. */
 internal fun crewUtil(sch: CrewSchedule, crew: ScheduleCrew): Int {
-    val work = sch.days.filter { it.workday }.map { it.date }
+    val cal = sch.calendar
+    val work = sch.days.filter { cal.isWork(it.date, crew.id) }.map { it.date }
     if (work.isEmpty()) return 0
     val busy = mutableSetOf<LocalDate>()
     sch.stages.filter { it.crewId == crew.id }.forEach { s ->
@@ -71,6 +72,10 @@ internal fun crewUtil(sch: CrewSchedule, crew: ScheduleCrew): Int {
 internal fun pool(sch: CrewSchedule): List<SchedulePerson> =
     sch.people.filter { it.crewIds.isEmpty() && it.montage }
 
+/** Szkice: etapy + zmiany kalendarza (blokady, pracujące dni), których ekipy jeszcze nie znają. */
+internal fun draftCount(sch: CrewSchedule): Int =
+    sch.stages.count { it.draft } + sch.blocks.count { it.draft } + sch.crewDays.count { it.draft }
+
 /**
  * Tygodnie okna, w których jest szkic — także taki, który ODJECHAŁ z tygodnia
  * (wersja opublikowana wciąż w nim stoi i ekipy muszą dostać zmianę).
@@ -85,7 +90,8 @@ internal fun draftWeeks(sch: CrewSchedule): List<LocalDate> {
                 (!s.scheduledAt.isAfter(end) && !s.endDate.isBefore(w)) ||
                     (s.published != null && !s.published.scheduledAt.isAfter(end) && !s.published.endDate.isBefore(w))
                 )
-        }
+        } || sch.blocks.any { b -> b.draft && !b.start.isAfter(end) && !b.end.isBefore(w) } ||
+            sch.crewDays.any { c -> c.draft && !c.date.isBefore(w) && !c.date.isAfter(end) }
         if (hit) out += w
         w = w.plusDays(7)
     }

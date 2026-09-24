@@ -2,6 +2,8 @@ package com.ekotak.teamtalk.domain.repository
 
 import com.ekotak.teamtalk.domain.model.CrewSchedule
 import com.ekotak.teamtalk.domain.model.PersonMove
+import com.ekotak.teamtalk.domain.model.MyDays
+import com.ekotak.teamtalk.domain.model.ScheduleBlockInput
 import com.ekotak.teamtalk.domain.model.StagePatch
 import java.time.LocalDate
 
@@ -39,6 +41,26 @@ interface CrewScheduleRepository {
 
     /** „Zaplanuj" — zwraca liczbę założonych etapów (0 = deal ma już montaż). */
     suspend fun planDeal(dealId: String): ScheduleCallResult<Int>
+
+    // Dni nieaktywne i blokady (decyzje usera 2026-09-24) — tylko w zasięgu:
+    // skutek (przesunięte końce montaży) liczy serwer.
+
+    /** „W ten dzień pracujemy" przy ekipie — włącz albo zdejmij. */
+    suspend fun setCrewWorkday(crewId: String, day: LocalDate, working: Boolean): ScheduleCallResult<Unit>
+
+    /** Nowa blokada (`id == null`) albo zmiana istniejącej. */
+    suspend fun saveBlock(id: String?, input: ScheduleBlockInput): ScheduleCallResult<Unit>
+
+    suspend fun deleteBlock(id: String): ScheduleCallResult<Unit>
+
+    /** Cofnięcie usunięcia, zanim poszło do ekip. */
+    suspend fun restoreBlock(id: String): ScheduleCallResult<Unit>
+
+    /**
+     * Dni wolne i pracujące montera (moduł „Montaże") — wersja opublikowana.
+     * Bez zasięgu ostatnia kopia z telefonu; `null` = nigdy jej nie było.
+     */
+    suspend fun myDays(from: LocalDate, to: LocalDate): MyDays?
 }
 
 data class CrewScheduleSnapshot(
@@ -53,7 +75,7 @@ data class CrewScheduleSnapshot(
     val pendingCount: Int,
 )
 
-data class PublishOutcome(val published: Int, val notified: Int)
+data class PublishOutcome(val published: Int, val notified: Int, val calendar: Int = 0)
 
 sealed interface ScheduleSaveResult {
     /** Serwer przyjął zmianę — oś trzeba przeładować, bo ostrzeżenia się przeliczyły. */

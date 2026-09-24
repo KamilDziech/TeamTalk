@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ekotak.teamtalk.domain.model.MontazJobRow
 import com.ekotak.teamtalk.domain.model.MontazStatus
+import com.ekotak.teamtalk.domain.model.MyDays
 import com.ekotak.teamtalk.presentation.components.AppTopBar
 import com.ekotak.teamtalk.presentation.theme.OkGreen
 import com.ekotak.teamtalk.presentation.theme.Orange600
@@ -101,10 +102,14 @@ fun JobsScreen(
                     }
 
                     else -> LazyColumn(Modifier.fillMaxSize()) {
+                        state.myDays?.let { days ->
+                            val upcoming = upcomingDays(days)
+                            if (upcoming.isNotEmpty()) item(key = "my-days") { MyDaysCard(upcoming) }
+                        }
                         state.sections.forEach { section ->
                             item(key = "h-${section.label}") { DayHeader(section.label) }
                             items(section.jobs, key = { it.id }) { row ->
-                                JobRow(row = row, onClick = { onOpenJob(row.id) })
+                                JobRow(row = row, days = state.myDays, onClick = { onOpenJob(row.id) })
                             }
                         }
                         item { Spacer(Modifier.height(24.dp)) }
@@ -165,7 +170,7 @@ private fun DayHeader(label: String) {
  * w aucie to jedyna rzecz, którą widać bez czytania.
  */
 @Composable
-private fun JobRow(row: MontazJobRow, onClick: () -> Unit) {
+private fun JobRow(row: MontazJobRow, days: MyDays?, onClick: () -> Unit) {
     val accent = when {
         row.status == MontazStatus.IN_PROGRESS -> Orange600
         row.status == MontazStatus.DONE -> OkGreen
@@ -217,6 +222,15 @@ private fun JobRow(row: MontazJobRow, onClick: () -> Unit) {
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+            jobSpan(row, days)?.let { span ->
+                Text(
+                    text = span,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             if (row.scopeNames.isNotEmpty()) {
                 Text(
                     text = row.scopeNames.joinToString(" · ") { it.substringAfterLast(" / ") },
@@ -243,6 +257,68 @@ private fun JobRow(row: MontazJobRow, onClick: () -> Unit) {
                 else -> MaterialTheme.colorScheme.onSurfaceVariant
             },
         )
+    }
+}
+
+private val DOW_SHORT = listOf("pn", "wt", "śr", "cz", "pt", "sb", "nd")
+
+private fun dmy(d: java.time.LocalDate): String =
+    "${DOW_SHORT[d.dayOfWeek.value - 1]} %02d.%02d".format(d.dayOfMonth, d.monthValue)
+
+/**
+ * „do pn 05.10 · przerwa: sb, nd" — koniec montażu wg kalendarza z Harmonogramu
+ * (weekend, święta, blokady firmy i ekipy, pracujące soboty). Jednodniowy
+ * montaż bez przerwy nie potrzebuje tej linijki.
+ */
+private fun jobSpan(row: MontazJobRow, days: MyDays?): String? {
+    if (days == null || row.durationDays <= 1) return null
+    val start = row.scheduledAt?.take(10)?.let { runCatching { java.time.LocalDate.parse(it) }.getOrNull() } ?: return null
+    val end = days.endOf(start, row.durationDays)
+    val off = days.offDaysBetween(start, end)
+    val breakText = if (off.isEmpty()) "" else " · przerwa: " + off.joinToString(", ") { d ->
+        days.blockOf(d)?.label ?: DOW_SHORT[d.dayOfWeek.value - 1]
+    }.let { if (it.length > 40) "${off.size} dni" else it }
+    return "do ${dmy(end)}$breakText"
+}
+
+/** Nadchodzące dni wolne i pracujące soboty (4 tygodnie) — najbliższe na górze. */
+private fun upcomingDays(days: MyDays): List<String> {
+    val today = java.time.LocalDate.now()
+    val limit = today.plusDays(28)
+    val blocks = days.blocks
+        .filter { !it.end.isBefore(today) && !it.start.isAfter(limit) }
+        .map { b ->
+            val range = if (b.start == b.end) dmy(b.start) else "${dmy(b.start)} – ${dmy(b.end)}"
+            b.start to "$range — ${b.label}" + when {
+                b.scope == com.ekotak.teamtalk.domain.model.BlockScope.USER -> " (Ty)"
+                b.crewName != null -> " (${b.crewName})"
+                else -> " (cała firma)"
+            }
+        }
+    val work = days.workdays
+        .filter { !it.day.isBefore(today) && !it.day.isAfter(limit) }
+        .map { it.day to "${dmy(it.day)} — pracujecie (${it.crewName})" }
+    return (blocks + work).sortedBy { it.first }.map { it.second }
+}
+
+@Composable
+private fun MyDaysCard(lines: List<String>) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Text(
+            "DNI WOLNE I PRACUJĄCE",
+            style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.1.sp),
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        lines.forEach { Text(it, style = MaterialTheme.typography.bodySmall) }
     }
 }
 

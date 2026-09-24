@@ -63,6 +63,20 @@ class CrewScheduleCacheStore @Inject constructor(
 
     private val pendingOrder: File get() = File(dir, "crew-order.pending")
 
+    /**
+     * Dni wolne i pracujące montera (`GET /schedule/my-days`) — jeden plik,
+     * ostatnia odpowiedź. Rozszerzenie inne niż `.json`, żeby `prune()` go nie zjadł.
+     */
+    suspend fun readMyDays(): String? = withContext(Dispatchers.IO) {
+        runCatching { myDays.takeIf { it.isFile }?.readText() }.getOrNull()
+    }
+
+    suspend fun writeMyDays(body: String) = withContext(Dispatchers.IO) {
+        runCatching { myDays.writeText(body) }
+    }
+
+    private val myDays: File get() = File(dir, "my-days.cache")
+
     private fun file(from: LocalDate, to: LocalDate) = File(dir, "${from}_$to.json")
 
     /** Trzymamy ostatnio oglądane okna, starsze wypadają. */

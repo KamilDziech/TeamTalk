@@ -2,7 +2,10 @@ package com.ekotak.teamtalk.presentation.schedule
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ekotak.teamtalk.domain.model.BlockScope
 import com.ekotak.teamtalk.domain.model.Change
+import com.ekotak.teamtalk.domain.model.ScheduleBlock
+import com.ekotak.teamtalk.domain.model.ScheduleBlockInput
 import com.ekotak.teamtalk.domain.model.CrewSchedule
 import com.ekotak.teamtalk.domain.model.PersonMove
 import com.ekotak.teamtalk.domain.model.ScheduleBacklogItem
@@ -89,11 +92,21 @@ class CrewScheduleViewModel @Inject constructor(
         val planningDealId: String? = null,
         val confirm: Confirm? = null,
         val moveRequest: MoveRequest? = null,
+        /** Dzień ekipy stuknięty na osi — arkusz „pracujemy / zablokuj". */
+        val dayPick: DayPick? = null,
+        /** Arkusz „Blokady dni" i otwarty w nim formularz (`null` = sama lista). */
+        val blocksOpen: Boolean = false,
+        val blockForm: BlockForm? = null,
     ) {
         val to: LocalDate get() = from.plusDays(zoom - 1L)
         val selected: ScheduleStage? get() = schedule?.stages?.firstOrNull { it.id == selectedId }
         val planItem: ScheduleBacklogItem? get() = schedule?.backlog?.firstOrNull { it.id == planItemId }
     }
+
+    data class DayPick(val crewId: String, val day: LocalDate)
+
+    /** Formularz blokady: `id == null` = nowa. */
+    data class BlockForm(val id: String?, val input: ScheduleBlockInput)
 
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
@@ -249,7 +262,7 @@ class CrewScheduleViewModel @Inject constructor(
 
     // ── Zapis etapu ───────────────────────────────────────────────────────────
 
-    private fun calendar(): ScheduleCalendar = ScheduleCalendar(_uiState.value.schedule?.days.orEmpty())
+    private fun calendar(): ScheduleCalendar = _uiState.value.schedule?.calendar ?: ScheduleCalendar(emptyList())
 
     private fun replaceStage(id: String, local: (ScheduleStage) -> ScheduleStage) = _uiState.update { st ->
         val sch = st.schedule ?: return@update st
@@ -284,7 +297,7 @@ class CrewScheduleViewModel @Inject constructor(
 
     fun moveStage(stage: ScheduleStage, start: LocalDate, crewId: String?, confirmed: Boolean = false) {
         val cal = calendar()
-        val from = cal.nextWork(start)
+        val from = cal.nextWork(start, 1, crewId)
         val crewChanged = crewId != stage.crewId
         if (from == stage.scheduledAt && !crewChanged) return
         if (stage.locked && from != stage.scheduledAt && !confirmed) {
@@ -308,7 +321,7 @@ class CrewScheduleViewModel @Inject constructor(
             local = { old ->
                 old.copy(
                     scheduledAt = from,
-                    endDate = cal.endOf(from, old.durationDays),
+                    endDate = cal.endOf(from, old.durationDays, crewId),
                     crewId = if (crewChanged) crewId else old.crewId,
                     assignees = assignees ?: old.assignees,
                 )
@@ -324,12 +337,12 @@ class CrewScheduleViewModel @Inject constructor(
     fun resizeStage(stage: ScheduleStage, deltaDays: Int) {
         val cal = calendar()
         val newEnd = maxOf(stage.scheduledAt, stage.endDate.plusDays(deltaDays.toLong()))
-        val duration = cal.workdaysBetween(stage.scheduledAt, newEnd)
+        val duration = cal.workdaysBetween(stage.scheduledAt, newEnd, stage.crewId)
         if (duration == stage.durationDays) return
         save(
             stage,
             StagePatch(durationDays = duration),
-            local = { it.copy(durationDays = duration, endDate = cal.endOf(it.scheduledAt, duration)) },
+            local = { it.copy(durationDays = duration, endDate = cal.endOf(it.scheduledAt, duration, it.crewId)) },
             note = "${stage.clientName}: $duration dni roboczych",
         )
     }
@@ -337,7 +350,7 @@ class CrewScheduleViewModel @Inject constructor(
     /** Przesunięcie startu o dzień roboczy (strzałki w arkuszu). */
     fun shiftStage(id: String, days: Int) {
         val stage = _uiState.value.schedule?.stages?.firstOrNull { it.id == id } ?: return
-        val target = calendar().nextWork(stage.scheduledAt.plusDays(days.toLong()), if (days < 0) -1 else 1)
+        val target = calendar().nextWork(stage.scheduledAt.plusDays(days.toLong()), if (days < 0) -1 else 1, stage.crewId)
         moveStage(stage, target, stage.crewId)
     }
 
@@ -350,10 +363,16 @@ class CrewScheduleViewModel @Inject constructor(
             patch,
             local = { old ->
                 val duration = patch.durationDays ?: old.durationDays
+                val crewId = if (patch.crew != null) patch.crew.value else old.crewId
                 old.copy(
                     durationDays = duration,
-                    endDate = if (patch.durationDays != null) cal.endOf(old.scheduledAt, duration) else old.endDate,
-                    crewId = if (patch.crew != null) patch.crew.value else old.crewId,
+                    // Inna ekipa = inny kalendarz (jej pracujące soboty, blokady).
+                    endDate = if (patch.durationDays != null || patch.crew != null) {
+                        cal.endOf(old.scheduledAt, duration, crewId)
+                    } else {
+                        old.endDate
+                    },
+                    crewId = crewId,
                     assignees = patch.assignees ?: old.assignees,
                     minGapDays = if (patch.minGapDays != null) patch.minGapDays.value else old.minGapDays,
                     gapLabel = if (patch.gapLabel != null) patch.gapLabel.value else old.gapLabel,
@@ -381,7 +400,7 @@ class CrewScheduleViewModel @Inject constructor(
         val sch = _uiState.value.schedule ?: return
         val cal = calendar()
         val crew = crewId?.let { c -> sch.crews.firstOrNull { it.id == c } }
-        val start = cal.nextWork(day)
+        val start = cal.nextWork(day, 1, crewId)
         val assignees = if (crew != null && !crew.external) crew.memberIds.map { StageAssignee(it, null) } else emptyList()
         val before = sch
         val staged = ScheduleStage(
@@ -392,7 +411,7 @@ class CrewScheduleViewModel @Inject constructor(
             title = item.title,
             status = if (item.status == ScheduleStageStatus.RESERVED) ScheduleStageStatus.PLANNED else item.status,
             scheduledAt = start,
-            endDate = cal.endOf(start, item.durationDays),
+            endDate = cal.endOf(start, item.durationDays, crewId),
             durationDays = item.durationDays,
             crewId = crewId,
             assignees = assignees,
@@ -477,11 +496,13 @@ class CrewScheduleViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(saving = true) }
             var published = 0
+            var calendarChanges = 0
             var notified = 0
             for (w in weeks) {
                 when (val res = repository.publishWeek(w)) {
                     is ScheduleCallResult.Ok -> {
                         published += res.value.published
+                        calendarChanges += res.value.calendar
                         notified += res.value.notified
                     }
                     ScheduleCallResult.Offline -> {
@@ -497,11 +518,105 @@ class CrewScheduleViewModel @Inject constructor(
                 }
             }
             _uiState.update { it.copy(saving = false) }
+            val parts = listOfNotNull(
+                published.takeIf { it > 0 }?.let { "$it ${if (it == 1) "montaż" else "montaże"}" },
+                calendarChanges.takeIf { it > 0 }?.let { "$it ${if (it == 1) "zmianę dni" else "zmiany dni"}" },
+            )
             _toasts.send(
-                if (published == 0) "Nie było czego publikować."
-                else "Opublikowano $published ${if (published == 1) "montaż" else "montaże"}. Powiadomienia: $notified.",
+                if (parts.isEmpty()) "Nie było czego publikować."
+                else "Opublikowano ${parts.joinToString(" i ")}. Powiadomienia: $notified.",
             )
             load(quiet = true)
+        }
+    }
+
+    // ── Dni ekip i blokady (decyzje usera 2026-09-24) ─────────────────────────
+
+    fun openDay(crewId: String, day: LocalDate) = _uiState.update { it.copy(dayPick = DayPick(crewId, day)) }
+    fun closeDay() = _uiState.update { it.copy(dayPick = null) }
+
+    /** Arkusz „Blokady dni"; `form` otwiera od razu formularz (np. z dnia ekipy). */
+    fun openBlocks(form: BlockForm? = null) = _uiState.update {
+        it.copy(dayPick = null, blocksOpen = true, blockForm = form)
+    }
+    fun closeBlocks() = _uiState.update { it.copy(blocksOpen = false, blockForm = null) }
+    fun editBlock(form: BlockForm?) = _uiState.update { it.copy(blockForm = form) }
+
+    /** Nowa blokada na dzień stuknięty na osi — ekipy albo całej firmy. */
+    fun blockFromDay(scope: BlockScope) {
+        val pick = _uiState.value.dayPick ?: return
+        openBlocks(
+            BlockForm(
+                id = null,
+                input = ScheduleBlockInput(
+                    scope = scope,
+                    crewId = pick.crewId.takeIf { scope == BlockScope.CREW },
+                    userId = null,
+                    start = pick.day,
+                    end = pick.day,
+                    reason = com.ekotak.teamtalk.domain.model.BlockReason.TRAINING,
+                    note = null,
+                ),
+            ),
+        )
+    }
+
+    /** „W ten dzień pracujemy" przy ekipie — włącz albo zdejmij. */
+    fun setCrewWorkday(working: Boolean) {
+        val pick = _uiState.value.dayPick ?: return
+        val sch = _uiState.value.schedule ?: return
+        val crew = sch.crews.firstOrNull { it.id == pick.crewId }?.name ?: "Ekipa"
+        closeDay()
+        callThen({ repository.setCrewWorkday(pick.crewId, pick.day, working) }) {
+            if (working) {
+                "$crew pracuje ${dm(pick.day)}" + if (sch.settings.publishEnabled) " — ekipa zobaczy po publikacji" else ""
+            } else {
+                "$crew: ${dm(pick.day)} znów wolny"
+            }
+        }
+    }
+
+    fun saveBlock(form: BlockForm) {
+        val i = form.input
+        when {
+            i.end.isBefore(i.start) -> return toast("Koniec blokady nie może być przed początkiem.")
+            i.scope == BlockScope.CREW && i.crewId == null -> return toast("Wybierz ekipę.")
+            i.scope == BlockScope.USER && i.userId == null -> return toast("Wybierz osobę.")
+        }
+        callThen({ repository.saveBlock(form.id, i) }, onOk = { _uiState.update { it.copy(blockForm = null) } }) {
+            if (form.id == null) "Blokada dodana." else "Blokada zmieniona."
+        }
+    }
+
+    fun deleteBlock(block: ScheduleBlock) =
+        callThen({ repository.deleteBlock(block.id) }) { "Usunięto: ${block.label}" }
+
+    fun restoreBlock(block: ScheduleBlock) =
+        callThen({ repository.restoreBlock(block.id) }) { "Przywrócono: ${block.label}" }
+
+    private fun toast(text: String) {
+        viewModelScope.launch { _toasts.send(text) }
+    }
+
+    /** Wywołanie wyłącznie w zasięgu: komunikat, a po sukcesie przeładowanie osi. */
+    private fun callThen(
+        block: suspend () -> ScheduleCallResult<Unit>,
+        onOk: () -> Unit = {},
+        note: () -> String,
+    ) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(saving = true) }
+            val res = block()
+            _uiState.update { it.copy(saving = false) }
+            when (res) {
+                is ScheduleCallResult.Ok -> {
+                    onOk()
+                    _toasts.send(note())
+                    load(quiet = true)
+                }
+                ScheduleCallResult.Offline -> _toasts.send("Dni wolne i blokady zmienia się w zasięgu.")
+                is ScheduleCallResult.Failed -> _toasts.send(res.message)
+            }
         }
     }
 

@@ -23,6 +23,41 @@ data class ScheduleDto(
     val stages: List<ScheduleStageDto> = emptyList(),
     val backlog: List<ScheduleBacklogDto> = emptyList(),
     val unplanned: List<ScheduleUnplannedDto> = emptyList(),
+    /** Blokady dni i dni ekip inne niż firmowe (od 2026-09-24; stara kopia bez nich). */
+    val calendar: ScheduleCalendarDto = ScheduleCalendarDto(),
+)
+
+@Serializable
+data class ScheduleCalendarDto(
+    val blocks: List<ScheduleBlockDto> = emptyList(),
+    val crewDays: List<ScheduleCrewDayDto> = emptyList(),
+)
+
+/** Blokada dni: `company` (bez ekip zewnętrznych), `crew` albo `user` (tylko ostrzega). */
+@Serializable
+data class ScheduleBlockDto(
+    val id: String,
+    val scope: String,
+    val crewId: String? = null,
+    val userId: String? = null,
+    val start: String,
+    val end: String,
+    val reason: String = "other",
+    val note: String? = null,
+    val label: String = "",
+    val draft: Boolean = false,
+    val removed: Boolean = false,
+)
+
+/** Dzień ekipy inny niż firmowy: pracująca sobota, blokada ekipy, zewnętrzna w blokadzie firmy. */
+@Serializable
+data class ScheduleCrewDayDto(
+    val crewId: String,
+    val date: String,
+    val workday: Boolean,
+    val exception: Boolean = false,
+    val draft: Boolean = false,
+    val label: String? = null,
 )
 
 @Serializable
@@ -62,6 +97,8 @@ data class ScheduleLeaveDto(
 data class ScheduleDayDto(
     val date: String,
     val workday: Boolean = true,
+    /** „Święto", „Szkolenie · BHP"; zwykły weekend bez etykiety. */
+    val label: String? = null,
     val load: Int = 0,
     val limit: Int = 0,
 )
@@ -158,7 +195,49 @@ data class SchedulePublishRequest(val weekStart: String)
 data class SchedulePublishResponse(
     val weekStart: String? = null,
     val published: Int = 0,
+    /** Zmiany kalendarza (blokady, pracujące dni) opublikowane z tygodniem. */
+    val calendar: Int = 0,
     val notified: Int = 0,
+)
+
+/** `POST/PUT /api/schedule/blocks` — daty `RRRR-MM-DD`, obustronnie włącznie. */
+@Serializable
+data class ScheduleBlockRequest(
+    val scope: String,
+    val crewId: String? = null,
+    val userId: String? = null,
+    val start: String,
+    val end: String,
+    val reason: String,
+    val note: String? = null,
+)
+
+/** `PUT /api/schedule/crews/{crewId}/workdays/{day}` — „w ten dzień pracujemy". */
+@Serializable
+data class ScheduleWorkdayRequest(val working: Boolean)
+
+/** `GET /api/schedule/my-days` — dni wolne i pracujące montera (wersja opublikowana). */
+@Serializable
+data class MyDaysDto(
+    val blocks: List<MyDayBlockDto> = emptyList(),
+    val workdays: List<MyWorkdayDto> = emptyList(),
+)
+
+@Serializable
+data class MyDayBlockDto(
+    val id: String,
+    val scope: String,
+    val start: String,
+    val end: String,
+    val label: String,
+    val crewName: String? = null,
+)
+
+@Serializable
+data class MyWorkdayDto(
+    val date: String,
+    val crewId: String,
+    val crewName: String = "",
 )
 
 /** `PUT /api/schedule/settings` — firmowy przełącznik publikacji tygodni. */

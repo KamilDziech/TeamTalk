@@ -82,6 +82,11 @@ internal data class SchedulePalette(
     val new: Color,
     val newBg: Color,
     val leave: Color,
+    /** Blokada dni (szkolenie, targi) i dzień wolny, w który ekipa pracuje. */
+    val block: Color,
+    val blockBg: Color,
+    val workEx: Color,
+    val workExBg: Color,
 )
 
 @Composable
@@ -101,6 +106,8 @@ internal fun schedulePalette(): SchedulePalette {
             res = Color(0xFFF0B35A), resBg = Color(0xFF3A2C14),
             new = Color(0xFFC4B5FD), newBg = Color(0xFF2A2247),
             leave = Color(0xFF6B7785),
+            block = Color(0xFFF472B6), blockBg = Color(0xFFF472B6).copy(alpha = 0.12f),
+            workEx = Color(0xFF34D399), workExBg = Color(0xFF34D399).copy(alpha = 0.12f),
         )
     } else {
         SchedulePalette(
@@ -115,6 +122,8 @@ internal fun schedulePalette(): SchedulePalette {
             res = Color(0xFF9A6412), resBg = Color(0xFFFBEFD9),
             new = Color(0xFF6D28D9), newBg = Color(0xFFEDE9FE),
             leave = Color(0xFF8B97A6),
+            block = Color(0xFFBE185D), blockBg = Color(0xFFBE185D).copy(alpha = 0.09f),
+            workEx = Color(0xFF047857), workExBg = Color(0xFF047857).copy(alpha = 0.10f),
         )
     }
 }
@@ -408,11 +417,11 @@ internal fun PlanSheet(
     onOpenDeal: (String) -> Unit,
 ) {
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val cal = remember(sch.days) { ScheduleCalendar(sch.days) }
+    val cal = remember(sch) { sch.calendar }
     var crewId by remember(item.id) { mutableStateOf(pickerCrews(sch.crews).firstOrNull()?.id) }
     var day by remember(item.id) {
         val base = listOf(item.scheduledAt, today, sch.from).max()
-        mutableStateOf(cal.nextWork(base))
+        mutableStateOf(cal.nextWork(base, 1, crewId))
     }
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
 
@@ -440,10 +449,10 @@ internal fun PlanSheet(
             Section("Start") {
                 Stepper(
                     label = "${DOW[day.dayOfWeek.value - 1]} ${dm(day)}.${day.year}",
-                    onMinus = { day = cal.nextWork(day.minusDays(1), -1) },
-                    onPlus = { day = cal.nextWork(day.plusDays(1)) },
+                    onMinus = { day = cal.nextWork(day.minusDays(1), -1, crewId) },
+                    onPlus = { day = cal.nextWork(day.plusDays(1), 1, crewId) },
                 )
-                Note("Koniec: ${dm(cal.endOf(day, item.durationDays))} (${item.durationDays} dni rob.)")
+                Note("Koniec: ${dm(cal.endOf(day, item.durationDays, crewId))} (${item.durationDays} dni rob.)")
             }
 
             Section("Ekipa") {
@@ -488,7 +497,7 @@ internal fun Note(text: String) {
 }
 
 @Composable
-private fun Stepper(
+internal fun Stepper(
     label: String,
     onMinus: () -> Unit,
     onPlus: () -> Unit,
@@ -517,7 +526,7 @@ private fun Stepper(
 }
 
 @Composable
-private fun Picker(
+internal fun Picker(
     label: String,
     value: String,
     options: List<Pair<String?, String>>,

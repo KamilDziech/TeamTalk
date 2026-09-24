@@ -26,6 +26,77 @@ data class CrewSchedule(
     val stages: List<ScheduleStage>,
     val backlog: List<ScheduleBacklogItem>,
     val unplanned: List<ScheduleUnplannedDeal>,
+    /** Blokady dni widoczne w oknie (firma, ekipa, osoba). */
+    val blocks: List<ScheduleBlock> = emptyList(),
+    /** Dni ekip inne niż firmowe — pracująca sobota, blokada ekipy. */
+    val crewDays: List<ScheduleCrewDay> = emptyList(),
+) {
+    /** Kalendarz dni roboczych tej osi (z dniami ekip). */
+    val calendar: ScheduleCalendar get() = ScheduleCalendar(days, crewDays)
+}
+
+enum class BlockScope(val wire: String, val label: String) {
+    COMPANY("company", "Cała firma"),
+    CREW("crew", "Ekipa"),
+    USER("user", "Osoba"),
+    ;
+
+    companion object {
+        fun fromWire(value: String?): BlockScope = entries.firstOrNull { it.wire == value } ?: COMPANY
+    }
+}
+
+enum class BlockReason(val wire: String, val label: String) {
+    TRAINING("training", "Szkolenie"),
+    FAIR("fair", "Targi"),
+    OTHER("other", "Inne"),
+    ;
+
+    companion object {
+        fun fromWire(value: String?): BlockReason = entries.firstOrNull { it.wire == value } ?: OTHER
+    }
+}
+
+/**
+ * Blokada dni (decyzje usera 2026-09-24): cała firma zatrzymuje nasze ekipy
+ * (zewnętrznych nie), ekipa — jedną ekipę, osoba tylko ostrzega jak urlop.
+ */
+data class ScheduleBlock(
+    val id: String,
+    val scope: BlockScope,
+    val crewId: String?,
+    val userId: String?,
+    val start: LocalDate,
+    val end: LocalDate,
+    val reason: BlockReason,
+    val note: String?,
+    val label: String,
+    /** Nowa albo usunięta — ekipy jeszcze tego nie widzą. */
+    val draft: Boolean,
+    /** Usunięta w szkicu; ekipy widzą ją do publikacji. */
+    val removed: Boolean,
+)
+
+/** Dzień ekipy inny niż firmowy. */
+data class ScheduleCrewDay(
+    val crewId: String,
+    val date: LocalDate,
+    val workday: Boolean,
+    /** Zaznaczone „w ten dzień pracujemy". */
+    val exception: Boolean,
+    val draft: Boolean,
+    val label: String?,
+)
+
+/** Treść blokady do zapisu (nowej albo zmienianej). */
+data class ScheduleBlockInput(
+    val scope: BlockScope,
+    val crewId: String?,
+    val userId: String?,
+    val start: LocalDate,
+    val end: LocalDate,
+    val reason: BlockReason,
+    val note: String?,
 )
 
 data class ScheduleSettings(
@@ -74,11 +145,13 @@ data class ScheduleLeave(
 
 data class ScheduleDay(
     val date: LocalDate,
-    /** Dzień roboczy wg API — zna święta, czego telefon sam nie wie. */
+    /** Dzień roboczy NASZYCH ekip wg API — zna święta i blokady firmy. */
     val workday: Boolean,
     /** Ile montaży stoi tego dnia i ile firma przerabia (`InstallationCapacity`). */
     val load: Int,
     val limit: Int,
+    /** „Święto", „Szkolenie · BHP"; zwykły weekend bez etykiety. */
+    val label: String? = null,
 )
 
 enum class ScheduleStageStatus(val wire: String, val label: String) {
@@ -204,43 +277,112 @@ data class Change<T>(val value: T)
 /**
  * Kalendarz dni roboczych osi — ta sama arytmetyka co w panelu.
  *
- * W oknie wie o dniach API (święta!), poza oknem wolna zostaje sama niedziela.
- * Koniec etapu to `durationDays` dni roboczych licząc od startu.
+ * W oknie o dniach wie API (święta, blokady firmy), a dni ekip inne niż firmowe
+ * (pracująca sobota, blokada ekipy) przychodzą osobno. Poza oknem wolny zostaje
+ * weekend — sobota od 2026-09-24 też. Koniec etapu to `durationDays` dni
+ * roboczych EKIPY licząc od startu.
  */
-class ScheduleCalendar(days: List<ScheduleDay>) {
+class ScheduleCalendar(days: List<ScheduleDay>, crewDays: List<ScheduleCrewDay> = emptyList()) {
     private val workdayOf: Map<LocalDate, Boolean> = days.associate { it.date to it.workday }
+    private val crewDayOf: Map<Pair<String, LocalDate>, ScheduleCrewDay> =
+        crewDays.associateBy { it.crewId to it.date }
 
-    fun isWork(day: LocalDate): Boolean = workdayOf[day] ?: (day.dayOfWeek != DayOfWeek.SUNDAY)
+    /** Dzień ekipy inny niż firmowy (albo `null`). */
+    fun crewDay(crewId: String?, day: LocalDate): ScheduleCrewDay? =
+        crewId?.let { crewDayOf[it to day] }
 
-    /** Najbliższy dzień roboczy w kierunku `dir` (±1), najwyżej dwa tygodnie szukania. */
-    fun nextWork(day: LocalDate, dir: Int = 1): LocalDate {
+    fun isWork(day: LocalDate, crewId: String? = null): Boolean =
+        crewDay(crewId, day)?.workday
+            ?: workdayOf[day]
+            ?: (day.dayOfWeek != DayOfWeek.SUNDAY && day.dayOfWeek != DayOfWeek.SATURDAY)
+
+    /** Najbliższy dzień roboczy ekipy w kierunku `dir` (±1), najwyżej dwa miesiące szukania. */
+    fun nextWork(day: LocalDate, dir: Int = 1, crewId: String? = null): LocalDate {
         var d = day
         var i = 0
-        while (i < 14 && !isWork(d)) {
+        while (i < 60 && !isWork(d, crewId)) {
             d = d.plusDays(dir.toLong())
             i++
         }
         return d
     }
 
-    fun endOf(start: LocalDate, count: Int): LocalDate {
-        var d = nextWork(start)
+    fun endOf(start: LocalDate, count: Int, crewId: String? = null): LocalDate {
+        var d = nextWork(start, 1, crewId)
         var left = maxOf(1, count)
         while (left > 1) {
+            d = d.plusDays(1)
+            if (isWork(d, crewId)) left -= 1
+        }
+        return d
+    }
+
+    fun workdaysBetween(a: LocalDate, b: LocalDate, crewId: String? = null): Int {
+        var n = 0
+        var d = a
+        while (!d.isAfter(b)) {
+            if (isWork(d, crewId)) n += 1
+            d = d.plusDays(1)
+        }
+        return maxOf(1, n)
+    }
+}
+
+/** Blokada, która dotyczy montera: firmy, jego ekipy albo jego samego. */
+data class MyDayBlock(
+    val scope: BlockScope,
+    val start: LocalDate,
+    val end: LocalDate,
+    val label: String,
+    val crewName: String?,
+)
+
+/** Dzień wolny, w który ekipa montera pracuje („w tę sobotę pracujemy”). */
+data class MyWorkday(val day: LocalDate, val crewName: String)
+
+/**
+ * Kalendarz montera w module „Montaże" — wersja opublikowana z Harmonogramu.
+ *
+ * Wolne: weekend, święta, blokada firmy albo ekipy. Pracująca sobota ekipy
+ * wygrywa. Blokada OSOBY montażu nie przerywa (tylko ją pokazujemy), tak jak
+ * liczy serwer.
+ */
+data class MyDays(val blocks: List<MyDayBlock>, val workdays: List<MyWorkday>) {
+    private val working = workdays.mapTo(HashSet()) { it.day }
+
+    /** Blokada firmy/ekipy w ten dzień (osoby — nie). */
+    fun blockOf(day: LocalDate): MyDayBlock? =
+        blocks.firstOrNull { it.scope != BlockScope.USER && !day.isBefore(it.start) && !day.isAfter(it.end) }
+
+    fun isWork(day: LocalDate): Boolean {
+        if (day in working) return true
+        if (day.dayOfWeek == DayOfWeek.SATURDAY || day.dayOfWeek == DayOfWeek.SUNDAY) return false
+        if (com.ekotak.teamtalk.domain.leave.isPolishHoliday(day)) return false
+        return blockOf(day) == null
+    }
+
+    /** Ostatni dzień montażu: `count` dni roboczych od startu. */
+    fun endOf(start: LocalDate, count: Int): LocalDate {
+        var d = start
+        var i = 0
+        while (!isWork(d) && i++ < 60) d = d.plusDays(1)
+        var left = maxOf(1, count)
+        while (left > 1 && i++ < 400) {
             d = d.plusDays(1)
             if (isWork(d)) left -= 1
         }
         return d
     }
 
-    fun workdaysBetween(a: LocalDate, b: LocalDate): Int {
-        var n = 0
-        var d = a
-        while (!d.isAfter(b)) {
-            if (isWork(d)) n += 1
+    /** Dni przerwy w trakcie montażu (weekend, święto, blokada). */
+    fun offDaysBetween(start: LocalDate, end: LocalDate): List<LocalDate> {
+        val out = mutableListOf<LocalDate>()
+        var d = start
+        while (!d.isAfter(end)) {
+            if (!isWork(d)) out += d
             d = d.plusDays(1)
         }
-        return maxOf(1, n)
+        return out
     }
 }
 

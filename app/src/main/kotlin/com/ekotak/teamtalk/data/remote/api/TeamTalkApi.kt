@@ -1455,6 +1455,30 @@ interface TeamTalkApi {
      */
     @POST("api/schedule/move-person")
     suspend fun moveSchedulePerson(@Body request: ScheduleMoveRequest): ScheduleMoveResponse
+    /** Blokada dni: firma / ekipa / osoba (szkic do publikacji tygodnia). */
+    @POST("api/schedule/blocks")
+    suspend fun createScheduleBlock(@Body request: ScheduleBlockRequest): JsonObject
+
+    @PUT("api/schedule/blocks/{id}")
+    suspend fun updateScheduleBlock(@Path("id") id: String, @Body request: ScheduleBlockRequest): JsonObject
+
+    @DELETE("api/schedule/blocks/{id}")
+    suspend fun deleteScheduleBlock(@Path("id") id: String): JsonObject
+
+    @POST("api/schedule/blocks/{id}/restore")
+    suspend fun restoreScheduleBlock(@Path("id") id: String, @Body body: JsonObject): JsonObject
+
+    /** „W ten dzień pracujemy" przy ekipie (sobota, niedziela, święto, blokada firmy). */
+    @PUT("api/schedule/crews/{crewId}/workdays/{day}")
+    suspend fun setCrewWorkday(
+        @Path("crewId") crewId: String,
+        @Path("day") day: String,
+        @Body request: ScheduleWorkdayRequest,
+    ): JsonObject
+
+    /** Dni wolne i pracujące montera (`installation.view`), wersja opublikowana. */
+    @GET("api/schedule/my-days")
+    suspend fun getMyDays(@Query("from") from: String, @Query("to") to: String): MyDaysDto
 
     /** „Zaplanuj" deala z etapu „Montaż" — po jednym etapie na instalację z zakresu. */
     @POST("api/schedule/deal/{dealId}/plan")

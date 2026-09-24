@@ -12,7 +12,15 @@ import com.ekotak.teamtalk.data.mapper.toRequest
 import com.ekotak.teamtalk.data.mapper.withPending
 import com.ekotak.teamtalk.data.mapper.withPendingMoves
 import com.ekotak.teamtalk.data.remote.api.TeamTalkApi
+import com.ekotak.teamtalk.data.remote.dto.MyDaysDto
+import com.ekotak.teamtalk.data.remote.dto.ScheduleBlockRequest
 import com.ekotak.teamtalk.data.remote.dto.ScheduleCrewOrderRequest
+import com.ekotak.teamtalk.data.remote.dto.ScheduleWorkdayRequest
+import com.ekotak.teamtalk.domain.model.BlockScope
+import com.ekotak.teamtalk.domain.model.MyDayBlock
+import com.ekotak.teamtalk.domain.model.MyDays
+import com.ekotak.teamtalk.domain.model.MyWorkday
+import com.ekotak.teamtalk.domain.model.ScheduleBlockInput
 import com.ekotak.teamtalk.data.remote.dto.ScheduleDto
 import com.ekotak.teamtalk.data.remote.dto.ScheduleMoveRequest
 import com.ekotak.teamtalk.data.remote.dto.SchedulePublishRequest
@@ -213,7 +221,7 @@ class CrewScheduleRepositoryImpl @Inject constructor(
         }
         return call {
             val res = api.publishScheduleWeek(SchedulePublishRequest(weekStart.toString()))
-            PublishOutcome(res.published, res.notified)
+            PublishOutcome(res.published, res.notified, res.calendar)
         }
     }
 
@@ -224,6 +232,63 @@ class CrewScheduleRepositoryImpl @Inject constructor(
 
     override suspend fun planDeal(dealId: String): ScheduleCallResult<Int> = call {
         api.planScheduleDeal(dealId, JsonObject(emptyMap())).created
+    }
+
+    override suspend fun setCrewWorkday(
+        crewId: String,
+        day: LocalDate,
+        working: Boolean,
+    ): ScheduleCallResult<Unit> = call {
+        api.setCrewWorkday(crewId, day.toString(), ScheduleWorkdayRequest(working))
+        Unit
+    }
+
+    override suspend fun saveBlock(id: String?, input: ScheduleBlockInput): ScheduleCallResult<Unit> = call {
+        val body = ScheduleBlockRequest(
+            scope = input.scope.wire,
+            crewId = input.crewId.takeIf { input.scope == BlockScope.CREW },
+            userId = input.userId.takeIf { input.scope == BlockScope.USER },
+            start = input.start.toString(),
+            end = input.end.toString(),
+            reason = input.reason.wire,
+            note = input.note?.trim()?.takeIf { it.isNotEmpty() },
+        )
+        if (id == null) api.createScheduleBlock(body) else api.updateScheduleBlock(id, body)
+        Unit
+    }
+
+    override suspend fun deleteBlock(id: String): ScheduleCallResult<Unit> = call {
+        api.deleteScheduleBlock(id)
+        Unit
+    }
+
+    override suspend fun restoreBlock(id: String): ScheduleCallResult<Unit> = call {
+        api.restoreScheduleBlock(id, JsonObject(emptyMap()))
+        Unit
+    }
+
+    override suspend fun myDays(from: LocalDate, to: LocalDate): MyDays? {
+        val dto = try {
+            api.getMyDays(from.toString(), to.toString()).also {
+                cache.writeMyDays(json.encodeToString(MyDaysDto.serializer(), it))
+            }
+        } catch (_: Exception) {
+            cache.readMyDays()?.let { raw ->
+                runCatching { json.decodeFromString(MyDaysDto.serializer(), raw) }.getOrNull()
+            }
+        } ?: return null
+        return MyDays(
+            blocks = dto.blocks.map {
+                MyDayBlock(
+                    scope = BlockScope.fromWire(it.scope),
+                    start = LocalDate.parse(it.start.take(10)),
+                    end = LocalDate.parse(it.end.take(10)),
+                    label = it.label,
+                    crewName = it.crewName,
+                )
+            },
+            workdays = dto.workdays.map { MyWorkday(LocalDate.parse(it.date.take(10)), it.crewName) },
+        )
     }
 
     private inline fun <T> call(block: () -> T): ScheduleCallResult<T> = try {
