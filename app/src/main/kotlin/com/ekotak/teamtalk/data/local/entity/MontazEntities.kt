@@ -150,6 +150,13 @@ data class MontazMutationEntity(
         /** `PUT /installations/{id}/protocol` — protokół odbioru (moduł Montaż). */
         const val KIND_PROTOCOL = "protocol_save"
 
+        /**
+         * `POST /schedule/move-person` — przeniesienie osoby do innej ekipy
+         * (Harmonogram). `targetId` = `<id etapu docelowego>|<id osoby>`, więc
+         * ponowne przeniesienie tej samej osoby na ten sam etap zastępuje wpis.
+         */
+        const val KIND_SCHEDULE_MOVE = "schedule_move"
+
         /** Prefiks identyfikatora nadawanego lokalnie do czasu wysyłki. */
         const val LOCAL_ID_PREFIX = "local:"
     }

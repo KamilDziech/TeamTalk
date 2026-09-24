@@ -140,6 +140,8 @@ internal fun StageSheet(
     onShift: (String, Int) -> Unit,
     onUnassign: (String) -> Unit,
     onOpenDeal: (String) -> Unit,
+    /** „Przenieś do…" — arkusz przeniesienia osoby na montaż innej ekipy. */
+    onMove: (String) -> Unit,
 ) {
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val nameOf = { id: String -> sch.people.firstOrNull { it.id == id }?.name ?: "Monter" }
@@ -251,14 +253,22 @@ internal fun StageSheet(
                 } else {
                     stage.assignees.forEach { a ->
                         val warn = stage.warnings.firstOrNull { it.userId == a.userId }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
+                        Column(Modifier.fillMaxWidth()) {
+                            Text(
+                                nameOf(a.userId) + (a.role?.let { " · $it" } ?: ""),
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                            // Wypożyczony na część etapu (decyzja usera 2026-09-24).
+                            if (a.days.isNotEmpty()) {
                                 Text(
-                                    nameOf(a.userId) + (a.role?.let { " · $it" } ?: ""),
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    "tylko " + a.days.joinToString(", ") { dm(it) },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = palette.planned,
                                 )
-                                warn?.let { Text(it.message, style = MaterialTheme.typography.bodySmall, color = palette.warn) }
                             }
+                            warn?.let { Text(it.message, style = MaterialTheme.typography.bodySmall, color = palette.warn) }
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             MenuButton(
                                 text = "Zamień na…",
                                 options = free.map { it.id to personLabel(it) },
@@ -266,13 +276,16 @@ internal fun StageSheet(
                                     onPatch(
                                         stage.id,
                                         StagePatch(
+                                            // Zmiennik przejmuje też DNI wypożyczenia, nie tylko rolę.
                                             assignees = stage.assignees.map {
-                                                if (it.userId == a.userId) StageAssignee(into, it.role) else it
+                                                if (it.userId == a.userId) StageAssignee(into, it.role, it.days) else it
                                             },
                                         ),
                                     )
                                 },
                             )
+                            TextButton(onClick = { onMove(a.userId) }) { Text("Przenieś do…") }
+                            Spacer(Modifier.weight(1f))
                             TextButton(
                                 onClick = {
                                     onPatch(stage.id, StagePatch(assignees = stage.assignees.filter { it.userId != a.userId }))
@@ -286,7 +299,10 @@ internal fun StageSheet(
                     options = free.map { it.id to personLabel(it) },
                     onSelect = { id -> onPatch(stage.id, StagePatch(assignees = stage.assignees + StageAssignee(id, null))) },
                 )
-                Note("Zmiana dotyczy tylko tego etapu; stały skład ekipy zostaje.")
+                Note(
+                    "Zmiana dotyczy tylko tego etapu; stały skład ekipy zostaje. Montera z rozwiniętego " +
+                        "składu ekipy możesz też przytrzymać i upuścić na pasek montażu innej ekipy.",
+                )
             }
 
             if (stage.warnings.isNotEmpty()) {
@@ -454,7 +470,7 @@ internal fun PlanSheet(
 // ── Klocki arkuszy ───────────────────────────────────────────────────────────
 
 @Composable
-private fun Section(title: String, content: @Composable () -> Unit) {
+internal fun Section(title: String, content: @Composable () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
             title.uppercase(),
@@ -467,7 +483,7 @@ private fun Section(title: String, content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun Note(text: String) {
+internal fun Note(text: String) {
     Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 

@@ -10,6 +10,7 @@ import com.ekotak.teamtalk.data.local.entity.MontazMutationEntity.Companion.KIND
 import com.ekotak.teamtalk.data.local.entity.MontazMutationEntity.Companion.KIND_PATCH
 import com.ekotak.teamtalk.data.local.entity.MontazMutationEntity.Companion.KIND_PHOTO
 import com.ekotak.teamtalk.data.local.entity.MontazMutationEntity.Companion.KIND_PROTOCOL
+import com.ekotak.teamtalk.data.local.entity.MontazMutationEntity.Companion.KIND_SCHEDULE_MOVE
 import com.ekotak.teamtalk.data.local.entity.MontazMutationEntity.Companion.KIND_STATUS
 import com.ekotak.teamtalk.data.local.entity.MontazMutationEntity.Companion.LOCAL_ID_PREFIX
 import com.ekotak.teamtalk.data.local.entity.MontazPackEntity
@@ -570,6 +571,18 @@ class MontazRepositoryImpl @Inject constructor(
                         )
                     }
 
+                    // ── Harmonogram ekip: przeniesienie osoby do innej ekipy ──
+                    // Obie obsady (cel i etapy, z których schodzi) zmienia serwer
+                    // w jednej transakcji; tu tylko dosyłamy decyzję koordynatora.
+                    KIND_SCHEDULE_MOVE -> {
+                        api.moveSchedulePerson(
+                            json.decodeFromJsonElement(
+                                com.ekotak.teamtalk.data.remote.dto.ScheduleMoveRequest.serializer(),
+                                body,
+                            ),
+                        )
+                    }
+
                     KIND_BRIEFING -> {
                         val published = api.publishBriefing(
                             BriefingCreateRequest(
@@ -617,6 +630,7 @@ class MontazRepositoryImpl @Inject constructor(
             KIND_PHOTO -> "Zdjęcie z montażu nie zostało wysłane"
             KIND_STATUS -> "Zmiana stanu montażu nie dotarła do biura"
             KIND_PROTOCOL -> "Protokół odbioru nie został wysłany"
+            KIND_SCHEDULE_MOVE -> "Przeniesienie montera do innej ekipy przepadło"
             else -> "Odprawa nie poszła do ekipy"
         }
         val code = (e as? HttpException)?.code()

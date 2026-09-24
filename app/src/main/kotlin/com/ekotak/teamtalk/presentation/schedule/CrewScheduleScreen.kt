@@ -82,6 +82,11 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ekotak.teamtalk.domain.model.CrewSchedule
+import com.ekotak.teamtalk.domain.model.ScheduleCalendar
+import com.ekotak.teamtalk.domain.model.lentOut
+import com.ekotak.teamtalk.domain.model.presence
+import com.ekotak.teamtalk.domain.model.runs
+import com.ekotak.teamtalk.domain.model.workdays
 import com.ekotak.teamtalk.domain.model.ScheduleBacklogItem
 import com.ekotak.teamtalk.domain.model.orderCrews
 import com.ekotak.teamtalk.domain.model.ScheduleCrew
@@ -125,6 +130,7 @@ fun CrewScheduleScreen(
     // Wspólny stan przeciągania karty z listy — duch rysuje się nad całym
     // ekranem, a trafienie liczy siatka (zna wiersze i szerokość dnia).
     val drag = remember { BacklogDragState() }
+    val personDrag = remember { PersonDragState() }
     var rootOrigin by remember { mutableStateOf(Offset.Zero) }
 
     Scaffold(
@@ -173,15 +179,50 @@ fun CrewScheduleScreen(
                             sch = sch,
                             palette = palette,
                             drag = drag,
+                            personDrag = personDrag,
                             onToggle = viewModel::toggle,
                             onSelect = { viewModel.select(it) },
                             onMove = { s, day, crew -> viewModel.moveStage(s, day, crew) },
                             onResize = viewModel::resizeStage,
                             onReorderCrews = viewModel::reorderCrews,
+                            onPersonDrop = { userId, stageId, day ->
+                                viewModel.openMove(CrewScheduleViewModel.MoveRequest(userId, stageId, day = day))
+                            },
+                            onSay = viewModel::say,
                         )
                         Legend(sch.settings.publishEnabled, palette)
                         Spacer(Modifier.height(24.dp))
                     }
+                }
+            }
+
+            // Duch przeciąganej osoby (przeniesienie do innej ekipy).
+            personDrag.userId?.let { uid ->
+                val sch = state.schedule
+                val who = sch?.people?.firstOrNull { it.id == uid }?.name ?: "Monter"
+                val target = personDrag.stageId?.let { id -> sch?.stages?.firstOrNull { it.id == id } }
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier
+                        .offset {
+                            IntOffset(
+                                (personDrag.pointer.x - rootOrigin.x + 24).roundToInt(),
+                                (personDrag.pointer.y - rootOrigin.y - 56).roundToInt(),
+                            )
+                        }
+                        .zIndex(20f),
+                ) {
+                    Text(
+                        text = who + if (target != null) {
+                            " → ${target.clientName}" + (personDrag.day?.let { ", ${dm(it)}" } ?: "")
+                        } else {
+                            " — upuść na montaż innej ekipy"
+                        },
+                        color = MaterialTheme.colorScheme.surface,
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    )
                 }
             }
 
@@ -228,6 +269,22 @@ fun CrewScheduleScreen(
                 viewModel.select(null)
                 onOpenDeal(it)
             },
+            onMove = { userId ->
+                // Dwa arkusze naraz to za dużo na telefonie — etap zamykamy.
+                viewModel.select(null)
+                viewModel.openMove(CrewScheduleViewModel.MoveRequest(userId, null, fromId = stage.id))
+            },
+        )
+    }
+
+    state.moveRequest?.let { req ->
+        val sch = state.schedule ?: return@let
+        MoveSheet(
+            req = req,
+            sch = sch,
+            busy = state.saving,
+            onClose = { viewModel.openMove(null) },
+            onConfirm = viewModel::movePerson,
         )
     }
 
@@ -392,6 +449,24 @@ private fun Banner(text: String, color: Color) {
 
 /** Cel upuszczenia: ekipa (`null` = „Bez ekipy") i dzień startu. */
 internal data class DropTarget(val crewId: String?, val day: LocalDate)
+
+/**
+ * Przeciąganie osoby z rozwiniętego składu na pasek montażu innej ekipy
+ * (przeniesienie, decyzje usera 2026-09-24) — pozycja palca w oknie, etap
+ * i dzień pod palcem.
+ */
+internal class PersonDragState {
+    var userId by mutableStateOf<String?>(null)
+    var pointer by mutableStateOf(Offset.Zero)
+    var stageId by mutableStateOf<String?>(null)
+    var day by mutableStateOf<LocalDate?>(null)
+
+    fun clear() {
+        userId = null
+        stageId = null
+        day = null
+    }
+}
 
 /** Przeciąganie karty z listy — pozycja palca w układzie całego okna. */
 internal class BacklogDragState {
@@ -653,11 +728,14 @@ private fun ScheduleGrid(
     sch: CrewSchedule,
     palette: SchedulePalette,
     drag: BacklogDragState,
+    personDrag: PersonDragState,
     onToggle: (String) -> Unit,
     onSelect: (String) -> Unit,
     onMove: (ScheduleStage, LocalDate, String?) -> Unit,
     onResize: (ScheduleStage, Int) -> Unit,
     onReorderCrews: (List<String>) -> Unit,
+    onPersonDrop: (String, String, LocalDate) -> Unit,
+    onSay: (String) -> Unit,
 ) {
     val density = LocalDensity.current
     val haptic = LocalHapticFeedback.current
@@ -761,16 +839,67 @@ private fun ScheduleGrid(
     val hotCrew: Any? = drag.target?.let { it.crewId ?: "" } ?: barDrag?.target?.let { it.crewId ?: "" }
 
     val stagesByCrew = sch.stages.groupBy { s -> s.crewId?.takeIf { id -> sch.crews.any { it.id == id } } }
+    val lent = remember(sch) { lentOut(sch) }
+
+    /** Etap pod palcem (pasek w wierszu ekipy albo „Bez ekipy") i dzień. */
+    val stageAt: (Offset) -> Pair<ScheduleStage, LocalDate>? = at@{ p ->
+        val t = hitTest(p) ?: return@at null
+        val s = stagesByCrew[t.crewId].orEmpty().firstOrNull {
+            !t.day.isBefore(it.scheduledAt) && !t.day.isAfter(it.endDate) &&
+                it.status != ScheduleStageStatus.RESERVED
+        } ?: return@at null
+        s to t.day
+    }
+    val stageAtNow by rememberUpdatedState(stageAt)
+    val dropNow by rememberUpdatedState(onPersonDrop)
+
+    /**
+     * Przytrzymanie nazwy montera = przeniesienie: upuszczenie na pasek montażu
+     * otwiera arkusz z wyborem dni i pytaniem o etapy, z których osoba schodzi.
+     */
+    fun Modifier.personHandle(pid: String, origin: () -> Offset): Modifier = pointerInput(pid) {
+        detectDragGesturesAfterLongPress(
+            onDragStart = { at ->
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                personDrag.userId = pid
+                personDrag.pointer = origin() + at
+                val hit = stageAtNow(personDrag.pointer)
+                personDrag.stageId = hit?.first?.id
+                personDrag.day = hit?.second
+            },
+            onDrag = { change, amount ->
+                change.consume()
+                personDrag.pointer += amount
+                val hit = stageAtNow(personDrag.pointer)
+                personDrag.stageId = hit?.first?.id
+                personDrag.day = hit?.second
+            },
+            onDragEnd = {
+                val hit = stageAtNow(personDrag.pointer)
+                personDrag.clear()
+                if (hit != null) dropNow(pid, hit.first.id, hit.second)
+            },
+            onDragCancel = { personDrag.clear() },
+        )
+    }
 
     Row(Modifier.padding(top = 10.dp)) {
         // Kolumna nazw — przyklejona z lewej.
         Column(Modifier.width(NAME_W)) {
             rows.forEach { r ->
                 key(rowKey(r)) {
+                    var origin by remember { mutableStateOf(Offset.Zero) }
                     NameCell(
                         r, sch, palette, state.expanded, poolPeople.size, hotCrew, onToggle,
-                        lifted = r is GridRow.Crew && reorder?.crewId == r.crew.id,
-                        handle = if (r is GridRow.Crew) Modifier.crewHandle(r.crew.id) else Modifier,
+                        lifted = r is GridRow.Crew && reorder?.crewId == r.crew.id ||
+                            r is GridRow.Member && personDrag.userId == r.personId,
+                        handle = when (r) {
+                            is GridRow.Crew -> Modifier.crewHandle(r.crew.id)
+                            is GridRow.Member -> Modifier
+                                .onGloballyPositioned { origin = it.positionInRoot() }
+                                .personHandle(r.personId) { origin }
+                            else -> Modifier
+                        },
                     )
                 }
             }
@@ -804,6 +933,9 @@ private fun ScheduleGrid(
                             onSelect = onSelect,
                             onMove = onMove,
                             onResize = onResize,
+                            personTargetId = personDrag.stageId,
+                            lent = lent[r.crew.id],
+                            onSay = onSay,
                         )
                         GridRow.Loose -> StageRow(
                             height = r.height,
@@ -819,6 +951,7 @@ private fun ScheduleGrid(
                             onSelect = onSelect,
                             onMove = onMove,
                             onResize = onResize,
+                            personTargetId = personDrag.stageId,
                         )
                         GridRow.Pool -> DayCells(sch, state.today, palette, dayW, POOL_H)
                         is GridRow.Member -> PersonRow(r, sch, state, palette, dayW, onSelect)
@@ -922,7 +1055,13 @@ private fun NameCell(
         }
         is GridRow.Member -> {
             val person = sch.people.firstOrNull { it.id == r.personId }
-            Box(base.padding(start = 10.dp), Alignment.CenterStart) {
+            Box(
+                base
+                    .background(if (lifted) palette.planned.copy(alpha = 0.28f) else Color.Transparent)
+                    .then(handle)
+                    .padding(start = 10.dp),
+                Alignment.CenterStart,
+            ) {
                 Text(
                     (person?.name ?: "Monter") + if (r.home?.leaderId == r.personId) " · lider" else "",
                     style = MaterialTheme.typography.labelSmall,
@@ -1030,6 +1169,11 @@ private fun StageRow(
     onSelect: (String) -> Unit,
     onMove: (ScheduleStage, LocalDate, String?) -> Unit,
     onResize: (ScheduleStage, Int) -> Unit,
+    /** Pasek, na który zaraz upuścimy przenoszoną osobę. */
+    personTargetId: String? = null,
+    /** Wypożyczeni z tej ekipy: dzień → „Imię → Ekipa" (tylko wiersze ekip). */
+    lent: Map<LocalDate, List<String>>? = null,
+    onSay: (String) -> Unit = {},
 ) {
     val density = LocalDensity.current
     val dayPx = with(density) { dayW.toPx() }
@@ -1078,7 +1222,24 @@ private fun StageRow(
             }
         }
         stages.forEach { s ->
-            StageBar(s, sch, state, palette, dayPx, barDrag, onBarDrag, hitTest, onSelect, onMove, onResize)
+            StageBar(s, sch, state, palette, dayPx, barDrag, onBarDrag, hitTest, onSelect, onMove, onResize, personTargetId == s.id)
+        }
+        // „−N": tylu ludzi z tej ekipy jest danego dnia na montażu innej ekipy —
+        // tylko w dni, w które ekipa sama ma montaż (wtedy brak kogoś coś znaczy).
+        lent?.forEach { (d, who) ->
+            if (stages.none { !d.isBefore(it.scheduledAt) && !d.isAfter(it.endDate) }) return@forEach
+            val (left, width) = place(sch, d, d, dayPx) ?: return@forEach
+            Box(
+                Modifier
+                    .offset { IntOffset((left + width).roundToInt() - 24.dp.roundToPx(), 1.dp.roundToPx()) }
+                    .zIndex(12f)
+                    .clip(RoundedCornerShape(50))
+                    .background(palette.warnBg)
+                    .clickable { onSay("Wypożyczeni ${dm(d)}: " + who.joinToString(", ")) }
+                    .padding(horizontal = 4.dp),
+            ) {
+                Text("−${who.size}", color = palette.warn, fontSize = 9.sp, lineHeight = 11.sp, style = NoPad, fontWeight = FontWeight.Bold)
+            }
         }
     }
 }
@@ -1096,6 +1257,7 @@ private fun StageBar(
     onSelect: (String) -> Unit,
     onMove: (ScheduleStage, LocalDate, String?) -> Unit,
     onResize: (ScheduleStage, Int) -> Unit,
+    personTarget: Boolean = false,
 ) {
     val density = LocalDensity.current
     val (left, width) = place(sch, s.scheduledAt, s.endDate, dayPx) ?: return
@@ -1147,6 +1309,9 @@ private fun StageBar(
                     else -> border
                 }
                 drawRoundRect(c, style = stroke, cornerRadius = CornerRadius(6.dp.toPx()))
+                if (personTarget) {
+                    drawRoundRect(palette.planned, style = Stroke(3.dp.toPx()), cornerRadius = CornerRadius(6.dp.toPx()))
+                }
             }
             .pointerInput(s.id) { detectTapGestures(onTap = { select(stage.id) }) }
             .pointerInput(s.id, dayPx) {
@@ -1307,12 +1472,17 @@ private fun PersonRow(
                 }
             }
         }
-        sch.stages.filter { s -> s.assignees.any { it.userId == pid } }.forEach { s ->
-            val (left, width) = place(sch, s.scheduledAt, s.endDate, dayPx) ?: return@forEach
+        val cal = remember(sch.days) { ScheduleCalendar(sch.days) }
+        sch.stages.filter { s -> s.assignees.any { it.userId == pid } }.forEach stage@{ s ->
+            val a = s.assignees.first { it.userId == pid }
+            val sDays = s.workdays(cal)
             val crew = s.crewId?.let { id -> sch.crews.firstOrNull { it.id == id } }
             val borrowed = crew != null && crew.id != r.home?.id
             val clash = s.warnings.any { w -> w.userId == pid && (w.code == "leave" || w.code == "double_booking") }
             val c = crewColor(crew?.color, palette.muted)
+            // Wypożyczenie na część etapu = osobny kawałek na każdy ciąg dni.
+            runs(sDays, presence(sDays, a)).forEach piece@{ (a0, b0) ->
+            val (left, width) = place(sch, a0, b0, dayPx) ?: return@piece
             Box(
                 Modifier
                     .offset { IntOffset(left.roundToInt(), 5.dp.roundToPx()) }
@@ -1333,6 +1503,7 @@ private fun PersonRow(
                         modifier = Modifier.padding(horizontal = 4.dp),
                     )
                 }
+            }
             }
         }
     }

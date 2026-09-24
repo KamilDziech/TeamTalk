@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ekotak.teamtalk.domain.model.Change
 import com.ekotak.teamtalk.domain.model.CrewSchedule
+import com.ekotak.teamtalk.domain.model.PersonMove
 import com.ekotak.teamtalk.domain.model.ScheduleBacklogItem
 import com.ekotak.teamtalk.domain.model.ScheduleCalendar
 import com.ekotak.teamtalk.domain.model.ScheduleStage
@@ -13,6 +14,7 @@ import com.ekotak.teamtalk.domain.model.StagePatch
 import com.ekotak.teamtalk.domain.model.etapy
 import com.ekotak.teamtalk.domain.model.mondayOf
 import com.ekotak.teamtalk.domain.model.orderCrews
+import com.ekotak.teamtalk.domain.model.planMove
 import com.ekotak.teamtalk.domain.repository.CrewScheduleRepository
 import com.ekotak.teamtalk.domain.repository.ScheduleCallResult
 import com.ekotak.teamtalk.domain.repository.ScheduleSaveResult
@@ -55,6 +57,18 @@ class CrewScheduleViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Otwarte okienko przeniesienia osoby. [targetId] = etap, na który ją
+     * upuszczono (`null` = wybór z listy po „Przenieś do…"), [fromId] = etap,
+     * z którego arkusza przyszło, [day] = dzień upuszczenia (domyślny wybór).
+     */
+    data class MoveRequest(
+        val userId: String,
+        val targetId: String?,
+        val fromId: String? = null,
+        val day: LocalDate? = null,
+    )
+
     data class UiState(
         val today: LocalDate = LocalDate.now(),
         val from: LocalDate = mondayOf(LocalDate.now()),
@@ -74,6 +88,7 @@ class CrewScheduleViewModel @Inject constructor(
         val planItemId: String? = null,
         val planningDealId: String? = null,
         val confirm: Confirm? = null,
+        val moveRequest: MoveRequest? = null,
     ) {
         val to: LocalDate get() = from.plusDays(zoom - 1L)
         val selected: ScheduleStage? get() = schedule?.stages?.firstOrNull { it.id == selectedId }
@@ -171,6 +186,57 @@ class CrewScheduleViewModel @Inject constructor(
     fun select(id: String?) = _uiState.update { it.copy(selectedId = id) }
     fun openPlan(id: String?) = _uiState.update { it.copy(planItemId = id) }
     fun dismissConfirm() = _uiState.update { it.copy(confirm = null) }
+
+    // ── Przeniesienie osoby do innej ekipy (decyzje usera 2026-09-24) ────────
+
+    fun openMove(req: MoveRequest?) = _uiState.update { it.copy(moveRequest = req) }
+
+    /** Krótki komunikat na dole ekranu (np. kto jest wypożyczony po stuknięciu „−N"). */
+    fun say(message: String) {
+        viewModelScope.launch { _toasts.send(message) }
+    }
+
+    /**
+     * Przeniesienie z okienka: oś zmienia się od razu (ta sama rachuba co
+     * w API), serwer zapisuje obie obsady naraz i odsyła przeliczone ostrzeżenia.
+     * Bez zasięgu zmiana czeka w kolejce montaży; odmowa cofa oś.
+     */
+    fun movePerson(move: PersonMove) {
+        val before = _uiState.value.schedule ?: return
+        val target = before.stages.firstOrNull { it.id == move.toInstallationId } ?: return
+        val changed = planMove(before, move)
+        _uiState.update { st ->
+            st.copy(
+                moveRequest = null,
+                schedule = before.copy(
+                    stages = before.stages.map { s ->
+                        changed[s.id]?.let { s.copy(assignees = it, pending = true) } ?: s
+                    },
+                ),
+            )
+        }
+        val who = before.people.firstOrNull { it.id == move.userId }?.name ?: "Monter"
+        val crew = target.crewId?.let { id -> before.crews.firstOrNull { it.id == id }?.name } ?: "bez ekipy"
+        val note = "$who → ${target.clientName} ($crew)" +
+            (move.days?.let { d -> ", " + d.joinToString(", ") { dm(it) } } ?: "") +
+            if (before.settings.publishEnabled) " · szkic do publikacji" else ""
+        viewModelScope.launch {
+            _uiState.update { it.copy(saving = true) }
+            val res = repository.movePerson(target.dealId, move)
+            _uiState.update { it.copy(saving = false) }
+            when (res) {
+                ScheduleSaveResult.Sent -> _toasts.send(note)
+                ScheduleSaveResult.Queued ->
+                    _toasts.send("Bez zasięgu — przeniesienie czeka w telefonie i pójdzie samo.")
+                is ScheduleSaveResult.Failed -> {
+                    _uiState.update { it.copy(schedule = before) }
+                    _toasts.send(res.message)
+                    return@launch
+                }
+            }
+            load(quiet = true)
+        }
+    }
 
     fun acceptConfirm() {
         when (val c = _uiState.value.confirm) {

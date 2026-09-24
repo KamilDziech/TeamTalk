@@ -1449,6 +1449,13 @@ interface TeamTalkApi {
     @PUT("api/schedule/crew-order")
     suspend fun saveScheduleCrewOrder(@Body request: ScheduleCrewOrderRequest): JsonObject
 
+    /**
+     * Przeniesienie osoby do innej ekipy na etap albo wybrane dni. Obsada celu
+     * i etapów z `removeFrom` zmienia się po stronie serwera w jednej transakcji.
+     */
+    @POST("api/schedule/move-person")
+    suspend fun moveSchedulePerson(@Body request: ScheduleMoveRequest): ScheduleMoveResponse
+
     /** „Zaplanuj" deala z etapu „Montaż" — po jednym etapie na instalację z zakresu. */
     @POST("api/schedule/deal/{dealId}/plan")
     suspend fun planScheduleDeal(

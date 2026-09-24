@@ -1,6 +1,7 @@
 package com.ekotak.teamtalk.domain.repository
 
 import com.ekotak.teamtalk.domain.model.CrewSchedule
+import com.ekotak.teamtalk.domain.model.PersonMove
 import com.ekotak.teamtalk.domain.model.StagePatch
 import java.time.LocalDate
 
@@ -18,6 +19,12 @@ interface CrewScheduleRepository {
     suspend fun load(from: LocalDate, to: LocalDate): CrewScheduleSnapshot
 
     suspend fun patchStage(dealId: String, id: String, patch: StagePatch): ScheduleSaveResult
+
+    /**
+     * Przeniesienie osoby do innej ekipy (etap albo wybrane dni). Bez zasięgu
+     * czeka w kolejce montaży i od razu rysuje się na osi.
+     */
+    suspend fun movePerson(dealId: String, move: PersonMove): ScheduleSaveResult
 
     suspend fun publishWeek(weekStart: LocalDate): ScheduleCallResult<PublishOutcome>
 

@@ -66,10 +66,15 @@ data class ScheduleDayDto(
     val limit: Int = 0,
 )
 
+/**
+ * Osoba w obsadzie. `days` (`YYYY-MM-DD`) przychodzi tylko przy wypożyczeniu
+ * na część etapu — brak pola = cały etap.
+ */
 @Serializable
 data class ScheduleAssigneeDto(
     val userId: String,
     val role: String? = null,
+    val days: List<String> = emptyList(),
 )
 
 @Serializable
@@ -163,6 +168,26 @@ data class ScheduleSettingsRequest(val publishEnabled: Boolean)
 /** `PUT /api/schedule/crew-order` — ekipy od góry do dołu osi (wspólne dla firmy). */
 @Serializable
 data class ScheduleCrewOrderRequest(val crewIds: List<String>)
+
+/**
+ * `POST /api/schedule/move-person` — przeniesienie osoby do innej ekipy.
+ * `days = null` (pominięte w ciele) = cały etap docelowy; `removeFrom` = etapy,
+ * z których osoba schodzi w tych dniach (pusta = zostaje w obu).
+ * Bez wartości domyślnych: wspólny `Json` nie zapisuje domyślnych pól.
+ */
+@Serializable
+data class ScheduleMoveRequest(
+    val userId: String,
+    val toInstallationId: String,
+    val days: List<String>?,
+    val removeFrom: List<String>,
+)
+
+@Serializable
+data class ScheduleMoveResponse(
+    val days: List<String> = emptyList(),
+    val updated: List<String> = emptyList(),
+)
 
 /** `POST /api/schedule/deal/{dealId}/plan` — ile etapów założył „Zaplanuj". */
 @Serializable

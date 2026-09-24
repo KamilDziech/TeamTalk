@@ -94,7 +94,15 @@ enum class ScheduleStageStatus(val wire: String, val label: String) {
     }
 }
 
-data class StageAssignee(val userId: String, val role: String?)
+/**
+ * Osoba w obsadzie etapu. [days] = dni, w które jest na TYM etapie — wypożyczenie
+ * do innej ekipy na część montażu (decyzja usera 2026-09-24); pusta = cały etap.
+ */
+data class StageAssignee(
+    val userId: String,
+    val role: String?,
+    val days: List<LocalDate> = emptyList(),
+)
 
 data class ScheduleWarning(
     /** `leave`, `double_booking`, `crew_busy`, `missing_role`, `gap_too_short`, `stage_overlap`, `capacity`. */

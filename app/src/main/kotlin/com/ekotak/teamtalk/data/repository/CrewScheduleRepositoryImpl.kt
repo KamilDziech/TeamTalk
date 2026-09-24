@@ -4,16 +4,21 @@ import com.ekotak.teamtalk.data.files.CrewScheduleCacheStore
 import com.ekotak.teamtalk.data.local.dao.MontazDao
 import com.ekotak.teamtalk.data.local.entity.MontazMutationEntity
 import com.ekotak.teamtalk.data.local.entity.MontazMutationEntity.Companion.KIND_PATCH
+import com.ekotak.teamtalk.data.local.entity.MontazMutationEntity.Companion.KIND_SCHEDULE_MOVE
 import com.ekotak.teamtalk.data.mapper.toDomain
 import com.ekotak.teamtalk.data.mapper.toEntity
 import com.ekotak.teamtalk.data.mapper.toJson
+import com.ekotak.teamtalk.data.mapper.toRequest
 import com.ekotak.teamtalk.data.mapper.withPending
+import com.ekotak.teamtalk.data.mapper.withPendingMoves
 import com.ekotak.teamtalk.data.remote.api.TeamTalkApi
 import com.ekotak.teamtalk.data.remote.dto.ScheduleCrewOrderRequest
 import com.ekotak.teamtalk.data.remote.dto.ScheduleDto
+import com.ekotak.teamtalk.data.remote.dto.ScheduleMoveRequest
 import com.ekotak.teamtalk.data.remote.dto.SchedulePublishRequest
 import com.ekotak.teamtalk.data.remote.dto.ScheduleSettingsRequest
 import com.ekotak.teamtalk.data.sync.MontazSyncScheduler
+import com.ekotak.teamtalk.domain.model.PersonMove
 import com.ekotak.teamtalk.domain.model.StagePatch
 import com.ekotak.teamtalk.domain.model.orderCrews
 import com.ekotak.teamtalk.domain.repository.CrewScheduleRepository
@@ -83,15 +88,16 @@ class CrewScheduleRepositoryImpl @Inject constructor(
         }
 
         val pending = pendingPatches()
+        val moves = pendingMoves()
         val order = cache.readPendingCrewOrder()
         return CrewScheduleSnapshot(
-            schedule = dto?.toDomain()?.withPending(pending)?.let { sch ->
+            schedule = dto?.toDomain()?.withPending(pending)?.withPendingMoves(moves)?.let { sch ->
                 if (order == null) sch else sch.copy(crews = orderCrews(sch.crews, order))
             },
             fromCache = fromCache,
             forbidden = false,
             error = error,
-            pendingCount = pending.size,
+            pendingCount = pending.size + moves.size,
         )
     }
 
@@ -106,6 +112,39 @@ class CrewScheduleRepositoryImpl @Inject constructor(
             .filter { it.kind == KIND_PATCH }
             .mapNotNull { row -> parse(row.payload)?.let { row.targetId to it } }
             .toMap()
+
+    /** Przeniesienia osób czekające w kolejce — w kolejności, w jakiej je zrobiono. */
+    private suspend fun pendingMoves(): List<PersonMove> =
+        dao.getMutations()
+            .filter { it.kind == KIND_SCHEDULE_MOVE }
+            .mapNotNull { row ->
+                runCatching { json.decodeFromString(ScheduleMoveRequest.serializer(), row.payload).toDomain() }.getOrNull()
+            }
+
+    override suspend fun movePerson(dealId: String, move: PersonMove): ScheduleSaveResult {
+        val body = move.toRequest()
+        return try {
+            api.moveSchedulePerson(body)
+            ScheduleSaveResult.Sent
+        } catch (_: IOException) {
+            // Ta sama kolejka co zmiany etapów — opróżnia ją `MontazRepositoryImpl`
+            // po kolei, więc przeniesienie nie wyprzedzi wcześniejszej zmiany składu.
+            dao.upsertMutation(
+                MontazMutationEntity(
+                    targetId = "${move.toInstallationId}|${move.userId}",
+                    kind = KIND_SCHEDULE_MOVE,
+                    payload = json.encodeToString(ScheduleMoveRequest.serializer(), body),
+                    dealId = dealId,
+                    installationId = move.toInstallationId,
+                    createdAt = System.currentTimeMillis(),
+                ),
+            )
+            syncScheduler.scheduleSync()
+            ScheduleSaveResult.Queued
+        } catch (e: HttpException) {
+            ScheduleSaveResult.Failed(e.serverMessage() ?: saveError(e.code()))
+        }
+    }
 
     override suspend fun patchStage(dealId: String, id: String, patch: StagePatch): ScheduleSaveResult {
         val body = patch.toJson()
@@ -167,7 +206,7 @@ class CrewScheduleRepositoryImpl @Inject constructor(
         // Publikujemy to, co widzi koordynator — więc najpierw dosyłamy zmiany
         // z kolejki; inaczej ekipy dostałyby tydzień sprzed przesunięć z telefonu.
         runCatching { montaz.syncPendingMutations() }
-        if (dao.getMutations().any { it.kind == KIND_PATCH }) {
+        if (dao.getMutations().any { it.kind == KIND_PATCH || it.kind == KIND_SCHEDULE_MOVE }) {
             return ScheduleCallResult.Failed(
                 "Najpierw muszą dojść zmiany z telefonu — spróbuj za chwilę, w zasięgu.",
             )

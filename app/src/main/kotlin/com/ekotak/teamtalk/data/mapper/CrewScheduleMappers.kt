@@ -2,9 +2,11 @@ package com.ekotak.teamtalk.data.mapper
 
 import com.ekotak.teamtalk.data.remote.dto.ScheduleBacklogDto
 import com.ekotak.teamtalk.data.remote.dto.ScheduleDto
+import com.ekotak.teamtalk.data.remote.dto.ScheduleMoveRequest
 import com.ekotak.teamtalk.data.remote.dto.ScheduleStageDto
 import com.ekotak.teamtalk.domain.model.CrewSchedule
 import com.ekotak.teamtalk.domain.model.DatePrecision
+import com.ekotak.teamtalk.domain.model.PersonMove
 import com.ekotak.teamtalk.domain.model.PublishedVersion
 import com.ekotak.teamtalk.domain.model.ScheduleBacklogItem
 import com.ekotak.teamtalk.domain.model.ScheduleCalendar
@@ -19,6 +21,7 @@ import com.ekotak.teamtalk.domain.model.ScheduleUnplannedDeal
 import com.ekotak.teamtalk.domain.model.ScheduleWarning
 import com.ekotak.teamtalk.domain.model.StageAssignee
 import com.ekotak.teamtalk.domain.model.StagePatch
+import com.ekotak.teamtalk.domain.model.planMove
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -71,7 +74,7 @@ private fun ScheduleStageDto.toDomain(): ScheduleStage = ScheduleStage(
     endDate = day(endDate),
     durationDays = durationDays,
     crewId = crewId,
-    assignees = assignees.map { StageAssignee(it.userId, it.role) },
+    assignees = assignees.map { StageAssignee(it.userId, it.role, it.days.map(::day)) },
     requiredRoles = requiredRoles,
     minGapDays = minGapDays,
     gapLabel = gapLabel,
@@ -124,6 +127,9 @@ fun StagePatch.toJson(): JsonObject = buildJsonObject {
                         buildJsonObject {
                             put("userId", a.userId)
                             put("role", a.role?.let(::JsonPrimitive) ?: JsonNull)
+                            // Dni wypożyczenia idą ZAWSZE jawnie: `[]` = cały etap.
+                            // Bez pola serwer zostawiłby osobie dni, które miała.
+                            put("days", buildJsonArray { a.days.forEach { add(JsonPrimitive(it.toString())) } })
                         },
                     )
                 }
@@ -200,7 +206,8 @@ private fun ScheduleStage.applying(patch: JsonObject, cal: ScheduleCalendar): Sc
         assignees = (patch["assignees"] as? JsonArray)?.mapNotNull { el ->
             val o = el as? JsonObject ?: return@mapNotNull null
             val user = o.text("userId") ?: return@mapNotNull null
-            StageAssignee(user, o.text("role"))
+            val days = (o["days"] as? JsonArray)?.mapNotNull { d -> (d as? JsonPrimitive)?.contentOrNull?.let(::day) }
+            StageAssignee(user, o.text("role"), days ?: assignees.firstOrNull { it.userId == user }?.days.orEmpty())
         } ?: assignees,
         minGapDays = if (patch.containsKey("minGapDays")) patch.int("minGapDays") else minGapDays,
         gapLabel = if (patch.containsKey("gapLabel")) patch.text("gapLabel") else gapLabel,
@@ -209,6 +216,41 @@ private fun ScheduleStage.applying(patch: JsonObject, cal: ScheduleCalendar): Sc
         pending = true,
     )
 }
+
+// ── Przeniesienia osób czekające w kolejce ──────────────────────────────────
+
+/** Ciało `POST /schedule/move-person` z przeniesienia w domenie. */
+fun PersonMove.toRequest(): ScheduleMoveRequest = ScheduleMoveRequest(
+    userId = userId,
+    toInstallationId = toInstallationId,
+    days = days?.map { it.toString() },
+    removeFrom = removeFrom,
+)
+
+fun ScheduleMoveRequest.toDomain(): PersonMove = PersonMove(
+    userId = userId,
+    toInstallationId = toInstallationId,
+    days = days?.map(::day),
+    removeFrom = removeFrom,
+)
+
+/**
+ * Przeniesienia zrobione bez zasięgu nałożone na oś — po kolei, jak poszły
+ * do kolejki. Ruszone etapy dostają `pending`: ostrzeżenia przeliczy serwer.
+ */
+fun CrewSchedule.withPendingMoves(moves: List<PersonMove>): CrewSchedule =
+    moves.fold(this) { sch, move ->
+        val changed = planMove(sch, move)
+        if (changed.isEmpty()) {
+            sch
+        } else {
+            sch.copy(
+                stages = sch.stages.map { s ->
+                    changed[s.id]?.let { s.copy(assignees = it, pending = true) } ?: s
+                },
+            )
+        }
+    }
 
 private fun ScheduleStage.toBacklog() = ScheduleBacklogItem(
     id = id,
