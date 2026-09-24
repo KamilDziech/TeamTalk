@@ -56,6 +56,7 @@ import com.ekotak.teamtalk.domain.model.ScheduleStage
 import com.ekotak.teamtalk.domain.model.ScheduleStageStatus
 import com.ekotak.teamtalk.domain.model.StageAssignee
 import com.ekotak.teamtalk.domain.model.StagePatch
+import com.ekotak.teamtalk.domain.model.pickerCrews
 import com.ekotak.teamtalk.presentation.theme.SyncBlue
 import java.time.LocalDate
 
@@ -222,7 +223,7 @@ internal fun StageSheet(
                     label = "Ekipa",
                     value = crew?.let { it.name + if (it.external) " (zewnętrzna)" else "" } ?: "bez ekipy",
                     options = listOf<Pair<String?, String>>(null to "bez ekipy") +
-                        sch.crews.map { it.id to (it.name + if (it.external) " (zewnętrzna)" else "") },
+                        pickerCrews(sch.crews).map { it.id to (it.name + if (it.external) " (zewnętrzna)" else "") },
                     onSelect = { onPickCrew(stage.id, it) },
                 )
                 Row(
@@ -392,7 +393,7 @@ internal fun PlanSheet(
 ) {
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val cal = remember(sch.days) { ScheduleCalendar(sch.days) }
-    var crewId by remember(item.id) { mutableStateOf(sch.crews.firstOrNull()?.id) }
+    var crewId by remember(item.id) { mutableStateOf(pickerCrews(sch.crews).firstOrNull()?.id) }
     var day by remember(item.id) {
         val base = listOf(item.scheduledAt, today, sch.from).max()
         mutableStateOf(cal.nextWork(base))
@@ -430,7 +431,7 @@ internal fun PlanSheet(
             }
 
             Section("Ekipa") {
-                (sch.crews.map { it.id to (it.name + if (it.external) " (zewnętrzna)" else "") } +
+                (pickerCrews(sch.crews).map { it.id to (it.name + if (it.external) " (zewnętrzna)" else "") } +
                     listOf<Pair<String?, String>>(null to "Bez ekipy")).forEach { (id, name) ->
                     Row(
                         verticalAlignment = Alignment.CenterVertically,

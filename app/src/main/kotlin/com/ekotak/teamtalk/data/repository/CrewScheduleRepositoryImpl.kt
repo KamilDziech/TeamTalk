@@ -9,11 +9,13 @@ import com.ekotak.teamtalk.data.mapper.toEntity
 import com.ekotak.teamtalk.data.mapper.toJson
 import com.ekotak.teamtalk.data.mapper.withPending
 import com.ekotak.teamtalk.data.remote.api.TeamTalkApi
+import com.ekotak.teamtalk.data.remote.dto.ScheduleCrewOrderRequest
 import com.ekotak.teamtalk.data.remote.dto.ScheduleDto
 import com.ekotak.teamtalk.data.remote.dto.SchedulePublishRequest
 import com.ekotak.teamtalk.data.remote.dto.ScheduleSettingsRequest
 import com.ekotak.teamtalk.data.sync.MontazSyncScheduler
 import com.ekotak.teamtalk.domain.model.StagePatch
+import com.ekotak.teamtalk.domain.model.orderCrews
 import com.ekotak.teamtalk.domain.repository.CrewScheduleRepository
 import com.ekotak.teamtalk.domain.repository.CrewScheduleSnapshot
 import com.ekotak.teamtalk.domain.repository.MontazRepository
@@ -54,6 +56,13 @@ class CrewScheduleRepositoryImpl @Inject constructor(
         var fromCache = false
         var error: String? = null
 
+        // Kolejność ekip ułożona bez zasięgu idzie PRZED odczytem — wtedy
+        // serwer odda już oś w nowym układzie.
+        val waitingOrder = cache.readPendingCrewOrder()
+        if (waitingOrder != null && sendCrewOrder(waitingOrder) != ScheduleSaveResult.Queued) {
+            cache.clearPendingCrewOrder()
+        }
+
         try {
             dto = api.getCrewSchedule(from.toString(), to.toString())
             cache.write(from, to, json.encodeToString(ScheduleDto.serializer(), dto))
@@ -74,8 +83,11 @@ class CrewScheduleRepositoryImpl @Inject constructor(
         }
 
         val pending = pendingPatches()
+        val order = cache.readPendingCrewOrder()
         return CrewScheduleSnapshot(
-            schedule = dto?.toDomain()?.withPending(pending),
+            schedule = dto?.toDomain()?.withPending(pending)?.let { sch ->
+                if (order == null) sch else sch.copy(crews = orderCrews(sch.crews, order))
+            },
             fromCache = fromCache,
             forbidden = false,
             error = error,
@@ -129,6 +141,26 @@ class CrewScheduleRepositoryImpl @Inject constructor(
         } catch (e: HttpException) {
             ScheduleSaveResult.Failed(e.serverMessage() ?: saveError(e.code()))
         }
+    }
+
+    override suspend fun saveCrewOrder(crewIds: List<String>): ScheduleSaveResult {
+        val res = sendCrewOrder(crewIds)
+        if (res == ScheduleSaveResult.Queued) {
+            cache.writePendingCrewOrder(crewIds)
+        } else {
+            // Nowszy układ zapisany (albo odrzucony) — starszy z kolejki już nie obowiązuje.
+            cache.clearPendingCrewOrder()
+        }
+        return res
+    }
+
+    private suspend fun sendCrewOrder(crewIds: List<String>): ScheduleSaveResult = try {
+        api.saveScheduleCrewOrder(ScheduleCrewOrderRequest(crewIds))
+        ScheduleSaveResult.Sent
+    } catch (_: IOException) {
+        ScheduleSaveResult.Queued
+    } catch (e: HttpException) {
+        ScheduleSaveResult.Failed(e.serverMessage() ?: saveError(e.code()))
     }
 
     override suspend fun publishWeek(weekStart: LocalDate): ScheduleCallResult<PublishOutcome> {

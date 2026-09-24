@@ -160,6 +160,10 @@ data class SchedulePublishResponse(
 @Serializable
 data class ScheduleSettingsRequest(val publishEnabled: Boolean)
 
+/** `PUT /api/schedule/crew-order` — ekipy od góry do dołu osi (wspólne dla firmy). */
+@Serializable
+data class ScheduleCrewOrderRequest(val crewIds: List<String>)
+
 /** `POST /api/schedule/deal/{dealId}/plan` — ile etapów założył „Zaplanuj". */
 @Serializable
 data class SchedulePlanDealResponse(val created: Int = 0)

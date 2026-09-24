@@ -47,6 +47,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -64,11 +65,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -80,6 +83,7 @@ import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ekotak.teamtalk.domain.model.CrewSchedule
 import com.ekotak.teamtalk.domain.model.ScheduleBacklogItem
+import com.ekotak.teamtalk.domain.model.orderCrews
 import com.ekotak.teamtalk.domain.model.ScheduleCrew
 import com.ekotak.teamtalk.domain.model.ScheduleStage
 import com.ekotak.teamtalk.domain.model.ScheduleStageStatus
@@ -173,6 +177,7 @@ fun CrewScheduleScreen(
                             onSelect = { viewModel.select(it) },
                             onMove = { s, day, crew -> viewModel.moveStage(s, day, crew) },
                             onResize = viewModel::resizeStage,
+                            onReorderCrews = viewModel::reorderCrews,
                         )
                         Legend(sch.settings.publishEnabled, palette)
                         Spacer(Modifier.height(24.dp))
@@ -623,6 +628,22 @@ private sealed interface GridRow {
     data object Pool : GridRow { override val height = POOL_H }
 }
 
+/**
+ * Przesuwany wiersz ekipy (przytrzymanie nazwy): kolejność na żywo i reszta
+ * przesunięcia palca, która nie przeskoczyła jeszcze sąsiedniego wiersza.
+ */
+private data class CrewReorder(val crewId: String, val order: List<String>, val dy: Float)
+
+/** Klucz wiersza — wiersze wędrują przy zmianie kolejności, gest nie może się zerwać. */
+private fun rowKey(r: GridRow): String = when (r) {
+    GridRow.Head -> "head"
+    GridRow.Cap -> "cap"
+    is GridRow.Crew -> "crew-${r.crew.id}"
+    is GridRow.Member -> "member-${r.home?.id ?: "pool"}-${r.personId}"
+    GridRow.Loose -> "loose"
+    GridRow.Pool -> "pool"
+}
+
 /** Przeciągany pasek: przesunięcie w px od startu gestu. */
 private data class BarDrag(val stageId: String, val resize: Boolean, val dx: Float, val target: DropTarget?)
 
@@ -636,18 +657,70 @@ private fun ScheduleGrid(
     onSelect: (String) -> Unit,
     onMove: (ScheduleStage, LocalDate, String?) -> Unit,
     onResize: (ScheduleStage, Int) -> Unit,
+    onReorderCrews: (List<String>) -> Unit,
 ) {
     val density = LocalDensity.current
+    val haptic = LocalHapticFeedback.current
     val dayW = dayWidth(state.zoom)
     val dayPx = with(density) { dayW.toPx() }
     val start = sch.from
     val totalW = dayW * sch.days.size
     val poolPeople = pool(sch)
 
+    // Kolejność ekip: przytrzymanie nazwy podnosi wiersz, ruch w pionie zamienia
+    // go z sąsiadem, gdy palec minie połowę sąsiedniego wiersza (jak w panelu).
+    var reorder by remember { mutableStateOf<CrewReorder?>(null) }
+    val crewsNow by rememberUpdatedState(sch.crews)
+    val expandedNow by rememberUpdatedState(state.expanded)
+    val reorderNow by rememberUpdatedState(onReorderCrews)
+    val crewsInOrder = reorder?.let { orderCrews(sch.crews, it.order) } ?: sch.crews
+
+    /** Wysokość bloku ekipy w px — z rozwiniętym składem jest wyższy. */
+    fun blockPx(id: String): Float {
+        val c = crewsNow.firstOrNull { it.id == id } ?: return 0f
+        val members = if (!c.external && c.id in expandedNow) c.memberIds.size else 0
+        return with(density) { (CREW_H + MEMBER_H * members).toPx() }
+    }
+
+    fun Modifier.crewHandle(crewId: String): Modifier = pointerInput(crewId) {
+        detectDragGesturesAfterLongPress(
+            onDragStart = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                reorder = CrewReorder(crewId, crewsNow.map { it.id }, 0f)
+            },
+            onDrag = { change, amount ->
+                change.consume()
+                val cur = reorder ?: return@detectDragGesturesAfterLongPress
+                val order = cur.order.toMutableList()
+                var dy = cur.dy + amount.y
+                while (true) {
+                    val i = order.indexOf(crewId)
+                    if (dy > 0 && i < order.lastIndex && dy > blockPx(order[i + 1]) / 2) {
+                        dy -= blockPx(order[i + 1])
+                        order[i] = order[i + 1].also { order[i + 1] = crewId }
+                    } else if (dy < 0 && i > 0 && -dy > blockPx(order[i - 1]) / 2) {
+                        dy += blockPx(order[i - 1])
+                        order[i] = order[i - 1].also { order[i - 1] = crewId }
+                    } else {
+                        break
+                    }
+                }
+                if (order != cur.order) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                reorder = CrewReorder(crewId, order, dy)
+            },
+            onDragEnd = {
+                val done = reorder
+                reorder = null
+                if (done != null && done.order != crewsNow.map { it.id }) reorderNow(done.order)
+            },
+            onDragCancel = { reorder = null },
+        )
+    }
+
     val rows = buildList {
         add(GridRow.Head)
         add(GridRow.Cap)
-        sch.crews.forEach { c ->
+        crewsInOrder.forEach { c ->
             add(GridRow.Crew(c))
             if (!c.external && c.id in state.expanded) c.memberIds.forEach { add(GridRow.Member(it, c)) }
         }
@@ -693,7 +766,13 @@ private fun ScheduleGrid(
         // Kolumna nazw — przyklejona z lewej.
         Column(Modifier.width(NAME_W)) {
             rows.forEach { r ->
-                NameCell(r, sch, palette, state.expanded, poolPeople.size, hotCrew, onToggle)
+                key(rowKey(r)) {
+                    NameCell(
+                        r, sch, palette, state.expanded, poolPeople.size, hotCrew, onToggle,
+                        lifted = r is GridRow.Crew && reorder?.crewId == r.crew.id,
+                        handle = if (r is GridRow.Crew) Modifier.crewHandle(r.crew.id) else Modifier,
+                    )
+                }
             }
         }
         Box(
@@ -707,7 +786,7 @@ private fun ScheduleGrid(
                     .width(totalW)
                     .onGloballyPositioned { cellsOrigin = it.positionInRoot() },
             ) {
-                rows.forEach { r ->
+                rows.forEach { r -> key(rowKey(r)) {
                     when (r) {
                         GridRow.Head -> HeadRow(sch, state, palette, dayW)
                         GridRow.Cap -> CapRow(sch, state.zoom, palette, dayW)
@@ -744,7 +823,7 @@ private fun ScheduleGrid(
                         GridRow.Pool -> DayCells(sch, state.today, palette, dayW, POOL_H)
                         is GridRow.Member -> PersonRow(r, sch, state, palette, dayW, onSelect)
                     }
-                }
+                } }
             }
         }
     }
@@ -767,6 +846,9 @@ private fun NameCell(
     poolSize: Int,
     hotCrew: Any?,
     onToggle: (String) -> Unit,
+    lifted: Boolean = false,
+    /** Przytrzymanie nazwy ekipy = przesuwanie wiersza (tylko wiersze ekip). */
+    handle: Modifier = Modifier,
 ) {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val base = Modifier
@@ -787,7 +869,15 @@ private fun NameCell(
             val open = c.id in expanded
             Column(
                 base
-                    .background(if (hotCrew == c.id) palette.planned.copy(alpha = 0.14f) else Color.Transparent)
+                    .background(
+                        when {
+                            lifted -> palette.planned.copy(alpha = 0.28f)
+                            hotCrew == c.id -> palette.planned.copy(alpha = 0.14f)
+                            else -> Color.Transparent
+                        },
+                    )
+                    .then(if (lifted) Modifier.border(2.dp, palette.planned) else Modifier)
+                    .then(handle)
                     .clickable(enabled = !c.external) { onToggle(c.id) },
                 verticalArrangement = Arrangement.Center,
             ) {

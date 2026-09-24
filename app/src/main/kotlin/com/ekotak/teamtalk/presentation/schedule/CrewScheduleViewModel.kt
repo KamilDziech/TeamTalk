@@ -12,6 +12,7 @@ import com.ekotak.teamtalk.domain.model.StageAssignee
 import com.ekotak.teamtalk.domain.model.StagePatch
 import com.ekotak.teamtalk.domain.model.etapy
 import com.ekotak.teamtalk.domain.model.mondayOf
+import com.ekotak.teamtalk.domain.model.orderCrews
 import com.ekotak.teamtalk.domain.repository.CrewScheduleRepository
 import com.ekotak.teamtalk.domain.repository.ScheduleCallResult
 import com.ekotak.teamtalk.domain.repository.ScheduleSaveResult
@@ -129,6 +130,36 @@ class CrewScheduleViewModel @Inject constructor(
                     error = snap.error,
                     pendingCount = snap.pendingCount,
                 )
+            }
+        }
+    }
+
+    /**
+     * Nowa kolejność ekip po przeciągnięciu (przytrzymanie nazwy). Wiersze
+     * przeskakują od razu; odmowa serwera wraca do starego układu, a brak
+     * zasięgu zostawia nowy — pójdzie przy najbliższym wczytaniu osi.
+     */
+    fun reorderCrews(order: List<String>) {
+        val before = _uiState.value.schedule ?: return
+        if (order == before.crews.map { it.id }) return
+        _uiState.update { st ->
+            st.copy(schedule = st.schedule?.let { it.copy(crews = orderCrews(it.crews, order)) })
+        }
+        viewModelScope.launch {
+            when (val res = repository.saveCrewOrder(order)) {
+                ScheduleSaveResult.Sent -> Unit
+                ScheduleSaveResult.Queued ->
+                    _toasts.send("Bez zasięgu — kolejność ekip czeka w telefonie i pójdzie sama.")
+                is ScheduleSaveResult.Failed -> {
+                    _uiState.update { st ->
+                        st.copy(
+                            schedule = st.schedule?.let {
+                                it.copy(crews = orderCrews(it.crews, before.crews.map { c -> c.id }))
+                            },
+                        )
+                    }
+                    _toasts.send(res.message)
+                }
             }
         }
     }

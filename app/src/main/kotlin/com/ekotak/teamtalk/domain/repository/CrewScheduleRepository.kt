@@ -23,6 +23,13 @@ interface CrewScheduleRepository {
 
     suspend fun setPublishEnabled(enabled: Boolean): ScheduleCallResult<Unit>
 
+    /**
+     * Kolejność ekip na osi (przytrzymanie nazwy i przeciągnięcie). Wspólna dla
+     * firmy, jak w panelu. Bez zasięgu czeka w telefonie i idzie przy
+     * najbliższym wczytaniu osi — do tego czasu oś rysuje się w nowym układzie.
+     */
+    suspend fun saveCrewOrder(crewIds: List<String>): ScheduleSaveResult
+
     /** „Zaplanuj" — zwraca liczbę założonych etapów (0 = deal ma już montaż). */
     suspend fun planDeal(dealId: String): ScheduleCallResult<Int>
 }

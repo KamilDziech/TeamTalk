@@ -42,6 +42,27 @@ class CrewScheduleCacheStore @Inject constructor(
         }
     }
 
+    /**
+     * Kolejność ekip ułożona bez zasięgu — jedna linia na id, od góry osi.
+     * Leży obok okien osi, ale nie kończy się na `.json`, więc `prune()` jej
+     * nie rusza. Pusta/brak pliku = nic nie czeka.
+     */
+    suspend fun readPendingCrewOrder(): List<String>? = withContext(Dispatchers.IO) {
+        runCatching {
+            pendingOrder.takeIf { it.isFile }?.readLines()?.map { it.trim() }?.filter { it.isNotEmpty() }
+        }.getOrNull()?.takeIf { it.isNotEmpty() }
+    }
+
+    suspend fun writePendingCrewOrder(ids: List<String>) = withContext(Dispatchers.IO) {
+        runCatching { pendingOrder.writeText(ids.joinToString("\n")) }
+    }
+
+    suspend fun clearPendingCrewOrder() = withContext(Dispatchers.IO) {
+        runCatching { pendingOrder.delete() }
+    }
+
+    private val pendingOrder: File get() = File(dir, "crew-order.pending")
+
     private fun file(from: LocalDate, to: LocalDate) = File(dir, "${from}_$to.json")
 
     /** Trzymamy ostatnio oglądane okna, starsze wypadają. */

@@ -1445,6 +1445,10 @@ interface TeamTalkApi {
     @PUT("api/schedule/settings")
     suspend fun setScheduleSettings(@Body request: ScheduleSettingsRequest): JsonObject
 
+    /** Kolejność wierszy osi po przeciągnięciu ekipy — jedna dla całej firmy. */
+    @PUT("api/schedule/crew-order")
+    suspend fun saveScheduleCrewOrder(@Body request: ScheduleCrewOrderRequest): JsonObject
+
     /** „Zaplanuj" deala z etapu „Montaż" — po jednym etapie na instalację z zakresu. */
     @POST("api/schedule/deal/{dealId}/plan")
     suspend fun planScheduleDeal(

@@ -246,3 +246,19 @@ fun etapy(n: Int): String {
     if (n == 1) return "1 etap"
     return "$n ${if (!teen && last in 2..4) "etapy" else "etapów"}"
 }
+
+/**
+ * Ekipy w kolejności [order] (id od góry osi). Ekipy spoza listy — świeżo
+ * założone albo nieznane w chwili układania — zostają na końcu, w porządku
+ * z serwera; id ekip, których już nie ma, są pomijane.
+ */
+fun orderCrews(crews: List<ScheduleCrew>, order: List<String>): List<ScheduleCrew> {
+    val byId = crews.associateBy { it.id }
+    val placed = order.distinct().mapNotNull { byId[it] }
+    val ids = placed.mapTo(HashSet()) { it.id }
+    return placed + crews.filter { it.id !in ids }
+}
+
+/** Lista wyboru ekipy w arkuszach zostaje w starym porządku: własne, zewnętrzne, po nazwie. */
+fun pickerCrews(crews: List<ScheduleCrew>): List<ScheduleCrew> =
+    crews.sortedWith(compareBy<ScheduleCrew> { it.external }.thenBy { it.name.lowercase() })
