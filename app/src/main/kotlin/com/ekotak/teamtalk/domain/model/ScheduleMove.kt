@@ -67,6 +67,28 @@ fun runs(stageDays: List<LocalDate>, present: List<LocalDate>): List<Pair<LocalD
     return out
 }
 
+/**
+ * Tnie odcinek na ciągi kolejnych dni kalendarza — dzień wolny ekipy w środku
+ * (weekend, święto, blokada) rozdziela pasek na osobne kawałki jak dwa etapy.
+ * Tylko do rysowania: montaż zostaje jednym etapem (decyzja usera 2026-09-25).
+ */
+fun calendarRuns(from: LocalDate, to: LocalDate, isWork: (LocalDate) -> Boolean): List<Pair<LocalDate, LocalDate>> {
+    val out = mutableListOf<Pair<LocalDate, LocalDate>>()
+    var open: LocalDate? = null
+    var d = from
+    while (!d.isAfter(to)) {
+        if (isWork(d)) {
+            if (open == null) open = d
+        } else if (open != null) {
+            out += open to d.minusDays(1)
+            open = null
+        }
+        d = d.plusDays(1)
+    }
+    if (open != null) out += open to to
+    return out.ifEmpty { listOf(from to to) }
+}
+
 data class MoveConflict(val stage: ScheduleStage, val days: List<LocalDate>)
 
 /** Etapy, na których osoba jest w wybrane dni — o nie telefon pyta „Zdjąć?". */

@@ -86,6 +86,7 @@ import com.ekotak.teamtalk.domain.model.ScheduleCalendar
 import com.ekotak.teamtalk.domain.model.lentOut
 import com.ekotak.teamtalk.domain.model.presence
 import com.ekotak.teamtalk.domain.model.runs
+import com.ekotak.teamtalk.domain.model.calendarRuns
 import com.ekotak.teamtalk.domain.model.workdays
 import com.ekotak.teamtalk.domain.model.ScheduleBacklogItem
 import com.ekotak.teamtalk.domain.model.orderCrews
@@ -1368,8 +1369,47 @@ private fun StageBar(
     onResize: (ScheduleStage, Int) -> Unit,
     personTarget: Boolean = false,
 ) {
+    // Dzień wolny ekipy w środku montażu tnie pasek na kawałki jak osobne etapy —
+    // tylko na ekranie, montaż zostaje jednym etapem. W trakcie przesuwania pasek
+    // jest w całości (dni wolne i tak liczą się od nowa po upuszczeniu).
+    val moving = barDrag?.stageId == s.id && !barDrag.resize
+    val cal = remember(sch) { sch.calendar }
+    val pieces = (
+        if (moving) listOf(s.scheduledAt to s.endDate)
+        else calendarRuns(s.scheduledAt, s.endDate) { cal.isWork(it, s.crewId) }
+    ).mapNotNull { (a, b) -> place(sch, a, b, dayPx) }
+    pieces.forEachIndexed { k, (left, width) ->
+        key(s.id, k) {
+            StagePiece(
+                s, sch, state, palette, dayPx, barDrag, onBarDrag, hitTest, onSelect, onMove, onResize, personTarget,
+                left = left, width = width, part = k, parts = pieces.size,
+            )
+        }
+    }
+}
+
+@Composable
+private fun StagePiece(
+    s: ScheduleStage,
+    sch: CrewSchedule,
+    state: CrewScheduleViewModel.UiState,
+    palette: SchedulePalette,
+    dayPx: Float,
+    barDrag: BarDrag?,
+    onBarDrag: (BarDrag?) -> Unit,
+    hitTest: (Offset) -> DropTarget?,
+    onSelect: (String) -> Unit,
+    onMove: (ScheduleStage, LocalDate, String?) -> Unit,
+    onResize: (ScheduleStage, Int) -> Unit,
+    personTarget: Boolean,
+    left: Float,
+    width: Float,
+    part: Int,
+    parts: Int,
+) {
     val density = LocalDensity.current
-    val (left, width) = place(sch, s.scheduledAt, s.endDate, dayPx) ?: return
+    val first = part == 0
+    val last = part == parts - 1
     // Gest żyje dłużej niż jedna kompozycja — wiersze zmieniają się po
     // rozwinięciu ekipy, więc trafienie i zapis czytamy zawsze świeże.
     val stage by rememberUpdatedState(s)
@@ -1381,7 +1421,7 @@ private fun StageBar(
     val mine = barDrag?.takeIf { it.stageId == s.id }
     val snapped = mine?.let { (it.dx / dayPx).roundToInt() * dayPx } ?: 0f
     val shift = if (mine != null && !mine.resize) snapped else 0f
-    val stretch = if (mine != null && mine.resize) snapped else 0f
+    val stretch = if (mine != null && mine.resize && last) snapped else 0f
     val pad = with(density) { 2.dp.toPx() }
     val w = maxOf(dayPx - 2 * pad, width - 2 * pad + stretch)
 
@@ -1464,6 +1504,7 @@ private fun StageBar(
             if (state.zoom != 35) {
                 Text(
                     s.title + (if (s.stageCount > 1) " ${s.stageNo}/${s.stageCount}" else "") +
+                        (if (parts > 1) " · cz. ${part + 1}/$parts" else "") +
                         " · ${s.durationDays} dn." + if (s.locked) " · 🔒" else "",
                     color = fg.copy(alpha = 0.85f),
                     fontSize = 10.sp,
@@ -1474,7 +1515,7 @@ private fun StageBar(
                 )
             }
         }
-        if (s.warnings.isNotEmpty()) {
+        if (first && s.warnings.isNotEmpty()) {
             Box(
                 Modifier
                     .align(Alignment.TopEnd)
@@ -1494,41 +1535,43 @@ private fun StageBar(
                 )
             }
         }
-        // Uchwyt długości — ciągnięcie bez przytrzymania, jak w panelu.
-        Box(
-            Modifier
-                .align(Alignment.CenterEnd)
-                .width(12.dp)
-                .fillMaxHeight()
-                .pointerInput(s.id, dayPx) {
-                    var dx = 0f
-                    detectHorizontalDragGestures(
-                        onDragStart = {
-                            dx = 0f
-                            dragTo(BarDrag(stage.id, resize = true, dx = 0f, target = null))
-                        },
-                        onHorizontalDrag = { change, amount ->
-                            change.consume()
-                            dx += amount
-                            dragTo(BarDrag(stage.id, resize = true, dx = dx, target = null))
-                        },
-                        onDragEnd = {
-                            dragTo(null)
-                            val delta = (dx / dayPx).roundToInt()
-                            if (delta != 0) resize(stage, delta)
-                        },
-                        onDragCancel = { dragTo(null) },
-                    )
-                }
-                .drawBehind {
-                    drawLine(
-                        fg.copy(alpha = 0.45f),
-                        Offset(size.width - 5.dp.toPx(), 10.dp.toPx()),
-                        Offset(size.width - 5.dp.toPx(), size.height - 10.dp.toPx()),
-                        strokeWidth = 2.dp.toPx(),
-                    )
-                },
-        )
+        // Uchwyt długości — ciągnięcie bez przytrzymania, jak w panelu; na ostatnim kawałku.
+        if (last) {
+            Box(
+                Modifier
+                    .align(Alignment.CenterEnd)
+                    .width(12.dp)
+                    .fillMaxHeight()
+                    .pointerInput(s.id, dayPx) {
+                        var dx = 0f
+                        detectHorizontalDragGestures(
+                            onDragStart = {
+                                dx = 0f
+                                dragTo(BarDrag(stage.id, resize = true, dx = 0f, target = null))
+                            },
+                            onHorizontalDrag = { change, amount ->
+                                change.consume()
+                                dx += amount
+                                dragTo(BarDrag(stage.id, resize = true, dx = dx, target = null))
+                            },
+                            onDragEnd = {
+                                dragTo(null)
+                                val delta = (dx / dayPx).roundToInt()
+                                if (delta != 0) resize(stage, delta)
+                            },
+                            onDragCancel = { dragTo(null) },
+                        )
+                    }
+                    .drawBehind {
+                        drawLine(
+                            fg.copy(alpha = 0.45f),
+                            Offset(size.width - 5.dp.toPx(), 10.dp.toPx()),
+                            Offset(size.width - 5.dp.toPx(), size.height - 10.dp.toPx()),
+                            strokeWidth = 2.dp.toPx(),
+                        )
+                    },
+            )
+        }
     }
 }
 
@@ -1610,7 +1653,10 @@ private fun PersonRow(
             }
             val c = crewColor(crew?.color, palette.muted)
             // Wypożyczenie na część etapu = osobny kawałek na każdy ciąg dni.
-            runs(sDays, presence(sDays, a)).forEach piece@{ (a0, b0) ->
+            val crewCal = sch.calendar
+            runs(sDays, presence(sDays, a))
+                .flatMap { (r0, r1) -> calendarRuns(r0, r1) { crewCal.isWork(it, s.crewId) } }
+                .forEach piece@{ (a0, b0) ->
             val (left, width) = place(sch, a0, b0, dayPx) ?: return@piece
             Box(
                 Modifier
