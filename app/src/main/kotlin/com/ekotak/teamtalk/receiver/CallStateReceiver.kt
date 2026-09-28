@@ -7,6 +7,7 @@ import android.telephony.TelephonyManager
 import androidx.core.content.ContextCompat
 import com.ekotak.teamtalk.data.local.preferences.SimPreferences
 import com.ekotak.teamtalk.service.CallMonitorService
+import com.ekotak.teamtalk.worker.CallEndedWorker
 
 class CallStateReceiver : BroadcastReceiver() {
 
@@ -27,11 +28,8 @@ class CallStateReceiver : BroadcastReceiver() {
                     .putLong("call_start_ms", System.currentTimeMillis())
                     .putInt("call_sub_id", incomingSubId)
                     .apply()
-
-                ContextCompat.startForegroundService(
-                    context,
-                    Intent(context, CallMonitorService::class.java),
-                )
+                // Usługi tu NIE startujemy: w trakcie rozmowy nic nie robiła poza
+                // powiadomieniem, a start z tła wywalał aplikację na Androidzie 14.
             }
             TelephonyManager.EXTRA_STATE_IDLE -> {
                 val wasInCall = prefs.getBoolean("was_in_call", false)
@@ -46,14 +44,21 @@ class CallStateReceiver : BroadcastReceiver() {
 
                     val phoneAccountId = if (callSubId != -1) callSubId.toString() else null
 
-                    ContextCompat.startForegroundService(
-                        context,
-                        Intent(context, CallMonitorService::class.java).apply {
-                            action = CallMonitorService.ACTION_CALL_ENDED
-                            putExtra(CallMonitorService.EXTRA_CALL_START_MS, callStartMs)
-                            if (phoneAccountId != null) putExtra(CallMonitorService.EXTRA_PHONE_ACCOUNT_ID, phoneAccountId)
-                        },
-                    )
+                    try {
+                        ContextCompat.startForegroundService(
+                            context,
+                            Intent(context, CallMonitorService::class.java).apply {
+                                action = CallMonitorService.ACTION_CALL_ENDED
+                                putExtra(CallMonitorService.EXTRA_CALL_START_MS, callStartMs)
+                                if (phoneAccountId != null) putExtra(CallMonitorService.EXTRA_PHONE_ACCOUNT_ID, phoneAccountId)
+                            },
+                        )
+                    } catch (e: IllegalStateException) {
+                        // Android 12+: ForegroundServiceStartNotAllowedException (podklasa
+                        // IllegalStateException) — system nie daje startu z tła. Ta sama
+                        // robota idzie przyspieszonym zleceniem WorkManagera.
+                        CallEndedWorker.enqueue(context, callStartMs, phoneAccountId)
+                    }
                 }
             }
         }
