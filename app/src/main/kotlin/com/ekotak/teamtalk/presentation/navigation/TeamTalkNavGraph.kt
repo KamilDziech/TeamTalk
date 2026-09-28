@@ -21,6 +21,9 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import android.net.Uri
 import java.net.URLEncoder
+import com.ekotak.teamtalk.presentation.meetings.MeetingDetailScreen
+import com.ekotak.teamtalk.presentation.meetings.MeetingFormScreen
+import com.ekotak.teamtalk.presentation.meetings.MeetingsListScreen
 import com.ekotak.teamtalk.presentation.auth.LoginScreen
 import com.ekotak.teamtalk.presentation.auth.RegisterScreen
 import com.ekotak.teamtalk.presentation.calllog.CallLogDetailScreen
@@ -104,6 +107,8 @@ fun TeamTalkNavGraph(
     deepLinkOpenBriefing: Boolean = false,
     /** Wejście z powiadomienia o wiadomości w Komunikatorze. */
     deepLinkChatThreadId: String? = null,
+    /** Wejście z powiadomienia spotkania (nagrywanie, wysłane nagranie). */
+    deepLinkMeetingId: String? = null,
 ) {
     val navController = rememberNavController()
     val sessionState by viewModel.sessionState.collectAsState()
@@ -149,6 +154,7 @@ fun TeamTalkNavGraph(
                 deepLinkOpenEmail = deepLinkOpenEmail,
                 deepLinkOpenBriefing = deepLinkOpenBriefing,
                 deepLinkChatThreadId = deepLinkChatThreadId,
+                deepLinkMeetingId = deepLinkMeetingId,
             )
         }
     }
@@ -169,6 +175,8 @@ private fun MainScreen(
     deepLinkOpenBriefing: Boolean = false,
     /** Wejście z powiadomienia o wiadomości w Komunikatorze. */
     deepLinkChatThreadId: String? = null,
+    /** Wejście z powiadomienia spotkania (nagrywanie, wysłane nagranie). */
+    deepLinkMeetingId: String? = null,
 ) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -233,6 +241,12 @@ private fun MainScreen(
 
     // Komunikat odprawy prowadzi do skrzynki: treść jest w środku, a przy
     // okazji widać, co jeszcze czeka na odhaczenie.
+    LaunchedEffect(deepLinkMeetingId) {
+        deepLinkMeetingId?.let { id ->
+            navController.navigate("meetings/$id") { launchSingleTop = true }
+        }
+    }
+
     LaunchedEffect(deepLinkOpenBriefing) {
         if (deepLinkOpenBriefing) {
             navController.navigate("briefing") { launchSingleTop = true }
@@ -298,6 +312,7 @@ private fun MainScreen(
                             "training" -> "training"
                             // Kafelek „Cele" — trzy zakładki 1:1 z panelem.
                             "goals" -> "goals"
+                            "meetings" -> "meetings"
                             // Kafelek „Montaże" — moduł montażysty (pakowanie,
                             // dojazd, protokół), nie planowanie z panelu.
                             "installations" -> "installations"
@@ -343,6 +358,40 @@ private fun MainScreen(
             // kreator, wpis ręczny i zamykanie okresu — wszystko z pełnym offline.
             composable("goals") {
                 GoalsScreen(onNavigateBack = { navController.popBackStack() })
+            }
+
+            // Spotkanie (2026-09-28): lista → kreator / karta spotkania.
+            composable("meetings") {
+                MeetingsListScreen(
+                    onOpen = { id -> navController.navigate("meetings/$id") },
+                    onCreate = { navController.navigate("meetings/new") },
+                )
+            }
+            composable("meetings/new") {
+                MeetingFormScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onSaved = { id ->
+                        navController.navigate("meetings/$id") { popUpTo("meetings") }
+                    },
+                )
+            }
+            composable(
+                "meetings/{id}/edit",
+                arguments = listOf(navArgument("id") { type = NavType.StringType }),
+            ) {
+                MeetingFormScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onSaved = { navController.popBackStack() },
+                )
+            }
+            composable(
+                "meetings/{id}",
+                arguments = listOf(navArgument("id") { type = NavType.StringType }),
+            ) {
+                MeetingDetailScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onEdit = { id -> navController.navigate("meetings/$id/edit") },
+                )
             }
 
             // ── Asystent (kafelek pulpitu) ─────────────────────────────────────

@@ -308,6 +308,22 @@ val HOME_MODULES: List<HomeModule> = listOf(
             rect(7f, 12.5f, 3f, 3f, 0.6f),
         ),
     ),
+    // Spotkanie (decyzja 2026-09-28): zarząd / z pracownikiem / szkolenie,
+    // agenda z checklistą, nagrywanie w tle i podsumowanie z zadaniami.
+    // Bez flagi — kto widzi które spotkanie, rozstrzyga serwer.
+    HomeModule(
+        key = "meetings",
+        label = "Spotkanie",
+        desc = "Agenda, nagranie w tle i podsumowanie z zadaniami",
+        color = Color(0xFFF59E0B),
+        icon = moduleIcon(
+            rect(4f, 9f, 16f, 7f, 1.5f),
+            circle(7f, 5.5f, 1.8f),
+            circle(12f, 5.5f, 1.8f),
+            circle(17f, 5.5f, 1.8f),
+            "M6 16v4M18 16v4",
+        ),
+    ),
 )
 
 /** Moduł po kluczu — dla ekranu-zaślepki otwieranego z kafelka. */

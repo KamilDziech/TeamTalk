@@ -51,6 +51,10 @@ class NotificationHelper @Inject constructor(
 
         /** Cele: zapis z kolejki, którego serwer nie przyjął. */
         const val GOALS_CHANNEL_ID = "goals_sync"
+        /** Spotkanie: los wysłanego nagrania (przyjęte / odrzucone). */
+        const val MEETINGS_CHANNEL_ID = "meetings"
+        /** Spotkanie: stałe powiadomienie usługi nagrywania (cichy kanał). */
+        const val MEETING_RECORDING_CHANNEL_ID = "meeting_recording"
 
         /** Jedno powiadomienie na przypomnienia — kolejne podmienia poprzednie. */
         private const val REMINDER_NOTIFICATION_ID = 4200
@@ -581,6 +585,35 @@ class NotificationHelper @Inject constructor(
             .setContentIntent(pendingIntent)
             .build()
 
+        NotificationManagerCompat.from(context).notify(notificationId, notification)
+    }
+
+    /** Spotkanie — los nagrania. Jedno powiadomienie na spotkanie (podmieniane). */
+    fun showMeetingNotification(meetingId: String, title: String, text: String) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED
+        ) return
+        val notificationId = 7300 + (meetingId.hashCode() and 0xFFF)
+        val contentIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra(MainActivity.EXTRA_MEETING_ID, meetingId)
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            notificationId,
+            contentIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val notification = NotificationCompat.Builder(context, MEETINGS_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_ekotak)
+            .setColor(ContextCompat.getColor(context, R.color.ekotak_green))
+            .setContentTitle(title)
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .build()
         NotificationManagerCompat.from(context).notify(notificationId, notification)
     }
 }

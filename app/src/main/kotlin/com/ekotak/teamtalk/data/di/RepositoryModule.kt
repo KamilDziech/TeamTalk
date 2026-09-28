@@ -148,4 +148,8 @@ abstract class RepositoryModule {
     abstract fun bindCrewScheduleRepository(
         impl: CrewScheduleRepositoryImpl,
     ): CrewScheduleRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindMeetingRepository(impl: MeetingRepositoryImpl): MeetingRepository
 }

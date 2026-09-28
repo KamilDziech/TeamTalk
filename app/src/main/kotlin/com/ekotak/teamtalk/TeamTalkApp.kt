@@ -1,5 +1,7 @@
 package com.ekotak.teamtalk
 
+import com.ekotak.teamtalk.data.meeting.MeetingRecorder
+import com.ekotak.teamtalk.worker.MeetingRecordingUploadWorker
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -62,6 +64,8 @@ class TeamTalkApp : Application(), Configuration.Provider {
 
     @Inject lateinit var montazSyncScheduler: MontazSyncScheduler
 
+    @Inject lateinit var meetingRecorder: MeetingRecorder
+
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)
@@ -90,6 +94,11 @@ class TeamTalkApp : Application(), Configuration.Provider {
         contractSyncScheduler.scheduleSync()
         dealCommsSyncScheduler.scheduleSync()
         montazSyncScheduler.scheduleSync()
+        // Spotkanie: proces zginął w trakcie nagrywania — plik ADTS da się odczytać
+        // do ostatniej ramki, więc wysyłamy to, co zdążyło się nagrać.
+        meetingRecorder.recoverOrphan()?.let {
+            MeetingRecordingUploadWorker.enqueue(this, it.meetingId, it.file, it.durationSec, "Spotkanie")
+        }
     }
 
     /**
@@ -237,6 +246,24 @@ class TeamTalkApp : Application(), Configuration.Provider {
                     NotificationManager.IMPORTANCE_HIGH,
                 ).apply {
                     description = "Prośba o dodanie notatki po zakończonej rozmowie"
+                }
+            )
+            nm.createNotificationChannel(
+                NotificationChannel(
+                    NotificationHelper.MEETINGS_CHANNEL_ID,
+                    "Spotkania",
+                    NotificationManager.IMPORTANCE_DEFAULT,
+                ).apply {
+                    description = "Wysłane nagrania spotkań i błędy wysyłki"
+                }
+            )
+            nm.createNotificationChannel(
+                NotificationChannel(
+                    NotificationHelper.MEETING_RECORDING_CHANNEL_ID,
+                    "Nagrywanie spotkania",
+                    NotificationManager.IMPORTANCE_LOW,
+                ).apply {
+                    description = "Stałe powiadomienie, gdy trwa nagrywanie spotkania"
                 }
             )
             nm.createNotificationChannel(

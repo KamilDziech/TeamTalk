@@ -55,6 +55,9 @@ class MainActivity : ComponentActivity() {
 
         /** Rozmowa w Komunikatorze otwierana z powiadomienia o wiadomości. */
         const val EXTRA_CHAT_THREAD_ID = "extra_chat_thread_id"
+
+        /** Karta spotkania otwierana z powiadomienia nagrywania / wysyłki nagrania. */
+        const val EXTRA_MEETING_ID = "extra_meeting_id"
     }
 
     private val settingsVm: SettingsViewModel by viewModels()
@@ -67,6 +70,7 @@ class MainActivity : ComponentActivity() {
     private var deepLinkOpenEmail by mutableStateOf(false)
     private var deepLinkOpenBriefing by mutableStateOf(false)
     private var deepLinkChatThreadId by mutableStateOf<String?>(null)
+    private var deepLinkMeetingId by mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -80,6 +84,7 @@ class MainActivity : ComponentActivity() {
         deepLinkOpenEmail = intent.getBooleanExtra(EXTRA_OPEN_EMAIL, false)
         deepLinkOpenBriefing = intent.getBooleanExtra(EXTRA_OPEN_BRIEFING, false)
         deepLinkChatThreadId = intent.getStringExtra(EXTRA_CHAT_THREAD_ID)
+        deepLinkMeetingId = intent.getStringExtra(EXTRA_MEETING_ID)
         if (intent.getBooleanExtra(EXTRA_OPEN_POST_CALL_NOTE, false)) {
             deepLinkPostCallPhone = intent.getStringExtra(EXTRA_POST_CALL_PHONE) ?: ""
         }
@@ -119,6 +124,7 @@ class MainActivity : ComponentActivity() {
                         deepLinkOpenEmail = deepLinkOpenEmail,
                         deepLinkOpenBriefing = deepLinkOpenBriefing,
                         deepLinkChatThreadId = deepLinkChatThreadId,
+                        deepLinkMeetingId = deepLinkMeetingId,
                     )
                 }
             }
@@ -135,6 +141,7 @@ class MainActivity : ComponentActivity() {
         deepLinkOpenEmail = intent.getBooleanExtra(EXTRA_OPEN_EMAIL, false)
         deepLinkOpenBriefing = intent.getBooleanExtra(EXTRA_OPEN_BRIEFING, false)
         deepLinkChatThreadId = intent.getStringExtra(EXTRA_CHAT_THREAD_ID)
+        deepLinkMeetingId = intent.getStringExtra(EXTRA_MEETING_ID)
         if (intent.getBooleanExtra(EXTRA_OPEN_POST_CALL_NOTE, false)) {
             deepLinkPostCallPhone = intent.getStringExtra(EXTRA_POST_CALL_PHONE) ?: ""
         }

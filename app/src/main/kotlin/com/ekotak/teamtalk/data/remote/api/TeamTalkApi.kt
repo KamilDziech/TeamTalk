@@ -1606,4 +1606,62 @@ interface TeamTalkApi {
 
     @GET("api/chat/messages/{id}/receipts")
     suspend fun getChatReceipts(@Path("id") id: String): ChatReceiptsDto
+
+    // ── Spotkanie (2026-09-28) ─────────────────────────────────────────────────
+    // Wszystko pod `meetings.view` (każda rola). Kto widzi i steruje którym
+    // spotkaniem, rozstrzyga serwer (uczestnicy + zarząd, „z pracownikiem" poufne).
+
+    @GET("api/meetings/meta")
+    suspend fun getMeetingMeta(): MeetingMetaDto
+
+    @GET("api/meetings")
+    suspend fun getMeetings(): List<MeetingListItemDto>
+
+    @GET("api/meetings/{id}")
+    suspend fun getMeeting(@Path("id") id: String): MeetingDto
+
+    @GET("api/meetings/conflicts")
+    suspend fun getMeetingConflicts(
+        @Query("userIds") userIds: String,
+        @Query("startAt") startAt: String,
+        @Query("durationMin") durationMin: Int,
+        @Query("excludeMeetingId") excludeMeetingId: String? = null,
+    ): List<MeetingConflictDto>
+
+    @POST("api/meetings")
+    suspend fun createMeeting(@Body request: MeetingUpsertRequest): MeetingDto
+
+    @PUT("api/meetings/{id}")
+    suspend fun updateMeeting(@Path("id") id: String, @Body request: MeetingUpsertRequest): MeetingDto
+
+    @DELETE("api/meetings/{id}")
+    suspend fun deleteMeeting(@Path("id") id: String): Response<Unit>
+
+    @POST("api/meetings/{id}/rsvp")
+    suspend fun setMeetingRsvp(@Path("id") id: String, @Body request: MeetingRsvpRequest): MeetingDto
+
+    @POST("api/meetings/{id}/start")
+    suspend fun startMeeting(@Path("id") id: String, @Body request: MeetingStartRequest): MeetingDto
+
+    /** pause | resume | finish | skip-recording | retry — bez ciała. */
+    @POST("api/meetings/{id}/{command}")
+    suspend fun meetingCommand(@Path("id") id: String, @Path("command") command: String): MeetingDto
+
+    @PUT("api/meetings/{id}/agenda/{itemId}")
+    suspend fun toggleMeetingAgenda(
+        @Path("id") id: String,
+        @Path("itemId") itemId: String,
+        @Body request: MeetingAgendaToggleRequest,
+    ): MeetingDto
+
+    @Multipart
+    @POST("api/meetings/{id}/recording")
+    suspend fun uploadMeetingRecording(
+        @Path("id") id: String,
+        @Part file: MultipartBody.Part,
+        @Part("durationSec") durationSec: okhttp3.RequestBody? = null,
+    ): MeetingDto
+
+    @POST("api/meetings/{id}/approve")
+    suspend fun approveMeeting(@Path("id") id: String, @Body request: MeetingApproveRequest): MeetingDto
 }
