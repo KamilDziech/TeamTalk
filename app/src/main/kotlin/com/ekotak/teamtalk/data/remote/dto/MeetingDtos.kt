@@ -55,6 +55,19 @@ data class MeetingListItemDto(
     val agendaDone: Int = 0,
     val isHost: Boolean = false,
     val myRsvp: String? = null,
+    /** D9: prowadzący musi nagrać podsumowanie głosem (spotkanie bez nagrania). */
+    val needsVoiceSummary: Boolean = false,
+)
+
+/**
+ * D9: spotkanie bez nagrania → okno „Nagraj podsumowanie". Tylko dla prowadzącego.
+ * [reason]: not_started | no_recording | failed; [required] = okno wyskakuje samo.
+ */
+@Serializable
+data class MeetingVoiceSummaryDto(
+    val reason: String = "no_recording",
+    val required: Boolean = false,
+    val canRetry: Boolean = false,
 )
 
 @Serializable
@@ -108,6 +121,9 @@ data class MeetingDto(
     val elapsedSec: Long = 0,
     val hasRecording: Boolean = false,
     val recordingSec: Int? = null,
+    /** meeting = nagranie przebiegu, summary = podsumowanie nagrane głosem (D9). */
+    val recordingKind: String? = null,
+    val voiceSummary: MeetingVoiceSummaryDto? = null,
     val transcriptionStatus: String? = null,
     val transcriptionError: String? = null,
     val transcript: String? = null,

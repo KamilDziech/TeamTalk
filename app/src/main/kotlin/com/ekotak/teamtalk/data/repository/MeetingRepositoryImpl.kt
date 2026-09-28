@@ -10,6 +10,7 @@ import com.ekotak.teamtalk.data.remote.dto.MeetingMetaDto
 import com.ekotak.teamtalk.data.remote.dto.MeetingRsvpRequest
 import com.ekotak.teamtalk.data.remote.dto.MeetingStartRequest
 import com.ekotak.teamtalk.data.remote.dto.MeetingUpsertRequest
+import com.ekotak.teamtalk.domain.repository.KIND_MEETING
 import com.ekotak.teamtalk.domain.repository.MeetingRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -61,7 +62,7 @@ class MeetingRepositoryImpl @Inject constructor(
     override suspend fun toggleAgenda(id: String, itemId: String, done: Boolean): MeetingDto =
         api.toggleMeetingAgenda(id, itemId, MeetingAgendaToggleRequest(done))
 
-    override suspend fun uploadRecording(id: String, file: File, durationSec: Int?): MeetingDto =
+    override suspend fun uploadRecording(id: String, file: File, durationSec: Int?, kind: String): MeetingDto =
         withContext(Dispatchers.IO) {
             val part = MultipartBody.Part.createFormData(
                 "file",
@@ -69,7 +70,8 @@ class MeetingRepositoryImpl @Inject constructor(
                 file.asRequestBody("audio/aac".toMediaType()),
             )
             val duration = durationSec?.toString()?.toRequestBody("text/plain".toMediaType())
-            api.uploadMeetingRecording(id, part, duration)
+            val kindPart = kind.takeIf { it != KIND_MEETING }?.toRequestBody("text/plain".toMediaType())
+            api.uploadMeetingRecording(id, part, duration, kindPart)
         }
 
     override suspend fun approve(id: String, request: MeetingApproveRequest): MeetingDto =

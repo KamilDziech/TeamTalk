@@ -48,7 +48,11 @@ fun meetingTypeHint(type: String): String = when (type) {
     else -> "Szkolenie zespołu — podsumowanie omówionych tematów."
 }
 
+/** Pseudo-status pigułki na liście: D9, prowadzący musi nagrać podsumowanie głosem. */
+const val VOICE_SUMMARY_PILL = "voice_summary"
+
 fun meetingStatusLabel(status: String): String = when (status) {
+    VOICE_SUMMARY_PILL -> "Nagraj podsumowanie"
     "scheduled" -> "Zaplanowane"
     "live" -> "Trwa"
     "paused" -> "Pauza"
@@ -94,7 +98,7 @@ fun TypeBadge(type: String, size: Dp = 40.dp) {
 fun StatusPill(status: String) {
     val (bg, fg) = when (status) {
         "live" -> Red600 to Color.White
-        "review" -> Orange600 to Color(0xFF1A1203)
+        "review", VOICE_SUMMARY_PILL -> Orange600 to Color(0xFF1A1203)
         "approved" -> MaterialTheme.colorScheme.primary to MaterialTheme.colorScheme.onPrimary
         else -> MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurface
     }

@@ -107,6 +107,14 @@ fun MeetingDetailScreen(
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
         if (mic && notif) viewModel.startRecording() else launcher.launch(permissions)
     }
+    // D9: podsumowanie głosowe — sam mikrofon, nagrywa przy otwartym oknie.
+    val voiceLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) viewModel.startVoice()
+    }
+    fun voiceWithPermission() {
+        val mic = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        if (mic) viewModel.startVoice() else voiceLauncher.launch(Manifest.permission.RECORD_AUDIO)
+    }
 
     Scaffold(
         topBar = { AppTopBar(title = "Spotkanie", onNavigateBack = onNavigateBack) },
@@ -120,6 +128,24 @@ fun MeetingDetailScreen(
             return@Scaffold
         }
         val recordingHere = rec.meetingId == m.id && rec.phase != MeetingRecorder.Phase.IDLE
+        // D9: brak nagrania → okno „Nagraj podsumowanie" (samo, gdy wymagane; wcześniej z przycisku).
+        val need = m.voiceSummary
+        if (need != null && (need.required || s.voiceOpen) && !s.voiceQueued && !recordingHere) {
+            MeetingVoiceSummaryDialog(
+                m = m,
+                need = need,
+                voice = s.voice,
+                busy = s.isBusy,
+                elapsedMs = viewModel::voiceElapsedMs,
+                onRecord = ::voiceWithPermission,
+                onStop = viewModel::stopVoice,
+                onSend = viewModel::sendVoice,
+                onRetry = viewModel::retry,
+                onReschedule = { onEdit(m.id) },
+                onDelete = { confirm = "Usunąć spotkanie? Wpisy znikną z kalendarzy uczestników." to viewModel::delete },
+                onClose = if (need.required) null else viewModel::closeVoice,
+            )
+        }
 
         Column(
             Modifier
@@ -156,6 +182,8 @@ fun MeetingDetailScreen(
                 "processing" -> MeetingCard {
                     Text(
                         when {
+                            m.recordingKind == "summary" && m.transcriptionStatus == "processing" -> "Trwa transkrypcja podsumowania głosowego… Podsumowanie pojawi się tu samo."
+                            m.recordingKind == "summary" -> "Podsumowanie głosowe czeka w kolejce do transkrypcji."
                             m.hasRecording && m.transcriptionStatus == "processing" -> "Trwa transkrypcja nagrania… Podsumowanie pojawi się tu samo."
                             m.hasRecording -> "Nagranie czeka w kolejce do transkrypcji."
                             m.recordingDevice == "phone" -> "Czekamy na nagranie z telefonu — wyśle się samo, gdy będzie sieć."
@@ -163,18 +191,23 @@ fun MeetingDetailScreen(
                         },
                     )
                     m.transcriptionError?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-                    if (m.canControl && !m.hasRecording) {
-                        OutlinedButton(onClick = {
-                            confirm = "Pominąć nagranie? Podsumowanie napiszesz ręcznie." to viewModel::skipRecording
-                        }) { Text("Pomiń nagranie") }
+                    if (s.voiceQueued) {
+                        NoticeStrip("Podsumowanie głosowe czeka na sieć — wyśle się samo.", Orange600)
+                    } else if (m.voiceSummary != null) {
+                        OutlinedButton(onClick = viewModel::openVoice) { Text("Nagranie przepadło — nagraj podsumowanie") }
                     }
                 }
                 "failed" -> MeetingCard {
                     NoticeStrip(m.transcriptionError ?: "Nie udało się spisać nagrania.", Red600)
-                    if (m.canControl) {
+                    val voice = m.voiceSummary
+                    if (s.voiceQueued) {
+                        NoticeStrip("Podsumowanie głosowe czeka na sieć — wyśle się samo.", Orange600)
+                    } else if (voice != null) {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(onClick = viewModel::skipRecording, enabled = !s.isBusy) { Text("Napisz ręcznie") }
-                            Button(onClick = viewModel::retry, enabled = !s.isBusy) { Text("Ponów") }
+                            if (voice.canRetry) {
+                                OutlinedButton(onClick = viewModel::retry, enabled = !s.isBusy) { Text("Ponów") }
+                            }
+                            Button(onClick = viewModel::openVoice, enabled = !s.isBusy) { Text("●  Nagraj podsumowanie") }
                         }
                     }
                 }

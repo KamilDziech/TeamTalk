@@ -59,8 +59,10 @@ fun MeetingsListScreen(
     }
 
     val live = state.items.filter { it.status == "live" || it.status == "paused" }
-    val review = state.items.filter { it.status in setOf("processing", "review", "failed") }
-    val upcoming = state.items.filter { it.status == "scheduled" }.sortedBy { it.startAt }
+    val review = state.items.filter {
+        it.status in setOf("processing", "review", "failed") || (it.status == "scheduled" && it.needsVoiceSummary)
+    }
+    val upcoming = state.items.filter { it.status == "scheduled" && !it.needsVoiceSummary }.sortedBy { it.startAt }
     val done = state.items.filter { it.status == "approved" }
 
     Scaffold(
@@ -163,7 +165,7 @@ private fun MeetingRow(m: MeetingListItemDto, onClick: () -> Unit) {
                 }
                 Text(meta, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            StatusPill(m.status)
+            StatusPill(if (m.needsVoiceSummary) VOICE_SUMMARY_PILL else m.status)
         }
     }
 }

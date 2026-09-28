@@ -24,9 +24,13 @@ interface MeetingRepository {
     suspend fun delete(id: String)
     suspend fun rsvp(id: String, response: String): MeetingDto
     suspend fun start(id: String): MeetingDto
-    /** pause | resume | finish | skip-recording | retry */
+    /** pause | resume | finish | retry */
     suspend fun command(id: String, command: String): MeetingDto
     suspend fun toggleAgenda(id: String, itemId: String, done: Boolean): MeetingDto
-    suspend fun uploadRecording(id: String, file: File, durationSec: Int?): MeetingDto
+    suspend fun uploadRecording(id: String, file: File, durationSec: Int?, kind: String = KIND_MEETING): MeetingDto
     suspend fun approve(id: String, request: MeetingApproveRequest): MeetingDto
 }
+
+/** Rodzaj nagrania wysyłanego na serwer: przebieg spotkania albo podsumowanie głosowe (D9). */
+const val KIND_MEETING = "meeting"
+const val KIND_SUMMARY = "summary"

@@ -4,7 +4,9 @@ import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.WorkManager
 import com.ekotak.teamtalk.data.meeting.MeetingRecorder
+import com.ekotak.teamtalk.data.meeting.VoiceSummaryRecorder
 import com.ekotak.teamtalk.data.remote.dto.MeetingAgendaInput
 import com.ekotak.teamtalk.data.remote.dto.MeetingApproveAgenda
 import com.ekotak.teamtalk.data.remote.dto.MeetingApproveProposal
@@ -14,12 +16,15 @@ import com.ekotak.teamtalk.data.remote.dto.MeetingDto
 import com.ekotak.teamtalk.data.remote.dto.MeetingListItemDto
 import com.ekotak.teamtalk.data.remote.dto.MeetingMetaDto
 import com.ekotak.teamtalk.data.remote.dto.MeetingUpsertRequest
+import com.ekotak.teamtalk.domain.repository.KIND_SUMMARY
 import com.ekotak.teamtalk.domain.repository.MeetingRepository
 import com.ekotak.teamtalk.presentation.crm.crmErrorMessage
 import com.ekotak.teamtalk.presentation.crm.parseIsoMillis
 import com.ekotak.teamtalk.service.MeetingRecordingService
+import com.ekotak.teamtalk.worker.MeetingRecordingUploadWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,6 +33,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import retrofit2.HttpException
+import java.io.File
 import java.time.Instant
 import java.util.Calendar
 import java.util.UUID
@@ -255,14 +263,30 @@ class MeetingDetailViewModel @Inject constructor(
         val agendaDone: Map<String, Boolean> = emptyMap(),
         val proposals: List<ProposalDraft> = emptyList(),
         val reviewLoadedFor: String? = null,
+        // D9: podsumowanie nagrane głosem
+        /** Okno otwarte z przycisku, zanim stało się wymagane. */
+        val voiceOpen: Boolean = false,
+        val voice: VoiceDraft = VoiceDraft(),
+        /** Podsumowanie czeka w kolejce na sieć — okno się nie pokazuje. */
+        val voiceQueued: Boolean = false,
+    )
+
+    data class VoiceDraft(
+        val recording: Boolean = false,
+        val file: File? = null,
+        val durationSec: Int = 0,
+        val sending: Boolean = false,
+        val error: String? = null,
     )
 
     private val _state = MutableStateFlow(State())
     val state: StateFlow<State> = _state.asStateFlow()
     val recorderState: StateFlow<MeetingRecorder.State> = recorder.state
+    private val voiceRecorder = VoiceSummaryRecorder(context)
 
     init {
         load()
+        refreshVoiceQueued()
         viewModelScope.launch {
             runCatching { repository.meta() }.onSuccess { meta -> _state.update { it.copy(meta = meta) } }
         }
@@ -272,6 +296,8 @@ class MeetingDetailViewModel @Inject constructor(
                 delay(5_000)
                 val status = _state.value.meeting?.status
                 if (status in setOf("live", "paused", "processing")) load(silent = true)
+                // Podsumowanie w kolejce na sieć — po wysyłce okno znów zależy od serwera.
+                if (_state.value.voiceQueued) { refreshVoiceQueued(); load(silent = true) }
             }
         }
     }
@@ -357,7 +383,93 @@ class MeetingDetailViewModel @Inject constructor(
         }
     }
 
-    fun skipRecording() = run("Nie udało się pominąć nagrania") { repository.command(id, "skip-recording") }
+    // ── D9: podsumowanie nagrane głosem ──
+
+    fun openVoice() = _state.update { it.copy(voiceOpen = true) }
+
+    fun closeVoice() {
+        voiceRecorder.cancel()
+        _state.update { it.copy(voiceOpen = false, voice = VoiceDraft()) }
+    }
+
+    fun voiceElapsedMs(): Long = voiceRecorder.elapsedMs()
+
+    /** Wołać po przyznaniu mikrofonu. Poprzednie, niewysłane nagranie idzie do kosza. */
+    fun startVoice() {
+        if (recorder.isActive) {
+            _state.update { it.copy(voice = VoiceDraft(error = "Na tym telefonie trwa nagrywanie spotkania — najpierw je zakończ.")) }
+            return
+        }
+        _state.value.voice.file?.delete()
+        try {
+            voiceRecorder.start(id)
+            _state.update { it.copy(voice = VoiceDraft(recording = true)) }
+        } catch (e: Exception) {
+            _state.update { it.copy(voice = VoiceDraft(error = "Nie udało się włączyć mikrofonu: ${e.message ?: "błąd"}")) }
+        }
+    }
+
+    fun stopVoice() {
+        val done = voiceRecorder.stop()
+        _state.update {
+            it.copy(
+                voice = if (done == null) VoiceDraft(error = "Nic się nie nagrało — spróbuj jeszcze raz.")
+                else VoiceDraft(file = done.first, durationSec = done.second),
+            )
+        }
+    }
+
+    /**
+     * Wysyłka od razu, żeby prowadzący zobaczył wynik. Bez sieci plik idzie do
+     * kolejki workera (jak nagranie spotkania) i okno znika do czasu wysyłki.
+     */
+    fun sendVoice() {
+        val v = _state.value.voice
+        val file = v.file ?: return
+        val m = _state.value.meeting ?: return
+        _state.update { it.copy(voice = v.copy(sending = true, error = null)) }
+        viewModelScope.launch {
+            try {
+                val updated = repository.uploadRecording(id, file, v.durationSec, KIND_SUMMARY)
+                file.delete()
+                _state.update { it.copy(voiceOpen = false, voice = VoiceDraft(), message = "Podsumowanie wysłane — za chwilę pojawią się propozycje zadań.") }
+                apply(updated)
+            } catch (e: HttpException) {
+                _state.update { it.copy(voice = v.copy(sending = false, error = crmErrorMessage(e, "Serwer odrzucił podsumowanie"))) }
+            } catch (e: Exception) {
+                VoiceSummaryRecorder.deleteOthers(context, id, keep = file)
+                MeetingRecordingUploadWorker.enqueue(context, id, file, v.durationSec, m.title, KIND_SUMMARY)
+                _state.update {
+                    it.copy(
+                        voiceOpen = false,
+                        voice = VoiceDraft(),
+                        voiceQueued = true,
+                        message = "Brak sieci — podsumowanie wyśle się samo, gdy wróci zasięg.",
+                    )
+                }
+            }
+        }
+    }
+
+    private fun refreshVoiceQueued() {
+        viewModelScope.launch {
+            val queued = withContext(Dispatchers.IO) {
+                runCatching {
+                    WorkManager.getInstance(context)
+                        .getWorkInfosForUniqueWork(MeetingRecordingUploadWorker.summaryWorkName(id))
+                        .get()
+                        .any { !it.state.isFinished }
+                }.getOrDefault(false)
+            }
+            _state.update { it.copy(voiceQueued = queued) }
+        }
+    }
+
+    override fun onCleared() {
+        voiceRecorder.cancel()
+        super.onCleared()
+    }
+
     fun retry() = run("Nie udało się ponowić transkrypcji") { repository.command(id, "retry") }
     fun rsvp(response: String) = run("Nie udało się zapisać odpowiedzi") { repository.rsvp(id, response) }
 

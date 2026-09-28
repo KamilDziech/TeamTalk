@@ -1643,7 +1643,7 @@ interface TeamTalkApi {
     @POST("api/meetings/{id}/start")
     suspend fun startMeeting(@Path("id") id: String, @Body request: MeetingStartRequest): MeetingDto
 
-    /** pause | resume | finish | skip-recording | retry — bez ciała. */
+    /** pause | resume | finish | retry — bez ciała. */
     @POST("api/meetings/{id}/{command}")
     suspend fun meetingCommand(@Path("id") id: String, @Path("command") command: String): MeetingDto
 
@@ -1660,6 +1660,8 @@ interface TeamTalkApi {
         @Path("id") id: String,
         @Part file: MultipartBody.Part,
         @Part("durationSec") durationSec: okhttp3.RequestBody? = null,
+        /** "summary" = podsumowanie nagrane głosem (D9); brak = nagranie spotkania. */
+        @Part("kind") kind: okhttp3.RequestBody? = null,
     ): MeetingDto
 
     @POST("api/meetings/{id}/approve")

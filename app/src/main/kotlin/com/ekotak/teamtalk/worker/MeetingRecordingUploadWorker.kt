@@ -14,6 +14,8 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.ekotak.teamtalk.data.local.preferences.SessionPreferences
 import com.ekotak.teamtalk.data.notification.NotificationHelper
+import com.ekotak.teamtalk.domain.repository.KIND_MEETING
+import com.ekotak.teamtalk.domain.repository.KIND_SUMMARY
 import com.ekotak.teamtalk.domain.repository.MeetingRepository
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -28,6 +30,9 @@ import java.util.concurrent.TimeUnit
  * odstępem, plik kasujemy dopiero po przyjęciu przez serwer (albo gdy spotkania
  * już nie ma). Serwer przyjęcie nagrania traktuje jak „Zakończ", więc spotkanie
  * zamyka się samo, nawet gdy „Zakończ" z telefonu bez zasięgu nie doszło.
+ *
+ * Tą samą drogą idzie podsumowanie nagrane głosem (D9, [KIND_SUMMARY]) — gdy
+ * przy wysyłce z okna nie było sieci.
  */
 @HiltWorker
 class MeetingRecordingUploadWorker @AssistedInject constructor(
@@ -43,29 +48,31 @@ class MeetingRecordingUploadWorker @AssistedInject constructor(
         val path = inputData.getString(KEY_PATH) ?: return Result.success()
         val durationSec = inputData.getInt(KEY_DURATION_SEC, -1).takeIf { it >= 0 }
         val title = inputData.getString(KEY_TITLE).orEmpty()
+        val kind = inputData.getString(KEY_KIND) ?: KIND_MEETING
+        val what = if (kind == KIND_SUMMARY) "podsumowania" else "nagrania"
         val file = File(path)
         if (!file.exists()) return Result.success()
         // Bez sesji nie wyślemy — czekamy na zalogowanie zamiast kasować nagranie.
         sessionPreferences.token.first() ?: return Result.retry()
 
         return try {
-            repository.uploadRecording(meetingId, file, durationSec)
+            repository.uploadRecording(meetingId, file, durationSec, kind)
             file.delete()
             notificationHelper.showMeetingNotification(
                 meetingId,
-                "Nagranie wysłane",
+                if (kind == KIND_SUMMARY) "Podsumowanie wysłane" else "Nagranie wysłane",
                 "„$title” — podsumowanie pojawi się po transkrypcji.",
             )
             Result.success()
         } catch (e: HttpException) {
             when (e.code()) {
-                // Spotkanie usunięte albo brak dostępu — nagranie nie ma dokąd iść.
-                404, 403 -> { file.delete(); Result.success() }
+                // Spotkanie usunięte, brak dostępu albo już nie czeka na podsumowanie — nie ma dokąd iść.
+                404, 403, 409 -> { file.delete(); Result.success() }
                 400, 413, 415 -> {
-                    Log.w(TAG, "Serwer odrzucił nagranie spotkania $meetingId: ${e.code()}")
+                    Log.w(TAG, "Serwer odrzucił $what spotkania $meetingId: ${e.code()}")
                     notificationHelper.showMeetingNotification(
                         meetingId,
-                        "Nie udało się wysłać nagrania",
+                        "Nie udało się wysłać $what",
                         "Serwer odrzucił plik (${e.code()}). Nagranie zostaje w telefonie.",
                     )
                     Result.failure()
@@ -73,7 +80,7 @@ class MeetingRecordingUploadWorker @AssistedInject constructor(
                 else -> Result.retry()
             }
         } catch (e: Exception) {
-            Log.w(TAG, "Wysyłka nagrania spotkania nieudana: ${e.message}")
+            Log.w(TAG, "Wysyłka $what spotkania nieudana: ${e.message}")
             Result.retry()
         }
     }
@@ -84,8 +91,19 @@ class MeetingRecordingUploadWorker @AssistedInject constructor(
         const val KEY_PATH = "path"
         const val KEY_DURATION_SEC = "duration_sec"
         const val KEY_TITLE = "title"
+        const val KEY_KIND = "kind"
 
-        fun enqueue(context: Context, meetingId: String, file: File, durationSec: Int?, title: String) {
+        /** Nazwa kolejki podsumowania głosowego — okno sprawdza po niej, czy wysyłka już czeka. */
+        fun summaryWorkName(meetingId: String) = "meeting_summary_$meetingId"
+
+        fun enqueue(
+            context: Context,
+            meetingId: String,
+            file: File,
+            durationSec: Int?,
+            title: String,
+            kind: String = KIND_MEETING,
+        ) {
             val request = OneTimeWorkRequestBuilder<MeetingRecordingUploadWorker>()
                 .setInputData(
                     workDataOf(
@@ -93,13 +111,20 @@ class MeetingRecordingUploadWorker @AssistedInject constructor(
                         KEY_PATH to file.absolutePath,
                         KEY_DURATION_SEC to (durationSec ?: -1),
                         KEY_TITLE to title,
+                        KEY_KIND to kind,
                     ),
                 )
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
                 .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
                 .build()
-            WorkManager.getInstance(context)
-                .enqueueUniqueWork("meeting_recording_$meetingId", ExistingWorkPolicy.KEEP, request)
+            // Podsumowanie nagrane od nowa zastępuje poprzednie, które jeszcze nie wyszło.
+            if (kind == KIND_SUMMARY) {
+                WorkManager.getInstance(context)
+                    .enqueueUniqueWork(summaryWorkName(meetingId), ExistingWorkPolicy.REPLACE, request)
+            } else {
+                WorkManager.getInstance(context)
+                    .enqueueUniqueWork("meeting_recording_$meetingId", ExistingWorkPolicy.KEEP, request)
+            }
         }
     }
 }
