@@ -21,6 +21,8 @@ import java.io.File
 interface MeetingRepository {
     suspend fun meta(): MeetingMetaDto
     suspend fun list(): List<MeetingListItemDto>
+    /** Spotkania z danym kontrahentem (zakładka „Spotkania” w karcie kartoteki). */
+    suspend fun listForClient(clientId: String): List<MeetingListItemDto>
     /** Kartoteka: grupy Kontrahenci + Inne. */
     suspend fun searchContractors(q: String): List<MeetingContractorDto>
     /** Nowy wpis kartoteki w grupie „Inne". */

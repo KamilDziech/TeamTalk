@@ -46,6 +46,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -67,6 +68,7 @@ import com.ekotak.teamtalk.domain.model.AssistantMessage
 import com.ekotak.teamtalk.domain.model.Client
 import com.ekotak.teamtalk.domain.model.ClientCategory
 import com.ekotak.teamtalk.domain.model.ClientDeal
+import com.ekotak.teamtalk.presentation.meetings.ClientMeetingsTab
 import com.ekotak.teamtalk.presentation.components.AppTopBar
 
 /** Podpowiedzi startowe asystenta — te same pytania co w panelu. */
@@ -82,6 +84,9 @@ private enum class ClientTab(val label: String) {
     DEALE("Deale"),
     HISTORIA("Historia"),
     ASYSTENT("Asystent"),
+
+    /** Tylko grupy Kontrahenci i Inne — spotkania z modułu Spotkanie. */
+    SPOTKANIA("Spotkania"),
 }
 
 /**
@@ -99,6 +104,8 @@ fun ClientDetailScreen(
     onNavigateToEdit: (String) -> Unit,
     onNavigateToCallDetail: (String) -> Unit,
     onCreateTask: (phone: String, name: String?) -> Unit,
+    onOpenMeeting: (String) -> Unit = {},
+    onCreateMeeting: () -> Unit = {},
     viewModel: ClientDetailViewModel = hiltViewModel(),
     timelineViewModel: ClientTimelineViewModel = hiltViewModel(),
 ) {
@@ -174,10 +181,13 @@ fun ClientDetailScreen(
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             ClientHeader(client = client, dealCount = state.deals.size)
 
-            TabRow(selectedTabIndex = tab.ordinal) {
-                ClientTab.entries.forEach { entry ->
+            val hasMeetings = client.category == ClientCategory.KONTRAHENT || client.category == ClientCategory.INNE
+            val tabs = ClientTab.entries.filter { it != ClientTab.SPOTKANIA || hasMeetings }
+            val current = if (tab in tabs) tab else ClientTab.DANE
+            ScrollableTabRow(selectedTabIndex = tabs.indexOf(current), edgePadding = 8.dp) {
+                tabs.forEach { entry ->
                     Tab(
-                        selected = tab == entry,
+                        selected = current == entry,
                         onClick = { tab = entry },
                         text = {
                             Text(
@@ -195,7 +205,7 @@ fun ClientDetailScreen(
                 }
             }
 
-            when (tab) {
+            when (current) {
                 ClientTab.DANE -> DataTab(
                     client = client,
                     installations = state.installations,
@@ -238,6 +248,12 @@ fun ClientDetailScreen(
                     notice = state.assistantNotice,
                     error = state.assistantError,
                     onAsk = viewModel::ask,
+                )
+
+                ClientTab.SPOTKANIA -> ClientMeetingsTab(
+                    clientId = client.id,
+                    onOpenMeeting = onOpenMeeting,
+                    onCreateMeeting = onCreateMeeting,
                 )
             }
         }

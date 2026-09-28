@@ -804,6 +804,8 @@ private fun MainScreen(
                         val nm = Uri.encode(name ?: "")
                         navController.navigate("create_task?phone=$ph&name=$nm")
                     },
+                    onOpenMeeting = { id -> navController.navigate("meetings/$id") },
+                    onCreateMeeting = { navController.navigate("meetings/new") },
                 )
             }
 

@@ -37,6 +37,9 @@ class MeetingRepositoryImpl @Inject constructor(
 
     override suspend fun list(): List<MeetingListItemDto> = api.getMeetings()
 
+    override suspend fun listForClient(clientId: String): List<MeetingListItemDto> =
+        api.getClientMeetings(clientId)
+
     override suspend fun searchContractors(q: String): List<MeetingContractorDto> =
         api.searchMeetingContractors(q)
 

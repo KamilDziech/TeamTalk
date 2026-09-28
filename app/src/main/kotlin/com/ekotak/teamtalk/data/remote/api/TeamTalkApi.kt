@@ -1620,6 +1620,10 @@ interface TeamTalkApi {
     @POST("api/meetings/contractors")
     suspend fun createMeetingContractor(@Body request: MeetingContractorCreateRequest): MeetingContractorDto
 
+    /** Spotkania z kontrahentem (karta kartoteki) — tylko te, które widzę. */
+    @GET("api/meetings/by-client/{clientId}")
+    suspend fun getClientMeetings(@Path("clientId") clientId: String): List<MeetingListItemDto>
+
     @GET("api/meetings")
     suspend fun getMeetings(): List<MeetingListItemDto>
 
