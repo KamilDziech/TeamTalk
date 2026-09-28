@@ -59,11 +59,12 @@ class MeetingRecordingService : Service() {
             ACTION_START -> {
                 val id = intent.getStringExtra(EXTRA_MEETING_ID) ?: return stopIfIdle()
                 val title = intent.getStringExtra(EXTRA_TITLE).orEmpty()
+                val day = intent.getIntExtra(EXTRA_DAY, 1)
                 // startForeground przed mikrofonem — Android 14 wymaga typu `microphone`.
                 goForeground(title)
                 if (!recorder.isActive) {
                     try {
-                        recorder.start(id, title)
+                        recorder.start(id, title, day)
                     } catch (e: Exception) {
                         Log.e(TAG, "Nie udało się włączyć mikrofonu: ${e.message}")
                         return stopIfIdle()
@@ -229,15 +230,17 @@ class MeetingRecordingService : Service() {
         const val ACTION_FINISH = "com.ekotak.teamtalk.meeting.FINISH"
         const val EXTRA_MEETING_ID = "meeting_id"
         const val EXTRA_TITLE = "title"
+        const val EXTRA_DAY = "day"
 
         /** Musi być wołane z aplikacji na pierwszym planie, z przyznanym RECORD_AUDIO. */
-        fun start(context: Context, meetingId: String, title: String) {
+        fun start(context: Context, meetingId: String, title: String, day: Int = 1) {
             ContextCompat.startForegroundService(
                 context,
                 Intent(context, MeetingRecordingService::class.java)
                     .setAction(ACTION_START)
                     .putExtra(EXTRA_MEETING_ID, meetingId)
-                    .putExtra(EXTRA_TITLE, title),
+                    .putExtra(EXTRA_TITLE, title)
+                    .putExtra(EXTRA_DAY, day),
             )
         }
 

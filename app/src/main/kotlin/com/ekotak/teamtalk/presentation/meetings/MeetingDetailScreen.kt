@@ -64,6 +64,7 @@ import com.ekotak.teamtalk.data.meeting.MeetingRecorder
 import com.ekotak.teamtalk.data.remote.dto.MeetingDto
 import com.ekotak.teamtalk.data.remote.dto.MeetingMetaDto
 import com.ekotak.teamtalk.presentation.components.AppTopBar
+import com.ekotak.teamtalk.presentation.crm.formatDate
 import com.ekotak.teamtalk.presentation.crm.formatDateTime
 import com.ekotak.teamtalk.presentation.theme.Orange600
 import com.ekotak.teamtalk.presentation.theme.Red600
@@ -162,7 +163,7 @@ fun MeetingDetailScreen(
                     Text(m.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Text(
                         m.typeLabel + (m.client?.let { " · ${it.name}" } ?: "") +
-                            " · ${formatDateTime(m.startAt) ?: ""} · ${m.durationMin} min" +
+                            " · ${meetingWhenLabel(m.startAt, m.durationMin, m.dayCount)}" +
                             (m.location?.let { " · $it" } ?: "") + if (m.confidential) " · poufne" else "",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -171,16 +172,61 @@ fun MeetingDetailScreen(
                 StatusPill(m.status)
             }
 
+            // v2 (D14): wielodniowe — który dzień i terminy wszystkich dni.
+            val multiDay = m.dayCount > 1
+            val day = m.currentDay.coerceIn(1, m.dayCount.coerceAtLeast(1))
+            val moreDays = multiDay && day < m.dayCount
+            if (multiDay) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = meetingTypeColor(m.type).copy(alpha = 0.14f),
+                        border = BorderStroke(1.dp, meetingTypeColor(m.type).copy(alpha = 0.5f)),
+                    ) {
+                        Text(
+                            if (m.status == "approved" || m.status == "review") daysLabel(m.dayCount) else "Dzień $day z ${m.dayCount}",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
+                        )
+                    }
+                    if (m.days.isNotEmpty()) {
+                        Text(
+                            m.days.sortedBy { it.day }.joinToString(", ") { formatDate(it.startAt)?.take(5) ?: "?" },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+
             s.error?.let { NoticeStrip(it, Red600) }
 
             if (m.status == "live" || m.status == "paused") {
-                LivePanel(m, s.fetchedAtMs, rec, recordingHere, onPause = viewModel::pause, onResume = viewModel::resume) {
-                    confirm = "Zakończyć spotkanie? Nagranie trafi do transkrypcji." to viewModel::finish
+                LivePanel(
+                    m, s.fetchedAtMs, rec, recordingHere,
+                    finishLabel = if (moreDays) "■  Zakończ dzień $day" else "■  Zakończ",
+                    onPause = viewModel::pause,
+                    onResume = viewModel::resume,
+                ) {
+                    confirm = if (moreDays) {
+                        "Zakończyć dzień $day? Nagranie dnia trafi do transkrypcji, a dzień ${day + 1} włączysz po jej zakończeniu." to viewModel::finish
+                    } else {
+                        "Zakończyć spotkanie? Nagranie trafi do transkrypcji." to viewModel::finish
+                    }
                 }
+            }
+
+            // D16: ocena AI — widzą ją wszyscy, którzy widzą spotkanie (D17).
+            if ((m.status == "review" || m.status == "approved") && m.score != null) {
+                ScoreCard(m.score, m.scoreReason, m.digressions)
             }
 
             when (m.status) {
                 "processing" -> MeetingCard {
+                    if (moreDays) {
+                        NoticeStrip("Spisuję dzień $day — dzień ${day + 1} włączysz po zakończeniu transkrypcji.", meetingTypeColor(m.type))
+                    }
                     Text(
                         when {
                             m.recordingKind == "summary" && m.transcriptionStatus == "processing" -> "Trwa transkrypcja podsumowania głosowego… Podsumowanie pojawi się tu samo."
@@ -227,6 +273,15 @@ fun MeetingDetailScreen(
                     if (m.agenda.isEmpty()) {
                         NoticeStrip("Brak agendy — dodaj co najmniej jeden punkt, zanim włączysz spotkanie.", Orange600)
                     }
+                    val scheduled = m.agenda.sumOf { it.durationMin ?: 0 }
+                    val planned = m.plannedMin.takeIf { it > 0 } ?: (m.dayCount * m.durationMin)
+                    if (scheduled > 0) {
+                        Text(
+                            "Rozplanowano $scheduled / $planned min",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (scheduled > planned) Orange600 else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     m.agenda.forEachIndexed { i, a ->
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -243,7 +298,9 @@ fun MeetingDetailScreen(
                                 "${i + 1}. ${a.text}",
                                 textDecoration = if (a.done) TextDecoration.LineThrough else null,
                                 color = if (a.done) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.weight(1f),
                             )
+                            a.durationMin?.let { AgendaMinutes(it) }
                         }
                     }
                 }
@@ -271,9 +328,12 @@ fun MeetingDetailScreen(
                             enabled = !s.isBusy && m.agenda.isNotEmpty(),
                             colors = ButtonDefaults.buttonColors(containerColor = Red600),
                             modifier = Modifier.fillMaxWidth(),
-                        ) { Text("●  Włącz i nagrywaj") }
+                        ) { Text(if (multiDay && day > 1) "●  Włącz dzień $day" else "●  Włącz i nagrywaj") }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(onClick = { onEdit(m.id) }, modifier = Modifier.weight(1f)) { Text("Edytuj") }
+                            // v2: edycja tylko przed dniem 1 — rozstrzyga serwer (`canEdit`).
+                            if (m.canEdit) {
+                                OutlinedButton(onClick = { onEdit(m.id) }, modifier = Modifier.weight(1f)) { Text("Edytuj") }
+                            }
                             OutlinedButton(
                                 onClick = { confirm = "Usunąć spotkanie? Wpisy znikną z kalendarzy uczestników." to viewModel::delete },
                                 modifier = Modifier.weight(1f),
@@ -323,6 +383,7 @@ private fun LivePanel(
     fetchedAtMs: Long,
     rec: MeetingRecorder.State,
     recordingHere: Boolean,
+    finishLabel: String,
     onPause: () -> Unit,
     onResume: () -> Unit,
     onFinish: () -> Unit,
@@ -364,7 +425,7 @@ private fun LivePanel(
                         onClick = onFinish,
                         colors = ButtonDefaults.buttonColors(containerColor = Red600),
                         modifier = Modifier.weight(1f),
-                    ) { Text("■  Zakończ") }
+                    ) { Text(finishLabel) }
                 }
             }
             if (recordingHere) {
@@ -409,6 +470,7 @@ private fun ReviewSection(
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                 Checkbox(checked = s.agendaDone[a.id] == true, onCheckedChange = { vm.setAgendaDone(a.id, it) })
                 Text("${i + 1}. ${a.text}", modifier = Modifier.weight(1f))
+                a.durationMin?.let { AgendaMinutes(it) }
                 a.aiDiscussed?.let {
                     Text(
                         if (it) "AI: omówiony" else "AI: nie",
@@ -548,4 +610,15 @@ private fun ApprovedSection(m: MeetingDto) {
             }
         }
     }
+}
+
+/** „15 min" przy punkcie agendy (v2). */
+@Composable
+private fun AgendaMinutes(min: Int) {
+    Text(
+        "$min min",
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 8.dp),
+    )
 }

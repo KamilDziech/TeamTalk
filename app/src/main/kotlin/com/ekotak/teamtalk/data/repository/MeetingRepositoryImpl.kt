@@ -1,6 +1,8 @@
 package com.ekotak.teamtalk.data.repository
 
 import com.ekotak.teamtalk.data.remote.api.TeamTalkApi
+import com.ekotak.teamtalk.data.remote.dto.MeetingAgendaProposalItemDto
+import com.ekotak.teamtalk.data.remote.dto.MeetingAgendaProposalRequest
 import com.ekotak.teamtalk.data.remote.dto.MeetingAgendaToggleRequest
 import com.ekotak.teamtalk.data.remote.dto.MeetingApproveRequest
 import com.ekotak.teamtalk.data.remote.dto.MeetingConflictDto
@@ -48,7 +50,9 @@ class MeetingRepositoryImpl @Inject constructor(
         startAt: String,
         durationMin: Int,
         excludeId: String?,
-    ): List<MeetingConflictDto> = api.getMeetingConflicts(userIds.joinToString(","), startAt, durationMin, excludeId)
+        dayCount: Int,
+    ): List<MeetingConflictDto> =
+        api.getMeetingConflicts(userIds.joinToString(","), startAt, durationMin, excludeId, dayCount)
 
     override suspend fun create(request: MeetingUpsertRequest): MeetingDto = api.createMeeting(request)
 
@@ -84,4 +88,16 @@ class MeetingRepositoryImpl @Inject constructor(
 
     override suspend fun approve(id: String, request: MeetingApproveRequest): MeetingDto =
         api.approveMeeting(id, request)
+
+    override suspend fun dictation(file: File): String = withContext(Dispatchers.IO) {
+        val part = MultipartBody.Part.createFormData(
+            "file",
+            file.name,
+            file.asRequestBody("audio/mp4".toMediaType()),
+        )
+        api.meetingDictation(part).text
+    }
+
+    override suspend fun proposeAgenda(request: MeetingAgendaProposalRequest): List<MeetingAgendaProposalItemDto> =
+        api.meetingAgendaProposal(request).items
 }

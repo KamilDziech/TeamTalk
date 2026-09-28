@@ -5,9 +5,12 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkManager
+import com.ekotak.teamtalk.data.meeting.MeetingDictationRecorder
 import com.ekotak.teamtalk.data.meeting.MeetingRecorder
 import com.ekotak.teamtalk.data.meeting.VoiceSummaryRecorder
 import com.ekotak.teamtalk.data.remote.dto.MeetingAgendaInput
+import com.ekotak.teamtalk.data.remote.dto.MeetingAgendaProposalItemDto
+import com.ekotak.teamtalk.data.remote.dto.MeetingAgendaProposalRequest
 import com.ekotak.teamtalk.data.remote.dto.MeetingApproveAgenda
 import com.ekotak.teamtalk.data.remote.dto.MeetingApproveProposal
 import com.ekotak.teamtalk.data.remote.dto.MeetingApproveRequest
@@ -35,9 +38,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.io.File
 import kotlinx.coroutines.withContext
 import retrofit2.HttpException
-import java.io.File
 import java.time.Instant
 import java.util.Calendar
 import java.util.UUID
@@ -81,14 +84,27 @@ class MeetingsListViewModel @Inject constructor(
 
 // ── Kreator / edycja ─────────────────────────────────────────────────────────
 
-data class AgendaDraft(val key: String = UUID.randomUUID().toString(), val id: String? = null, val text: String)
+/** Gotowe długości (min) — wszystko poza nimi to „Własny…" (v2, D14). */
+val MEETING_DURATION_PRESETS = listOf(30, 45, 60, 90, 120, 180)
+
+/** [minutes] jako tekst pola — puste = punkt bez czasu (opcjonalny, v2). */
+data class AgendaDraft(
+    val key: String = UUID.randomUUID().toString(),
+    val id: String? = null,
+    val text: String,
+    val minutes: String = "",
+)
 
 @HiltViewModel
 class MeetingFormViewModel @Inject constructor(
     private val repository: MeetingRepository,
+    private val dictationRecorder: MeetingDictationRecorder,
+    private val meetingRecorder: MeetingRecorder,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
     val editId: String? = savedStateHandle.get<String>("id")
+
+    enum class DictationPhase { IDLE, RECORDING, UPLOADING }
 
     data class State(
         val meta: MeetingMetaDto? = null,
@@ -98,7 +114,11 @@ class MeetingFormViewModel @Inject constructor(
         val hostId: String = "",
         val participantIds: List<String> = emptyList(),
         val startAtMs: Long = defaultStart(),
+        /** Minuty JEDNEGO dnia (D14). */
         val durationMin: Int = 60,
+        /** „Własny…" — dni × godziny dnia; poza nim dayCount zawsze 1. */
+        val customDuration: Boolean = false,
+        val dayCount: Int = 1,
         val location: String = "",
         val agenda: List<AgendaDraft> = emptyList(),
         val conflicts: List<MeetingConflictDto> = emptyList(),
@@ -111,11 +131,26 @@ class MeetingFormViewModel @Inject constructor(
         val isSaving: Boolean = false,
         val error: String? = null,
         val savedId: String? = null,
-    )
+        // D15: „Co chcesz omówić?" → dyktowanie → propozycja agendy.
+        val brief: String = "",
+        val dictation: DictationPhase = DictationPhase.IDLE,
+        val dictationSec: Int = 0,
+        val dictationError: String? = null,
+        val isProposing: Boolean = false,
+        val proposalError: String? = null,
+        /** Propozycja czekająca na „Zastąpić obecną agendę?". */
+        val pendingProposal: List<MeetingAgendaProposalItemDto>? = null,
+    ) {
+        /** Y z licznika „Rozplanowano X / Y min". */
+        val plannedMin: Int get() = dayCount * durationMin
+        /** X — suma minut wpisanych przy punktach. */
+        val scheduledMin: Int get() = agenda.filter { it.text.isNotBlank() }.sumOf { it.minutes.toIntOrNull() ?: 0 }
+    }
 
     private val _state = MutableStateFlow(State())
     val state: StateFlow<State> = _state.asStateFlow()
     private var conflictJob: Job? = null
+    private var dictationTimer: Job? = null
 
     init {
         viewModelScope.launch {
@@ -128,6 +163,7 @@ class MeetingFormViewModel @Inject constructor(
                     if (m == null) {
                         s.copy(meta = meta, isLoading = false, hostId = meta.me.id)
                     } else {
+                        val days = m.dayCount.coerceIn(1, 14)
                         s.copy(
                             meta = meta,
                             isLoading = false,
@@ -137,8 +173,12 @@ class MeetingFormViewModel @Inject constructor(
                             participantIds = m.participants.filter { it.role == "participant" }.map { it.id },
                             startAtMs = parseIsoMillis(m.startAt) ?: s.startAtMs,
                             durationMin = m.durationMin,
+                            customDuration = days > 1 || m.durationMin !in MEETING_DURATION_PRESETS,
+                            dayCount = days,
                             location = m.location.orEmpty(),
-                            agenda = m.agenda.map { AgendaDraft(key = it.id, id = it.id, text = it.text) },
+                            agenda = m.agenda.map {
+                                AgendaDraft(key = it.id, id = it.id, text = it.text, minutes = it.durationMin?.toString().orEmpty())
+                            },
                             contractor = m.client,
                         )
                     }
@@ -211,14 +251,44 @@ class MeetingFormViewModel @Inject constructor(
     fun setTitle(v: String) = _state.update { it.copy(title = v) }
     fun setLocation(v: String) = _state.update { it.copy(location = v) }
     fun setHost(id: String) { _state.update { it.copy(hostId = id, participantIds = it.participantIds - id) }; checkConflicts() }
+    /** Zmiana początku zachowuje długość dnia — koniec liczy się z początku i durationMin. */
     fun setStart(ms: Long) { _state.update { it.copy(startAtMs = ms) }; checkConflicts() }
-    fun setDuration(min: Int) { _state.update { it.copy(durationMin = min) }; checkConflicts() }
+
+    /** Gotowy preset: zawsze jeden dzień. */
+    fun setDuration(min: Int) {
+        _state.update { it.copy(durationMin = min, customDuration = false, dayCount = 1) }
+        checkConflicts()
+    }
+
+    fun setCustomDuration() = _state.update { it.copy(customDuration = true) }
+
+    fun setDayCount(n: Int) {
+        _state.update { it.copy(dayCount = n.coerceIn(1, 14)) }
+        checkConflicts()
+    }
+
+    /** „Do" w trybie własnym: durationMin = do − od (ta sama godzina każdego dnia). */
+    fun setEndClock(hour: Int, minute: Int) {
+        val from = minuteOfDay(_state.value.startAtMs)
+        val len = hour * 60 + minute - from
+        if (len < 5) {
+            _state.update { it.copy(error = "Koniec dnia musi być co najmniej 5 min po początku (${formatClock(from)}).") }
+            return
+        }
+        _state.update { it.copy(durationMin = len, error = null) }
+        checkConflicts()
+    }
+
     fun toggleParticipant(id: String) {
         _state.update { s -> s.copy(participantIds = if (id in s.participantIds) s.participantIds - id else s.participantIds + id) }
         checkConflicts()
     }
     fun setAgendaText(key: String, text: String) =
         _state.update { s -> s.copy(agenda = s.agenda.map { if (it.key == key) it.copy(text = text) else it }) }
+    fun setAgendaMinutes(key: String, v: String) {
+        val digits = v.filter(Char::isDigit).take(4)
+        _state.update { s -> s.copy(agenda = s.agenda.map { if (it.key == key) it.copy(minutes = digits) else it }) }
+    }
     fun addAgenda() = _state.update { it.copy(agenda = it.agenda + AgendaDraft(text = "")) }
     fun removeAgenda(key: String) = _state.update { s -> s.copy(agenda = s.agenda.filterNot { it.key == key }) }
     fun moveAgendaUp(key: String) = _state.update { s ->
@@ -227,7 +297,146 @@ class MeetingFormViewModel @Inject constructor(
     }
     fun clearError() = _state.update { it.copy(error = null) }
 
-    /** D4: kolizje tylko ostrzegają. */
+    // ── D15: dyktowanie i propozycja agendy ──
+
+    fun setBrief(v: String) = _state.update { it.copy(brief = v, proposalError = null) }
+
+    /** Wołać po przyznaniu RECORD_AUDIO. */
+    fun startDictation() {
+        if (_state.value.dictation != DictationPhase.IDLE) return
+        if (meetingRecorder.isActive) {
+            _state.update { it.copy(dictationError = "Telefon nagrywa właśnie spotkanie — mikrofon jest zajęty.") }
+            return
+        }
+        try {
+            dictationRecorder.start()
+        } catch (e: Exception) {
+            _state.update { it.copy(dictationError = "Nie udało się włączyć mikrofonu.") }
+            return
+        }
+        _state.update { it.copy(dictation = DictationPhase.RECORDING, dictationSec = 0, dictationError = null) }
+        dictationTimer?.cancel()
+        dictationTimer = viewModelScope.launch {
+            while (isActive) {
+                delay(1000)
+                val sec = _state.value.dictationSec + 1
+                _state.update { it.copy(dictationSec = sec) }
+                // Krótka wypowiedź, nie spotkanie — po 5 min wysyłamy to, co jest.
+                if (sec >= DICTATION_MAX_SEC) {
+                    stopDictation()
+                    break
+                }
+            }
+        }
+    }
+
+    fun stopDictation() {
+        if (_state.value.dictation != DictationPhase.RECORDING) return
+        dictationTimer?.cancel()
+        val file = dictationRecorder.stop()
+        if (file == null) {
+            _state.update { it.copy(dictation = DictationPhase.IDLE, dictationError = "Nic się nie nagrało — spróbuj jeszcze raz.") }
+            return
+        }
+        _state.update { it.copy(dictation = DictationPhase.UPLOADING) }
+        viewModelScope.launch {
+            runCatching { repository.dictation(file) }
+                .onSuccess { text ->
+                    _state.update { s ->
+                        val t = text.trim()
+                        s.copy(
+                            dictation = DictationPhase.IDLE,
+                            // Dopisujemy, nie nadpisujemy — można dyktować na raty.
+                            brief = when {
+                                t.isEmpty() -> s.brief
+                                s.brief.isBlank() -> t
+                                else -> s.brief.trimEnd() + "\n" + t
+                            },
+                            dictationError = if (t.isEmpty()) "Nie rozpoznano mowy — wpisz ręcznie." else null,
+                        )
+                    }
+                }
+                .onFailure { e ->
+                    _state.update {
+                        it.copy(
+                            dictation = DictationPhase.IDLE,
+                            dictationError = if ((e as? HttpException)?.code() == 503) {
+                                "Transkrypcja chwilowo niedostępna — wpisz ręcznie"
+                            } else {
+                                crmErrorMessage(e, "Nie udało się spisać nagrania")
+                            },
+                        )
+                    }
+                }
+            file.delete()
+        }
+    }
+
+    fun proposeAgenda() {
+        val s = _state.value
+        val type = s.type ?: return
+        if (s.brief.isBlank() || s.isProposing) return
+        _state.update { it.copy(isProposing = true, proposalError = null) }
+        viewModelScope.launch {
+            runCatching {
+                repository.proposeAgenda(
+                    MeetingAgendaProposalRequest(
+                        type = type,
+                        title = s.title.trim().ifBlank { null },
+                        text = s.brief.trim().take(8000),
+                        totalMin = s.plannedMin.coerceIn(5, 20160),
+                        dayCount = s.dayCount,
+                    ),
+                )
+            }.onSuccess { items ->
+                val clean = items.filter { it.text.isNotBlank() }
+                when {
+                    clean.isEmpty() ->
+                        _state.update { it.copy(isProposing = false, proposalError = "AI nie zaproponowało żadnego punktu.") }
+                    _state.value.agenda.any { it.text.isNotBlank() } ->
+                        _state.update { it.copy(isProposing = false, pendingProposal = clean) }
+                    else -> {
+                        _state.update { it.copy(isProposing = false) }
+                        applyProposal(clean)
+                    }
+                }
+            }.onFailure { e ->
+                _state.update {
+                    it.copy(
+                        isProposing = false,
+                        proposalError = if ((e as? HttpException)?.code() == 503) {
+                            "Propozycje AI są wyłączone — rozpisz agendę ręcznie."
+                        } else {
+                            crmErrorMessage(e, "Nie udało się zaproponować agendy")
+                        },
+                    )
+                }
+            }
+        }
+    }
+
+    fun confirmProposal() {
+        _state.value.pendingProposal?.let { applyProposal(it) }
+    }
+
+    fun dismissProposal() = _state.update { it.copy(pendingProposal = null) }
+
+    private fun applyProposal(items: List<MeetingAgendaProposalItemDto>) = _state.update { s ->
+        s.copy(
+            agenda = items.map {
+                AgendaDraft(text = it.text.trim(), minutes = it.durationMin.takeIf { m -> m > 0 }?.toString().orEmpty())
+            },
+            pendingProposal = null,
+        )
+    }
+
+    override fun onCleared() {
+        dictationTimer?.cancel()
+        dictationRecorder.cancel()
+        super.onCleared()
+    }
+
+    /** D4: kolizje tylko ostrzegają. v2: serwer sprawdza każdy z dni. */
     private fun checkConflicts() {
         conflictJob?.cancel()
         conflictJob = viewModelScope.launch {
@@ -240,6 +449,7 @@ class MeetingFormViewModel @Inject constructor(
                     Instant.ofEpochMilli(s.startAtMs).toString(),
                     s.durationMin,
                     editId,
+                    s.dayCount,
                 )
             }.getOrDefault(emptyList())
             _state.update { it.copy(conflicts = list) }
@@ -257,10 +467,17 @@ class MeetingFormViewModel @Inject constructor(
                 hostId = s.hostId,
                 participantIds = s.participantIds.filter { it != s.hostId },
                 startAt = Instant.ofEpochMilli(s.startAtMs).toString(),
-                durationMin = s.durationMin,
+                durationMin = s.durationMin.coerceIn(5, 1440),
+                dayCount = s.dayCount.coerceIn(1, 14),
                 location = s.location.trim().ifBlank { null },
                 clientId = if (s.meta?.types?.firstOrNull { it.key == type }?.needsContractor == true) s.contractor?.id else null,
-                agenda = s.agenda.filter { it.text.isNotBlank() }.map { MeetingAgendaInput(it.id, it.text.trim()) },
+                agenda = s.agenda.filter { it.text.isNotBlank() }.map {
+                    MeetingAgendaInput(
+                        it.id,
+                        it.text.trim(),
+                        it.minutes.toIntOrNull()?.takeIf { m -> m > 0 }?.coerceAtMost(1440),
+                    )
+                },
             )
             runCatching { if (editId != null) repository.update(editId, request) else repository.create(request) }
                 .onSuccess { m -> _state.update { it.copy(isSaving = false, savedId = m.id) } }
@@ -269,6 +486,8 @@ class MeetingFormViewModel @Inject constructor(
     }
 
     private companion object {
+        const val DICTATION_MAX_SEC = 300
+
         fun defaultStart(): Long = Calendar.getInstance().apply {
             add(Calendar.DAY_OF_YEAR, 1)
             set(Calendar.HOUR_OF_DAY, 9); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
@@ -407,7 +626,7 @@ class MeetingDetailViewModel @Inject constructor(
         }
         run("Nie udało się włączyć spotkania") {
             val started = repository.start(m.id)
-            MeetingRecordingService.start(context, m.id, m.title)
+            MeetingRecordingService.start(context, m.id, m.title, m.currentDay)
             started
         }
     }

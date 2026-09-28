@@ -56,10 +56,15 @@ class MeetingRecorder @Inject constructor(
 
     val isActive: Boolean get() = _state.value.phase != Phase.IDLE
 
-    fun start(meetingId: String, title: String) {
+    /**
+     * [day] — dzień spotkania wielodniowego (v2, D9: jedno nagranie na dzień).
+     * Trafia do nazwy pliku, a ta jest kluczem pracy wysyłki — dzień 2 nie
+     * zderzy się z niewysłanym jeszcze dniem 1 tego samego spotkania.
+     */
+    fun start(meetingId: String, title: String, day: Int = 1) {
         if (isActive) return
         val dir = File(context.filesDir, "meetings").apply { mkdirs() }
-        val out = File(dir, "${meetingId}_${System.currentTimeMillis()}.aac")
+        val out = File(dir, "${meetingId}_d${day}_${System.currentTimeMillis()}.aac")
         @Suppress("DEPRECATION")
         val mr = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) MediaRecorder(context) else MediaRecorder()
         mr.apply {

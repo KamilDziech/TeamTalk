@@ -1,6 +1,31 @@
 package com.ekotak.teamtalk.presentation.meetings
 
 import androidx.activity.compose.BackHandler
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberTimePickerState
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.window.Dialog
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -68,6 +93,41 @@ fun MeetingFormScreen(
     LaunchedEffect(s.savedId) { s.savedId?.let(onSaved) }
     BackHandler(enabled = s.type != null && viewModel.editId == null) { viewModel.clearType() }
 
+    // D15: mikrofon „Co chcesz omówić?" — prośba o RECORD_AUDIO przy pierwszym dotknięciu.
+    val context = LocalContext.current
+    val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) viewModel.startDictation()
+    }
+    fun micClick() {
+        when (s.dictation) {
+            MeetingFormViewModel.DictationPhase.RECORDING -> viewModel.stopDictation()
+            MeetingFormViewModel.DictationPhase.UPLOADING -> Unit
+            MeetingFormViewModel.DictationPhase.IDLE ->
+                if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                    viewModel.startDictation()
+                } else {
+                    micPermission.launch(Manifest.permission.RECORD_AUDIO)
+                }
+        }
+    }
+
+    s.pendingProposal?.let { items ->
+        AlertDialog(
+            onDismissRequest = viewModel::dismissProposal,
+            title = { Text("Zastąpić obecną agendę?") },
+            text = {
+                Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
+                    Text(
+                        "AI proponuje ${items.size} pkt na ${items.sumOf { it.durationMin }} min:\n" +
+                            items.joinToString("\n") { "• ${it.text} (${it.durationMin} min)" },
+                    )
+                }
+            },
+            confirmButton = { TextButton(onClick = viewModel::confirmProposal) { Text("Zastąp") } },
+            dismissButton = { TextButton(onClick = viewModel::dismissProposal) { Text("Zostaw obecną") } },
+        )
+    }
+
     Scaffold(topBar = { AppTopBar(title = "Nowe spotkanie", onNavigateBack = onNavigateBack) }) { padding ->
         val meta = s.meta
         if (s.isLoading || meta == null) {
@@ -133,20 +193,29 @@ fun MeetingFormScreen(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                val pick = rememberDateTimePicker("Początek spotkania", s.startAtMs) { viewModel.setStart(it) }
+                val pick = rememberDateTimePicker(
+                    if (s.customDuration) "Pierwszy dzień — od godziny" else "Początek spotkania",
+                    s.startAtMs,
+                ) { viewModel.setStart(it) }
                 OutlinedButton(onClick = pick, modifier = Modifier.fillMaxWidth()) {
-                    Text("Początek: ${formatMillisDateTime(s.startAtMs)}")
+                    Text((if (s.customDuration) "Pierwszy dzień, od: " else "Początek: ") + formatMillisDateTime(s.startAtMs))
                 }
                 Text("Czas trwania", style = MaterialTheme.typography.labelMedium)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf(30, 45, 60, 90, 120, 180).forEach { m ->
+                    MEETING_DURATION_PRESETS.forEach { m ->
                         FilterChip(
-                            selected = s.durationMin == m,
+                            selected = !s.customDuration && s.durationMin == m,
                             onClick = { viewModel.setDuration(m) },
                             label = { Text(if (m < 60) "$m min" else "${m / 60.0}".removeSuffix(".0") + " h") },
                         )
                     }
+                    FilterChip(
+                        selected = s.customDuration,
+                        onClick = viewModel::setCustomDuration,
+                        label = { Text("Własny…") },
+                    )
                 }
+                if (s.customDuration) CustomDurationPanel(s, viewModel)
                 OutlinedTextField(
                     value = s.location,
                     onValueChange = viewModel::setLocation,
@@ -234,6 +303,16 @@ fun MeetingFormScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                BriefSection(s, viewModel, onMic = ::micClick)
+                // D15: suma czasów = czas spotkania; przekroczenie tylko ostrzega.
+                val over = s.scheduledMin > s.plannedMin
+                Text(
+                    "Rozplanowano ${s.scheduledMin} / ${s.plannedMin} min" +
+                        if (over) " — o ${s.scheduledMin - s.plannedMin} min za dużo" else "",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (over) Orange600 else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 s.agenda.forEachIndexed { i, a ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("${i + 1}.", modifier = Modifier.padding(end = 6.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -241,6 +320,14 @@ fun MeetingFormScreen(
                             value = a.text,
                             onValueChange = { viewModel.setAgendaText(a.key, it) },
                             modifier = Modifier.weight(1f),
+                        )
+                        OutlinedTextField(
+                            value = a.minutes,
+                            onValueChange = { viewModel.setAgendaMinutes(a.key, it) },
+                            label = { Text("min") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.padding(start = 6.dp).width(68.dp),
                         )
                         IconButton(onClick = { viewModel.moveAgendaUp(a.key) }, enabled = i > 0) {
                             Icon(Icons.Filled.ArrowUpward, contentDescription = "W górę")
@@ -345,4 +432,120 @@ private fun ContractorPicker(s: MeetingFormViewModel.State, viewModel: MeetingFo
         }
     }
     OutlinedButton(onClick = { viewModel.setAddingContractor(true) }) { Text("+ Nowy kontrahent") }
+}
+
+/**
+ * „Własny…" (D14): dni × godziny dnia. Początek pierwszego dnia ustawia przycisk
+ * „Pierwszy dzień, od" nad chipami; tu liczba dni i godzina końca — ta sama
+ * każdego dnia, a durationMin = do − od.
+ */
+@Composable
+private fun CustomDurationPanel(s: MeetingFormViewModel.State, vm: MeetingFormViewModel) {
+    var pickingEnd by remember { mutableStateOf(false) }
+    val from = minuteOfDay(s.startAtMs)
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Liczba dni", modifier = Modifier.weight(1f))
+        IconButton(onClick = { vm.setDayCount(s.dayCount - 1) }, enabled = s.dayCount > 1) {
+            Icon(Icons.Filled.Remove, contentDescription = "Mniej dni")
+        }
+        Text("${s.dayCount}", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+        IconButton(onClick = { vm.setDayCount(s.dayCount + 1) }, enabled = s.dayCount < 14) {
+            Icon(Icons.Filled.Add, contentDescription = "Więcej dni")
+        }
+    }
+    OutlinedButton(onClick = { pickingEnd = true }, modifier = Modifier.fillMaxWidth()) {
+        Text("Do godziny: ${formatClock(from + s.durationMin)}")
+    }
+    Text(
+        (if (s.dayCount > 1) "${daysLabel(s.dayCount)} · ${dayRangeLabel(s.startAtMs, s.durationMin)} każdego dnia"
+        else dayRangeLabel(s.startAtMs, s.durationMin)) + " · razem ${s.plannedMin} min",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    if (pickingEnd) {
+        EndTimeDialog(
+            initialMinuteOfDay = (from + s.durationMin).coerceAtMost(23 * 60 + 59),
+            onDismiss = { pickingEnd = false },
+            onPick = { h, m -> vm.setEndClock(h, m); pickingEnd = false },
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EndTimeDialog(initialMinuteOfDay: Int, onDismiss: () -> Unit, onPick: (Int, Int) -> Unit) {
+    val state = rememberTimePickerState(
+        initialHour = initialMinuteOfDay / 60,
+        initialMinute = initialMinuteOfDay % 60,
+        is24Hour = true,
+    )
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surface) {
+            Column(Modifier.padding(20.dp)) {
+                Text("Koniec każdego dnia", style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(12.dp))
+                TimePicker(state = state)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onDismiss) { Text("Anuluj") }
+                    TextButton(onClick = { onPick(state.hour, state.minute) }) { Text("Ustaw") }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * „Co chcesz omówić?" (D15): wpis albo dyktowanie (Whisper u nas), tekst zawsze
+ * edytowalny; „Zaproponuj agendę" rozpisuje go na punkty z minutami.
+ */
+@Composable
+private fun BriefSection(s: MeetingFormViewModel.State, vm: MeetingFormViewModel, onMic: () -> Unit) {
+    val phase = s.dictation
+    OutlinedTextField(
+        value = s.brief,
+        onValueChange = vm::setBrief,
+        label = { Text("Co chcesz omówić?") },
+        placeholder = { Text("Wpisz albo podyktuj — AI rozpisze to na punkty z czasem.") },
+        minLines = 3,
+        enabled = phase != MeetingFormViewModel.DictationPhase.UPLOADING,
+        trailingIcon = {
+            IconButton(onClick = onMic, enabled = phase != MeetingFormViewModel.DictationPhase.UPLOADING) {
+                when (phase) {
+                    MeetingFormViewModel.DictationPhase.RECORDING ->
+                        Icon(Icons.Filled.Stop, contentDescription = "Zatrzymaj dyktowanie", tint = Red600)
+                    MeetingFormViewModel.DictationPhase.UPLOADING ->
+                        CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                    MeetingFormViewModel.DictationPhase.IDLE ->
+                        Icon(Icons.Filled.Mic, contentDescription = "Dyktuj")
+                }
+            }
+        },
+        modifier = Modifier.fillMaxWidth(),
+    )
+    when (phase) {
+        MeetingFormViewModel.DictationPhase.RECORDING -> Row(verticalAlignment = Alignment.CenterVertically) {
+            Surface(shape = CircleShape, color = Red600, modifier = Modifier.size(8.dp)) {}
+            Text(
+                "  Nagrywam… ${formatElapsed(s.dictationSec.toLong())} — dotknij ■, żeby spisać",
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+        MeetingFormViewModel.DictationPhase.UPLOADING ->
+            Text("Spisuję…", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        MeetingFormViewModel.DictationPhase.IDLE -> s.dictationError?.let { NoticeStrip(it, Orange600) }
+    }
+    OutlinedButton(
+        onClick = vm::proposeAgenda,
+        enabled = s.brief.isNotBlank() && !s.isProposing && phase == MeetingFormViewModel.DictationPhase.IDLE,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        if (s.isProposing) {
+            CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+            Text("  Układam agendę…")
+        } else {
+            Icon(Icons.Filled.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
+            Text("  Zaproponuj agendę (${s.plannedMin} min)")
+        }
+    }
+    s.proposalError?.let { NoticeStrip(it, Orange600) }
 }

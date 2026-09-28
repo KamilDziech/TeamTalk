@@ -159,6 +159,7 @@ private fun MeetingRow(m: MeetingListItemDto, onClick: () -> Unit) {
                 val meta = buildString {
                     append(formatDateTime(m.startAt) ?: "")
                     m.client?.let { append(" · ").append(it.name) }
+                    if (m.dayCount > 1) append(" · ").append(daysLabel(m.dayCount))
                     append(" · ").append(m.host.name)
                     append(" · ").append(m.participantCount).append(" os.")
                     if (m.agendaCount > 0) append(" · agenda ${m.agendaDone}/${m.agendaCount}")
@@ -166,6 +167,8 @@ private fun MeetingRow(m: MeetingListItemDto, onClick: () -> Unit) {
                 }
                 Text(meta, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+            // D16: wynik oceny AI w kolorze progu.
+            m.score?.let { ScoreBadge(it) }
             StatusPill(if (m.needsVoiceSummary) VOICE_SUMMARY_PILL else m.status)
         }
     }

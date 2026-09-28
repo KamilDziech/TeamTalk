@@ -60,6 +60,9 @@ data class MeetingListItemDto(
     val myRsvp: String? = null,
     /** D9: prowadzący musi nagrać podsumowanie głosem (spotkanie bez nagrania). */
     val needsVoiceSummary: Boolean = false,
+    // v2: wielodniowe + ocena AI (stare API ich nie zna — stąd domyślne).
+    val dayCount: Int = 1,
+    val score: Int? = null,
 )
 
 /**
@@ -87,6 +90,16 @@ data class MeetingAgendaItemDto(
     val text: String = "",
     val done: Boolean = false,
     val aiDiscussed: Boolean? = null,
+    /** v2: planowany czas punktu w minutach (opcjonalny). */
+    val durationMin: Int? = null,
+)
+
+/** v2: termin jednego dnia spotkania wielodniowego. */
+@Serializable
+data class MeetingDayDto(
+    val day: Int,
+    val startAt: String = "",
+    val endAt: String = "",
 )
 
 @Serializable
@@ -142,6 +155,17 @@ data class MeetingDto(
     val canApprove: Boolean = false,
     val myRsvp: String? = null,
     val serverTime: String? = null,
+    // v2 (D14): `durationMin` to długość JEDNEGO dnia, `dayCount` kolejnych dni.
+    val dayCount: Int = 1,
+    /** Dzień, który trwa albo jest następny do włączenia (1..dayCount). */
+    val currentDay: Int = 1,
+    val days: List<MeetingDayDto> = emptyList(),
+    /** dayCount × durationMin. */
+    val plannedMin: Int = 0,
+    // v2 (D16): ocena AI 0–100 — zostaje po akceptacji, razem z dygresjami.
+    val score: Int? = null,
+    val scoreReason: String? = null,
+    val digressions: List<String> = emptyList(),
 )
 
 @Serializable
@@ -153,7 +177,7 @@ data class MeetingConflictDto(
 )
 
 @Serializable
-data class MeetingAgendaInput(val id: String? = null, val text: String)
+data class MeetingAgendaInput(val id: String? = null, val text: String, val durationMin: Int? = null)
 
 @Serializable
 data class MeetingUpsertRequest(
@@ -162,7 +186,10 @@ data class MeetingUpsertRequest(
     val hostId: String,
     val participantIds: List<String>,
     val startAt: String,
+    /** Minuty JEDNEGO dnia (5..1440). */
     val durationMin: Int,
+    /** 1..14 — bez wartości domyślnej, bo nasz Json nie koduje domyślnych. */
+    val dayCount: Int,
     val location: String? = null,
     val clientId: String? = null,
     val agenda: List<MeetingAgendaInput>,
@@ -220,4 +247,30 @@ data class MeetingApproveRequest(
     val decisions: List<String>,
     val agenda: List<MeetingApproveAgenda>,
     val proposals: List<MeetingApproveProposal>,
+)
+
+// ── v2: dyktowanie i propozycja agendy (D15) ─────────────────────────────────
+
+@Serializable
+data class MeetingDictationDto(val text: String = "")
+
+@Serializable
+data class MeetingAgendaProposalRequest(
+    val type: String,
+    val title: String? = null,
+    val text: String,
+    /** dayCount × durationMin — suma minut punktów w odpowiedzi. */
+    val totalMin: Int,
+    val dayCount: Int? = null,
+)
+
+@Serializable
+data class MeetingAgendaProposalItemDto(
+    val text: String = "",
+    val durationMin: Int = 0,
+)
+
+@Serializable
+data class MeetingAgendaProposalDto(
+    val items: List<MeetingAgendaProposalItemDto> = emptyList(),
 )

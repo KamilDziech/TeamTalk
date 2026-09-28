@@ -1632,7 +1632,18 @@ interface TeamTalkApi {
         @Query("startAt") startAt: String,
         @Query("durationMin") durationMin: Int,
         @Query("excludeMeetingId") excludeMeetingId: String? = null,
+        /** v2: serwer sprawdza każdy z dni. */
+        @Query("dayCount") dayCount: Int = 1,
     ): List<MeetingConflictDto>
+
+    /** v2 (D15): krótka wypowiedź → tekst (Whisper u nas). 503 = transkrypcja niedostępna. */
+    @Multipart
+    @POST("api/meetings/dictation")
+    suspend fun meetingDictation(@Part file: MultipartBody.Part): MeetingDictationDto
+
+    /** v2 (D15): punkty agendy z czasami, suma == totalMin. 503 = AI wyłączone. */
+    @POST("api/meetings/agenda-proposal")
+    suspend fun meetingAgendaProposal(@Body request: MeetingAgendaProposalRequest): MeetingAgendaProposalDto
 
     @POST("api/meetings")
     suspend fun createMeeting(@Body request: MeetingUpsertRequest): MeetingDto

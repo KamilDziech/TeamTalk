@@ -122,8 +122,11 @@ class MeetingRecordingUploadWorker @AssistedInject constructor(
                 WorkManager.getInstance(context)
                     .enqueueUniqueWork(summaryWorkName(meetingId), ExistingWorkPolicy.REPLACE, request)
             } else {
+                // Klucz = plik, nie samo spotkanie: wielodniowe (D14) ma jedno nagranie na dzień,
+                // a nazwa pliku niesie id + dzień + chwilę startu. KEEP dalej chroni przed
+                // podwójną wysyłką TEGO SAMEGO pliku (np. odzysk sieroty przy starcie aplikacji).
                 WorkManager.getInstance(context)
-                    .enqueueUniqueWork("meeting_recording_$meetingId", ExistingWorkPolicy.KEEP, request)
+                    .enqueueUniqueWork("meeting_recording_${file.nameWithoutExtension}", ExistingWorkPolicy.KEEP, request)
             }
         }
     }
