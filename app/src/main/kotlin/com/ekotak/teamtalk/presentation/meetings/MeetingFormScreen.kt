@@ -44,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.ekotak.teamtalk.data.remote.dto.MeetingContractorCreateRequest
 import com.ekotak.teamtalk.presentation.components.AppTopBar
 import com.ekotak.teamtalk.presentation.crm.formatMillisDateTime
 import com.ekotak.teamtalk.presentation.crm.formatDateTime
@@ -155,8 +156,21 @@ fun MeetingFormScreen(
                 )
             }
 
-            MeetingCard("Osoby") {
-                val hosts = if (typeDef?.boardOnly == true) meta.people.filter { it.isBoard } else meta.people
+            if (typeDef?.needsContractor == true) {
+                MeetingCard("Kontrahent") { ContractorPicker(s, viewModel) }
+            }
+
+            MeetingCard(if (typeDef?.needsContractor == true) "Osoby z firmy" else "Osoby") {
+                // Spotkanie zarządu: do wyboru wyłącznie członkowie zarządu.
+                val pool = if (typeDef?.boardOnly == true) meta.people.filter { it.isBoard } else meta.people
+                val hosts = pool
+                if (typeDef?.boardOnly == true) {
+                    Text(
+                        "Do wyboru wyłącznie członkowie zarządu.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 var hostOpen by remember { mutableStateOf(false) }
                 Box {
                     OutlinedButton(onClick = { hostOpen = true }, modifier = Modifier.fillMaxWidth()) {
@@ -196,7 +210,7 @@ fun MeetingFormScreen(
                     modifier = Modifier.fillMaxWidth(),
                 )
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    meta.people
+                    pool
                         .filter { it.id != s.hostId && it.id !in s.participantIds && it.name.contains(query.trim(), ignoreCase = true) }
                         .take(if (query.isBlank()) 12 else 40)
                         .forEach { p ->
@@ -242,11 +256,93 @@ fun MeetingFormScreen(
             s.error?.let { NoticeStrip(it, Red600) }
             Button(
                 onClick = viewModel::save,
-                enabled = !s.isSaving && s.title.isNotBlank() && (s.type != "employee" || s.participantIds.isNotEmpty()),
+                enabled = !s.isSaving && s.title.isNotBlank() &&
+                    (s.type != "employee" || s.participantIds.isNotEmpty()) &&
+                    (typeDef?.needsContractor != true || s.contractor != null),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(if (s.isSaving) "Zapisuję…" else if (viewModel.editId != null) "Zapisz zmiany" else "Zaplanuj spotkanie")
             }
         }
     }
+}
+
+/**
+ * Kontrahent z kartoteki (grupy Kontrahenci + Inne) albo szybkie dodanie
+ * nowego wpisu do grupy „Inne" (decyzje usera 2026-09-28).
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ContractorPicker(s: MeetingFormViewModel.State, viewModel: MeetingFormViewModel) {
+    val picked = s.contractor
+    if (picked != null) {
+        Text(picked.name, fontWeight = FontWeight.SemiBold)
+        contractorLine(picked).takeIf { it.isNotBlank() }?.let {
+            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        OutlinedButton(onClick = { viewModel.pickContractor(null) }) { Text("Zmień") }
+        return
+    }
+    if (s.isAddingContractor) {
+        var company by remember { mutableStateOf(s.contractorQuery.trim()) }
+        var person by remember { mutableStateOf("") }
+        var role by remember { mutableStateOf("") }
+        var phone by remember { mutableStateOf("") }
+        var email by remember { mutableStateOf("") }
+        Text(
+            "Nowy wpis trafi do kartoteki, do grupy „Inne”.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        OutlinedTextField(company, { company = it }, label = { Text("Firma / pracownia") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(person, { person = it }, label = { Text("Imię i nazwisko") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(role, { role = it }, label = { Text("Kim jest (np. architekt, dostawca)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(phone, { phone = it }, label = { Text("Telefon") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(email, { email = it }, label = { Text("E-mail") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        s.contractorError?.let { NoticeStrip(it, Red600) }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { viewModel.setAddingContractor(false) }) { Text("Wróć do listy") }
+            Button(
+                enabled = company.isNotBlank() || person.isNotBlank(),
+                onClick = {
+                    viewModel.createContractor(
+                        MeetingContractorCreateRequest(
+                            companyName = company.trim().ifBlank { null },
+                            personName = person.trim().ifBlank { null },
+                            businessRole = role.trim().ifBlank { null },
+                            phone = phone.trim().ifBlank { null },
+                            email = email.trim().ifBlank { null },
+                        ),
+                    )
+                },
+            ) { Text("Dodaj do kartoteki") }
+        }
+        return
+    }
+    OutlinedTextField(
+        value = s.contractorQuery,
+        onValueChange = viewModel::setContractorQuery,
+        label = { Text("Szukaj w kartotece (Kontrahenci, Inne)") },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    if (s.contractorResults.isEmpty()) {
+        Text("Brak wyników.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    s.contractorResults.take(20).forEach { c ->
+        Surface(
+            shape = RoundedCornerShape(10.dp),
+            color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+            modifier = Modifier.fillMaxWidth().clickable { viewModel.pickContractor(c) },
+        ) {
+            Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                Text(c.name, fontWeight = FontWeight.SemiBold)
+                contractorLine(c).takeIf { it.isNotBlank() }?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+    }
+    OutlinedButton(onClick = { viewModel.setAddingContractor(true) }) { Text("+ Nowy kontrahent") }
 }

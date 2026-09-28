@@ -4,6 +4,8 @@ import com.ekotak.teamtalk.data.remote.api.TeamTalkApi
 import com.ekotak.teamtalk.data.remote.dto.MeetingAgendaToggleRequest
 import com.ekotak.teamtalk.data.remote.dto.MeetingApproveRequest
 import com.ekotak.teamtalk.data.remote.dto.MeetingConflictDto
+import com.ekotak.teamtalk.data.remote.dto.MeetingContractorCreateRequest
+import com.ekotak.teamtalk.data.remote.dto.MeetingContractorDto
 import com.ekotak.teamtalk.data.remote.dto.MeetingDto
 import com.ekotak.teamtalk.data.remote.dto.MeetingListItemDto
 import com.ekotak.teamtalk.data.remote.dto.MeetingMetaDto
@@ -32,6 +34,12 @@ class MeetingRepositoryImpl @Inject constructor(
     override suspend fun meta(): MeetingMetaDto = api.getMeetingMeta()
 
     override suspend fun list(): List<MeetingListItemDto> = api.getMeetings()
+
+    override suspend fun searchContractors(q: String): List<MeetingContractorDto> =
+        api.searchMeetingContractors(q)
+
+    override suspend fun createContractor(request: MeetingContractorCreateRequest): MeetingContractorDto =
+        api.createMeetingContractor(request)
 
     override suspend fun get(id: String): MeetingDto = api.getMeeting(id)
 

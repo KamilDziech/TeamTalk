@@ -158,6 +158,7 @@ private fun MeetingRow(m: MeetingListItemDto, onClick: () -> Unit) {
                 Text(m.title, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 val meta = buildString {
                     append(formatDateTime(m.startAt) ?: "")
+                    m.client?.let { append(" · ").append(it.name) }
                     append(" · ").append(m.host.name)
                     append(" · ").append(m.participantCount).append(" os.")
                     if (m.agendaCount > 0) append(" · agenda ${m.agendaDone}/${m.agendaCount}")

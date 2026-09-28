@@ -25,6 +25,8 @@ data class MeetingTypeDto(
     val label: String = "",
     val confidential: Boolean = false,
     val boardOnly: Boolean = false,
+    /** Rodzaj `contractor` — wymaga kontrahenta z kartoteki (Kontrahenci / Inne). */
+    val needsContractor: Boolean = false,
     val canCreate: Boolean = true,
     val agendaTemplate: List<String> = emptyList(),
 )
@@ -50,6 +52,7 @@ data class MeetingListItemDto(
     val startAt: String = "",
     val durationMin: Int = 60,
     val host: MeetingPersonDto = MeetingPersonDto(""),
+    val client: MeetingPersonDto? = null,
     val participantCount: Int = 0,
     val agendaCount: Int = 0,
     val agendaDone: Int = 0,
@@ -112,6 +115,7 @@ data class MeetingDto(
     val durationMin: Int = 60,
     val location: String? = null,
     val host: MeetingPersonDto = MeetingPersonDto(""),
+    val client: MeetingContractorDto? = null,
     val participants: List<MeetingParticipantDto> = emptyList(),
     val agenda: List<MeetingAgendaItemDto> = emptyList(),
     val recordingDevice: String? = null,
@@ -160,7 +164,31 @@ data class MeetingUpsertRequest(
     val startAt: String,
     val durationMin: Int,
     val location: String? = null,
+    val clientId: String? = null,
     val agenda: List<MeetingAgendaInput>,
+)
+
+/** Kontrahent z kartoteki (grupa Kontrahenci albo Inne) — spotkanie z kontrahentem. */
+@Serializable
+data class MeetingContractorDto(
+    val id: String,
+    val name: String = "",
+    /** Osoba kontaktowa, gdy `name` to nazwa firmy. */
+    val person: String? = null,
+    val category: String = "inne",
+    val businessRole: String? = null,
+    val phone: String? = null,
+    val email: String? = null,
+)
+
+/** Szybkie dodanie kontrahenta z kreatora — nowy wpis kartoteki w grupie „Inne". */
+@Serializable
+data class MeetingContractorCreateRequest(
+    val companyName: String? = null,
+    val personName: String? = null,
+    val businessRole: String? = null,
+    val phone: String? = null,
+    val email: String? = null,
 )
 
 @Serializable

@@ -1614,6 +1614,12 @@ interface TeamTalkApi {
     @GET("api/meetings/meta")
     suspend fun getMeetingMeta(): MeetingMetaDto
 
+    @GET("api/meetings/contractors")
+    suspend fun searchMeetingContractors(@Query("q") q: String): List<MeetingContractorDto>
+
+    @POST("api/meetings/contractors")
+    suspend fun createMeetingContractor(@Body request: MeetingContractorCreateRequest): MeetingContractorDto
+
     @GET("api/meetings")
     suspend fun getMeetings(): List<MeetingListItemDto>
 

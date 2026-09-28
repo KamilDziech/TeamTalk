@@ -2,6 +2,8 @@ package com.ekotak.teamtalk.domain.repository
 
 import com.ekotak.teamtalk.data.remote.dto.MeetingApproveRequest
 import com.ekotak.teamtalk.data.remote.dto.MeetingConflictDto
+import com.ekotak.teamtalk.data.remote.dto.MeetingContractorCreateRequest
+import com.ekotak.teamtalk.data.remote.dto.MeetingContractorDto
 import com.ekotak.teamtalk.data.remote.dto.MeetingDto
 import com.ekotak.teamtalk.data.remote.dto.MeetingListItemDto
 import com.ekotak.teamtalk.data.remote.dto.MeetingMetaDto
@@ -17,6 +19,10 @@ import java.io.File
 interface MeetingRepository {
     suspend fun meta(): MeetingMetaDto
     suspend fun list(): List<MeetingListItemDto>
+    /** Kartoteka: grupy Kontrahenci + Inne. */
+    suspend fun searchContractors(q: String): List<MeetingContractorDto>
+    /** Nowy wpis kartoteki w grupie „Inne". */
+    suspend fun createContractor(request: MeetingContractorCreateRequest): MeetingContractorDto
     suspend fun get(id: String): MeetingDto
     suspend fun conflicts(userIds: List<String>, startAt: String, durationMin: Int, excludeId: String?): List<MeetingConflictDto>
     suspend fun create(request: MeetingUpsertRequest): MeetingDto

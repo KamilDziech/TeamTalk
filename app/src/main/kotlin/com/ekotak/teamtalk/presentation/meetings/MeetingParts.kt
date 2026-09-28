@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BusinessCenter
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.School
@@ -33,18 +34,21 @@ fun meetingTypeColor(type: String): Color = when (type) {
     "board" -> Color(0xFFF59E0B)
     "employee" -> Color(0xFF38BDF8)
     "training" -> Color(0xFFA78BFA)
+    "contractor" -> Color(0xFF34D399)
     else -> Color(0xFF8AA0B6)
 }
 
 fun meetingTypeIcon(type: String): ImageVector = when (type) {
     "board" -> Icons.Filled.Groups
     "employee" -> Icons.Filled.Person
+    "contractor" -> Icons.Filled.BusinessCenter
     else -> Icons.Filled.School
 }
 
 fun meetingTypeHint(type: String): String = when (type) {
     "board" -> "Decyzje zarządu. Zakłada i prowadzi tylko zarząd."
     "employee" -> "Rozmowa z pracownikiem — poufna, widzą ją tylko uczestnicy."
+    "contractor" -> "Z kimś spoza firmy — architektem, dostawcą. Kontrahent z kartoteki."
     else -> "Szkolenie zespołu — podsumowanie omówionych tematów."
 }
 
@@ -139,3 +143,12 @@ fun NoticeStrip(text: String, color: Color) {
         Text(text, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(10.dp))
     }
 }
+
+/** Druga linijka kontrahenta: osoba · rola · telefon · grupa kartoteki. */
+fun contractorLine(c: com.ekotak.teamtalk.data.remote.dto.MeetingContractorDto): String =
+    listOfNotNull(
+        c.person,
+        c.businessRole,
+        c.phone,
+        when (c.category) { "kontrahent" -> "Kontrahenci"; "inne" -> "Inne"; else -> null },
+    ).filter { it.isNotBlank() }.joinToString(" · ")

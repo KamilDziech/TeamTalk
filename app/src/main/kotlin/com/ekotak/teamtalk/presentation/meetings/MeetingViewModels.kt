@@ -12,6 +12,8 @@ import com.ekotak.teamtalk.data.remote.dto.MeetingApproveAgenda
 import com.ekotak.teamtalk.data.remote.dto.MeetingApproveProposal
 import com.ekotak.teamtalk.data.remote.dto.MeetingApproveRequest
 import com.ekotak.teamtalk.data.remote.dto.MeetingConflictDto
+import com.ekotak.teamtalk.data.remote.dto.MeetingContractorCreateRequest
+import com.ekotak.teamtalk.data.remote.dto.MeetingContractorDto
 import com.ekotak.teamtalk.data.remote.dto.MeetingDto
 import com.ekotak.teamtalk.data.remote.dto.MeetingListItemDto
 import com.ekotak.teamtalk.data.remote.dto.MeetingMetaDto
@@ -100,6 +102,12 @@ class MeetingFormViewModel @Inject constructor(
         val location: String = "",
         val agenda: List<AgendaDraft> = emptyList(),
         val conflicts: List<MeetingConflictDto> = emptyList(),
+        /** Spotkanie z kontrahentem: wybrany wpis kartoteki (Kontrahenci / Inne). */
+        val contractor: MeetingContractorDto? = null,
+        val contractorQuery: String = "",
+        val contractorResults: List<MeetingContractorDto> = emptyList(),
+        val isAddingContractor: Boolean = false,
+        val contractorError: String? = null,
         val isSaving: Boolean = false,
         val error: String? = null,
         val savedId: String? = null,
@@ -131,10 +139,12 @@ class MeetingFormViewModel @Inject constructor(
                             durationMin = m.durationMin,
                             location = m.location.orEmpty(),
                             agenda = m.agenda.map { AgendaDraft(key = it.id, id = it.id, text = it.text) },
+                            contractor = m.client,
                         )
                     }
                 }
                 checkConflicts()
+                if (_state.value.type == "contractor" && _state.value.contractor == null) searchContractors()
             }.onFailure { e ->
                 _state.update { it.copy(isLoading = false, error = crmErrorMessage(e, "Nie udało się otworzyć kreatora")) }
             }
@@ -147,13 +157,53 @@ class MeetingFormViewModel @Inject constructor(
         _state.update { s ->
             val prev = meta.types.firstOrNull { it.key == s.type }?.agendaTemplate.orEmpty()
             val untouched = s.agenda.map { it.text } == prev
-            val hostOk = !def.boardOnly || meta.people.firstOrNull { it.id == s.hostId }?.isBoard == true
+            // Spotkanie zarządu: prowadzący i uczestnicy wyłącznie z rolą „zarząd" (isBoard z API).
+            val board = meta.people.filter { it.isBoard }
+            val hostOk = !def.boardOnly || board.any { it.id == s.hostId }
+            val boardHost = board.firstOrNull { it.id == meta.me.id }?.id ?: board.firstOrNull()?.id ?: meta.me.id
             s.copy(
                 type = key,
                 title = if (s.title.isBlank() || meta.types.any { it.label == s.title }) def.label else s.title,
                 agenda = if (s.agenda.isEmpty() || untouched) def.agendaTemplate.map { AgendaDraft(text = it) } else s.agenda,
-                hostId = if (hostOk) s.hostId else meta.me.id,
+                hostId = if (hostOk) s.hostId else boardHost,
+                participantIds = if (def.boardOnly) s.participantIds.filter { id -> board.any { it.id == id } } else s.participantIds,
             )
+        }
+        if (def.needsContractor && _state.value.contractor == null) searchContractors()
+    }
+
+    private var contractorJob: Job? = null
+
+    fun setContractorQuery(q: String) {
+        _state.update { it.copy(contractorQuery = q) }
+        searchContractors()
+    }
+
+    private fun searchContractors() {
+        contractorJob?.cancel()
+        contractorJob = viewModelScope.launch {
+            delay(300)
+            val list = runCatching { repository.searchContractors(_state.value.contractorQuery.trim()) }
+                .getOrDefault(emptyList())
+            _state.update { it.copy(contractorResults = list) }
+        }
+    }
+
+    fun pickContractor(c: MeetingContractorDto?) {
+        _state.update { it.copy(contractor = c, isAddingContractor = false, contractorError = null) }
+        if (c == null) searchContractors()
+    }
+
+    fun setAddingContractor(on: Boolean) = _state.update { it.copy(isAddingContractor = on, contractorError = null) }
+
+    /** Szybkie dodanie — nowy wpis kartoteki w grupie „Inne". */
+    fun createContractor(request: MeetingContractorCreateRequest) {
+        viewModelScope.launch {
+            runCatching { repository.createContractor(request) }
+                .onSuccess { c -> pickContractor(c) }
+                .onFailure { e ->
+                    _state.update { it.copy(contractorError = crmErrorMessage(e, "Nie udało się dodać kontrahenta")) }
+                }
         }
     }
 
@@ -209,6 +259,7 @@ class MeetingFormViewModel @Inject constructor(
                 startAt = Instant.ofEpochMilli(s.startAtMs).toString(),
                 durationMin = s.durationMin,
                 location = s.location.trim().ifBlank { null },
+                clientId = if (s.meta?.types?.firstOrNull { it.key == type }?.needsContractor == true) s.contractor?.id else null,
                 agenda = s.agenda.filter { it.text.isNotBlank() }.map { MeetingAgendaInput(it.id, it.text.trim()) },
             )
             runCatching { if (editId != null) repository.update(editId, request) else repository.create(request) }

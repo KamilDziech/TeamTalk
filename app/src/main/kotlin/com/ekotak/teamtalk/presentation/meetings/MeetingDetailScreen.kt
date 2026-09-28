@@ -161,7 +161,8 @@ fun MeetingDetailScreen(
                 Column(Modifier.weight(1f)) {
                     Text(m.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Text(
-                        "${m.typeLabel} · ${formatDateTime(m.startAt) ?: ""} · ${m.durationMin} min" +
+                        m.typeLabel + (m.client?.let { " · ${it.name}" } ?: "") +
+                            " · ${formatDateTime(m.startAt) ?: ""} · ${m.durationMin} min" +
                             (m.location?.let { " · $it" } ?: "") + if (m.confidential) " · poufne" else "",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -278,6 +279,18 @@ fun MeetingDetailScreen(
                                 modifier = Modifier.weight(1f),
                             ) { Text("Usuń") }
                         }
+                    }
+                }
+            }
+
+            m.client?.let { c ->
+                MeetingCard("Kontrahent") {
+                    Text(c.name, fontWeight = FontWeight.SemiBold)
+                    contractorLine(c).takeIf { it.isNotBlank() }?.let {
+                        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    c.email?.takeIf { it.isNotBlank() }?.let {
+                        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
