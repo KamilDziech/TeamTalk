@@ -89,6 +89,12 @@ fun MeetingDetailScreen(
     var confirm by remember { mutableStateOf<Pair<String, () -> Unit>?>(null) }
 
     LaunchedEffect(s.deleted) { if (s.deleted) onNavigateBack() }
+    // Wszystkie punkty agendy odhaczone w trakcie nagrania → pytanie o zakończenie; „Anuluj" = nagrywa dalej.
+    LaunchedEffect(s.askFinish) {
+        val m = s.meeting
+        if (s.askFinish && m != null) confirm = "Wszystkie punkty agendy odhaczone.\n" + finishQuestion(m) to viewModel::finish
+        if (s.askFinish) viewModel.clearAskFinish()
+    }
     LaunchedEffect(s.message) {
         s.message?.let { snackbar.showSnackbar(it); viewModel.clearMessage() }
     }
@@ -209,11 +215,7 @@ fun MeetingDetailScreen(
                     onPause = viewModel::pause,
                     onResume = viewModel::resume,
                 ) {
-                    confirm = if (moreDays) {
-                        "Zakończyć dzień $day? Nagranie dnia trafi do transkrypcji, a dzień ${day + 1} włączysz po jej zakończeniu." to viewModel::finish
-                    } else {
-                        "Zakończyć spotkanie? Nagranie trafi do transkrypcji." to viewModel::finish
-                    }
+                    confirm = finishQuestion(m) to viewModel::finish
                 }
             }
 
@@ -635,4 +637,14 @@ private fun AgendaMinutes(min: Int) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(start = 8.dp),
     )
+}
+
+/** Pytanie przed „Zakończ" — wspólne dla przycisku i odhaczenia ostatniego punktu agendy. */
+private fun finishQuestion(m: MeetingDto): String {
+    val day = m.currentDay.coerceIn(1, m.dayCount.coerceAtLeast(1))
+    return if (m.dayCount > 1 && day < m.dayCount) {
+        "Zakończyć dzień $day? Nagranie dnia trafi do transkrypcji, a dzień ${day + 1} włączysz po jej zakończeniu."
+    } else {
+        "Zakończyć spotkanie? Nagranie trafi do transkrypcji."
+    }
 }

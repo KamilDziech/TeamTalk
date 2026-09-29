@@ -558,6 +558,8 @@ class MeetingDetailViewModel @Inject constructor(
         val voice: VoiceDraft = VoiceDraft(),
         /** Podsumowanie czeka w kolejce na sieć — okno się nie pokazuje. */
         val voiceQueued: Boolean = false,
+        /** Ostatni punkt agendy odhaczony w trakcie nagrania — ekran pyta o „Zakończ". */
+        val askFinish: Boolean = false,
     )
 
     data class VoiceDraft(
@@ -771,7 +773,13 @@ class MeetingDetailViewModel @Inject constructor(
         }
         viewModelScope.launch {
             runCatching { repository.toggleAgenda(id, itemId, done) }
-                .onSuccess { apply(it) }
+                .onSuccess { m ->
+                    apply(m)
+                    val allDone = m.agenda.isNotEmpty() && m.agenda.all { it.done }
+                    if (done && allDone && m.canControl && (m.status == "live" || m.status == "paused")) {
+                        _state.update { it.copy(askFinish = true) }
+                    }
+                }
                 .onFailure { e -> _state.update { it.copy(error = crmErrorMessage(e, "Nie udało się odhaczyć punktu")) } }
         }
     }
@@ -837,5 +845,6 @@ class MeetingDetailViewModel @Inject constructor(
     }
 
     fun clearMessage() = _state.update { it.copy(message = null) }
+    fun clearAskFinish() = _state.update { it.copy(askFinish = false) }
     fun clearError() = _state.update { it.copy(error = null) }
 }
