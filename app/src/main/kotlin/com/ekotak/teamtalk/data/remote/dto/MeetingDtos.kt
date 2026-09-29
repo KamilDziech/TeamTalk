@@ -218,8 +218,9 @@ data class MeetingContractorCreateRequest(
     val email: String? = null,
 )
 
+/** Bez wartości domyślnej: nasz Json jej nie koduje, poszłoby `{}` i API odda 400. */
 @Serializable
-data class MeetingStartRequest(val device: String = "phone")
+data class MeetingStartRequest(val device: String)
 
 @Serializable
 data class MeetingAgendaToggleRequest(val done: Boolean)
