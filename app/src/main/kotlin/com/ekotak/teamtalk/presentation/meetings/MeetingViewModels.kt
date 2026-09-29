@@ -355,6 +355,9 @@ class MeetingFormViewModel @Inject constructor(
                             dictationError = if (t.isEmpty()) "Nie rozpoznano mowy — wpisz ręcznie." else null,
                         )
                     }
+                    // Po dyktowaniu od razu agenda z czasami, bez osobnego dotknięcia;
+                    // tekst zostaje w polu do poprawki i ponownej propozycji.
+                    if (text.isNotBlank()) proposeAgenda()
                 }
                 .onFailure { e ->
                     _state.update {
