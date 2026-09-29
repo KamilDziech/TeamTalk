@@ -15,8 +15,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BusinessCenter
+import androidx.compose.material.icons.filled.Engineering
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PersonSearch
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -53,6 +55,8 @@ fun meetingTypeColor(type: String): Color = when (type) {
     "employee" -> Color(0xFF38BDF8)
     "training" -> Color(0xFFA78BFA)
     "contractor" -> Color(0xFF34D399)
+    "recruit_office" -> Color(0xFFF472B6)
+    "recruit_installer" -> Color(0xFFFB923C)
     else -> Color(0xFF8AA0B6)
 }
 
@@ -60,6 +64,8 @@ fun meetingTypeIcon(type: String): ImageVector = when (type) {
     "board" -> Icons.Filled.Groups
     "employee" -> Icons.Filled.Person
     "contractor" -> Icons.Filled.BusinessCenter
+    "recruit_office" -> Icons.Filled.PersonSearch
+    "recruit_installer" -> Icons.Filled.Engineering
     else -> Icons.Filled.School
 }
 
@@ -67,6 +73,8 @@ fun meetingTypeHint(type: String): String = when (type) {
     "board" -> "Decyzje zarządu. Zakłada i prowadzi tylko zarząd."
     "employee" -> "Rozmowa z pracownikiem — poufna, widzą ją tylko uczestnicy."
     "contractor" -> "Z kimś spoza firmy — architektem, dostawcą. Kontrahent z kartoteki."
+    "recruit_office" -> "Rozmowa z kandydatem do biura. Tylko zarząd; podsumowanie z oceną kandydata."
+    "recruit_installer" -> "Rozmowa z kandydatem na montażystę. Tylko zarząd; podsumowanie z oceną kandydata."
     else -> "Szkolenie zespołu — podsumowanie omówionych tematów."
 }
 
@@ -168,7 +176,7 @@ fun contractorLine(c: com.ekotak.teamtalk.data.remote.dto.MeetingContractorDto):
         c.person,
         c.businessRole,
         c.phone,
-        when (c.category) { "kontrahent" -> "Kontrahenci"; "inne" -> "Inne"; else -> null },
+        when (c.category) { "kontrahent" -> "Kontrahenci"; "inne" -> "Inne"; "kandydat" -> "Kandydaci"; else -> null },
     ).filter { it.isNotBlank() }.joinToString(" · ")
 
 // ── v2: wielodniowe (D14) ─────────────────────────────────────────────────────

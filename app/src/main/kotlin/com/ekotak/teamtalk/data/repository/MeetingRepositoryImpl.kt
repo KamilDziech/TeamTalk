@@ -40,8 +40,8 @@ class MeetingRepositoryImpl @Inject constructor(
     override suspend fun listForClient(clientId: String): List<MeetingListItemDto> =
         api.getClientMeetings(clientId)
 
-    override suspend fun searchContractors(q: String): List<MeetingContractorDto> =
-        api.searchMeetingContractors(q)
+    override suspend fun searchContractors(q: String, kind: String): List<MeetingContractorDto> =
+        api.searchMeetingContractors(q, kind)
 
     override suspend fun createContractor(request: MeetingContractorCreateRequest): MeetingContractorDto =
         api.createMeetingContractor(request)
@@ -70,7 +70,8 @@ class MeetingRepositoryImpl @Inject constructor(
     override suspend fun rsvp(id: String, response: String): MeetingDto =
         api.setMeetingRsvp(id, MeetingRsvpRequest(response))
 
-    override suspend fun start(id: String): MeetingDto = api.startMeeting(id, MeetingStartRequest("phone"))
+    override suspend fun start(id: String, consent: Boolean): MeetingDto =
+        api.startMeeting(id, MeetingStartRequest("phone", consent))
 
     override suspend fun command(id: String, command: String): MeetingDto = api.meetingCommand(id, command)
 

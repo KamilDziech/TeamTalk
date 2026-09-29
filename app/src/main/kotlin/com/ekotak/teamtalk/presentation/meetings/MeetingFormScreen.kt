@@ -225,11 +225,15 @@ fun MeetingFormScreen(
                 )
             }
 
-            if (typeDef?.needsContractor == true) {
-                MeetingCard("Kontrahent") { ContractorPicker(s, viewModel) }
+            val candidate = typeDef?.needsCandidate == true
+            val needsClient = typeDef?.needsContractor == true || candidate
+            if (needsClient) {
+                MeetingCard(if (candidate) "Kandydat" else "Kontrahent") {
+                    ContractorPicker(s, viewModel, candidate, candidateRole(s.type))
+                }
             }
 
-            MeetingCard(if (typeDef?.needsContractor == true) "Osoby z firmy" else "Osoby") {
+            MeetingCard(if (needsClient) "Osoby z firmy" else "Osoby") {
                 // Spotkanie zarządu: do wyboru wyłącznie członkowie zarządu.
                 val pool = if (typeDef?.boardOnly == true) meta.people.filter { it.isBoard } else meta.people
                 val hosts = pool
@@ -345,7 +349,7 @@ fun MeetingFormScreen(
                 onClick = viewModel::save,
                 enabled = !s.isSaving && s.title.isNotBlank() &&
                     (s.type != "employee" || s.participantIds.isNotEmpty()) &&
-                    (typeDef?.needsContractor != true || s.contractor != null),
+                    (!needsClient || s.contractor != null),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(if (s.isSaving) "Zapisuję…" else if (viewModel.editId != null) "Zapisz zmiany" else "Zaplanuj spotkanie")
@@ -354,13 +358,26 @@ fun MeetingFormScreen(
     }
 }
 
+/** Podpowiedź stanowiska dla nowego kandydata dopisywanego z kreatora. */
+private fun candidateRole(type: String?): String = when (type) {
+    "recruit_office" -> "Kandydat — biuro"
+    "recruit_installer" -> "Kandydat — montażysta"
+    else -> ""
+}
+
 /**
  * Kontrahent z kartoteki (grupy Kontrahenci + Inne) albo szybkie dodanie
- * nowego wpisu do grupy „Inne" (decyzje usera 2026-09-28).
+ * nowego wpisu do grupy „Inne" (decyzje usera 2026-09-28). Przy rekrutacji
+ * (`candidate`) to samo na grupie „Kandydaci" (2026-09-29).
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ContractorPicker(s: MeetingFormViewModel.State, viewModel: MeetingFormViewModel) {
+private fun ContractorPicker(
+    s: MeetingFormViewModel.State,
+    viewModel: MeetingFormViewModel,
+    candidate: Boolean,
+    defaultRole: String,
+) {
     val picked = s.contractor
     if (picked != null) {
         Text(picked.name, fontWeight = FontWeight.SemiBold)
@@ -371,30 +388,39 @@ private fun ContractorPicker(s: MeetingFormViewModel.State, viewModel: MeetingFo
         return
     }
     if (s.isAddingContractor) {
-        var company by remember { mutableStateOf(s.contractorQuery.trim()) }
-        var person by remember { mutableStateOf("") }
-        var role by remember { mutableStateOf("") }
+        var company by remember { mutableStateOf(if (candidate) "" else s.contractorQuery.trim()) }
+        var person by remember { mutableStateOf(if (candidate) s.contractorQuery.trim() else "") }
+        var role by remember { mutableStateOf(defaultRole) }
         var phone by remember { mutableStateOf("") }
         var email by remember { mutableStateOf("") }
         Text(
-            "Nowy wpis trafi do kartoteki, do grupy „Inne”.",
+            if (candidate) "Nowy kandydat trafi do kartoteki, do grupy „Kandydaci” (widzi ją tylko zarząd)."
+            else "Nowy wpis trafi do kartoteki, do grupy „Inne”.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        OutlinedTextField(company, { company = it }, label = { Text("Firma / pracownia") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        if (!candidate) {
+            OutlinedTextField(company, { company = it }, label = { Text("Firma / pracownia") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        }
         OutlinedTextField(person, { person = it }, label = { Text("Imię i nazwisko") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(role, { role = it }, label = { Text("Kim jest (np. architekt, dostawca)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(
+            role,
+            { role = it },
+            label = { Text(if (candidate) "Stanowisko" else "Kim jest (np. architekt, dostawca)") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
         OutlinedTextField(phone, { phone = it }, label = { Text("Telefon") }, singleLine = true, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(email, { email = it }, label = { Text("E-mail") }, singleLine = true, modifier = Modifier.fillMaxWidth())
         s.contractorError?.let { NoticeStrip(it, Red600) }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = { viewModel.setAddingContractor(false) }) { Text("Wróć do listy") }
             Button(
-                enabled = company.isNotBlank() || person.isNotBlank(),
+                enabled = (!candidate && company.isNotBlank()) || person.isNotBlank(),
                 onClick = {
                     viewModel.createContractor(
                         MeetingContractorCreateRequest(
-                            companyName = company.trim().ifBlank { null },
+                            companyName = if (candidate) null else company.trim().ifBlank { null },
                             personName = person.trim().ifBlank { null },
                             businessRole = role.trim().ifBlank { null },
                             phone = phone.trim().ifBlank { null },
@@ -409,7 +435,7 @@ private fun ContractorPicker(s: MeetingFormViewModel.State, viewModel: MeetingFo
     OutlinedTextField(
         value = s.contractorQuery,
         onValueChange = viewModel::setContractorQuery,
-        label = { Text("Szukaj w kartotece (Kontrahenci, Inne)") },
+        label = { Text(if (candidate) "Szukaj w kartotece (Kandydaci)" else "Szukaj w kartotece (Kontrahenci, Inne)") },
         singleLine = true,
         modifier = Modifier.fillMaxWidth(),
     )
@@ -431,7 +457,9 @@ private fun ContractorPicker(s: MeetingFormViewModel.State, viewModel: MeetingFo
             }
         }
     }
-    OutlinedButton(onClick = { viewModel.setAddingContractor(true) }) { Text("+ Nowy kontrahent") }
+    OutlinedButton(onClick = { viewModel.setAddingContractor(true) }) {
+        Text(if (candidate) "+ Nowy kandydat" else "+ Nowy kontrahent")
+    }
 }
 
 /**

@@ -20,6 +20,7 @@ import com.ekotak.teamtalk.data.remote.dto.MeetingContractorDto
 import com.ekotak.teamtalk.data.remote.dto.MeetingDto
 import com.ekotak.teamtalk.data.remote.dto.MeetingListItemDto
 import com.ekotak.teamtalk.data.remote.dto.MeetingMetaDto
+import com.ekotak.teamtalk.data.remote.dto.MeetingTypeDto
 import com.ekotak.teamtalk.data.remote.dto.MeetingUpsertRequest
 import com.ekotak.teamtalk.domain.repository.KIND_SUMMARY
 import com.ekotak.teamtalk.domain.repository.MeetingRepository
@@ -184,7 +185,7 @@ class MeetingFormViewModel @Inject constructor(
                     }
                 }
                 checkConflicts()
-                if (_state.value.type == "contractor" && _state.value.contractor == null) searchContractors()
+                if (needsClient() && _state.value.contractor == null) searchContractors()
             }.onFailure { e ->
                 _state.update { it.copy(isLoading = false, error = crmErrorMessage(e, "Nie udało się otworzyć kreatora")) }
             }
@@ -207,10 +208,21 @@ class MeetingFormViewModel @Inject constructor(
                 agenda = if (s.agenda.isEmpty() || untouched) def.agendaTemplate.map { AgendaDraft(text = it) } else s.agenda,
                 hostId = if (hostOk) s.hostId else boardHost,
                 participantIds = if (def.boardOnly) s.participantIds.filter { id -> board.any { it.id == id } } else s.participantIds,
+                // Kontrahent nie jest kandydatem (i odwrotnie) — po zmianie rodzaju wybór od nowa.
+                contractor = s.contractor?.takeIf { (it.category == "kandydat") == def.needsCandidate },
+                contractorResults = emptyList(),
+                isAddingContractor = false,
             )
         }
-        if (def.needsContractor && _state.value.contractor == null) searchContractors()
+        if (needsClient() && _state.value.contractor == null) searchContractors()
     }
+
+    private fun typeDef(): MeetingTypeDto? = _state.value.let { s -> s.meta?.types?.firstOrNull { it.key == s.type } }
+
+    /** Osoba spoza firmy z kartoteki: kontrahent albo (rekrutacja) kandydat. */
+    private fun needsClient(): Boolean = typeDef()?.let { it.needsContractor || it.needsCandidate } == true
+
+    private fun clientKind(): String = if (typeDef()?.needsCandidate == true) "candidate" else "contractor"
 
     private var contractorJob: Job? = null
 
@@ -223,7 +235,7 @@ class MeetingFormViewModel @Inject constructor(
         contractorJob?.cancel()
         contractorJob = viewModelScope.launch {
             delay(300)
-            val list = runCatching { repository.searchContractors(_state.value.contractorQuery.trim()) }
+            val list = runCatching { repository.searchContractors(_state.value.contractorQuery.trim(), clientKind()) }
                 .getOrDefault(emptyList())
             _state.update { it.copy(contractorResults = list) }
         }
@@ -236,13 +248,15 @@ class MeetingFormViewModel @Inject constructor(
 
     fun setAddingContractor(on: Boolean) = _state.update { it.copy(isAddingContractor = on, contractorError = null) }
 
-    /** Szybkie dodanie — nowy wpis kartoteki w grupie „Inne". */
+    /** Szybkie dodanie — nowy wpis kartoteki w grupie „Inne" (albo „Kandydaci" przy rekrutacji). */
     fun createContractor(request: MeetingContractorCreateRequest) {
+        val kind = clientKind()
         viewModelScope.launch {
-            runCatching { repository.createContractor(request) }
+            runCatching { repository.createContractor(request.copy(kind = kind)) }
                 .onSuccess { c -> pickContractor(c) }
                 .onFailure { e ->
-                    _state.update { it.copy(contractorError = crmErrorMessage(e, "Nie udało się dodać kontrahenta")) }
+                    val what = if (kind == "candidate") "kandydata" else "kontrahenta"
+                    _state.update { it.copy(contractorError = crmErrorMessage(e, "Nie udało się dodać $what")) }
                 }
         }
     }
@@ -473,7 +487,7 @@ class MeetingFormViewModel @Inject constructor(
                 durationMin = s.durationMin.coerceIn(5, 1440),
                 dayCount = s.dayCount.coerceIn(1, 14),
                 location = s.location.trim().ifBlank { null },
-                clientId = if (s.meta?.types?.firstOrNull { it.key == type }?.needsContractor == true) s.contractor?.id else null,
+                clientId = if (needsClient()) s.contractor?.id else null,
                 agenda = s.agenda.filter { it.text.isNotBlank() }.map {
                     MeetingAgendaInput(
                         it.id,
@@ -539,6 +553,8 @@ class MeetingDetailViewModel @Inject constructor(
         // D9: podsumowanie nagrane głosem
         /** Okno otwarte z przycisku, zanim stało się wymagane. */
         val voiceOpen: Boolean = false,
+        /** Rekrutacja: prowadzący zaznaczył zgodę kandydata na nagranie. */
+        val consent: Boolean = false,
         val voice: VoiceDraft = VoiceDraft(),
         /** Podsumowanie czeka w kolejce na sieć — okno się nie pokazuje. */
         val voiceQueued: Boolean = false,
@@ -628,11 +644,13 @@ class MeetingDetailViewModel @Inject constructor(
             return
         }
         run("Nie udało się włączyć spotkania") {
-            val started = repository.start(m.id)
+            val started = repository.start(m.id, consent = _state.value.consent)
             MeetingRecordingService.start(context, m.id, m.title, m.currentDay)
             started
         }
     }
+
+    fun setConsent(on: Boolean) = _state.update { it.copy(consent = on) }
 
     fun pause() = control(MeetingRecordingService.ACTION_PAUSE, "pause")
     fun resume() = control(MeetingRecordingService.ACTION_RESUME, "resume")

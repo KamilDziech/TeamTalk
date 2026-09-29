@@ -7,7 +7,10 @@ enum class ClientCategory(val wire: String, val tabLabel: String, val oneLabel: 
     AFILIANT("afiliant", "Afilianci", "afiliant"),
 
     /** Kubełek na resztę kartoteki — jak w panelu nie ma nazwy jednostkowej. */
-    INNE("inne", "Inne", "wpis");
+    INNE("inne", "Inne", "wpis"),
+
+    /** Kandydaci do pracy (spotkania rekrutacyjne) — API oddaje ich tylko zarządowi. */
+    KANDYDAT("kandydat", "Kandydaci", "kandydat");
 
     /** Wartość wiersza „Kategoria" na karcie: „wpis" mówiłby tam za mało. */
     val detailLabel: String get() = if (this == INNE) "inne" else oneLabel
@@ -91,6 +94,7 @@ data class Client(
             ClientCategory.KONTRAHENT -> "Kontrahent"
             ClientCategory.AFILIANT -> "Afiliant"
             ClientCategory.INNE -> "Inne"
+            ClientCategory.KANDYDAT -> "Kandydat"
         }
 
     /** Inicjały do awatara na karcie (jedna–dwie litery). */

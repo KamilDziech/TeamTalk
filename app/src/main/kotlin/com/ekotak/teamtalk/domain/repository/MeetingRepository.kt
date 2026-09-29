@@ -23,9 +23,9 @@ interface MeetingRepository {
     suspend fun list(): List<MeetingListItemDto>
     /** Spotkania z danym kontrahentem (zakładka „Spotkania” w karcie kartoteki). */
     suspend fun listForClient(clientId: String): List<MeetingListItemDto>
-    /** Kartoteka: grupy Kontrahenci + Inne. */
-    suspend fun searchContractors(q: String): List<MeetingContractorDto>
-    /** Nowy wpis kartoteki w grupie „Inne". */
+    /** Kartoteka: grupy Kontrahenci + Inne (`contractor`) albo Kandydaci (`candidate`, tylko zarząd). */
+    suspend fun searchContractors(q: String, kind: String = "contractor"): List<MeetingContractorDto>
+    /** Nowy wpis kartoteki w grupie „Inne" albo „Kandydaci" (wg `request.kind`). */
     suspend fun createContractor(request: MeetingContractorCreateRequest): MeetingContractorDto
     suspend fun get(id: String): MeetingDto
     suspend fun conflicts(
@@ -39,7 +39,8 @@ interface MeetingRepository {
     suspend fun update(id: String, request: MeetingUpsertRequest): MeetingDto
     suspend fun delete(id: String)
     suspend fun rsvp(id: String, response: String): MeetingDto
-    suspend fun start(id: String): MeetingDto
+    /** `consent` — rekrutacja: potwierdzona zgoda kandydata na nagranie. */
+    suspend fun start(id: String, consent: Boolean = false): MeetingDto
     /** pause | resume | finish | retry */
     suspend fun command(id: String, command: String): MeetingDto
     suspend fun toggleAgenda(id: String, itemId: String, done: Boolean): MeetingDto

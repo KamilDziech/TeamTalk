@@ -407,7 +407,11 @@ private fun CategorySwitch(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier.fillMaxWidth(),
     ) {
-        items(ClientCategory.entries.toList(), key = { it.name }) { category ->
+        // „Kandydaci" tylko, gdy są — API oddaje ich wyłącznie zarządowi, reszta nie widzi pustej zakładki.
+        val shown = ClientCategory.entries.filter {
+            it != ClientCategory.KANDYDAT || (counts[it] ?: 0) > 0 || selected == it
+        }
+        items(shown, key = { it.name }) { category ->
             FilterChip(
                 selected = selected == category,
                 onClick = { onSelect(category) },

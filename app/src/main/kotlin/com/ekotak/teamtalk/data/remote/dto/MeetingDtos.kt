@@ -27,6 +27,10 @@ data class MeetingTypeDto(
     val boardOnly: Boolean = false,
     /** Rodzaj `contractor` — wymaga kontrahenta z kartoteki (Kontrahenci / Inne). */
     val needsContractor: Boolean = false,
+    /** Rekrutacja — wymaga kandydata z kartoteki (grupa Kandydaci). */
+    val needsCandidate: Boolean = false,
+    /** Rekrutacja — start nagrywania wymaga potwierdzenia zgody kandydata. */
+    val needsConsent: Boolean = false,
     val canCreate: Boolean = true,
     val agendaTemplate: List<String> = emptyList(),
 )
@@ -132,6 +136,8 @@ data class MeetingDto(
     val participants: List<MeetingParticipantDto> = emptyList(),
     val agenda: List<MeetingAgendaItemDto> = emptyList(),
     val recordingDevice: String? = null,
+    /** Rekrutacja: start pyta o zgodę kandydata, dopóki nikt jej nie potwierdził. */
+    val needsConsent: Boolean = false,
     val startedAt: String? = null,
     val pausedAt: String? = null,
     val endedAt: String? = null,
@@ -208,9 +214,13 @@ data class MeetingContractorDto(
     val email: String? = null,
 )
 
-/** Szybkie dodanie kontrahenta z kreatora — nowy wpis kartoteki w grupie „Inne". */
+/**
+ * Szybkie dodanie z kreatora — nowy wpis kartoteki w grupie „Inne"
+ * (`kind = "contractor"`) albo „Kandydaci" (`kind = "candidate"`, rekrutacja).
+ */
 @Serializable
 data class MeetingContractorCreateRequest(
+    val kind: String = "contractor",
     val companyName: String? = null,
     val personName: String? = null,
     val businessRole: String? = null,
@@ -220,7 +230,11 @@ data class MeetingContractorCreateRequest(
 
 /** Bez wartości domyślnej: nasz Json jej nie koduje, poszłoby `{}` i API odda 400. */
 @Serializable
-data class MeetingStartRequest(val device: String)
+data class MeetingStartRequest(
+    val device: String,
+    /** Rekrutacja: zgoda kandydata na nagranie. `false` nie idzie w JSON — API czyta brak jak brak zgody. */
+    val consent: Boolean = false,
+)
 
 @Serializable
 data class MeetingAgendaToggleRequest(val done: Boolean)

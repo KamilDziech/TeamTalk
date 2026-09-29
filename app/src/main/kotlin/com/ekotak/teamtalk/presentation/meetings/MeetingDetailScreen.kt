@@ -323,9 +323,23 @@ fun MeetingDetailScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        if (m.needsConsent) {
+                            // Rekrutacja: bez potwierdzonej zgody kandydata nie ma nagrywania.
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth().clickable { viewModel.setConsent(!s.consent) },
+                            ) {
+                                Checkbox(checked = s.consent, onCheckedChange = viewModel::setConsent)
+                                Text(
+                                    "Kandydat zgodził się na nagrywanie rozmowy. Nagranie i transkrypcja znikną po akceptacji podsumowania.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
+                        }
                         Button(
                             onClick = ::startWithPermissions,
-                            enabled = !s.isBusy && m.agenda.isNotEmpty(),
+                            enabled = !s.isBusy && m.agenda.isNotEmpty() && (!m.needsConsent || s.consent),
                             colors = ButtonDefaults.buttonColors(containerColor = Red600),
                             modifier = Modifier.fillMaxWidth(),
                         ) { Text(if (multiDay && day > 1) "●  Włącz dzień $day" else "●  Włącz i nagrywaj") }
@@ -344,7 +358,7 @@ fun MeetingDetailScreen(
             }
 
             m.client?.let { c ->
-                MeetingCard("Kontrahent") {
+                MeetingCard(if (c.category == "kandydat") "Kandydat" else "Kontrahent") {
                     Text(c.name, fontWeight = FontWeight.SemiBold)
                     contractorLine(c).takeIf { it.isNotBlank() }?.let {
                         Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

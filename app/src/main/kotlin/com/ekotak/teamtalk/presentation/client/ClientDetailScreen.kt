@@ -181,7 +181,9 @@ fun ClientDetailScreen(
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             ClientHeader(client = client, dealCount = state.deals.size)
 
-            val hasMeetings = client.category == ClientCategory.KONTRAHENT || client.category == ClientCategory.INNE
+            val hasMeetings = client.category == ClientCategory.KONTRAHENT ||
+                client.category == ClientCategory.INNE ||
+                client.category == ClientCategory.KANDYDAT
             val tabs = ClientTab.entries.filter { it != ClientTab.SPOTKANIA || hasMeetings }
             val current = if (tab in tabs) tab else ClientTab.DANE
             ScrollableTabRow(selectedTabIndex = tabs.indexOf(current), edgePadding = 8.dp) {
