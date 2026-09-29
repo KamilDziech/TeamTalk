@@ -219,7 +219,7 @@ fun MeetingDetailScreen(
 
             // D16: ocena AI — widzą ją wszyscy, którzy widzą spotkanie (D17).
             if ((m.status == "review" || m.status == "approved") && m.score != null) {
-                ScoreCard(m.score, m.scoreReason, m.digressions)
+                ScoreCard(m.score, m.scoreReason, m.digressions, m.startDelays, m.startToleranceMin, m.dayCount > 1)
             }
 
             when (m.status) {

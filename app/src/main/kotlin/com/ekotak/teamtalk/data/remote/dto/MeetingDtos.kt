@@ -106,6 +106,13 @@ data class MeetingDayDto(
     val endAt: String = "",
 )
 
+/** D18: spóźnienie startu dnia w pełnych minutach (ujemne = przed czasem). */
+@Serializable
+data class MeetingStartDelayDto(
+    val day: Int,
+    val delayMin: Int = 0,
+)
+
 @Serializable
 data class MeetingProposalDto(
     val id: String,
@@ -172,6 +179,9 @@ data class MeetingDto(
     val score: Int? = null,
     val scoreReason: String? = null,
     val digressions: List<String> = emptyList(),
+    // D18: punktualność startu — tolerancja 15 min od 60 min dnia, krótsze 5 min; dzień bez nagrania nie ma wpisu.
+    val startToleranceMin: Int = 15,
+    val startDelays: List<MeetingStartDelayDto> = emptyList(),
 )
 
 @Serializable

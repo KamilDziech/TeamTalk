@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.sp
 import com.ekotak.teamtalk.presentation.crm.formatDate
 import com.ekotak.teamtalk.presentation.crm.formatDateTime
 import com.ekotak.teamtalk.presentation.crm.parseIsoMillis
+import com.ekotak.teamtalk.data.remote.dto.MeetingStartDelayDto
 import com.ekotak.teamtalk.presentation.theme.Green600
 import com.ekotak.teamtalk.presentation.theme.Orange600
 import com.ekotak.teamtalk.presentation.theme.Red600
@@ -264,10 +265,32 @@ fun ScoreGauge(score: Int, modifier: Modifier = Modifier) {
 
 /** Karta „Ocena spotkania" — review i approved; widzą ją wszyscy, którzy widzą spotkanie (D17). */
 @Composable
-fun ScoreCard(score: Int, reason: String?, digressions: List<String>) {
+fun ScoreCard(
+    score: Int,
+    reason: String?,
+    digressions: List<String>,
+    startDelays: List<MeetingStartDelayDto> = emptyList(),
+    startToleranceMin: Int = 15,
+    multiDay: Boolean = false,
+) {
     var open by remember { mutableStateOf(false) }
     MeetingCard("Ocena spotkania") {
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { ScoreGauge(score) }
+        // D18: punktualność startu, każdego dnia osobno.
+        startDelays.forEach { d ->
+            val late = d.delayMin > startToleranceMin
+            val text = when {
+                d.delayMin <= 0 -> "Start punktualnie"
+                !late -> "Start +${d.delayMin} min (w normie)"
+                else -> "Start +${d.delayMin} min — ponad normę $startToleranceMin min"
+            }
+            Text(
+                (if (multiDay) "Dzień ${d.day}: " else "") + text,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = if (late) FontWeight.SemiBold else FontWeight.Normal,
+                color = if (late) Red600 else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         reason?.takeIf { it.isNotBlank() }?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
         val n = digressions.size
         val c = if (n == 0) Green600 else Orange600
