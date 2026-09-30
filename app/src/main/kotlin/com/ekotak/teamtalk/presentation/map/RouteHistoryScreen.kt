@@ -65,9 +65,12 @@ import kotlin.math.roundToInt
 @Composable
 fun RouteHistoryScreen(
     onNavigateBack: () -> Unit,
+    onOpenTask: (String) -> Unit = {},
     viewModel: RouteHistoryViewModel = hiltViewModel(),
+    cardViewModel: VehicleCardViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
+    val card by cardViewModel.ui.collectAsState()
     var showDayPicker by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -86,6 +89,41 @@ fun RouteHistoryScreen(
                 .padding(horizontal = 12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            // Karta auta (flota-karta-auta.md, E5): trasa to pierwsza zakładka.
+            VehicleTabRow(selected = card.tab, onSelect = cardViewModel::select)
+            card.message?.let { msg ->
+                Surface(
+                    onClick = cardViewModel::dismissMessage,
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text(msg, modifier = Modifier.padding(10.dp), style = MaterialTheme.typography.bodySmall) }
+            }
+            when (card.tab) {
+                VehicleTab.ZADANIA -> {
+                    VehicleTasksTab(card.tasks, cardViewModel::refresh, onOpenTask)
+                    return@Column
+                }
+                VehicleTab.PLIKI -> {
+                    VehicleFilesTab(
+                        state = card,
+                        onRetry = cardViewModel::refresh,
+                        onCategory = cardViewModel::setUploadCategory,
+                        onUpload = cardViewModel::upload,
+                        onOpen = cardViewModel::open,
+                    )
+                    return@Column
+                }
+                VehicleTab.HISTORIA -> {
+                    VehicleHistoryTab(card.history, cardViewModel::refresh)
+                    return@Column
+                }
+                VehicleTab.REGULY -> {
+                    VehicleRulesTab(card.rules, cardViewModel::refresh)
+                    return@Column
+                }
+                VehicleTab.TRASA -> Unit
+            }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 RouteWindow.entries.forEach { window ->
                     FilterChip(

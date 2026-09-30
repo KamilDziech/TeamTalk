@@ -62,3 +62,20 @@ class LoadTrackerHealthUseCase @Inject constructor(
 ) {
     suspend operator fun invoke(): List<TrackerHealth> = repository.loadTrackerHealth()
 }
+
+/**
+ * Karta auta w telefonie (flota-karta-auta.md, E5): zakładki Zadania, Pliki,
+ * Historia i Reguły. Jedna klasa zamiast sześciu — każda metoda to przelotka
+ * do repozytorium, bez własnej logiki.
+ */
+class VehicleCardUseCases @Inject constructor(
+    private val repository: MapRepository,
+) {
+    suspend fun tasks(assetId: String) = repository.loadVehicleTasks(assetId)
+    suspend fun files(assetId: String) = repository.loadVehicleFiles(assetId)
+    suspend fun upload(assetId: String, category: String, name: String, contentType: String, bytes: ByteArray) =
+        repository.uploadVehicleFile(assetId, category, name, contentType, bytes)
+    suspend fun download(downloadPath: String) = repository.downloadVehicleFile(downloadPath)
+    suspend fun history(assetId: String) = repository.loadVehicleHistory(assetId)
+    suspend fun rules(assetId: String) = repository.loadVehicleRules(assetId)
+}

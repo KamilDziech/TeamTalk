@@ -22,6 +22,12 @@ import com.ekotak.teamtalk.domain.model.PIPELINE_STAGES
 import com.ekotak.teamtalk.domain.model.PlaceSuggestion
 import com.ekotak.teamtalk.domain.model.RouteHistory
 import com.ekotak.teamtalk.domain.model.TrackerHealth
+import com.ekotak.teamtalk.domain.model.VehicleFile
+import com.ekotak.teamtalk.domain.model.VehicleHistoryItem
+import com.ekotak.teamtalk.domain.model.VehicleRule
+import com.ekotak.teamtalk.domain.model.VehicleTaskHistoryItem
+import com.ekotak.teamtalk.domain.model.VehicleTaskItem
+import com.ekotak.teamtalk.domain.model.VehicleTasks
 import com.ekotak.teamtalk.domain.model.ServiceJobStatus
 import com.ekotak.teamtalk.domain.model.ServiceJobType
 import com.ekotak.teamtalk.domain.model.WarrantyCardStatus
@@ -33,6 +39,9 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import java.time.Instant
 import javax.inject.Inject
 
@@ -111,6 +120,85 @@ class MapRepositoryImpl @Inject constructor(
                 notes = dto.notes,
             )
         }
+
+    // ── Karta auta (E5) — wyłącznie z sieci, jak historia trasy ──────────────
+    override suspend fun loadVehicleTasks(assetId: String): VehicleTasks {
+        val dto = api.getVehicleTasks(assetId)
+        return VehicleTasks(
+            items = dto.items.map { d ->
+                VehicleTaskItem(
+                    deadlineId = d.deadlineId,
+                    kind = d.kind,
+                    label = d.label,
+                    dueMillis = isoMillis(d.dueDate),
+                    dueMileage = d.dueMileage,
+                    recurrenceMonths = d.recurrenceMonths,
+                    recurrenceKm = d.recurrenceKm,
+                    ownerLabel = d.ownerLabel,
+                    ownerIsDriver = d.ownerIsDriver,
+                    state = when (d.state) {
+                        "active" -> VehicleTaskItem.State.ACTIVE
+                        "done" -> VehicleTaskItem.State.DONE
+                        else -> VehicleTaskItem.State.PLANNED
+                    },
+                    activatesMillis = isoMillis(d.activatesAt),
+                    kmToActivation = d.kmToActivation,
+                    task = d.task?.let { VehicleTaskItem.TaskRef(it.id, it.title, it.status, it.assigneeLabel) },
+                    doneMillis = isoMillis(d.doneAt),
+                )
+            },
+            history = dto.history.map {
+                VehicleTaskHistoryItem(it.id, it.title, it.status, it.assigneeLabel, isoMillis(it.updatedAt))
+            },
+        )
+    }
+
+    override suspend fun loadVehicleFiles(assetId: String): List<VehicleFile> =
+        api.getVehicleFiles(assetId).map {
+            VehicleFile(
+                id = it.id,
+                fromPolicy = it.source == "policy",
+                category = it.category,
+                name = it.name,
+                note = it.note,
+                contentType = it.contentType ?: "application/octet-stream",
+                size = it.size,
+                createdMillis = isoMillis(it.createdAt),
+                downloadPath = "api/" + it.downloadPath.trimStart('/'),
+            )
+        }
+
+    override suspend fun uploadVehicleFile(
+        assetId: String,
+        category: String,
+        name: String,
+        contentType: String,
+        bytes: ByteArray,
+    ) {
+        val body = bytes.toRequestBody(contentType.toMediaTypeOrNull())
+        api.uploadVehicleFile(
+            assetId = assetId,
+            file = MultipartBody.Part.createFormData("file", name, body),
+            category = category.toRequestBody("text/plain".toMediaTypeOrNull()),
+        )
+    }
+
+    override suspend fun downloadVehicleFile(downloadPath: String): ByteArray =
+        api.downloadVehicleFile(downloadPath).use { it.bytes() }
+
+    override suspend fun loadVehicleHistory(assetId: String): List<VehicleHistoryItem> =
+        api.getVehicleHistory(assetId).mapNotNull {
+            val at = isoMillis(it.at) ?: return@mapNotNull null
+            VehicleHistoryItem(it.id, it.kind, at, it.title, it.detail, it.lat, it.lng)
+        }
+
+    override suspend fun loadVehicleRules(assetId: String): List<VehicleRule> =
+        api.getVehicleRules(assetId).map {
+            VehicleRule(it.id, it.name, it.path.size, it.widthM, it.speedLimitKmh, it.active, isoMillis(it.lastTriggeredAt))
+        }
+
+    private fun isoMillis(iso: String?): Long? =
+        iso?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() }
 
     override suspend fun loadTrackerHealth(): List<TrackerHealth> =
         api.getTrackerHealth().map { it.toDomain() }

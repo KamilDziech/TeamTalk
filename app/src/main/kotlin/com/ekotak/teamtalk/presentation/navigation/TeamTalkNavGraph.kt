@@ -495,7 +495,10 @@ private fun MainScreen(
                     navArgument("reg") { type = NavType.StringType; defaultValue = "" },
                 ),
             ) {
-                RouteHistoryScreen(onNavigateBack = { navController.popBackStack() })
+                RouteHistoryScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onOpenTask = { taskId -> navController.navigate("task/$taskId") },
+                )
             }
 
             // ── Serwis i przeglądy (kafelki „Serwis" i „Przeglądy") ───────────

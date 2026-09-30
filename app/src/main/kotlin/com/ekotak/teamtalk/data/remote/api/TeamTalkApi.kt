@@ -976,6 +976,33 @@ interface TeamTalkApi {
     @GET("api/assets/{id}/insurance")
     suspend fun getInsurancePolicies(@Path("id") assetId: String): List<InsurancePolicyDto>
 
+    // Karta auta (flota-karta-auta.md, E5) — wyłącznie online, jak historia trasy.
+    @GET("api/assets/{id}/tasks")
+    suspend fun getVehicleTasks(@Path("id") assetId: String): VehicleTasksDto
+
+    @GET("api/assets/{id}/files")
+    suspend fun getVehicleFiles(@Path("id") assetId: String): List<VehicleFileDto>
+
+    /** Zdjęcie dokumentu z aparatu albo PDF — wystarcza `fleet.view` (kierowca, D14). */
+    @Multipart
+    @POST("api/assets/{id}/files")
+    suspend fun uploadVehicleFile(
+        @Path("id") assetId: String,
+        @Part file: MultipartBody.Part,
+        @Part("category") category: okhttp3.RequestBody,
+    ): VehicleFileDto
+
+    /** Treść pliku auta albo skanu polisy — `path` to `downloadPath` z listy, bez `/api`. */
+    @Streaming
+    @GET
+    suspend fun downloadVehicleFile(@Url url: String): ResponseBody
+
+    @GET("api/assets/{id}/history")
+    suspend fun getVehicleHistory(@Path("id") assetId: String): List<VehicleHistoryItemDto>
+
+    @GET("api/assets/{id}/rules")
+    suspend fun getVehicleRules(@Path("id") assetId: String): List<VehicleRuleDto>
+
     // ── Kalendarz ─────────────────────────────────────────────────────────────
     // Odczyt i zapis pod jednym uprawnieniem `calendar.view` — o tym, czy wolno
     // pisać, decyduje poziom dostępu do KALENDARZA (`effectiveLevel`), a nie rola.

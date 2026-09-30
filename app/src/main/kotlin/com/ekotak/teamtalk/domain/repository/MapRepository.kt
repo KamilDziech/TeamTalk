@@ -5,6 +5,10 @@ import com.ekotak.teamtalk.domain.model.MapSnapshot
 import com.ekotak.teamtalk.domain.model.PlaceSuggestion
 import com.ekotak.teamtalk.domain.model.RouteHistory
 import com.ekotak.teamtalk.domain.model.TrackerHealth
+import com.ekotak.teamtalk.domain.model.VehicleFile
+import com.ekotak.teamtalk.domain.model.VehicleHistoryItem
+import com.ekotak.teamtalk.domain.model.VehicleRule
+import com.ekotak.teamtalk.domain.model.VehicleTasks
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -49,6 +53,14 @@ interface MapRepository {
 
     /** Kondycja lokalizatorów całej floty — „czy temu na mapie wolno ufać". */
     suspend fun loadTrackerHealth(): List<TrackerHealth>
+
+    // ── Karta auta (flota-karta-auta.md, E5) — z sieci, bez cache ──
+    suspend fun loadVehicleTasks(assetId: String): VehicleTasks
+    suspend fun loadVehicleFiles(assetId: String): List<VehicleFile>
+    suspend fun uploadVehicleFile(assetId: String, category: String, name: String, contentType: String, bytes: ByteArray)
+    suspend fun downloadVehicleFile(downloadPath: String): ByteArray
+    suspend fun loadVehicleHistory(assetId: String): List<VehicleHistoryItem>
+    suspend fun loadVehicleRules(assetId: String): List<VehicleRule>
 
     /** Podpowiedzi miejscowości do filtra promienia (min. 3 znaki). */
     suspend fun suggestPlaces(query: String): List<PlaceSuggestion>
