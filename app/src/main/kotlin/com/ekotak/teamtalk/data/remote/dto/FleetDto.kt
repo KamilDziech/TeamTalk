@@ -200,3 +200,23 @@ data class TrackerHealthDto(
     val faultCodes: String? = null,
     val issues: List<String> = emptyList(),
 )
+
+/**
+ * Polisa pojazdu (`GET /api/assets/{id}/insurance`) — kontrakt board360
+ * (`api/src/modules/fleet/domain/insurance.ts`). Telefon tylko CZYTA: kierowca
+ * po stłuczce ma mieć pod ręką numer polisy i kontakt, a dopisywanie polis
+ * zostaje w panelu.
+ */
+@Serializable
+data class InsurancePolicyDto(
+    val id: String,
+    val insurer: String,
+    val policyNumber: String? = null,
+    val coverage: List<String> = emptyList(),
+    /** ISO 8601; `validTo` to ostatni dzień ochrony (włącznie). */
+    val validFrom: String,
+    val validTo: String,
+    val agentName: String? = null,
+    val agentContact: String? = null,
+    val notes: String? = null,
+)

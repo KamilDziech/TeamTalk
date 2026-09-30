@@ -4,6 +4,8 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ekotak.teamtalk.domain.model.RouteHistory
+import com.ekotak.teamtalk.domain.model.InsurancePolicy
+import com.ekotak.teamtalk.domain.usecase.map.LoadInsuranceUseCase
 import com.ekotak.teamtalk.domain.usecase.map.LoadRouteHistoryUseCase
 import com.ekotak.teamtalk.presentation.crm.crmErrorMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -34,6 +36,7 @@ enum class RouteWindow(val label: String, val hours: Int) {
 @HiltViewModel
 class RouteHistoryViewModel @Inject constructor(
     private val loadRouteHistory: LoadRouteHistoryUseCase,
+    private val loadInsurance: LoadInsuranceUseCase,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -52,6 +55,8 @@ class RouteHistoryViewModel @Inject constructor(
         val focus: Pair<Double, Double>? = null,
         /** Licznik żądań kadrowania; zmiana = mapa ma się dopasować od nowa. */
         val fitRequest: Int = 0,
+        /** Polisy auta; null = nie pobrano (brak sieci/uprawnień) — karta się wtedy nie rysuje. */
+        val policies: List<InsurancePolicy>? = null,
     )
 
     private val _uiState = MutableStateFlow(UiState())
@@ -59,6 +64,19 @@ class RouteHistoryViewModel @Inject constructor(
 
     init {
         load()
+        loadPolicies()
+    }
+
+    /**
+     * Polisy idą osobno i MIĘKKO: ich brak nie może zasłonić trasy, a trasa
+     * nie czeka na polisy. Pobierane raz — zmiana okna trasy ich nie dotyczy.
+     */
+    private fun loadPolicies() {
+        if (assetId.isBlank()) return
+        viewModelScope.launch {
+            val policies = runCatching { loadInsurance(assetId) }.getOrNull()
+            _uiState.update { it.copy(policies = policies) }
+        }
     }
 
     fun setWindow(window: RouteWindow) {
@@ -80,7 +98,10 @@ class RouteHistoryViewModel @Inject constructor(
         _uiState.update { it.copy(focus = null, fitRequest = it.fitRequest + 1) }
     }
 
-    fun reload() = load()
+    fun reload() {
+        load()
+        if (_uiState.value.policies == null) loadPolicies()
+    }
 
     private fun load() {
         if (assetId.isBlank()) {

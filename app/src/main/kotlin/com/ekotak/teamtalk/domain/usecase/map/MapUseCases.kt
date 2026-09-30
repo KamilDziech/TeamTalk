@@ -1,5 +1,6 @@
 package com.ekotak.teamtalk.domain.usecase.map
 
+import com.ekotak.teamtalk.domain.model.InsurancePolicy
 import com.ekotak.teamtalk.domain.model.MapSnapshot
 import com.ekotak.teamtalk.domain.model.PlaceSuggestion
 import com.ekotak.teamtalk.domain.model.RouteHistory
@@ -46,6 +47,13 @@ class LoadRouteHistoryUseCase @Inject constructor(
 ) {
     suspend operator fun invoke(assetId: String, fromMillis: Long, toMillis: Long): RouteHistory =
         repository.loadRouteHistory(assetId, fromMillis, toMillis)
+}
+
+/** Polisy auta — karta „Ubezpieczenie" przy historii trasy. */
+class LoadInsuranceUseCase @Inject constructor(
+    private val repository: MapRepository,
+) {
+    suspend operator fun invoke(assetId: String): List<InsurancePolicy> = repository.loadInsurance(assetId)
 }
 
 /** Kondycja lokalizatorów — arkusz „Lokalizatory" na zakładce Flota. */

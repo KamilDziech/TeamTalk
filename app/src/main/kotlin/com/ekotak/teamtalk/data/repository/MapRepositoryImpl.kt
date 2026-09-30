@@ -12,6 +12,7 @@ import com.ekotak.teamtalk.data.remote.dto.TaskMemberDto
 import com.ekotak.teamtalk.data.remote.dto.WarrantyCardDto
 import com.ekotak.teamtalk.domain.model.DealStage
 import com.ekotak.teamtalk.domain.model.FleetInfo
+import com.ekotak.teamtalk.domain.model.InsurancePolicy
 import com.ekotak.teamtalk.domain.model.MapBadge
 import com.ekotak.teamtalk.domain.model.MapKind
 import com.ekotak.teamtalk.domain.model.MapPalette
@@ -92,6 +93,24 @@ class MapRepositoryImpl @Inject constructor(
             from = Instant.ofEpochMilli(fromMillis).toString(),
             to = Instant.ofEpochMilli(toMillis).toString(),
         ).toDomain()
+
+    override suspend fun loadInsurance(assetId: String): List<InsurancePolicy> =
+        api.getInsurancePolicies(assetId).mapNotNull { dto ->
+            val from = runCatching { Instant.parse(dto.validFrom).toEpochMilli() }.getOrNull()
+            val to = runCatching { Instant.parse(dto.validTo).toEpochMilli() }.getOrNull()
+            if (from == null || to == null) return@mapNotNull null
+            InsurancePolicy(
+                id = dto.id,
+                insurer = dto.insurer,
+                policyNumber = dto.policyNumber,
+                coverage = dto.coverage,
+                validFromMillis = from,
+                validToMillis = to,
+                agentName = dto.agentName,
+                agentContact = dto.agentContact,
+                notes = dto.notes,
+            )
+        }
 
     override suspend fun loadTrackerHealth(): List<TrackerHealth> =
         api.getTrackerHealth().map { it.toDomain() }

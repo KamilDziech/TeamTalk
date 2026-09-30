@@ -1,5 +1,6 @@
 package com.ekotak.teamtalk.domain.repository
 
+import com.ekotak.teamtalk.domain.model.InsurancePolicy
 import com.ekotak.teamtalk.domain.model.MapSnapshot
 import com.ekotak.teamtalk.domain.model.PlaceSuggestion
 import com.ekotak.teamtalk.domain.model.RouteHistory
@@ -42,6 +43,9 @@ interface MapRepository {
      * Bez zasięgu ekran mówi to wprost, zamiast pokazywać nieaktualną trasę.
      */
     suspend fun loadRouteHistory(assetId: String, fromMillis: Long, toMillis: Long): RouteHistory
+
+    /** Polisy auta — z sieci, bez cache (jak historia trasy). */
+    suspend fun loadInsurance(assetId: String): List<InsurancePolicy>
 
     /** Kondycja lokalizatorów całej floty — „czy temu na mapie wolno ufać". */
     suspend fun loadTrackerHealth(): List<TrackerHealth>

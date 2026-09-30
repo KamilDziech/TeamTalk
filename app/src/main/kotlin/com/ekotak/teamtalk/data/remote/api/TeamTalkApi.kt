@@ -972,6 +972,10 @@ interface TeamTalkApi {
     @GET("api/fleet/health")
     suspend fun getTrackerHealth(): List<TrackerHealthDto>
 
+    /** Polisy auta (odczyt, `fleet.view`) — karta „Ubezpieczenie" przy historii trasy. */
+    @GET("api/assets/{id}/insurance")
+    suspend fun getInsurancePolicies(@Path("id") assetId: String): List<InsurancePolicyDto>
+
     // ── Kalendarz ─────────────────────────────────────────────────────────────
     // Odczyt i zapis pod jednym uprawnieniem `calendar.view` — o tym, czy wolno
     // pisać, decyduje poziom dostępu do KALENDARZA (`effectiveLevel`), a nie rola.

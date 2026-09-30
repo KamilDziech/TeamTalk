@@ -103,6 +103,8 @@ fun RouteHistoryScreen(
                 )
             }
 
+            state.policies?.let { InsuranceCard(it) }
+
             // `clip` obowiązkowe: osmdroid rysuje kafelki poza swoimi granicami,
             // a AndroidView niczego nie przycina — bez tego mapa zasłania chipy.
             Box(
