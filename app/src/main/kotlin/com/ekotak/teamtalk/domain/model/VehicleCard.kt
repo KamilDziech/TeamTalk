@@ -69,6 +69,8 @@ val VEHICLE_FILE_CATEGORIES: List<Pair<String, String>> = listOf(
     "dowod_rejestracyjny" to "Dowód rejestracyjny",
     "badanie" to "Badanie techniczne",
     "faktura_serwis" to "Faktura serwisowa",
+    "ksiazka_serwisowa" to "Książka serwisowa",
+    "historia_pojazdu" to "Historia pojazdu",
     "leasing" to "Umowa leasingu",
     "inne" to "Inne",
 )
