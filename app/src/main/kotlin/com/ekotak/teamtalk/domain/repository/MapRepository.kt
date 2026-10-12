@@ -48,6 +48,13 @@ interface MapRepository {
      */
     suspend fun loadRouteHistory(assetId: String, fromMillis: Long, toMillis: Long): RouteHistory
 
+    /** Postoje > 10 min z adresem i punktem z systemu — z sieci, bez cache. */
+    suspend fun loadLongStops(
+        assetId: String,
+        fromMillis: Long,
+        toMillis: Long,
+    ): List<com.ekotak.teamtalk.domain.model.LongStop>
+
     /** Polisy auta — z sieci, bez cache (jak historia trasy). */
     suspend fun loadInsurance(assetId: String): List<InsurancePolicy>
 

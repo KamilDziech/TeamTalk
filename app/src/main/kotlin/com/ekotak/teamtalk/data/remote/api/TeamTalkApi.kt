@@ -968,6 +968,14 @@ interface TeamTalkApi {
         @Query("to") to: String,
     ): RouteHistoryDto
 
+    /** Postoje > 10 min ze zgaszonym silnikiem, z adresem i punktem z systemu w 250 m. */
+    @GET("api/fleet/assets/{id}/stops")
+    suspend fun getLongStops(
+        @Path("id") assetId: String,
+        @Query("from") from: String,
+        @Query("to") to: String,
+    ): com.ekotak.teamtalk.data.remote.dto.LongStopsResponseDto
+
     /** Kondycja lokalizatorów całej floty — jeden wiersz na auto. */
     @GET("api/fleet/health")
     suspend fun getTrackerHealth(): List<TrackerHealthDto>

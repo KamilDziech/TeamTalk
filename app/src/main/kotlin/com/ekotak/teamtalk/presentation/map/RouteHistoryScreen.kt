@@ -40,6 +40,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ekotak.teamtalk.domain.model.HarshEvent
+import com.ekotak.teamtalk.domain.model.LongStop
+import com.ekotak.teamtalk.domain.model.LongStopMatch
 import com.ekotak.teamtalk.domain.model.RouteHistory
 import com.ekotak.teamtalk.domain.model.RoutePalette
 import com.ekotak.teamtalk.domain.model.RouteTimelineItem
@@ -173,6 +175,8 @@ fun RouteHistoryScreen(
                     Message("W tym oknie nie ma zapisanego śladu — auto stało poza zasięgiem albo tracker milczał.")
                 history != null -> RouteBody(
                     history = history,
+                    longStops = state.longStops,
+                    longStopsLoading = state.longStopsLoading,
                     error = state.error,
                     onFocus = viewModel::focusOn,
                     onFit = viewModel::requestFit,
@@ -202,6 +206,8 @@ fun RouteHistoryScreen(
 @Composable
 private fun RouteBody(
     history: RouteHistory,
+    longStops: List<LongStop>?,
+    longStopsLoading: Boolean,
     error: String?,
     onFocus: (Double, Double) -> Unit,
     onFit: () -> Unit,
@@ -280,6 +286,23 @@ private fun RouteBody(
                     subtitle = "${formatDuration(item.stop.minutes)} · " +
                         if (item.stop.idling) "silnik pracował (jałowy)" else "silnik zgaszony",
                     onClick = { onFocus(item.stop.lat, item.stop.lng) },
+                )
+            }
+        }
+
+        item { SectionTitle("Postoje powyżej 10 min (silnik zgaszony)") }
+        when {
+            longStopsLoading -> item { Message("Szukam adresów postojów…") }
+            longStops == null -> item { Message("Nie udało się wczytać postojów.") }
+            longStops.isEmpty() -> item { Message("W tym oknie nie było postoju dłuższego niż 10 min.") }
+            else -> items(longStops, key = { "ls-${it.fromMillis}" }) { stop ->
+                Entry(
+                    color = if (stop.match != null) RoutePalette.VISIT else RoutePalette.PARKED,
+                    title = "${formatClock(stop.fromMillis)} – " +
+                        (if (stop.open) "nadal" else formatClock(stop.toMillis)) +
+                        " · ${formatDuration(stop.minutes)}",
+                    subtitle = longStopMeta(stop),
+                    onClick = { onFocus(stop.lat, stop.lng) },
                 )
             }
         }
@@ -409,6 +432,36 @@ private fun LegendItem(color: Long, label: String) {
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+private val VISIT_LABEL = mapOf(
+    "montaz" to "montaż",
+    "audyt" to "audyt",
+    "serwis" to "serwis",
+    "przeglad" to "przegląd",
+    "przeglad_gwarancyjny" to "przegląd gwarancyjny",
+)
+
+/** „Jan Kowalski — montaż 14.10 (EK-0123)" albo „… — bez terminu ±3 dni · EK-0123 · Oferta". */
+private fun matchText(m: LongStopMatch): String = when {
+    m.visitKind != null -> buildString {
+        append("${m.label} — ${VISIT_LABEL[m.visitKind] ?: m.visitKind}")
+        m.visitAtMillis?.let { append(" ${SimpleDateFormat("d.MM", Locale("pl")).format(Date(it))}") }
+        m.visitRef?.let { append(" ($it)") }
+    }
+    m.kind == "client" -> "${m.label} — bez terminu ±3 dni" + (m.detail?.let { " · $it" } ?: "")
+    m.detail != null -> "${m.label} — ${m.detail}"
+    else -> m.label
+}
+
+/** Adres, GPS, dopasowany punkt i „obok: …" — każde w osobnej linii. */
+private fun longStopMeta(stop: LongStop): String = buildString {
+    append(stop.address ?: "adres nieustalony")
+    append("\nGPS ${String.format(Locale.US, "%.5f, %.5f", stop.lat, stop.lng)}")
+    stop.match?.let { append("\n${matchText(it)} · ${it.distanceM} m") }
+    if (stop.nearby.isNotEmpty()) {
+        append("\nobok: " + stop.nearby.joinToString(", ") { "${it.label} (${it.distanceM} m)" })
     }
 }
 

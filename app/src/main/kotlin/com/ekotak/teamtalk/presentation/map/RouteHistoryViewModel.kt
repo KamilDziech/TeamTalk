@@ -5,7 +5,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ekotak.teamtalk.domain.model.RouteHistory
 import com.ekotak.teamtalk.domain.model.InsurancePolicy
+import com.ekotak.teamtalk.domain.model.LongStop
 import com.ekotak.teamtalk.domain.usecase.map.LoadInsuranceUseCase
+import com.ekotak.teamtalk.domain.usecase.map.LoadLongStopsUseCase
 import com.ekotak.teamtalk.domain.usecase.map.LoadRouteHistoryUseCase
 import com.ekotak.teamtalk.presentation.crm.crmErrorMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -13,6 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.ZoneId
@@ -37,6 +40,7 @@ enum class RouteWindow(val label: String, val hours: Int) {
 class RouteHistoryViewModel @Inject constructor(
     private val loadRouteHistory: LoadRouteHistoryUseCase,
     private val loadInsurance: LoadInsuranceUseCase,
+    private val loadLongStops: LoadLongStopsUseCase,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -57,6 +61,9 @@ class RouteHistoryViewModel @Inject constructor(
         val fitRequest: Int = 0,
         /** Polisy auta; null = nie pobrano (brak sieci/uprawnień) — karta się wtedy nie rysuje. */
         val policies: List<InsurancePolicy>? = null,
+        /** Postoje > 10 min; null = jeszcze nie ma albo się nie udało (patrz [longStopsLoading]). */
+        val longStops: List<LongStop>? = null,
+        val longStopsLoading: Boolean = false,
     )
 
     private val _uiState = MutableStateFlow(UiState())
@@ -111,6 +118,7 @@ class RouteHistoryViewModel @Inject constructor(
         val state = _uiState.value
         val (from, to) = windowMillis(state.window, state.dayMillis)
         _uiState.update { it.copy(isLoading = true, error = null) }
+        loadStops(from, to)
         viewModelScope.launch {
             val result = runCatching { loadRouteHistory(assetId, from, to) }
             _uiState.update {
@@ -135,6 +143,22 @@ class RouteHistoryViewModel @Inject constructor(
                     },
                 )
             }
+        }
+    }
+    /**
+     * Długie postoje idą osobno i MIĘKKO, jak polisy: adresy z geokodera
+     * dociągają się sekundami, a trasa ma się narysować bez czekania na nie.
+     */
+    private var stopsJob: kotlinx.coroutines.Job? = null
+
+    private fun loadStops(from: Long, to: Long) {
+        stopsJob?.cancel()
+        _uiState.update { it.copy(longStops = null, longStopsLoading = true) }
+        stopsJob = viewModelScope.launch {
+            val stops = runCatching { loadLongStops(assetId, from, to) }.getOrNull()
+            // Zmiana okna anulowała to zapytanie — nie nadpisujemy stanu nowego.
+            if (!isActive) return@launch
+            _uiState.update { it.copy(longStops = stops, longStopsLoading = false) }
         }
     }
 }

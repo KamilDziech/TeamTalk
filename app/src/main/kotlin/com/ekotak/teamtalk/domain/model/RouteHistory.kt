@@ -147,6 +147,8 @@ object RoutePalette {
     const val GAP = 0xFF8B949EL
     const val IDLE = 0xFFBC4C00L
     const val PARKED = 0xFF57606AL
+    /** Postój przy punkcie z systemu (klient, karta, strefa) — błękit „wizyty" z panelu. */
+    const val VISIT = 0xFF0969DAL
     const val SLOW = 0xFF1A7F37L
     const val MEDIUM = 0xFF9A6700L
     const val FAST = 0xFFBC4C00L

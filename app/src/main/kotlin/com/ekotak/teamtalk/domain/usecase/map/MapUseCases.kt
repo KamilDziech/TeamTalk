@@ -49,6 +49,14 @@ class LoadRouteHistoryUseCase @Inject constructor(
         repository.loadRouteHistory(assetId, fromMillis, toMillis)
 }
 
+/** Postoje > 10 min z adresem i punktem z systemu — sekcja pod osią czasu trasy. */
+class LoadLongStopsUseCase @Inject constructor(
+    private val repository: MapRepository,
+) {
+    suspend operator fun invoke(assetId: String, fromMillis: Long, toMillis: Long) =
+        repository.loadLongStops(assetId, fromMillis, toMillis)
+}
+
 /** Polisy auta — karta „Ubezpieczenie" przy historii trasy. */
 class LoadInsuranceUseCase @Inject constructor(
     private val repository: MapRepository,

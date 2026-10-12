@@ -103,6 +103,39 @@ class MapRepositoryImpl @Inject constructor(
             to = Instant.ofEpochMilli(toMillis).toString(),
         ).toDomain()
 
+    override suspend fun loadLongStops(
+        assetId: String,
+        fromMillis: Long,
+        toMillis: Long,
+    ): List<com.ekotak.teamtalk.domain.model.LongStop> {
+        fun iso(ms: Long) = Instant.ofEpochMilli(ms).toString()
+        fun millis(s: String?) = s?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() }
+        fun match(m: com.ekotak.teamtalk.data.remote.dto.LongStopMatchDto) =
+            com.ekotak.teamtalk.domain.model.LongStopMatch(
+                kind = m.kind,
+                label = m.label,
+                detail = m.detail,
+                distanceM = m.distanceM,
+                visitKind = m.visit?.kind,
+                visitAtMillis = millis(m.visit?.at),
+                visitRef = m.visit?.ref,
+            )
+        return api.getLongStops(assetId, iso(fromMillis), iso(toMillis)).stops.mapNotNull { s ->
+            val from = millis(s.from) ?: return@mapNotNull null
+            com.ekotak.teamtalk.domain.model.LongStop(
+                fromMillis = from,
+                toMillis = millis(s.to) ?: from,
+                minutes = s.minutes,
+                lat = s.lat,
+                lng = s.lng,
+                open = s.open,
+                address = s.address?.label,
+                match = s.match?.let(::match),
+                nearby = s.nearby.map(::match),
+            )
+        }
+    }
+
     override suspend fun loadInsurance(assetId: String): List<InsurancePolicy> =
         api.getInsurancePolicies(assetId).mapNotNull { dto ->
             val from = runCatching { Instant.parse(dto.validFrom).toEpochMilli() }.getOrNull()
