@@ -95,6 +95,13 @@ enum class FleetStatus(val wire: String, val label: String, val colorArgb: Long)
  */
 const val FLEET_STALE_AFTER_MIN = 30
 
+/**
+ * To samo przy zgaszonym zapłonie w ostatnim odczycie. FMC003 na postoju
+ * raportuje raz na godzinę, więc po 30 min zaparkowane auto szarzało co godzinę.
+ * Zgodne z `SILENT_PARKED_AFTER_MIN` w API i progiem mapy w panelu.
+ */
+const val FLEET_PARKED_STALE_AFTER_MIN = 70
+
 /** Prędkość poniżej tego progu to szum GPS na postoju, nie jazda. */
 const val FLEET_MOVING_KMH = 3.0
 
@@ -116,7 +123,8 @@ data class FleetInfo(
 ) {
     fun statusAt(now: Long): FleetStatus {
         val at = occurredAt ?: return FleetStatus.STALE
-        if (ageMinutesAt(now, at) > FLEET_STALE_AFTER_MIN) return FleetStatus.STALE
+        val staleAfter = if (ignition == false) FLEET_PARKED_STALE_AFTER_MIN else FLEET_STALE_AFTER_MIN
+        if (ageMinutesAt(now, at) > staleAfter) return FleetStatus.STALE
         if ((speedKmh ?: 0.0) > FLEET_MOVING_KMH) return FleetStatus.MOVING
         // Zapłon rozstrzyga „stoi na biegu jałowym" vs „zaparkowane". Gdy DIN1 nie
         // jest podpięty, `ignition` jest null i auto liczymy jako zaparkowane —
